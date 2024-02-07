@@ -11,12 +11,13 @@ def main(
 ):
     ans = None
     if is_dir:
-        ans = rust.evaluate_dir(path, max_complexity)
+        # ans = rust.evaluate_dir(path, max_complexity)
+        print("Your path is a directory")
     else:
         ans = rust.file_cognitive_complexity(path, max_complexity)
-    ans = rust.file_cognitive_complexity(path, max_complexity)
-    print(ans.path)
-    print(ans.complexity)
+    if ans:
+        print(f"Cognitive complexity: {ans.complexity}")
+        print(f"Max complexity: {max_complexity}")
 
 if __name__ == "__main__":
     app()
