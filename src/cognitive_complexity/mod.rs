@@ -59,6 +59,7 @@ fn statement_cognitive_complexity(statement: Stmt) -> PyResult<u64> {
         Stmt::If(i) => {
             // Add code here if needed
             complexity += 1;
+            complexity += count_bool_ops(*i.test);
             for node in i.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone())?;
             }
@@ -110,4 +111,41 @@ fn statement_cognitive_complexity(statement: Stmt) -> PyResult<u64> {
     };
 
     Ok(complexity)
+}
+
+fn count_bool_ops(expr: ast::Expr) -> u64 {
+    let mut complexity: u64 = 0;
+
+    match expr {
+        ast::Expr::BoolOp(b) => {
+            complexity += b.values.len() as u64 - 1;
+            for value in b.values.iter() {
+                complexity += count_bool_ops(value.clone());
+            }
+        }
+        ast::Expr::BinOp(b) => {
+            complexity += 1;
+            complexity += count_bool_ops(*b.left);
+            complexity += count_bool_ops(*b.right);
+        }
+        ast::Expr::UnaryOp(u) => {
+            complexity += 1;
+            complexity += count_bool_ops(*u.operand);
+        }
+        ast::Expr::Compare(c) => {
+            complexity += count_bool_ops(*c.left);
+            for comparator in c.comparators.iter() {
+                complexity += count_bool_ops(comparator.clone());
+            }
+        }
+        ast::Expr::IfExp(i) => {
+            complexity += 1;
+            complexity += count_bool_ops(*i.test);
+            complexity += count_bool_ops(*i.body);
+            complexity += count_bool_ops(*i.orelse);
+        }
+        _ => {}
+    }
+
+    complexity
 }
