@@ -8,6 +8,7 @@ description = "An extremely fast Python library to calculate the cognitive compl
 readme = "README.md"
 homepage = "https://github.com/rohaquinlop/complexipy"
 repository = "https://github.com/rohaquinlop/complexipy"
+exclude = ["/tests", ".github", ".gitignore", "targets"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -17,5 +18,5 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = "0.19.0"
 rayon = "1.8.1"
-rustpython-parser = "0.3.0"
+rustpython-parser = { git = "https://github.com/RustPython/Parser.git", rev = "9ce55aefdeb35e2f706ce0b02d5a2dfe6295fc57" }
 walkdir = "2.4.0"
