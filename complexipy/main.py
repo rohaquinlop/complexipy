@@ -6,8 +6,8 @@ app = typer.Typer(name="complexipy")
 @app.command()
 def main(
     path: str,
-    max_complexity: int = typer.Option(15, "--max-complexity", "-c", help="The maximum complexity allowed"),
-    is_dir: bool = typer.Option(False, "--is-dir", "-d", help="The path is a directory."),
+    max_complexity: int = typer.Option(15, "--max-complexity", "-c", help="The maximum complexity allowed, set this value as 0 to set it as unlimited."),
+    is_dir: bool = typer.Option(False, "--is-dir", "-d", help="Flag that indicates if the path is a directory. If this flag is set, the path will be evaluated as a directory. Otherwise, it will be evaluated as a file."),
 ):
     print("==== Complexipy Summary ====")
 
