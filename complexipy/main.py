@@ -15,9 +15,10 @@ version = toml_file["package"]["version"]
 def main(
     path: str,
     max_complexity: int = typer.Option(15, "--max-complexity", "-c", help="The maximum complexity allowed, set this value as 0 to set it as unlimited."),
-    is_dir: bool = typer.Option(False, "--is-dir", "-d", help="Flag that indicates if the path is a directory. If this flag is set, the path will be evaluated as a directory. Otherwise, it will be evaluated as a file."),
 ):
     has_success = True
+    is_dir = Path(path).is_dir()
+
     console.rule(f"complexipy {version} :octopus:")
     with console.status("Analyzing the complexity of the code...", spinner="dots"):
         files = rust.main(path, is_dir, max_complexity)
