@@ -7,14 +7,30 @@ use rustpython_parser::{
     ast::{self, Stmt},
     Parse,
 };
-use std::{path, time::Instant};
+use std::path;
 use utils::{count_bool_ops, has_recursive_calls, is_decorator};
 use walkdir::WalkDir;
 
+// Main function
+#[pyfunction]
+pub fn main(path: &str, is_dir: bool, max_complexity: usize) -> PyResult<Vec<FileComplexity>> {
+    let mut ans: Vec<FileComplexity> = Vec::new();
+    if is_dir {
+        match evaluate_dir(path, max_complexity) {
+            Ok(files_complexity) => ans = files_complexity,
+            Err(e) => return Err(e),
+        }
+    } else {
+        match file_cognitive_complexity(path, max_complexity) {
+            Ok(file_complexity) => ans.push(file_complexity),
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(ans)
+}
+
 #[pyfunction]
 pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileComplexity>> {
-    // let mut files_complexity: Vec<FileComplexity> = Vec::new();
-    let start_time = Instant::now();
     let mut files_paths: Vec<String> = Vec::new();
 
     // Get all the python files in the directory
@@ -39,15 +55,6 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
         )
         .collect();
 
-    let elapsed_time = start_time.elapsed();
-
-    println!("===== Summary =====");
-    println!(
-        "Directory: {}, Analysis time: {:} ms.",
-        path.to_string(),
-        elapsed_time.as_millis()
-    );
-
     match files_complexity_result {
         Ok(files_complexity) => Ok(files_complexity),
         Err(e) => Err(e),
@@ -58,34 +65,27 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
 #[pyfunction]
 pub fn file_cognitive_complexity(
     file_path: &str,
-    max_complexity: usize,
+    _max_complexity: usize,
 ) -> PyResult<FileComplexity> {
     let code = std::fs::read_to_string(file_path)?;
     let ast = ast::Suite::parse(&code, "<embedded>").unwrap();
 
     let mut complexity: u64 = 0;
-
-    let start_time = Instant::now();
+    let path = path::Path::new(file_path);
+    let file_name = path.file_name().unwrap().to_str().unwrap();
 
     for node in ast.iter() {
         complexity += statement_cognitive_complexity(node.clone(), 0)?;
     }
 
-    if max_complexity > 0 && complexity > max_complexity as u64 {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "Cognitive complexity too high",
-        ));
-    }
+    // if max_complexity > 0 && complexity > max_complexity as u64 {
+    //     return Err(PyErr::new::<pyo3::exceptions::PyException, _>(format!(
+    //         "{}: Cognitive complexity of {} exceeds the maximum allowed complexity of {}.",
+    //         file_name, complexity, max_complexity
+    //     )));
+    // }
 
-    let path = path::Path::new(file_path);
-    let file_name = path.file_name().unwrap().to_str().unwrap();
-
-    let elapsed_time = start_time.elapsed();
-    println!(
-        "{}: Analysis time: {:} ms.",
-        file_name,
-        elapsed_time.as_millis()
-    );
+    println!("{}", file_name);
 
     Ok(FileComplexity {
         path: file_path.to_string(),
