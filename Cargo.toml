@@ -16,4 +16,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.19.0"
+rayon = "1.8.1"
 rustpython-parser = "0.3.0"
+walkdir = "2.4.0"

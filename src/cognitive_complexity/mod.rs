@@ -2,12 +2,55 @@ mod utils;
 
 use crate::classes::FileComplexity;
 use pyo3::prelude::*;
+use rayon::prelude::*;
 use rustpython_parser::{
     ast::{self, Stmt},
     Parse,
 };
 use std::{path, time::Instant};
 use utils::{count_bool_ops, has_recursive_calls, is_decorator};
+use walkdir::WalkDir;
+
+#[pyfunction]
+pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileComplexity>> {
+    // let mut files_complexity: Vec<FileComplexity> = Vec::new();
+    let start_time = Instant::now();
+    let mut files_paths: Vec<String> = Vec::new();
+
+    // Get all the python files in the directory
+    for entry in WalkDir::new(path) {
+        let entry = entry.unwrap();
+        let file_path_str = entry.path().to_str().unwrap();
+
+        if entry.file_type().is_file()
+            && entry.path().extension().and_then(|s| s.to_str()) == Some("py")
+        {
+            files_paths.push(file_path_str.to_string());
+        }
+    }
+
+    let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
+        .par_iter()
+        .map(
+            |file_path| match file_cognitive_complexity(file_path, max_complexity) {
+                Ok(file_complexity) => Ok(file_complexity),
+                Err(e) => Err(e),
+            },
+        )
+        .collect();
+
+    let elapsed_time = start_time.elapsed();
+    println!(
+        "{}: Analysis time: {:} ms.",
+        path.to_string(),
+        elapsed_time.as_millis()
+    );
+
+    match files_complexity_result {
+        Ok(files_complexity) => Ok(files_complexity),
+        Err(e) => Err(e),
+    }
+}
 
 /// Calculate the cognitive complexity of a python file.
 #[pyfunction]
@@ -23,7 +66,6 @@ pub fn file_cognitive_complexity(
     let start_time = Instant::now();
 
     for node in ast.iter() {
-        // println!("{:#?}", node);
         complexity += statement_cognitive_complexity(node.clone(), 0)?;
     }
 

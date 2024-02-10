@@ -7,17 +7,23 @@ app = typer.Typer(name="complexipy")
 def main(
     path: str,
     max_complexity: int = typer.Option(15, "--max-complexity", "-c", help="The maximum complexity allowed"),
-    is_dir: str = typer.Option(None, "--is-dir", "-d", help="The path is a directory."),
+    is_dir: bool = typer.Option(False, "--is-dir", "-d", help="The path is a directory."),
 ):
-    ans = None
+    print("==== Complexipy Summary ====")
+
     if is_dir:
-        # ans = rust.evaluate_dir(path, max_complexity)
-        print("Your path is a directory")
-    else:
-        ans = rust.file_cognitive_complexity(path, max_complexity)
-    if ans:
-        print(f"Cognitive complexity: {ans.complexity}")
+        files = rust.evaluate_dir(path, max_complexity)
+
+        print(f"Directory: {path}")
         print(f"Max complexity: {max_complexity}")
+        print(f"Total files: {len(files)}")
+        for file in files:
+            print(f"File: {file.file_name} - Cognitive Complexity: {file.complexity}")
+    else:
+        file = rust.file_cognitive_complexity(path, max_complexity)
+
+        print(f"Max complexity: {max_complexity}")
+        print(f"File: {file.file_name} - Cognitive complexity: {file.complexity}")
 
 if __name__ == "__main__":
     app()
