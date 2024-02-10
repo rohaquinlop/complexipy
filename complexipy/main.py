@@ -2,6 +2,7 @@ from pathlib import Path
 from complexipy import rust
 from rich.console import Console
 from rich.table import Table
+import time
 import toml
 import typer
 
@@ -21,7 +22,9 @@ def main(
 
     console.rule(f"complexipy {version} :octopus:")
     with console.status("Analyzing the complexity of the code...", spinner="dots"):
+        start_time = time.time()
         files = rust.main(path, is_dir, max_complexity)
+    execution_time = time.time() - start_time
     console.print("Analysis completed! :tada:")
     # Summary
     table = Table(title="Summary", show_header=True, header_style="bold magenta", show_lines=True)
@@ -34,7 +37,7 @@ def main(
         else:
             table.add_row(f"[green]{file.file_name}[/green]", f"[blue]{file.complexity}[/blue]")
     console.print(table)
-    console.print(f"Total files: {len(files)}")
+    console.print(f"{len(files)} files analyzed in {execution_time:.4f} seconds")
 
     if not has_success:
         raise typer.Exit(code=1)
