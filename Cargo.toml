@@ -2,9 +2,10 @@
 name = "complexipy"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.67.1"
 authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
 license = "MIT"
-description = "Calculate the cognitive complexity of your python files"
+description = "An extremely fast Python library to calculate the cognitive complexity of python files, written in Rust."
 readme = "README.md"
 homepage = "https://github.com/rohaquinlop/complexipy"
 repository = "https://github.com/rohaquinlop/complexipy"

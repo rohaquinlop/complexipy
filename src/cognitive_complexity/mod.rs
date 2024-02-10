@@ -40,8 +40,10 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
         .collect();
 
     let elapsed_time = start_time.elapsed();
+
+    println!("===== Summary =====");
     println!(
-        "{}: Analysis time: {:} ms.",
+        "Directory: {}, Analysis time: {:} ms.",
         path.to_string(),
         elapsed_time.as_millis()
     );
