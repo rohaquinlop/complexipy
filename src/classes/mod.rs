@@ -10,6 +10,7 @@ pub struct FunctionComplexity {
 #[pyclass(module = "complexipy", get_all)]
 pub struct FileComplexity {
     pub path: String,
-    pub functions: Vec<FunctionComplexity>,
+    pub file_name: String,
+    // pub functions: Vec<FunctionComplexity>,
     pub complexity: u64,
 }
