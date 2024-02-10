@@ -1,8 +1,8 @@
-# def sum_values(values):
-#     total = 0
-#     for value in values:
-#         total += value
-#     return total
+def sum_values(values):
+    total = 0
+    for value in values:
+        total += value
+    return total
 
 def sum_values_with_if(values):
     total = 0
