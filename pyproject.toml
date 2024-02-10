@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "complexipy"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -12,9 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = [
-    "typer[all]",
-]
+dependencies = ["typer[all]"]
 
 [project.scripts]
 complexipy = "complexipy.main:app"
