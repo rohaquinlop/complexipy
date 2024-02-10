@@ -19,8 +19,8 @@ pip install complexipy
 To run **complexipy** you can use the following command:
 
 <pre lang="shell">
-<b>complexipy</b> .                         # Use complexipy to analyze the current directory and any subdirectories with python files
-<b>complexipy</b> path/to/directory         # Use complexipy to analyze a specific directory and any subdirectories with python files
+<b>complexipy</b> .                         # Use complexipy to analyze the current directory and any subdirectories
+<b>complexipy</b> path/to/directory         # Use complexipy to analyze a specific directory and any subdirectories
 <b>complexipy</b> path/to/file.py           # Use complexipy to analyze a specific file
 <b>complexipy</b> path/to/file.py -m 20     # Use the -m option to set the maximum congnitive complexity, default is 15
 </pre>
