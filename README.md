@@ -3,34 +3,27 @@
 An extremely fast Python library to calculate the cognitive complexity of
 python files, written in Rust.
 
-## Installation
+## Getting Started
+
+### Installation
+
+**complexipy** is available as
+[`complexipy`](https://pypi.org/project/complexipy/) on PyPI (Python >= 3.11):
 
 ```bash
 pip install complexipy
 ```
 
-## Usage
+### Usage
 
-To calculate the cognitive complexity of a single file, you can use the
-following command:
+To run **complexipy** you can use the following command:
 
-```bash
-complexipy path/to/file.py
-```
-
-To calculate the cognitive complexity of a directory, you can use the following
-command:
-
-```bash
-complexipy path/to/directory
-```
-
-by default the maximum cognitive complexity is 15, you can change it using the
-`-m` option, for example:
-
-```bash
-complexipy path/to/directory -m 20
-```
+<pre lang="shell">
+<b>complexipy</b> .                         # Use complexipy to analyze the current directory and any subdirectories with python files
+<b>complexipy</b> path/to/directory         # Use complexipy to analyze a specific directory and any subdirectories with python files
+<b>complexipy</b> path/to/file.py           # Use complexipy to analyze a specific file
+<b>complexipy</b> path/to/file.py -m 20     # Use the -m option to set the maximum congnitive complexity, default is 15
+</pre>
 
 For example, given the following file:
 
@@ -52,7 +45,7 @@ The cognitive complexity of the file is 3, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```bash
-───────────────────────────── complexipy 0.1.0 🐙 ──────────────────────────────
+───────────────── complexipy 0.1.0 🐙 ─────────────────
 test_decorator.py
 Analysis completed! 🎉
                   Summary
