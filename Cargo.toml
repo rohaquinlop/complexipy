@@ -2,7 +2,6 @@
 name = "complexipy"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.67.1"
 authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
 license = "MIT"
 description = "An extremely fast Python library to calculate the cognitive complexity of python files, written in Rust."
@@ -18,5 +17,5 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = "0.19.0"
 rayon = "1.8.1"
-rustpython-parser = "0.3.0"
+rustpython-parser = { git = "https://github.com/RustPython/Parser.git", branch = "main" }
 walkdir = "2.4.0"
