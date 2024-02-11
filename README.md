@@ -46,7 +46,7 @@ def b_decorator(a, b):
     return inner
 ```
 
-The cognitive complexity of the file is 3, and the output of the command
+The cognitive complexity of the file is 1, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```bash
