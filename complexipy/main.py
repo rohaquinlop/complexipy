@@ -11,7 +11,7 @@ import xml.dom.minidom
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.1.0"
+version = "1.0.0"
 
 @app.command()
 def main(

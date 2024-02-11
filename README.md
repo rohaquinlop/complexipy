@@ -51,7 +51,7 @@ The cognitive complexity of the file is 3, and the output of the command
 
 ```bash
 $ complexipy path/to/file.py
-────────────────── complexipy 0.1.0 🐙 ───────────────────
+────────────────── complexipy 1.0.0 🐙 ───────────────────
 test_decorator.py
 Analysis completed! 🎉
                          Summary
