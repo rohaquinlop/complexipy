@@ -4,16 +4,14 @@ import os
 from rich.console import Console
 from rich.table import Table
 import time
-import toml
 import typer
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
-toml_file = toml.load(root_dir / "Cargo.toml")
 console = Console()
-version = toml_file["package"]["version"]
+version = "0.1.0"
 
 @app.command()
 def main(
