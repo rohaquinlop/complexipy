@@ -63,6 +63,28 @@ Analysis completed! 🎉
 1 files analyzed in 0.0038 seconds
 ```
 
+If you want to output the results to a XML file, you can use the `-o` option,
+this is really useful if you want to integrate **complexipy** with other tools,
+for example, a CI/CD pipeline. You will get the output in the console and will
+create a XML file with the results of the analysis.
+
+```bash
+$ complexipy path/to/file.py -o
+```
+
+The output will be:
+
+```xml
+<?xml version="1.0" ?>
+<complexity>
+  <file>
+    <name>test_decorator.py</name>
+    <path>./tests/test_decorator.py</path>
+    <complexity>1</complexity>
+  </file>
+</complexity>
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
