@@ -1,6 +1,7 @@
 mod utils;
 
 use crate::classes::FileComplexity;
+use ignore::Walk;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use rustpython_parser::{
@@ -9,7 +10,6 @@ use rustpython_parser::{
 };
 use std::path;
 use utils::{count_bool_ops, has_recursive_calls, is_decorator};
-use walkdir::WalkDir;
 
 // Main function
 #[pyfunction]
@@ -26,6 +26,8 @@ pub fn main(path: &str, is_dir: bool, max_complexity: usize) -> PyResult<Vec<Fil
             Err(e) => return Err(e),
         }
     }
+
+    ans.sort_by_key(|f| f.path.clone());
     Ok(ans)
 }
 
@@ -34,13 +36,11 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
     let mut files_paths: Vec<String> = Vec::new();
 
     // Get all the python files in the directory
-    for entry in WalkDir::new(path) {
+    for entry in Walk::new(path) {
         let entry = entry.unwrap();
         let file_path_str = entry.path().to_str().unwrap();
 
-        if entry.file_type().is_file()
-            && entry.path().extension().and_then(|s| s.to_str()) == Some("py")
-        {
+        if entry.path().extension().and_then(|s| s.to_str()) == Some("py") {
             files_paths.push(file_path_str.to_string());
         }
     }
@@ -77,13 +77,6 @@ pub fn file_cognitive_complexity(
     for node in ast.iter() {
         complexity += statement_cognitive_complexity(node.clone(), 0)?;
     }
-
-    // if max_complexity > 0 && complexity > max_complexity as u64 {
-    //     return Err(PyErr::new::<pyo3::exceptions::PyException, _>(format!(
-    //         "{}: Cognitive complexity of {} exceeds the maximum allowed complexity of {}.",
-    //         file_name, complexity, max_complexity
-    //     )));
-    // }
 
     println!("{}", file_name);
 
