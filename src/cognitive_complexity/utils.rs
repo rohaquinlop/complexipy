@@ -1,5 +1,19 @@
 use rustpython_parser::ast::{self, Stmt};
 
+pub fn get_repo_name(url: &str) -> String {
+    let url = url.trim_end_matches('/');
+
+    let repo_name = url.split('/').last().unwrap();
+
+    let repo_name = if repo_name.ends_with(".git") {
+        &repo_name[..repo_name.len() - 4]
+    } else {
+        repo_name
+    };
+
+    repo_name.to_string()
+}
+
 pub fn has_recursive_calls(statement: Stmt) -> bool {
     let mut ans = false;
 
