@@ -1,13 +1,12 @@
 from pathlib import Path
 from complexipy import rust
+import csv
 import os
 import re
 from rich.console import Console
 from rich.table import Table
 import time
 import typer
-import xml.etree.ElementTree as ET
-import xml.dom.minidom
 
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
@@ -17,15 +16,17 @@ version = "0.2.0"
 
 @app.command()
 def main(
-    path: str,
+    path: str = typer.Argument(
+        help="Path to the directory or file to analyze, it can be a local path or a git repository URL.",
+    ),
     max_complexity: int = typer.Option(
         15,
         "--max-complexity",
         "-c",
-        help="The maximum complexity allowed, set this value as 0 to set it as unlimited.",
+        help="The maximum complexity allowed per file, set this value as 0 to set it as unlimited.",
     ),
     output: bool = typer.Option(
-        False, "--output", "-o", help="Output the results to a XML file."
+        False, "--output", "-o", help="Output the results to a CSV file."
     ),
 ):
     has_success = True
@@ -43,23 +44,13 @@ def main(
     execution_time = time.time() - start_time
     console.rule("Analysis completed! :tada:")
 
-    # Output to XML
     if output:
-        xml_file = ET.Element("complexity")
-        for file in files:
-            file_xml = ET.SubElement(xml_file, "file")
-            name = ET.SubElement(file_xml, "name")
-            name.text = file.file_name
-            file_path = ET.SubElement(file_xml, "path")
-            file_path.text = file.path
-            file_complexity = ET.SubElement(file_xml, "complexity")
-            file_complexity.text = str(file.complexity)
-        xml_str = ET.tostring(xml_file, encoding="utf-8")
-        dom = xml.dom.minidom.parseString(xml_str)
-        pretty_xml = dom.toprettyxml(indent="  ")
-        with open(f"{invocation_path}/complexipy.xml", "w") as file:
-            file.write(pretty_xml)
-        console.print(f"Results saved to {invocation_path}/complexipy.xml")
+        with open(f"{invocation_path}/complexipy.csv", "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Path", "File Name", "Cognitive Complexity"])
+            for file in files:
+                writer.writerow([file.path, file.file_name, file.complexity])
+        console.print(f"Results saved to {invocation_path}/complexipy.csv")
 
     # Summary
     table = Table(
