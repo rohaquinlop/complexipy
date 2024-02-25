@@ -78,7 +78,7 @@ The output will be:
 
 ```csv
 Path,File Name,Cognitive Complexity
-,test_decorator.py,1
+test_decorator.py,test_decorator.py,1
 ```
 
 ## License
