@@ -24,6 +24,21 @@ pub fn main(
 ) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
 
+    if is_dir {
+        println!(
+            "Analyzing files in {}",
+            path::Path::new(path)
+                .canonicalize()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        );
+    }
+
+    if is_url {
+        println!("Analyzing files in {}", path);
+    }
+
     if is_url {
         let dir = tempdir()?;
         let repo_name = get_repo_name(path);
@@ -49,7 +64,9 @@ pub fn main(
             Err(e) => return Err(e),
         }
     } else {
-        match file_cognitive_complexity(path, path, max_complexity) {
+        let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
+
+        match file_cognitive_complexity(path, parent_dir, max_complexity) {
             Ok(file_complexity) => ans.push(file_complexity),
             Err(e) => return Err(e),
         }
@@ -111,7 +128,7 @@ pub fn file_cognitive_complexity(
         complexity += statement_cognitive_complexity(node.clone(), 0)?;
     }
 
-    println!("{}", file_name);
+    println!("- Finished analysis in {}", file_name);
 
     Ok(FileComplexity {
         path: relative_path.to_string(),
