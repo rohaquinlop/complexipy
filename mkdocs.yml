@@ -1,0 +1,51 @@
+site_name: complexipy
+site_description: An extremely fast Python library to calculate the cognitive complexity of python files, written in Rust.
+site_url: https://rohaquinlop.github.io/complexipy/
+repo_name: rohaquinlop/complexipy
+repo_url: https://github.com/rohaquinlop/complexipy
+edit_uri: ""
+
+theme:
+  name: material
+  features:
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  language: en
+  palette:
+    primary: purple
+  icon:
+    repo: fontawesome/brands/github-alt
+  logo: img/icon.svg
+  favicon: img/favicon.svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/rohaquinlop
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/robin-hafid-quintero-lopez/
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - footnotes
+  - pymdownx.mark
+  - attr_list
+  - pymdownx.extra
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+copyright:
+  Copyright &copy; 2021 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>

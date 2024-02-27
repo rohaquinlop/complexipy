@@ -1,7 +1,7 @@
 # complexipy
 
 <p align="center">
-    <a href="https://rohaquinlop.github.io/complexipy/"><img src="docs/img/logo-vector.svg" alt="complexipy"></a>
+    <a href="https://rohaquinlop.github.io/complexipy/"><img src="img/logo-vector.svg" alt="complexipy"></a>
 </p>
 
 <p align="center">
