@@ -79,7 +79,7 @@ The cognitive complexity of the file is 1, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```txt
-─────────────────────── complexipy 0.2.0 🐙 ───────────────────────
+─────────────────────── complexipy 0.2.1 🐙 ───────────────────────
 - Finished analysis in test_decorator.py
 ──────────────────── 🎉 Analysis completed!🎉 ─────────────────────
                        Summary
@@ -144,7 +144,9 @@ for details.
 
 ## Acknowledgments
 
-- This project is inspired by the sonar way to calculate the cognitive
+- Thanks to G. Ann Campbell for publishing the paper "Cognitive Complexity a new
+way to measure understandability".
+- This project is inspired by the Sonar way to calculate the cognitive
 complexity.
 
 ## References

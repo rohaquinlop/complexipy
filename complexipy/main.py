@@ -11,7 +11,7 @@ import typer
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.2.0"
+version = "0.2.1"
 
 
 @app.command()
