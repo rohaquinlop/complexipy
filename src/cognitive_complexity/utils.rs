@@ -14,45 +14,6 @@ pub fn get_repo_name(url: &str) -> String {
     repo_name.to_string()
 }
 
-pub fn has_recursive_calls(statement: Stmt) -> bool {
-    let mut ans = false;
-
-    match statement {
-        Stmt::FunctionDef(f) => {
-            f.body.iter().for_each(|node| {
-                match node {
-                    Stmt::Return(r) => match &r.value {
-                        Some(v) => match v.clone().as_ref() {
-                            ast::Expr::Call(c) => match c.func.clone().as_ref() {
-                                ast::Expr::Name(n) => {
-                                    ans = ans || n.id == f.name;
-                                }
-                                _ => {}
-                            },
-                            _ => {}
-                        },
-                        _ => {}
-                    },
-                    Stmt::Expr(e) => match e.value.clone().as_ref() {
-                        ast::Expr::Call(c) => match c.func.clone().as_ref() {
-                            ast::Expr::Name(n) => {
-                                ans = ans || n.id == f.name;
-                            }
-                            _ => {}
-                        },
-                        _ => {}
-                    },
-                    _ => {}
-                };
-                ans = ans || has_recursive_calls(node.clone());
-            });
-        }
-        _ => {}
-    };
-
-    ans
-}
-
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
     match statement {
@@ -78,11 +39,8 @@ pub fn count_bool_ops(expr: ast::Expr) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(b) => {
-            complexity += b.values.len() as u64 - 1;
-            for value in b.values.iter() {
-                complexity += count_bool_ops(value.clone());
-            }
+        ast::Expr::BoolOp(..) => {
+            complexity += 1;
         }
         ast::Expr::BinOp(b) => {
             complexity += 1;
