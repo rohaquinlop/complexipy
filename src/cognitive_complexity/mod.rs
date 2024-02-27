@@ -12,7 +12,7 @@ use std::env;
 use std::path;
 use std::process;
 use tempfile::tempdir;
-use utils::{count_bool_ops, get_repo_name, has_recursive_calls, is_decorator};
+use utils::{count_bool_ops, get_repo_name, is_decorator};
 
 // Main function
 #[pyfunction]
@@ -150,10 +150,6 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
         }
     }
 
-    if has_recursive_calls(statement.clone()) {
-        complexity += 1;
-    }
-
     match statement {
         Stmt::FunctionDef(f) => {
             for node in f.body.iter() {
@@ -170,6 +166,9 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
             }
         }
+        Stmt::Assign(a) => {
+            complexity += count_bool_ops(*a.value);
+        }
         // breaks in the linear flow
         Stmt::For(f) => {
             complexity += 1;
@@ -179,6 +178,7 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
         }
         Stmt::While(w) => {
             complexity += 1;
+            complexity += count_bool_ops(*w.test);
             for node in w.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
@@ -188,6 +188,18 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             complexity += count_bool_ops(*i.test);
             for node in i.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+
+            let mut orelse_complexity: u64 = 0;
+            for node in i.orelse.iter() {
+                orelse_complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+            }
+
+            if orelse_complexity > 0 && i.orelse.len() > 0 {
+                complexity -= (nesting_level) * i.orelse.len() as u64;
+                complexity += orelse_complexity;
+            } else if i.orelse.len() > 0 {
+                complexity += 1;
             }
         }
         Stmt::Try(t) => {
@@ -208,18 +220,11 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             }
         }
         Stmt::Match(m) => {
-            complexity += 1;
             for case in m.cases.iter() {
                 for node in case.body.iter() {
-                    complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                    complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
                 }
             }
-        }
-        Stmt::Break(..) => {
-            complexity += 1;
-        }
-        Stmt::Continue(..) => {
-            complexity += 1;
         }
         _ => {}
     };

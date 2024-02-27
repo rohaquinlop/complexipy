@@ -42,7 +42,7 @@ def main(
         start_time = time.time()
         files = rust.main(path, is_dir, is_url, max_complexity)
     execution_time = time.time() - start_time
-    console.rule("Analysis completed! :tada:")
+    console.rule(":tada: Analysis completed!:tada:")
 
     if output:
         with open(f"{invocation_path}/complexipy.csv", "w", newline="") as file:
@@ -59,7 +59,9 @@ def main(
     table.add_column("Path")
     table.add_column("File")
     table.add_column("Complexity")
+    total_complexity = 0
     for file in files:
+        total_complexity += file.complexity
         if file.complexity > max_complexity and max_complexity != 0:
             table.add_row(
                 f"{file.path}",
@@ -74,6 +76,7 @@ def main(
                 f"[blue]{file.complexity}[/blue]",
             )
     console.print(table)
+    console.print(f":brain: Total Cognitive Complexity in {path}: {total_complexity}")
     console.print(f"{len(files)} files analyzed in {execution_time:.4f} seconds")
 
     if not has_success:
