@@ -1,7 +1,7 @@
 # complexipy
 
 <p align="center">
-    <a href="https://rohaquinlop.github.io/complexipy/"><img src="docs/img/logo-vector.svg" alt="complexipy"></a>
+    <a href="https://rohaquinlop.github.io/complexipy/"><img src="https://raw.githubusercontent.com/rohaquinlop/complexipy/main/docs/img/logo-vector.svg" alt="complexipy"></a>
 </p>
 
 <p align="center">
@@ -79,7 +79,7 @@ The cognitive complexity of the file is 1, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```txt
-─────────────────────── complexipy 0.2.1 🐙 ───────────────────────
+─────────────────────── complexipy 0.2.2 🐙 ───────────────────────
 - Finished analysis in test_decorator.py
 ──────────────────── 🎉 Analysis completed!🎉 ─────────────────────
                        Summary

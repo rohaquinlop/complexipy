@@ -4,6 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "complexipy"
+keywords = ["cognitive", "complexity", "cognitive complexity", "rust", "fast"]
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
