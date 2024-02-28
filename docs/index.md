@@ -47,8 +47,8 @@ complexipy .                         # Use complexipy to analyze the current dir
 complexipy path/to/directory         # Use complexipy to analyze a specific directory and any subdirectories
 complexipy git_repository_url        # Use complexipy to analyze a git repository
 complexipy path/to/file.py           # Use complexipy to analyze a specific file
-complexipy path/to/file.py -m 20     # Use the -m option to set the maximum congnitive complexity, default is 15
-complexipy path/to/directory -m 0    # Set the maximum cognitive complexity to 0 to disable the exit with error
+complexipy path/to/file.py -c 20     # Use the -c option to set the maximum congnitive complexity, default is 15
+complexipy path/to/directory -c 0    # Set the maximum cognitive complexity to 0 to disable the exit with error
 complexipy path/to/directory -o      # Use the -o option to output the results to a CSV file, default is False
 ```
 
