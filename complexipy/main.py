@@ -1,6 +1,7 @@
 from pathlib import Path
 from complexipy import rust
 import csv
+from enum import Enum
 import os
 import re
 from rich.console import Console
@@ -12,6 +13,10 @@ root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
 version = "0.2.2"
+
+class DetailTypes(Enum):
+    low = "low"  # Show only files with complexity above the max_complexity
+    normal = "normal"  # Show all files with their complexity
 
 
 @app.command()
@@ -27,6 +32,9 @@ def main(
     ),
     output: bool = typer.Option(
         False, "--output", "-o", help="Output the results to a CSV file."
+    ),
+    details: DetailTypes = typer.Option(
+        DetailTypes.normal.value, "--details", "-d", help="Specify how detailed should be output."
     ),
 ):
     has_success = True
@@ -69,7 +77,7 @@ def main(
                 f"[red]{file.complexity}[/red]",
             )
             has_success = False
-        else:
+        elif details != DetailTypes.low or max_complexity == 0:
             table.add_row(
                 f"{file.path}",
                 f"[green]{file.file_name}[/green]",
