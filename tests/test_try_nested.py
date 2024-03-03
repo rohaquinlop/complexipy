@@ -1,18 +1,20 @@
 def test_try():
+    a = None
+    b = None
     try:
-        # Code that may raise an exception
-        pass
+        a += 1
+        b += 1
     except TypeError:
-        if True:
+        if a is None:
             print("Caught a TypeError")
     except ValueError:
-        if True:
+        if b is None:
             print("Caught a ValueError")
     except Exception as e:
         print(f"Caught an exception: {str(e)}")
     else:
-        if True:
+        if a is not None and b is not None:
             print("No exception occurred")
     finally:
-        if True:
+        if a:
             print("Always executed")
