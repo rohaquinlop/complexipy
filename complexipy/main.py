@@ -12,7 +12,8 @@ import typer
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.2.2"
+version = "0.3.0"
+
 
 class DetailTypes(Enum):
     low = "low"  # Show only files with complexity above the max_complexity
@@ -34,7 +35,10 @@ def main(
         False, "--output", "-o", help="Output the results to a CSV file."
     ),
     details: DetailTypes = typer.Option(
-        DetailTypes.normal.value, "--details", "-d", help="Specify how detailed should be output."
+        DetailTypes.normal.value,
+        "--details",
+        "-d",
+        help="Specify how detailed should be output.",
     ),
 ):
     has_success = True
