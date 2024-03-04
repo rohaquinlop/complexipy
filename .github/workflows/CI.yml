@@ -29,8 +29,8 @@ jobs:
       matrix:
         target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: dtolnay/rust-toolchain@stable
@@ -46,6 +46,14 @@ jobs:
         with:
           name: wheels
           path: dist
+      - name: pytest
+        if: ${{ startsWith(matrix.target, 'x86_64') }}
+        shell: bash
+        run: |
+          set -e
+          pip install complexipy --find-links dist --force-reinstall
+          pip install pytest
+          pytest tests/main.py
 
   windows:
     runs-on: windows-latest
@@ -53,8 +61,8 @@ jobs:
       matrix:
         target: [x64, x86]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           architecture: ${{ matrix.target }}
@@ -69,6 +77,14 @@ jobs:
         with:
           name: wheels
           path: dist
+      - name: pytest
+        if: ${{ !startsWith(matrix.target, 'aarch64') }}
+        shell: bash
+        run: |
+          set -e
+          pip install complexipy --find-links dist --force-reinstall
+          pip install pytest
+          pytest tests/main.py
 
   macos:
     runs-on: macos-latest
@@ -76,8 +92,8 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Build wheels
@@ -91,11 +107,19 @@ jobs:
         with:
           name: wheels
           path: dist
+      - name: pytest
+        if: ${{ !startsWith(matrix.target, 'aarch64') }}
+        shell: bash
+        run: |
+          set -e
+          pip install complexipy --find-links dist --force-reinstall
+          pip install pytest
+          pytest tests/main.py
 
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
