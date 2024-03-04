@@ -153,12 +153,29 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
     match statement {
         Stmt::FunctionDef(f) => {
             for node in f.body.iter() {
-                complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                match node {
+                    Stmt::FunctionDef(..) | Stmt::AsyncFunctionDef(..) => {
+                        complexity +=
+                            statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+                    }
+                    _ => {
+                        complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                    }
+                }
+                // complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
             }
         }
         Stmt::AsyncFunctionDef(f) => {
             for node in f.body.iter() {
-                complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                match node {
+                    Stmt::FunctionDef(..) | Stmt::AsyncFunctionDef(..) => {
+                        complexity +=
+                            statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+                    }
+                    _ => {
+                        complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                    }
+                }
             }
         }
         Stmt::ClassDef(c) => {
@@ -203,12 +220,12 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             }
         }
         Stmt::Try(t) => {
-            complexity += 1;
             for node in t.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
 
             for handler in t.handlers.iter() {
+                complexity += 1;
                 match handler {
                     ast::ExceptHandler::ExceptHandler(e) => {
                         for node in e.body.iter() {
@@ -217,6 +234,14 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
                         }
                     }
                 }
+            }
+
+            for node in t.orelse.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+
+            for node in t.finalbody.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
         }
         Stmt::Match(m) => {
