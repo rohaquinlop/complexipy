@@ -1,4 +1,48 @@
+use crate::classes::FileComplexity;
+use csv::Writer;
+use pyo3::prelude::*;
 use rustpython_parser::ast::{self, Stmt};
+
+#[pyfunction]
+pub fn output_csv_file_level(invocation_path: &str, files_complexity: Vec<FileComplexity>) {
+    let mut writer = Writer::from_path(invocation_path).unwrap();
+
+    writer
+        .write_record(&["Path", "File Name", "Cognitive Complexity"])
+        .unwrap();
+
+    for file in files_complexity {
+        writer
+            .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
+            .unwrap();
+    }
+
+    writer.flush().unwrap();
+}
+
+#[pyfunction]
+pub fn output_csv_function_level(invocation_path: &str, functions_complexity: Vec<FileComplexity>) {
+    let mut writer = Writer::from_path(invocation_path).unwrap();
+
+    writer
+        .write_record(&["Path", "File Name", "Function Name", "Cognitive Complexity"])
+        .unwrap();
+
+    for file in functions_complexity {
+        for function in file.functions {
+            writer
+                .write_record(&[
+                    &file.path,
+                    &file.file_name,
+                    &function.name,
+                    &function.complexity.to_string(),
+                ])
+                .unwrap();
+        }
+    }
+
+    writer.flush().unwrap();
+}
 
 pub fn get_repo_name(url: &str) -> String {
     let url = url.trim_end_matches('/');

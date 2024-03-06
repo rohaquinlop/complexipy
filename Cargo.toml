@@ -17,6 +17,7 @@ name = "complexipy"
 crate-type = ["cdylib"]
 
 [dependencies]
+csv = "1.3.0"
 env_logger = "0.11.1"
 ignore = "0.4.22"
 log = "0.4.20"

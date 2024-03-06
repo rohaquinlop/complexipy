@@ -51,10 +51,31 @@ complexipy path/to/file.py -c 20     # Use the -c option to set the maximum cong
 complexipy path/to/directory -c 0    # Set the maximum cognitive complexity to 0 to disable the exit with error
 complexipy path/to/directory -o      # Use the -o option to output the results to a CSV file, default is False
 complexipy path/to/directory -d low  # Use the -d option to set detail level, default is "normal". If set to "low" will show only files with complexity greater than the maximum complexity
+complexipy path/to/directory -l file # Use the -l option to set the level of measurement, default is "function". If set to "file" will measure the complexity of the file and will validate the maximum complexity according to the file complexity.
 ```
 
-If the cognitive complexity of a file is greater than the maximum cognitive, then
-the return code will be 1 and exit with error, otherwise it will be 0.
+### Options
+
+- `-c` or `--max-complexity`: Set the maximum cognitive complexity, default is 15.
+  If the cognitive complexity of a file is greater than the maximum cognitive,
+  then the return code will be 1 and exit with error, otherwise it will be 0.
+  If set to 0, the exit with error will be disabled.
+- `-o` or `--output`: Output the results to a CSV file, default is False. The
+  filename will be `complexipy.csv` and will be saved in the invocation directory.
+- `-d` or `--detail`: Set the detail level, default is "normal". If set to "low"
+  will show only files or functions with complexity greater than the maximum
+  complexity.
+- `-l` or `--level` Set the level of measurement, default is "function". If set
+  to "file" will measure the complexity of the file and will validate the maximum
+  complexity according to the file complexity. If set to "function" will measure
+  the complexity of the functions and will validate the maximum complexity
+  according to the function complexity. This option is useful if you want to set
+  a maximum complexity according for each file or for each function in the file
+  (or files).
+
+If the cognitive complexity of a file or a function is greater than the maximum
+cognitive cognitive complexity, then the return code will be 1 and exit with
+error, otherwise it will be 0.
 
 ## Example
 
@@ -80,17 +101,18 @@ The cognitive complexity of the file is 1, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```txt
-─────────────────────── complexipy 0.2.2 🐙 ───────────────────────
-- Finished analysis in test_decorator.py
-──────────────────── 🎉 Analysis completed!🎉 ─────────────────────
-                       Summary
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
-┃ Path              ┃ File              ┃ Complexity ┃
-┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ test_decorator.py │ test_decorator.py │ 1          │
-└───────────────────┴───────────────────┴────────────┘
-🧠 Total Cognitive Complexity in ./tests/test_decorator.py: 1
-1 files analyzed in 0.0005 seconds
+───────────────────────────── complexipy 0.3.0 🐙 ──────────────────────────────
+                                    Summary
+      ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+      ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
+      ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+      │ test_decorator.py │ test_decorator.py │ a_decorator │ 0          │
+      ├───────────────────┼───────────────────┼─────────────┼────────────┤
+      │ test_decorator.py │ test_decorator.py │ b_decorator │ 1          │
+      └───────────────────┴───────────────────┴─────────────┴────────────┘
+🧠 Total Cognitive Complexity in ./tests/src/test_decorator.py: 1
+1 file analyzed in 0.0032 seconds
+────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
 ```
 
 #### Output to a CSV file
@@ -109,8 +131,9 @@ $ complexipy path/to/file.py -o
 The output will be:
 
 ```csv
-Path,File Name,Cognitive Complexity
-test_decorator.py,test_decorator.py,1
+Path,File Name,Function Name,Cognitive Complexity
+test_decorator.py,test_decorator.py,a_decorator,0
+test_decorator.py,test_decorator.py,b_decorator,1
 ```
 
 ### Analyzing a directory
@@ -140,7 +163,7 @@ $ complexipy https://github.com/rohaquinlop/complexipy -o
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/rohaquinlop/complexipy/blob/main/LICENSE) file
 for details.
 
 ## Acknowledgments
