@@ -67,12 +67,11 @@ def main(
     invocation_path = os.getcwd()
     file_level = level == Level.file
 
-    console.rule(f"complexipy {version} :octopus:")
-    with console.status("Analyzing the complexity of the code...", spinner="dots"):
-        start_time = time.time()
-        files: list[FileComplexity] = rust.main(
-            path, is_dir, is_url, max_complexity, file_level
-        )
+    console.rule(f":octopus: complexipy {version}")
+    start_time = time.time()
+    files: list[FileComplexity] = rust.main(
+        path, is_dir, is_url, max_complexity, file_level
+    )
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
