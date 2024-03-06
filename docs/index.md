@@ -42,7 +42,8 @@ developers perceive maintainability. Read the white paper here: [Cognitive Compl
     <img src = "https://contrib.rocks/image?repo=rohaquinlop/complexipy"/>
     </a>
 </p>
-Made with [contributors-img](https://contrib.rocks).
+
+Made with [contributors-img](https://contrib.rocks)
 
 ## Requirements
 
