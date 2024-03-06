@@ -34,6 +34,7 @@ developers perceive maintainability. Read the white paper here: [Cognitive Compl
 
 ---
 
+
 ## Contributors
 
 <p align="center">
@@ -42,7 +43,6 @@ developers perceive maintainability. Read the white paper here: [Cognitive Compl
     </a>
 </p>
 Made with [contributors-img](https://contrib.rocks).
-
 
 ## Requirements
 
