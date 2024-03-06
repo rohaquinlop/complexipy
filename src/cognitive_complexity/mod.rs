@@ -2,6 +2,8 @@ pub mod utils;
 
 use crate::classes::{FileComplexity, FunctionComplexity};
 use ignore::Walk;
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 use rustpython_parser::{
@@ -11,6 +13,8 @@ use rustpython_parser::{
 use std::env;
 use std::path;
 use std::process;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use tempfile::tempdir;
 use utils::{count_bool_ops, get_repo_name, is_decorator};
 
@@ -31,10 +35,30 @@ pub fn main(
 
         env::set_current_dir(&dir)?;
 
-        let _output = process::Command::new("git")
-            .args(&["clone", path])
-            .output()
-            .expect("failed to execute process");
+        let cloning_done = Arc::new(Mutex::new(false));
+        let cloning_done_clone = Arc::clone(&cloning_done);
+        let path_clone = path.to_owned(); // Clone the path variable
+
+        thread::spawn(move || {
+            let _output = process::Command::new("git")
+                .args(&["clone", &path_clone]) // Use the cloned path variable
+                .output()
+                .expect("failed to execute process");
+
+            let mut done = cloning_done_clone.lock().unwrap();
+            *done = true;
+        });
+
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(ProgressStyle::default_spinner());
+        pb.set_message("Cloning repository...");
+
+        while !*cloning_done.lock().unwrap() {
+            pb.tick();
+            thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        pb.finish_with_message("Repository cloned!");
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
 
@@ -84,15 +108,28 @@ fn evaluate_dir(
         }
     }
 
+    let pb = ProgressBar::new(files_paths.len() as u64);
+    pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template(
+                "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+            )
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
     let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
         .par_iter()
         .map(|file_path| {
+            pb.inc(1);
             match cognitive_complexity(file_path, parent_dir, max_complexity, file_level) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e),
             }
         })
         .collect();
+
+    pb.finish_with_message("Done!");
 
     match files_complexity_result {
         Ok(files_complexity) => Ok(files_complexity),
