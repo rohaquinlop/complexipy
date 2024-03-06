@@ -1,6 +1,6 @@
-mod utils;
+pub mod utils;
 
-use crate::classes::FileComplexity;
+use crate::classes::{FileComplexity, FunctionComplexity};
 use ignore::Walk;
 use pyo3::prelude::*;
 use rayon::prelude::*;
@@ -21,23 +21,9 @@ pub fn main(
     is_dir: bool,
     is_url: bool,
     max_complexity: usize,
+    file_level: bool,
 ) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
-
-    if is_dir {
-        println!(
-            "Analyzing files in {}",
-            path::Path::new(path)
-                .canonicalize()
-                .unwrap()
-                .to_str()
-                .unwrap()
-        );
-    }
-
-    if is_url {
-        println!("Analyzing files in {}", path);
-    }
 
     if is_url {
         let dir = tempdir()?;
@@ -52,32 +38,38 @@ pub fn main(
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
 
-        match evaluate_dir(&repo_path, max_complexity) {
+        match evaluate_dir(&repo_path, max_complexity, file_level) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
 
         dir.close()?;
     } else if is_dir {
-        match evaluate_dir(path, max_complexity) {
+        match evaluate_dir(path, max_complexity, file_level) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
     } else {
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
-        match file_cognitive_complexity(path, parent_dir, max_complexity) {
+        match cognitive_complexity(path, parent_dir, max_complexity, file_level) {
             Ok(file_complexity) => ans.push(file_complexity),
             Err(e) => return Err(e),
         }
     }
 
-    ans.sort_by_key(|f| f.path.clone());
+    ans.iter_mut()
+        .for_each(|f| f.functions.sort_by_key(|f| (f.complexity, f.name.clone())));
+
+    ans.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
     Ok(ans)
 }
 
-#[pyfunction]
-pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileComplexity>> {
+fn evaluate_dir(
+    path: &str,
+    max_complexity: usize,
+    file_level: bool,
+) -> PyResult<Vec<FileComplexity>> {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
@@ -94,12 +86,12 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
 
     let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
         .par_iter()
-        .map(
-            |file_path| match file_cognitive_complexity(file_path, parent_dir, max_complexity) {
+        .map(|file_path| {
+            match cognitive_complexity(file_path, parent_dir, max_complexity, file_level) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e),
-            },
-        )
+            }
+        })
         .collect();
 
     match files_complexity_result {
@@ -110,10 +102,11 @@ pub fn evaluate_dir(path: &str, max_complexity: usize) -> PyResult<Vec<FileCompl
 
 /// Calculate the cognitive complexity of a python file.
 #[pyfunction]
-pub fn file_cognitive_complexity(
+pub fn cognitive_complexity(
     file_path: &str,
     base_path: &str,
     _max_complexity: usize,
+    _file_level: bool,
 ) -> PyResult<FileComplexity> {
     let code = std::fs::read_to_string(file_path)?;
     let ast = ast::Suite::parse(&code, "<embedded>").unwrap();
@@ -121,20 +114,78 @@ pub fn file_cognitive_complexity(
     let mut complexity: u64 = 0;
     let path = path::Path::new(file_path);
     let file_name = path.file_name().unwrap().to_str().unwrap();
+    let mut functions: Vec<FunctionComplexity> = Vec::new();
 
     let relative_path = path.strip_prefix(base_path).unwrap().to_str().unwrap();
 
-    for node in ast.iter() {
-        complexity += statement_cognitive_complexity(node.clone(), 0)?;
+    if _file_level {
+        for node in ast.iter() {
+            complexity += statement_cognitive_complexity(node.clone(), 0)?;
+        }
+    } else {
+        let (f, c) = function_level_cognitive_complexity(&ast)?;
+        functions = f;
+        complexity = c;
     }
-
-    println!("- Finished analysis in {}", file_name);
 
     Ok(FileComplexity {
         path: relative_path.to_string(),
         file_name: file_name.to_string(),
         complexity: complexity,
+        functions: functions,
     })
+}
+
+fn function_level_cognitive_complexity(
+    ast: &Vec<Stmt>,
+) -> PyResult<(Vec<FunctionComplexity>, u64)> {
+    let mut functions: Vec<FunctionComplexity> = Vec::new();
+    let mut complexity: u64 = 0;
+
+    for node in ast.iter() {
+        match node {
+            Stmt::FunctionDef(f) => {
+                let function_complexity = FunctionComplexity {
+                    name: f.name.to_string(),
+                    complexity: statement_cognitive_complexity(node.clone(), 0)?,
+                };
+                functions.push(function_complexity);
+            }
+            Stmt::AsyncFunctionDef(f) => {
+                let function_complexity = FunctionComplexity {
+                    name: f.name.to_string(),
+                    complexity: statement_cognitive_complexity(node.clone(), 0)?,
+                };
+                functions.push(function_complexity);
+            }
+            Stmt::ClassDef(c) => {
+                for node in c.body.iter() {
+                    match node {
+                        Stmt::FunctionDef(f) => {
+                            let function_complexity = FunctionComplexity {
+                                name: format!("{}::{}", c.name, f.name),
+                                complexity: statement_cognitive_complexity(node.clone(), 0)?,
+                            };
+                            functions.push(function_complexity);
+                        }
+                        Stmt::AsyncFunctionDef(f) => {
+                            let function_complexity = FunctionComplexity {
+                                name: format!("{}::{}", c.name, f.name),
+                                complexity: statement_cognitive_complexity(node.clone(), 0)?,
+                            };
+                            functions.push(function_complexity);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {
+                complexity += statement_cognitive_complexity(node.clone(), 0)?;
+            }
+        }
+    }
+
+    Ok((functions, complexity))
 }
 
 /// Calculate the cognitive complexity of a python statement

@@ -1,11 +1,28 @@
-from pathlib import Path
-from complexipy import rust
-import csv
-from enum import Enum
+from .types import (
+    DetailTypes,
+    Level,
+)
+from .utils import (
+    create_table_file_level,
+    create_table_function_level,
+)
+from complexipy import (
+    rust,
+)
+from complexipy.rust import (
+    FileComplexity,
+)
 import os
+from pathlib import (
+    Path,
+)
 import re
-from rich.console import Console
-from rich.table import Table
+from rich.align import (
+    Align,
+)
+from rich.console import (
+    Console,
+)
 import time
 import typer
 
@@ -13,11 +30,6 @@ root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
 version = "0.3.0"
-
-
-class DetailTypes(Enum):
-    low = "low"  # Show only files with complexity above the max_complexity
-    normal = "normal"  # Show all files with their complexity
 
 
 @app.command()
@@ -29,7 +41,7 @@ def main(
         15,
         "--max-complexity",
         "-c",
-        help="The maximum complexity allowed per file, set this value as 0 to set it as unlimited.",
+        help="The maximum complexity allowed per file, set this value as 0 to set it as unlimited. Default is 15.",
     ),
     output: bool = typer.Option(
         False, "--output", "-o", help="Output the results to a CSV file."
@@ -38,58 +50,54 @@ def main(
         DetailTypes.normal.value,
         "--details",
         "-d",
-        help="Specify how detailed should be output.",
+        help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
+    ),
+    level: Level = typer.Option(
+        Level.function.value,
+        "--level",
+        "-l",
+        help="Specify the level of measurement, it can be 'function' or 'file'. Default is 'function'.",
     ),
 ):
-    has_success = True
     is_dir = Path(path).is_dir()
     _url_pattern = (
         r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$"
     )
     is_url = bool(re.match(_url_pattern, path))
     invocation_path = os.getcwd()
+    file_level = level == Level.file
 
     console.rule(f"complexipy {version} :octopus:")
     with console.status("Analyzing the complexity of the code...", spinner="dots"):
         start_time = time.time()
-        files = rust.main(path, is_dir, is_url, max_complexity)
+        files: list[FileComplexity] = rust.main(
+            path, is_dir, is_url, max_complexity, file_level
+        )
     execution_time = time.time() - start_time
-    console.rule(":tada: Analysis completed!:tada:")
+    output_csv_path = f"{invocation_path}/complexipy.csv"
 
-    if output:
-        with open(f"{invocation_path}/complexipy.csv", "w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(["Path", "File Name", "Cognitive Complexity"])
-            for file in files:
-                writer.writerow([file.path, file.file_name, file.complexity])
-        console.print(f"Results saved to {invocation_path}/complexipy.csv")
+    if output and file_level:
+        rust.output_csv_file_level(output_csv_path, files)
+        console.print(f"Results saved in {output_csv_path}")
+    if output and not file_level:
+        rust.output_csv_function_level(output_csv_path, files)
+        console.print(f"Results saved in {output_csv_path}")
 
     # Summary
-    table = Table(
-        title="Summary", show_header=True, header_style="bold magenta", show_lines=True
-    )
-    table.add_column("Path")
-    table.add_column("File")
-    table.add_column("Complexity")
-    total_complexity = 0
-    for file in files:
-        total_complexity += file.complexity
-        if file.complexity > max_complexity and max_complexity != 0:
-            table.add_row(
-                f"{file.path}",
-                f"[green]{file.file_name}[/green]",
-                f"[red]{file.complexity}[/red]",
-            )
-            has_success = False
-        elif details != DetailTypes.low or max_complexity == 0:
-            table.add_row(
-                f"{file.path}",
-                f"[green]{file.file_name}[/green]",
-                f"[blue]{file.complexity}[/blue]",
-            )
-    console.print(table)
+    if file_level:
+        table, has_success, total_complexity = create_table_file_level(
+            files, max_complexity, details
+        )
+    else:
+        table, has_success, total_complexity = create_table_function_level(
+            files, max_complexity, details
+        )
+    console.print(Align.center(table))
     console.print(f":brain: Total Cognitive Complexity in {path}: {total_complexity}")
-    console.print(f"{len(files)} files analyzed in {execution_time:.4f} seconds")
+    console.print(
+        f"{len(files)} file{'s' if len(files)> 1 else ''} analyzed in {execution_time:.4f} seconds"
+    )
+    console.rule(":tada: Analysis completed! :tada:")
 
     if not has_success:
         raise typer.Exit(code=1)
