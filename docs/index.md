@@ -17,6 +17,13 @@
 </a>
 </p>
 
+
+Cognitive Complexity breaks from using mathematical models to assess software
+maintainability by combining Cyclomatic Complexity precedents with human
+assessment. It yields method complexity scores that align well with how
+developers perceive maintainability. Read the white paper here: [Cognitive Complexity, a new way of measuring understandability](https://www.sonarsource.com/resources/cognitive-complexity/)
+
+
 ---
 
 **Documentation**: <a href="https://rohaquinlop.github.io/complexipy/" target="_blank">https://rohaquinlop.github.io/complexipy/</a>
@@ -101,7 +108,7 @@ The cognitive complexity of the file is 1, and the output of the command
 `complexipy path/to/file.py` will be:
 
 ```txt
-───────────────────────────── complexipy 0.3.0 🐙 ──────────────────────────────
+───────────────────────────── 🐙 complexipy 0.3.0 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
@@ -114,6 +121,28 @@ The cognitive complexity of the file is 1, and the output of the command
 1 file analyzed in 0.0032 seconds
 ────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
 ```
+
+#### Explaining the results of the analysis
+
+```python
+def a_decorator(a, b): # 0
+    def inner(func): # 0
+        return func # 0
+    return inner # 0
+
+def b_decorator(a, b): # 0
+    def inner(func): # 0
+        if func: # 1 (nested = 0), total 1
+            return None # 0
+        return func # 0
+    return inner # 0
+```
+
+The cognitive complexity of the file is 1, and the cognitive complexity of the
+function `b_decorator` is 1. This example is simple, but it shows how
+**complexipy** calculates the cognitive complexity according to the specifications
+of the paper "Cognitive Complexity a new way to measure understandability",
+considering the decorators and the if statement.
 
 #### Output to a CSV file
 
