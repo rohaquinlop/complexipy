@@ -38,7 +38,7 @@ developers perceive maintainability. Read the white paper here: [Cognitive Compl
 ## Contributors
 
 <p align="center">
-    <a href = "https://github.com/Tanu-N-Prabhu/Python/graphs/contributors">
+    <a href = "https://github.com/rohaquinlop/complexipy/graphs/contributors">
     <img src = "https://contrib.rocks/image?repo=rohaquinlop/complexipy"/>
     </a>
 </p>
