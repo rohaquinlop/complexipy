@@ -70,6 +70,7 @@ complexipy path/to/directory -c 0    # Set the maximum cognitive complexity to 0
 complexipy path/to/directory -o      # Use the -o option to output the results to a CSV file, default is False
 complexipy path/to/directory -d low  # Use the -d option to set detail level, default is "normal". If set to "low" will show only files with complexity greater than the maximum complexity
 complexipy path/to/directory -l file # Use the -l option to set the level of measurement, default is "function". If set to "file" will measure the complexity of the file and will validate the maximum complexity according to the file complexity.
+complexipy path/to/directory -q     # Use the -q option to disable the output to the console, default is False.
 ```
 
 ### Options
@@ -90,6 +91,7 @@ complexipy path/to/directory -l file # Use the -l option to set the level of mea
   according to the function complexity. This option is useful if you want to set
   a maximum complexity according for each file or for each function in the file
   (or files).
+- `-q` or `--quiet`: Disable the output to the console, default is False.
 
 If the cognitive complexity of a file or a function is greater than the maximum
 cognitive cognitive complexity, then the return code will be 1 and exit with

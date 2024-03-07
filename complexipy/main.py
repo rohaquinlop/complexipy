@@ -3,8 +3,9 @@ from .types import (
     Level,
 )
 from .utils import (
-    create_table_file_level,
-    create_table_function_level,
+    output_summary,
+    has_success_file_level,
+    has_success_function_level,
 )
 from complexipy import (
     rust,
@@ -17,9 +18,6 @@ from pathlib import (
     Path,
 )
 import re
-from rich.align import (
-    Align,
-)
 from rich.console import (
     Console,
 )
@@ -58,6 +56,9 @@ def main(
         "-l",
         help="Specify the level of measurement, it can be 'function' or 'file'. Default is 'function'.",
     ),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress the output to the console."
+    ),
 ):
     is_dir = Path(path).is_dir()
     _url_pattern = (
@@ -83,19 +84,15 @@ def main(
         console.print(f"Results saved in {output_csv_path}")
 
     # Summary
-    if file_level:
-        table, has_success, total_complexity = create_table_file_level(
-            files, max_complexity, details
+    if not quiet:
+        has_success = output_summary(
+            console, file_level, files, max_complexity, details, path, execution_time
         )
-    else:
-        table, has_success, total_complexity = create_table_function_level(
-            files, max_complexity, details
-        )
-    console.print(Align.center(table))
-    console.print(f":brain: Total Cognitive Complexity in {path}: {total_complexity}")
-    console.print(
-        f"{len(files)} file{'s' if len(files)> 1 else ''} analyzed in {execution_time:.4f} seconds"
-    )
+    if quiet and not file_level:
+        has_success = has_success_function_level(files, max_complexity)
+    if quiet and file_level:
+        has_success = has_success_file_level(files, max_complexity)
+
     console.rule(":tada: Analysis completed! :tada:")
 
     if not has_success:
