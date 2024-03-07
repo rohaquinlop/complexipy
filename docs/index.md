@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-    <em>An extremely fast Python library to calculate the cognitive complexity of python files, written in Rust.</em>
+    <em>An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.</em>
 </p>
 
 <p align="center">
