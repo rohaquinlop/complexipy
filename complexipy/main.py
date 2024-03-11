@@ -1,6 +1,7 @@
 from .types import (
     DetailTypes,
     Level,
+    Sort,
 )
 from .utils import (
     output_summary,
@@ -59,6 +60,12 @@ def main(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress the output to the console."
     ),
+    sort: Sort = typer.Option(
+        Sort.asc.value,
+        "--sort",
+        "-s",
+        help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
+    ),
 ):
     is_dir = Path(path).is_dir()
     _url_pattern = (
@@ -77,22 +84,25 @@ def main(
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
     if output and file_level:
-        rust.output_csv_file_level(output_csv_path, files)
+        rust.output_csv_file_level(output_csv_path, files, sort.value)
         console.print(f"Results saved in {output_csv_path}")
     if output and not file_level:
-        rust.output_csv_function_level(output_csv_path, files)
+        rust.output_csv_function_level(output_csv_path, files, sort.value)
         console.print(f"Results saved in {output_csv_path}")
 
     # Summary
     if not quiet:
         has_success = output_summary(
-            console, file_level, files, max_complexity, details, path, execution_time
+            console, file_level, files, max_complexity, details, path, sort
         )
     if quiet and not file_level:
         has_success = has_success_function_level(files, max_complexity)
     if quiet and file_level:
         has_success = has_success_file_level(files, max_complexity)
 
+    console.print(
+        f"{len(files)} file{'s' if len(files)> 1 else ''} analyzed in {execution_time:.4f} seconds"
+    )
     console.rule(":tada: Analysis completed! :tada:")
 
     if not has_success:

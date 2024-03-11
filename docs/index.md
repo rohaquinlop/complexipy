@@ -61,16 +61,17 @@ pip install complexipy
 To run **complexipy** you can use the following command:
 
 ```shell
-complexipy .                         # Use complexipy to analyze the current directory and any subdirectories
-complexipy path/to/directory         # Use complexipy to analyze a specific directory and any subdirectories
-complexipy git_repository_url        # Use complexipy to analyze a git repository
-complexipy path/to/file.py           # Use complexipy to analyze a specific file
-complexipy path/to/file.py -c 20     # Use the -c option to set the maximum congnitive complexity, default is 15
-complexipy path/to/directory -c 0    # Set the maximum cognitive complexity to 0 to disable the exit with error
-complexipy path/to/directory -o      # Use the -o option to output the results to a CSV file, default is False
-complexipy path/to/directory -d low  # Use the -d option to set detail level, default is "normal". If set to "low" will show only files with complexity greater than the maximum complexity
-complexipy path/to/directory -l file # Use the -l option to set the level of measurement, default is "function". If set to "file" will measure the complexity of the file and will validate the maximum complexity according to the file complexity.
-complexipy path/to/directory -q     # Use the -q option to disable the output to the console, default is False.
+complexipy .                            # Use complexipy to analyze the current directory and any subdirectories
+complexipy path/to/directory            # Use complexipy to analyze a specific directory and any subdirectories
+complexipy git_repository_url           # Use complexipy to analyze a git repository
+complexipy path/to/file.py              # Use complexipy to analyze a specific file
+complexipy path/to/file.py -c 20        # Use the -c option to set the maximum congnitive complexity, default is 15
+complexipy path/to/directory -c 0       # Set the maximum cognitive complexity to 0 to disable the exit with error
+complexipy path/to/directory -o         # Use the -o option to output the results to a CSV file, default is False
+complexipy path/to/directory -d low     # Use the -d option to set detail level, default is "normal". If set to "low" will show only files with complexity greater than the maximum complexity
+complexipy path/to/directory -l file    # Use the -l option to set the level of measurement, default is "function". If set to "file" will measure the complexity of the file and will validate the maximum complexity according to the file complexity.
+complexipy path/to/directory -q         # Use the -q option to disable the output to the console, default is False.
+complexipy path/to/directory -s desc    # Use the -s option to set the sort order, default is "asc". If set to "desc" will sort the results in descending order. If set to "asc" will sort the results in ascending order. If set to "name" will sort the results by name.
 ```
 
 ### Options
@@ -92,6 +93,10 @@ complexipy path/to/directory -q     # Use the -q option to disable the output to
   a maximum complexity according for each file or for each function in the file
   (or files).
 - `-q` or `--quiet`: Disable the output to the console, default is False.
+- `-s` or `--sort`: Set the sort order, default is "asc". If set to "desc" will
+  sort the results in descending order. If set to "asc" will sort the results in
+  ascending order. If set to "name" will sort the results by name. This option will
+  affect the output to the console and the output to the CSV file.
 
 If the cognitive complexity of a file or a function is greater than the maximum
 cognitive cognitive complexity, then the return code will be 1 and exit with
