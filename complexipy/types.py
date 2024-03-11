@@ -9,3 +9,9 @@ class DetailTypes(Enum):
 class Level(Enum):
     function = "function"
     file = "file"
+
+
+class Sort(Enum):
+    asc = "asc"
+    desc = "desc"
+    name = "name"

@@ -1,43 +1,94 @@
-use crate::classes::FileComplexity;
+use crate::classes::{FileComplexity, FunctionComplexity};
 use csv::Writer;
 use pyo3::prelude::*;
 use rustpython_parser::ast::{self, Stmt};
 
 #[pyfunction]
-pub fn output_csv_file_level(invocation_path: &str, files_complexity: Vec<FileComplexity>) {
+pub fn output_csv_file_level(
+    invocation_path: &str,
+    files_complexity: Vec<FileComplexity>,
+    sort: &str,
+) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
     writer
         .write_record(&["Path", "File Name", "Cognitive Complexity"])
         .unwrap();
 
-    for file in files_complexity {
-        writer
-            .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
-            .unwrap();
+    if sort != "name" {
+        let mut files_complexity = files_complexity;
+
+        files_complexity.sort_by_key(|f| f.complexity);
+
+        if sort == "desc" {
+            files_complexity.reverse();
+        }
+
+        for file in files_complexity.into_iter() {
+            writer
+                .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
+                .unwrap();
+        }
+    } else {
+        for file in &files_complexity {
+            writer
+                .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
+                .unwrap();
+        }
     }
 
     writer.flush().unwrap();
 }
 
 #[pyfunction]
-pub fn output_csv_function_level(invocation_path: &str, functions_complexity: Vec<FileComplexity>) {
+pub fn output_csv_function_level(
+    invocation_path: &str,
+    functions_complexity: Vec<FileComplexity>,
+    sort: &str,
+) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
     writer
         .write_record(&["Path", "File Name", "Function Name", "Cognitive Complexity"])
         .unwrap();
 
-    for file in functions_complexity {
-        for function in file.functions {
+    if sort != "name" {
+        let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
+
+        for file in functions_complexity {
+            for function in file.functions {
+                all_functions.push((file.path.clone(), file.file_name.clone(), function));
+            }
+        }
+
+        all_functions.sort_by_key(|f| f.2.complexity);
+
+        if sort == "desc" {
+            all_functions.reverse();
+        }
+
+        for (path, file_name, function) in all_functions.into_iter() {
             writer
                 .write_record(&[
-                    &file.path,
-                    &file.file_name,
+                    &path,
+                    &file_name,
                     &function.name,
                     &function.complexity.to_string(),
                 ])
                 .unwrap();
+        }
+    } else {
+        for file in functions_complexity {
+            for function in file.functions {
+                writer
+                    .write_record(&[
+                        &file.path,
+                        &file.file_name,
+                        &function.name,
+                        &function.complexity.to_string(),
+                    ])
+                    .unwrap();
+            }
         }
     }
 
