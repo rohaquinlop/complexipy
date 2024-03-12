@@ -134,16 +134,13 @@ pub fn count_bool_ops(expr: ast::Expr) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(..) => {
+        ast::Expr::BoolOp(b) => {
             complexity += 1;
-        }
-        ast::Expr::BinOp(b) => {
-            complexity += 1;
-            complexity += count_bool_ops(*b.left);
-            complexity += count_bool_ops(*b.right);
+            for value in b.values.iter() {
+                complexity += count_bool_ops(value.clone());
+            }
         }
         ast::Expr::UnaryOp(u) => {
-            complexity += 1;
             complexity += count_bool_ops(*u.operand);
         }
         ast::Expr::Compare(c) => {

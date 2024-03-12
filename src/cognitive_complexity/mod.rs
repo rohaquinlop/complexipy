@@ -271,7 +271,12 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             }
         }
         Stmt::Assign(a) => {
-            complexity += count_bool_ops(*a.value);
+            match *a.value {
+                ast::Expr::IfExp(..) => {
+                    complexity += count_bool_ops(*a.value);
+                }
+                _ => {}
+            }
 
             if complexity > 0 {
                 complexity += nesting_level;
