@@ -47,7 +47,7 @@ Made with [contributors-img](https://contrib.rocks)
 
 ## Requirements
 
-- Python >= 3.11
+- Python >= 3.8
 - You also need to install `git` in your computer if you want to analyze a git repository.
 
 ## Installation
