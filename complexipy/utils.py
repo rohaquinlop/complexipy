@@ -32,7 +32,11 @@ def output_summary(
         table, has_success, total_complexity = create_table_function_level(
             files, max_complexity, details, sort
         )
-    console.print(Align.center(table))
+
+    if details == DetailTypes.low and table.row_count < 1:
+        console.print(f"No {'file' if file_level else 'function'}{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}.")
+    else:
+        console.print(Align.center(table))
     console.print(f":brain: Total Cognitive Complexity in {path}: {total_complexity}")
 
     return has_success
