@@ -35,7 +35,7 @@ jobs:
           python-version: '3.11'
       - uses: dtolnay/rust-toolchain@stable
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@60d11847b29f81ca5375519a8eb33cc336ba4bfa
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
@@ -67,7 +67,7 @@ jobs:
           python-version: '3.11'
           architecture: ${{ matrix.target }}
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@60d11847b29f81ca5375519a8eb33cc336ba4bfa
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
@@ -97,7 +97,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build wheels
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@60d11847b29f81ca5375519a8eb33cc336ba4bfa
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build sdist
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@60d11847b29f81ca5375519a8eb33cc336ba4bfa
         with:
           command: sdist
           args: --out dist
@@ -143,7 +143,7 @@ jobs:
         with:
           name: wheels
       - name: Publish to PyPI
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@60d11847b29f81ca5375519a8eb33cc336ba4bfa
         with:
           command: upload
           args: --non-interactive --skip-existing *
