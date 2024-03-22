@@ -82,7 +82,7 @@ complexipy path/to/directory -s desc    # Use the -s option to set the sort orde
   If set to 0, the exit with error will be disabled.
 - `-o` or `--output`: Output the results to a CSV file, default is False. The
   filename will be `complexipy.csv` and will be saved in the invocation directory.
-- `-d` or `--detail`: Set the detail level, default is "normal". If set to "low"
+- `-d` or `--details`: Set the detail level, default is "normal". If set to "low"
   will show only files or functions with complexity greater than the maximum
   complexity.
 - `-l` or `--level` Set the level of measurement, default is "function". If set
