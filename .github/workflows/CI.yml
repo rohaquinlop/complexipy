@@ -176,6 +176,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: wheels
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         with:
