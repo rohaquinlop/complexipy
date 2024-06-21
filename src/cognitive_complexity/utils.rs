@@ -130,30 +130,60 @@ pub fn is_decorator(statement: Stmt) -> bool {
     ans
 }
 
-pub fn count_bool_ops(expr: ast::Expr) -> u64 {
+pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
         ast::Expr::BoolOp(b) => {
             complexity += 1;
             for value in b.values.iter() {
-                complexity += count_bool_ops(value.clone());
+                complexity += count_bool_ops(value.clone(), nesting_level);
             }
         }
         ast::Expr::UnaryOp(u) => {
-            complexity += count_bool_ops(*u.operand);
+            complexity += count_bool_ops(*u.operand, nesting_level);
         }
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(*c.left);
+            complexity += count_bool_ops(*c.left, nesting_level);
             for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator.clone());
+                complexity += count_bool_ops(comparator.clone(), nesting_level);
             }
         }
         ast::Expr::IfExp(i) => {
-            complexity += 1;
-            complexity += count_bool_ops(*i.test);
-            complexity += count_bool_ops(*i.body);
-            complexity += count_bool_ops(*i.orelse);
+            complexity += 1 + nesting_level;
+            complexity += count_bool_ops(*i.test, nesting_level);
+            complexity += count_bool_ops(*i.body, nesting_level);
+            complexity += count_bool_ops(*i.orelse, nesting_level);
+        }
+        ast::Expr::Call(c) => {
+            for arg in c.args.iter() {
+                complexity += count_bool_ops(arg.clone(), nesting_level);
+            }
+        }
+        ast::Expr::Tuple(t) => {
+            for element in t.elts.iter() {
+                complexity += count_bool_ops(element.clone(), nesting_level);
+            }
+        }
+        ast::Expr::List(l) => {
+            for element in l.elts.iter() {
+                complexity += count_bool_ops(element.clone(), nesting_level);
+            }
+        }
+        ast::Expr::Set(s) => {
+            for element in s.elts.iter() {
+                complexity += count_bool_ops(element.clone(), nesting_level);
+            }
+        }
+        ast::Expr::Dict(d) => {
+            for key in d.keys.iter() {
+                if let Some(key_value) = key {
+                    complexity += count_bool_ops(key_value.clone(), nesting_level);
+                }
+            }
+            for value in d.values.iter() {
+                complexity += count_bool_ops(value.clone(), nesting_level);
+            }
         }
         _ => {}
     }
