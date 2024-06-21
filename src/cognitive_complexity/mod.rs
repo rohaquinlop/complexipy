@@ -271,47 +271,44 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             }
         }
         Stmt::Assign(a) => {
-            match *a.value {
-                ast::Expr::IfExp(..) => {
-                    complexity += count_bool_ops(*a.value);
-                }
-                _ => {}
-            }
-
-            if complexity > 0 {
-                complexity += nesting_level;
-            }
+            complexity += count_bool_ops(*a.value, nesting_level);
         }
         Stmt::For(f) => {
             complexity += 1 + nesting_level;
             for node in f.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
+
+            complexity += count_bool_ops(*f.iter, nesting_level);
         }
         Stmt::While(w) => {
             complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*w.test);
+            complexity += count_bool_ops(*w.test, nesting_level);
             for node in w.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
         }
         Stmt::If(i) => {
             complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*i.test);
+            complexity += count_bool_ops(*i.test, nesting_level);
             for node in i.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
             }
 
-            let mut orelse_complexity: u64 = 0;
-            for node in i.orelse.iter() {
-                orelse_complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
-            }
+            let orelse_complexities: Vec<u64> = i
+                .orelse
+                .iter()
+                .map(|node| statement_cognitive_complexity(node.clone(), nesting_level))
+                .filter(|complexity| complexity.is_ok())
+                .filter(|complexity| *complexity.as_ref().unwrap() > 0)
+                .map(|complexity| complexity.unwrap())
+                .collect();
 
-            if orelse_complexity > 0 && i.orelse.len() > 0 {
-                complexity -= (nesting_level) * i.orelse.len() as u64;
+            let orelse_complexity: u64 = orelse_complexities.iter().sum();
+
+            if orelse_complexities.len() > 0 {
                 complexity += orelse_complexity;
-            } else if i.orelse.len() > 0 {
-                complexity += 1;
+                complexity -= (nesting_level) * orelse_complexities.len() as u64;
             }
         }
         Stmt::Try(t) => {
