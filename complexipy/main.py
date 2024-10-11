@@ -121,11 +121,11 @@ def code_complexity(
 def file_complexity(
     file_path: str, max_complexity: int = 15, file_level: bool = True
 ) -> FileComplexity:
-    path = Path(file_path).resolve()
+    path = Path(file_path)
     base_path = path.parent
     return rust.file_complexity(
-        file_path=str(path),
-        base_path=str(base_path),
+        file_path=path.resolve().as_posix(),
+        base_path=base_path.resolve().as_posix(),
         _max_complexity=max_complexity,
         _file_level=file_level,
     )
