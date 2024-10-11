@@ -13,7 +13,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = ["typer[all]"]
+dependencies = ["typer"]
 
 [project.scripts]
 complexipy = "complexipy.main:app"
