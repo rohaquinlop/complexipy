@@ -77,7 +77,7 @@ pub fn main(
     } else {
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
-        match cognitive_complexity(path, parent_dir, max_complexity, file_level) {
+        match file_complexity(path, parent_dir, max_complexity, file_level) {
             Ok(file_complexity) => ans.push(file_complexity),
             Err(e) => return Err(e),
         }
@@ -123,7 +123,7 @@ fn evaluate_dir(
         .par_iter()
         .map(|file_path| {
             pb.inc(1);
-            match cognitive_complexity(file_path, parent_dir, max_complexity, file_level) {
+            match file_complexity(file_path, parent_dir, max_complexity, file_level) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e),
             }
@@ -140,7 +140,7 @@ fn evaluate_dir(
 
 /// Calculate the cognitive complexity of a python file.
 #[pyfunction]
-pub fn cognitive_complexity(
+pub fn file_complexity(
     file_path: &str,
     base_path: &str,
     _max_complexity: usize,
@@ -152,7 +152,7 @@ pub fn cognitive_complexity(
 
     let code = std::fs::read_to_string(file_path)?;
 
-    let code_complexity = match cognitive_complexity_on_str(&code, _max_complexity, _file_level) {
+    let code_complexity = match code_complexity(&code, _max_complexity, _file_level) {
         Ok(v) => v,
         Err(e) => return Err(
 	    PyValueError::
@@ -169,7 +169,7 @@ pub fn cognitive_complexity(
 
 /// Calculate the cognitive complexity of a string of python code.
 #[pyfunction]
-pub fn cognitive_complexity_on_str(
+pub fn code_complexity(
     code: &str,
     _max_complexity: usize,
     _file_level: bool,
