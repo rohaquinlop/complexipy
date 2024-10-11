@@ -2,6 +2,8 @@ from complexipy import rust
 import unittest
 from pathlib import Path
 
+from complexipy.main import file_complexity, code_complexity
+
 
 class TestFiles(unittest.TestCase):
     local_path = Path(__file__).resolve().parent
@@ -101,6 +103,28 @@ class TestFiles(unittest.TestCase):
         files = rust.main(path.resolve().as_posix(), False, False, 15, True)
         total_complexity = sum([file.complexity for file in files])
         self.assertEqual(12, total_complexity)
+
+    def test_file_complexity(self):
+        path = "src/test_try_nested.py"
+        result = file_complexity(path)
+        self.assertEqual(12, result.complexity)
+
+    def test_code_complexity(self):
+        snippet = """\
+def hello_world(s: str) -> str:
+    ans = ""
+
+    def nested_func(s: str) -> str:
+        if s == "complexipy":
+            return "complexipy is awesome!"
+        return f"I don't know what to say, hello {s}(?)"
+
+    ans = nested_func(s)
+
+    return ans
+"""
+        result = code_complexity(snippet)
+        self.assertEqual(2, result.complexity)
 
 
 if __name__ == "__main__":
