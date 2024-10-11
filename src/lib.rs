@@ -11,6 +11,7 @@ use pyo3::prelude::*;
 #[pymodule]
 fn rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(main, m)?)?;
+    m.add_function(wrap_pyfunction!(cognitive_complexity)?)?;
     m.add_function(wrap_pyfunction!(cognitive_complexity_on_str, m)?)?;
     m.add_function(wrap_pyfunction!(output_csv_file_level, m)?)?;
     m.add_function(wrap_pyfunction!(output_csv_function_level, m)?)?;
