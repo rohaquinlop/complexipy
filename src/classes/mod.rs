@@ -15,3 +15,10 @@ pub struct FileComplexity {
     pub functions: Vec<FunctionComplexity>,
     pub complexity: u64,
 }
+
+#[derive(Clone)]
+#[pyclass(module = "complexipy", get_all)]
+pub struct CodeComplexity {
+    pub functions: Vec<FunctionComplexity>,
+    pub complexity: u64,
+}

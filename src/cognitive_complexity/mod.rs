@@ -1,10 +1,11 @@
 pub mod utils;
 
-use crate::classes::{FileComplexity, FunctionComplexity};
+use crate::classes::{FileComplexity, FunctionComplexity, CodeComplexity};
 use ignore::Walk;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use pyo3::prelude::*;
+use pyo3::exceptions::PyValueError;
 use rayon::prelude::*;
 use rustpython_parser::{
     ast::{self, Stmt},
@@ -145,15 +146,43 @@ pub fn cognitive_complexity(
     _max_complexity: usize,
     _file_level: bool,
 ) -> PyResult<FileComplexity> {
-    let code = std::fs::read_to_string(file_path)?;
-    let ast = ast::Suite::parse(&code, "<embedded>").unwrap();
-
-    let mut complexity: u64 = 0;
     let path = path::Path::new(file_path);
     let file_name = path.file_name().unwrap().to_str().unwrap();
-    let mut functions: Vec<FunctionComplexity> = Vec::new();
-
     let relative_path = path.strip_prefix(base_path).unwrap().to_str().unwrap();
+
+    let code = std::fs::read_to_string(file_path)?;
+
+    // TODO: maybe this default propagation of errors could be a macro
+    let code_complexity = match compute(&code, _max_complexity, _file_level) {
+        Ok(v) => v,
+        Err(e) => return Err(
+	    PyValueError::
+	    new_err(format!("Failed to compute code_complexity; error: {}", e))),
+    };
+
+    Ok(FileComplexity {
+        path: relative_path.to_string(),
+        file_name: file_name.to_string(),
+        complexity: code_complexity.complexity,
+	functions: code_complexity.functions,
+    })
+}
+
+#[pyfunction]
+pub fn compute(
+    code: &str,
+    _max_complexity: usize,
+    _file_level: bool,
+) -> PyResult<CodeComplexity> {
+    let ast = match ast::Suite::parse(&code, "<embedded>") {
+        Ok(v) => v,
+        Err(e) => return Err(
+	    PyValueError::
+	    new_err(format!("Failed to parse this code; error: {}", e))),
+    };
+
+    let mut complexity: u64 = 0;
+    let mut functions: Vec<FunctionComplexity> = Vec::new();
 
     if _file_level {
         for node in ast.iter() {
@@ -165,13 +194,12 @@ pub fn cognitive_complexity(
         complexity = c;
     }
 
-    Ok(FileComplexity {
-        path: relative_path.to_string(),
-        file_name: file_name.to_string(),
-        complexity: complexity,
-        functions: functions,
+    Ok(CodeComplexity {
+        functions,
+	complexity,
     })
 }
+
 
 fn function_level_cognitive_complexity(
     ast: &Vec<Stmt>,

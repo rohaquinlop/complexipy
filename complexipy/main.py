@@ -25,10 +25,12 @@ from rich.console import (
 import time
 import typer
 
+from typing import Any
+
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.4.0"
+version = "0.4.0dev"
 
 
 @app.command()
@@ -107,6 +109,12 @@ def main(
 
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def compute(
+        code: str, max_complexity: int = 15, file_level: bool = True
+) -> Any:
+    return rust.compute(code, max_complexity, file_level)
 
 
 if __name__ == "__main__":
