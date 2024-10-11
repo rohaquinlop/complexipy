@@ -1,7 +1,7 @@
 mod classes;
 mod cognitive_complexity;
 
-use classes::{FileComplexity, FunctionComplexity};
+use classes::{FileComplexity, FunctionComplexity, CodeComplexity};
 use cognitive_complexity::main;
 use cognitive_complexity::file_complexity;
 use cognitive_complexity::code_complexity;
@@ -18,5 +18,6 @@ fn rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(output_csv_function_level, m)?)?;
     m.add_class::<FileComplexity>()?;
     m.add_class::<FunctionComplexity>()?;
+    m.add_class::<CodeComplexity>()?;
     Ok(())
 }

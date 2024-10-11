@@ -11,9 +11,7 @@ from .utils import (
 from complexipy import (
     rust,
 )
-from complexipy.rust import (
-    FileComplexity,
-)
+from complexipy.rust import FileComplexity, CodeComplexity
 import os
 from pathlib import (
     Path,
@@ -24,8 +22,6 @@ from rich.console import (
 )
 import time
 import typer
-
-from typing import Any
 
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
@@ -111,10 +107,26 @@ def main(
         raise typer.Exit(code=1)
 
 
-def compute(
-        code: str, max_complexity: int = 15, file_level: bool = True
-) -> Any:
-    return rust.compute(code, max_complexity, file_level)
+def code_complexity(
+    # TODO: do we need to include the max_complexity??
+    code: str,
+    max_complexity: int = 15,
+    file_level: bool = True,
+) -> CodeComplexity:
+    return rust.code_complexity(code, max_complexity, file_level)
+
+
+def file_complexity(
+    file_path: str, max_complexity: int = 15, file_level: bool = True
+) -> FileComplexity:
+    path = Path(file_path).resolve()
+    base_path = path.parent
+    return rust.file_complexity(
+        file_path=str(path),
+        base_path=str(base_path),
+        _max_complexity=max_complexity,
+        _file_level=file_level,
+    )
 
 
 if __name__ == "__main__":
