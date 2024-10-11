@@ -152,8 +152,7 @@ pub fn cognitive_complexity(
 
     let code = std::fs::read_to_string(file_path)?;
 
-    // TODO: maybe this default propagation of errors could be a macro
-    let code_complexity = match compute(&code, _max_complexity, _file_level) {
+    let code_complexity = match cognitive_complexity_on_str(&code, _max_complexity, _file_level) {
         Ok(v) => v,
         Err(e) => return Err(
 	    PyValueError::
@@ -168,8 +167,9 @@ pub fn cognitive_complexity(
     })
 }
 
+/// Calculate the cognitive complexity of a string of python code.
 #[pyfunction]
-pub fn compute(
+pub fn cognitive_complexity_on_str(
     code: &str,
     _max_complexity: usize,
     _file_level: bool,
