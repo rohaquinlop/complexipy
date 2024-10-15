@@ -105,8 +105,8 @@ class TestFiles(unittest.TestCase):
         self.assertEqual(12, total_complexity)
 
     def test_file_complexity(self):
-        path = "src/test_try_nested.py"
-        result = file_complexity(path)
+        path = self.local_path / "src/test_try_nested.py"
+        result = file_complexity(str(path))
         self.assertEqual(12, result.complexity)
 
     def test_code_complexity(self):
