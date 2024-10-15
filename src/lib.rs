@@ -2,9 +2,7 @@ mod classes;
 mod cognitive_complexity;
 
 use classes::{FileComplexity, FunctionComplexity, CodeComplexity};
-use cognitive_complexity::main;
-use cognitive_complexity::file_complexity;
-use cognitive_complexity::code_complexity;
+use cognitive_complexity::{code_complexity, file_complexity, main};
 use cognitive_complexity::utils::{output_csv_file_level, output_csv_function_level};
 use pyo3::prelude::*;
 
