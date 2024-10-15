@@ -75,12 +75,7 @@ def main(
 
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    # TODO: it seems that the max_complexity parameter is actually NOT used throught the
-    # rust part of the code: it's only used when writing to CSV.
-    # should we remove it from the main, file_complexity, and code_complexity functions?
-    files: list[FileComplexity] = rust.main(
-        path, is_dir, is_url, max_complexity, file_level
-    )
+    files: list[FileComplexity] = rust.main(path, is_dir, is_url, file_level)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
@@ -112,21 +107,17 @@ def main(
 
 def code_complexity(
     code: str,
-    max_complexity: int = 15,
     file_level: bool = True,
 ) -> CodeComplexity:
-    return rust.code_complexity(code, max_complexity, file_level)
+    return rust.code_complexity(code, file_level)
 
 
-def file_complexity(
-    file_path: str, max_complexity: int = 15, file_level: bool = True
-) -> FileComplexity:
+def file_complexity(file_path: str, file_level: bool = True) -> FileComplexity:
     path = Path(file_path)
     base_path = path.parent
     return rust.file_complexity(
         file_path=path.resolve().as_posix(),
         base_path=base_path.resolve().as_posix(),
-        _max_complexity=max_complexity,
         _file_level=file_level,
     )
 

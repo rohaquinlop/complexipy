@@ -25,7 +25,6 @@ pub fn main(
     path: &str,
     is_dir: bool,
     is_url: bool,
-    max_complexity: usize,
     file_level: bool,
 ) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
@@ -63,21 +62,21 @@ pub fn main(
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
 
-        match evaluate_dir(&repo_path, max_complexity, file_level) {
+        match evaluate_dir(&repo_path, file_level) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
 
         dir.close()?;
     } else if is_dir {
-        match evaluate_dir(path, max_complexity, file_level) {
+        match evaluate_dir(path, file_level) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
     } else {
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
-        match file_complexity(path, parent_dir, max_complexity, file_level) {
+        match file_complexity(path, parent_dir, file_level) {
             Ok(file_complexity) => ans.push(file_complexity),
             Err(e) => return Err(e),
         }
@@ -92,7 +91,6 @@ pub fn main(
 
 fn evaluate_dir(
     path: &str,
-    max_complexity: usize,
     file_level: bool,
 ) -> PyResult<Vec<FileComplexity>> {
     let mut files_paths: Vec<String> = Vec::new();
@@ -123,7 +121,7 @@ fn evaluate_dir(
         .par_iter()
         .map(|file_path| {
             pb.inc(1);
-            match file_complexity(file_path, parent_dir, max_complexity, file_level) {
+            match file_complexity(file_path, parent_dir, file_level) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e),
             }
@@ -143,7 +141,6 @@ fn evaluate_dir(
 pub fn file_complexity(
     file_path: &str,
     base_path: &str,
-    _max_complexity: usize,
     _file_level: bool,
 ) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
@@ -152,7 +149,7 @@ pub fn file_complexity(
 
     let code = std::fs::read_to_string(file_path)?;
 
-    let code_complexity = match code_complexity(&code, _max_complexity, _file_level) {
+    let code_complexity = match code_complexity(&code, _file_level) {
         Ok(v) => v,
         Err(e) => return Err(
 	    PyValueError::
@@ -171,7 +168,6 @@ pub fn file_complexity(
 #[pyfunction]
 pub fn code_complexity(
     code: &str,
-    _max_complexity: usize,
     _file_level: bool,
 ) -> PyResult<CodeComplexity> {
     let ast = match ast::Suite::parse(&code, "<embedded>") {
