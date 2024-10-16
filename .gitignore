@@ -68,5 +68,13 @@ docs/_build/
 # VSCode
 .vscode/
 
+# Emacs
+*~
+\#*\#
+*.dir-locals.el
+
 # Pyenv
 .python-version
+
+# Pyright LSP
+pyrightconfig.json

@@ -11,9 +11,7 @@ from .utils import (
 from complexipy import (
     rust,
 )
-from complexipy.rust import (
-    FileComplexity,
-)
+from complexipy.rust import FileComplexity, CodeComplexity
 import os
 from pathlib import (
     Path,
@@ -28,7 +26,7 @@ import typer
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.4.0"
+version = "0.5.0"
 
 
 @app.command()
@@ -77,9 +75,7 @@ def main(
 
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files: list[FileComplexity] = rust.main(
-        path, is_dir, is_url, max_complexity, file_level
-    )
+    files: list[FileComplexity] = rust.main(path, is_dir, is_url, file_level)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
@@ -107,6 +103,23 @@ def main(
 
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def code_complexity(
+    code: str,
+    file_level: bool = True,
+) -> CodeComplexity:
+    return rust.code_complexity(code, file_level)
+
+
+def file_complexity(file_path: str, file_level: bool = True) -> FileComplexity:
+    path = Path(file_path)
+    base_path = path.parent
+    return rust.file_complexity(
+        file_path=path.resolve().as_posix(),
+        base_path=base_path.resolve().as_posix(),
+        _file_level=file_level,
+    )
 
 
 if __name__ == "__main__":
