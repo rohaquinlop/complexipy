@@ -58,13 +58,13 @@ pip install complexipy
 
 ## Usage
 
-To run **complexipy** you can use the following command:
+To run **complexipy** from the command line, use the following commands:
 
 ```shell
-complexipy .                            # Use complexipy to analyze the current directory and any subdirectories
-complexipy path/to/directory            # Use complexipy to analyze a specific directory and any subdirectories
-complexipy git_repository_url           # Use complexipy to analyze a git repository
-complexipy path/to/file.py              # Use complexipy to analyze a specific file
+complexipy .                            # Analyze the current directory and any subdirectories
+complexipy path/to/directory            # Analyze a specific directory and any subdirectories
+complexipy git_repository_url           # Analyze a git repository
+complexipy path/to/file.py              # Analyze a specific file
 complexipy path/to/file.py -c 20        # Use the -c option to set the maximum congnitive complexity, default is 15
 complexipy path/to/directory -c 0       # Set the maximum cognitive complexity to 0 to disable the exit with error
 complexipy path/to/directory -o         # Use the -o option to output the results to a CSV file, default is False
@@ -102,11 +102,18 @@ If the cognitive complexity of a file or a function is greater than the maximum
 cognitive cognitive complexity, then the return code will be 1 and exit with
 error, otherwise it will be 0.
 
+
+## Use the library from python code
+The available library commands are:
+ - `complexipy.main.main`: works the same way as the top-level CLI command `complexipy`
+ - `complexipy.main.file_complexity`: takes in a file-path and returns the complexity of the file
+ - `complexipy.main.code_complexity`: takes in a string and (provided the string is a parsable snippet of python code) returns the complexity of the snippet.
+
 ## Example
 
 ### Analyzing a file
 
-For example, given the following file:
+Given the following file:
 
 ```python
 def a_decorator(a, b):
@@ -122,7 +129,10 @@ def b_decorator(a, b):
     return inner
 ```
 
-The cognitive complexity of the file is 1, and the output of the command
+The cognitive complexity of the file is 1.
+
+#### From the CLI
+The output of the command
 `complexipy path/to/file.py` will be:
 
 ```txt
@@ -138,6 +148,27 @@ The cognitive complexity of the file is 1, and the output of the command
 🧠 Total Cognitive Complexity in ./tests/src/test_decorator.py: 1
 1 file analyzed in 0.0032 seconds
 ────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
+```
+
+#### Using the library
+
+Calling `file_complexity` on a file-path:
+```python
+>>> from complexipy.main import file_complexity
+>>> fc = file_complexity("path/to/file.py")
+>>> fc.complexity
+1
+```
+
+Calling `file_complexity` on a snippet of code:
+```python
+>>> from complexipy.main import code_complexity
+>>> snippet = """for x in range(0, 10):
+    print(x)
+"""
+>>> cc = code_complexity(snippet)
+cc.complexity
+1
 ```
 
 #### Explaining the results of the analysis
