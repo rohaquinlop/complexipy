@@ -105,9 +105,8 @@ error, otherwise it will be 0.
 
 ## Use the library from python code
 The available library commands are:
- - `complexipy.main.main`: works the same way as the top-level CLI command `complexipy`
- - `complexipy.main.file_complexity`: takes in a file-path and returns the complexity of the file
- - `complexipy.main.code_complexity`: takes in a string and (provided the string is a parsable snippet of python code) returns the complexity of the snippet.
+ - `complexipy.file_complexity`: takes in a file-path and returns the complexity of the file
+ - `complexipy.code_complexity`: takes in a string and (provided the string is a parsable snippet of python code) returns the complexity of the snippet.
 
 ## Example
 
@@ -154,7 +153,7 @@ The output of the command
 
 Calling `file_complexity` on a file-path:
 ```python
->>> from complexipy.main import file_complexity
+>>> from complexipy import file_complexity
 >>> fc = file_complexity("path/to/file.py")
 >>> fc.complexity
 1
@@ -162,7 +161,7 @@ Calling `file_complexity` on a file-path:
 
 Calling `file_complexity` on a snippet of code:
 ```python
->>> from complexipy.main import code_complexity
+>>> from complexipy import code_complexity
 >>> snippet = """for x in range(0, 10):
     print(x)
 """
