@@ -2,7 +2,10 @@ from complexipy import rust
 import unittest
 from pathlib import Path
 
-from complexipy.main import file_complexity, code_complexity
+from complexipy import (
+    file_complexity,
+    code_complexity,
+)
 
 
 class TestFiles(unittest.TestCase):
