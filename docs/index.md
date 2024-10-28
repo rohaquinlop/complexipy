@@ -155,7 +155,7 @@ Calling `file_complexity` on a file-path:
 1
 ```
 
-Calling `file_complexity` on a snippet of code:
+Calling `code_complexity` on a snippet of code:
 ```python
 >>> from complexipy import code_complexity
 >>> snippet = """for x in range(0, 10):
