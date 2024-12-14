@@ -1,12 +1,10 @@
 from .types import (
     DetailTypes,
-    Level,
     Sort,
 )
 from .utils import (
     output_summary,
-    has_success_file_level,
-    has_success_function_level,
+    has_success_functions,
 )
 from complexipy import (
     rust,
@@ -16,7 +14,6 @@ import os
 from pathlib import (
     Path,
 )
-import re
 from rich.console import (
     Console,
 )
@@ -26,13 +23,13 @@ import typer
 root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "0.5.0"
+version = "1.1.0"
 
 
 @app.command()
 def main(
-    path: str = typer.Argument(
-        help="Path to the directory or file to analyze, it can be a local path or a git repository URL.",
+    paths: list[str] = typer.Argument(
+        help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
     max_complexity: int = typer.Option(
         15,
@@ -49,12 +46,6 @@ def main(
         "-d",
         help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
     ),
-    level: Level = typer.Option(
-        Level.function.value,
-        "--level",
-        "-l",
-        help="Specify the level of measurement, it can be 'function' or 'file'. Default is 'function'.",
-    ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress the output to the console."
     ),
@@ -65,39 +56,26 @@ def main(
         help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
     ),
 ):
-    is_dir = Path(path).is_dir()
-    _url_pattern = (
-        r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$"
-    )
-    is_url = bool(re.match(_url_pattern, path))
     invocation_path = os.getcwd()
-    file_level = level == Level.file
-
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files: list[FileComplexity] = rust.main(path, is_dir, is_url, file_level)
+    files_complexities: list[FileComplexity] = rust.main(paths)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
-    if output and file_level:
-        rust.output_csv_file_level(output_csv_path, files, sort.value)
-        console.print(f"Results saved in {output_csv_path}")
-    if output and not file_level:
-        rust.output_csv_function_level(output_csv_path, files, sort.value)
-        console.print(f"Results saved in {output_csv_path}")
+    if output:
+        rust.output_csv(output_csv_path, files_complexities, sort.value)
+        console.print(f"Results saved at {output_csv_path}")
 
-    # Summary
     if not quiet:
         has_success = output_summary(
-            console, file_level, files, max_complexity, details, path, sort
+            console, max_complexity, details, paths, sort
         )
-    if quiet and not file_level:
-        has_success = has_success_function_level(files, max_complexity)
-    if quiet and file_level:
-        has_success = has_success_file_level(files, max_complexity)
+    if quiet:
+        has_success = has_success_functions(files_complexities, max_complexity)
 
     console.print(
-        f"{len(files)} file{'s' if len(files)> 1 else ''} analyzed in {execution_time:.4f} seconds"
+        f"{len(files_complexities)} file{'s' if len(files_complexities)> 1 else ''} analyzed in {execution_time:.4f} seconds"
     )
     console.rule(":tada: Analysis completed! :tada:")
 
@@ -107,18 +85,16 @@ def main(
 
 def code_complexity(
     code: str,
-    file_level: bool = True,
 ) -> CodeComplexity:
-    return rust.code_complexity(code, file_level)
+    return rust.code_complexity(code)
 
 
-def file_complexity(file_path: str, file_level: bool = True) -> FileComplexity:
+def file_complexity(file_path: str) -> FileComplexity:
     path = Path(file_path)
     base_path = path.parent
     return rust.file_complexity(
         file_path=path.resolve().as_posix(),
         base_path=base_path.resolve().as_posix(),
-        _file_level=file_level,
     )
 
 

@@ -1,6 +1,6 @@
 [package]
 name = "complexipy"
-version = "0.5.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
 license = "MIT"
@@ -22,5 +22,6 @@ ignore = "0.4.22"
 indicatif = "0.17.8"
 pyo3 = "0.19.0"
 rayon = "1.8.1"
+regex = "1.11.1"
 rustpython-parser = { git = "https://github.com/RustPython/Parser.git", rev = "9ce55aefdeb35e2f706ce0b02d5a2dfe6295fc57" }
 tempfile = "3.10.0"

@@ -1,17 +1,19 @@
 pub mod utils;
 
-use crate::classes::{FileComplexity, FunctionComplexity, CodeComplexity};
+use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity};
 use ignore::Walk;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use rayon::prelude::*;
+use regex::Regex;
 use rustpython_parser::{
     ast::{self, Stmt},
     Parse,
 };
 use std::env;
+use std::fs::metadata;
 use std::path;
 use std::process;
 use std::sync::{Arc, Mutex};
@@ -21,12 +23,43 @@ use utils::{count_bool_ops, get_repo_name, is_decorator};
 
 // Main function
 #[pyfunction]
-pub fn main(
-    path: &str,
-    is_dir: bool,
-    is_url: bool,
-    file_level: bool,
-) -> PyResult<Vec<FileComplexity>> {
+pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
+    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
+        .unwrap();
+
+    let all_files_paths: Vec<(&str, bool, bool)> = paths
+        .par_iter()
+        .map(|&path| {
+            let is_url = re.is_match(path);
+
+            if is_url {
+                return (path, false, true);
+            } else if metadata(path).unwrap().is_dir() {
+                return (path, true, false);
+            } else {
+                return (path, false, false);
+            }
+        })
+        .collect();
+
+    let all_files_processed: Vec<Result<Vec<FileComplexity>, PyErr>> = all_files_paths
+        .iter()
+        .map(|(path, is_dir, is_url)| process_path(path, *is_dir, *is_url))
+        .collect();
+
+    if all_files_processed.iter().all(|x| !x.is_err()) {
+        let ans: Vec<FileComplexity> = all_files_processed
+            .iter()
+            .flat_map(|file_complexities| file_complexities.as_ref().unwrap().iter().cloned())
+            .collect();
+        return Ok(ans);
+    } else {
+        return Err(PyValueError::new_err("Failed to process the paths"));
+    }
+}
+
+#[pyfunction]
+pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
 
     if is_url {
@@ -62,21 +95,21 @@ pub fn main(
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
 
-        match evaluate_dir(&repo_path, file_level) {
+        match evaluate_dir(&repo_path) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
 
         dir.close()?;
     } else if is_dir {
-        match evaluate_dir(path, file_level) {
+        match evaluate_dir(path) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
     } else {
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
-        match file_complexity(path, parent_dir, file_level) {
+        match file_complexity(path, parent_dir) {
             Ok(file_complexity) => ans.push(file_complexity),
             Err(e) => return Err(e),
         }
@@ -89,10 +122,7 @@ pub fn main(
     Ok(ans)
 }
 
-fn evaluate_dir(
-    path: &str,
-    file_level: bool,
-) -> PyResult<Vec<FileComplexity>> {
+fn evaluate_dir(path: &str) -> PyResult<Vec<FileComplexity>> {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
@@ -121,7 +151,7 @@ fn evaluate_dir(
         .par_iter()
         .map(|file_path| {
             pb.inc(1);
-            match file_complexity(file_path, parent_dir, file_level) {
+            match file_complexity(file_path, parent_dir) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e),
             }
@@ -138,64 +168,51 @@ fn evaluate_dir(
 
 /// Calculate the cognitive complexity of a python file.
 #[pyfunction]
-pub fn file_complexity(
-    file_path: &str,
-    base_path: &str,
-    _file_level: bool,
-) -> PyResult<FileComplexity> {
+pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
     let file_name = path.file_name().unwrap().to_str().unwrap();
     let relative_path = path.strip_prefix(base_path).unwrap().to_str().unwrap();
 
     let code = std::fs::read_to_string(file_path)?;
 
-    let code_complexity = match code_complexity(&code, _file_level) {
+    let code_complexity = match code_complexity(&code) {
         Ok(v) => v,
-        Err(e) => return Err(
-	    PyValueError::
-	    new_err(format!("Failed to compute code_complexity; error: {}", e))),
+        Err(e) => {
+            return Err(PyValueError::new_err(format!(
+                "Failed to compute code_complexity; error: {}",
+                e
+            )))
+        }
     };
 
     Ok(FileComplexity {
         path: relative_path.to_string(),
         file_name: file_name.to_string(),
         complexity: code_complexity.complexity,
-	functions: code_complexity.functions,
+        functions: code_complexity.functions,
     })
 }
 
 /// Calculate the cognitive complexity of a string of python code.
 #[pyfunction]
-pub fn code_complexity(
-    code: &str,
-    _file_level: bool,
-) -> PyResult<CodeComplexity> {
+pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
     let ast = match ast::Suite::parse(&code, "<embedded>") {
         Ok(v) => v,
-        Err(e) => return Err(
-	    PyValueError::
-	    new_err(format!("Failed to parse this code; error: {}", e))),
+        Err(e) => {
+            return Err(PyValueError::new_err(format!(
+                "Failed to parse this code; error: {}",
+                e
+            )))
+        }
     };
 
-    let mut complexity: u64 = 0;
-    let mut functions: Vec<FunctionComplexity> = Vec::new();
-
-    if _file_level {
-        for node in ast.iter() {
-            complexity += statement_cognitive_complexity(node.clone(), 0)?;
-        }
-    } else {
-        let (f, c) = function_level_cognitive_complexity(&ast)?;
-        functions = f;
-        complexity = c;
-    }
+    let (functions, complexity) = function_level_cognitive_complexity(&ast)?;
 
     Ok(CodeComplexity {
         functions,
-	complexity,
+        complexity,
     })
 }
-
 
 fn function_level_cognitive_complexity(
     ast: &Vec<Stmt>,
@@ -244,6 +261,10 @@ fn function_level_cognitive_complexity(
                 complexity += statement_cognitive_complexity(node.clone(), 0)?;
             }
         }
+    }
+
+    for function in functions.iter() {
+        complexity += function.complexity;
     }
 
     Ok((functions, complexity))
