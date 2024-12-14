@@ -6,11 +6,6 @@ class DetailTypes(Enum):
     normal = "normal"  # Show all files with their complexity
 
 
-class Level(Enum):
-    function = "function"
-    file = "file"
-
-
 class Sort(Enum):
     asc = "asc"
     desc = "desc"

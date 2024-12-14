@@ -4,48 +4,7 @@ use pyo3::prelude::*;
 use rustpython_parser::ast::{self, Stmt};
 
 #[pyfunction]
-pub fn output_csv_file_level(
-    invocation_path: &str,
-    files_complexity: Vec<FileComplexity>,
-    sort: &str,
-) {
-    let mut writer = Writer::from_path(invocation_path).unwrap();
-
-    writer
-        .write_record(&["Path", "File Name", "Cognitive Complexity"])
-        .unwrap();
-
-    if sort != "name" {
-        let mut files_complexity = files_complexity;
-
-        files_complexity.sort_by_key(|f| f.complexity);
-
-        if sort == "desc" {
-            files_complexity.reverse();
-        }
-
-        for file in files_complexity.into_iter() {
-            writer
-                .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
-                .unwrap();
-        }
-    } else {
-        for file in &files_complexity {
-            writer
-                .write_record(&[&file.path, &file.file_name, &file.complexity.to_string()])
-                .unwrap();
-        }
-    }
-
-    writer.flush().unwrap();
-}
-
-#[pyfunction]
-pub fn output_csv_function_level(
-    invocation_path: &str,
-    functions_complexity: Vec<FileComplexity>,
-    sort: &str,
-) {
+pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexity>, sort: &str) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
     writer
