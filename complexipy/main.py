@@ -69,7 +69,7 @@ def main(
 
     if not quiet:
         has_success = output_summary(
-            console, max_complexity, details, paths, sort
+            console, files_complexities, max_complexity, details, sort
         )
     if quiet:
         has_success = has_success_functions(files_complexities, max_complexity)
