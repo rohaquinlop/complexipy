@@ -1,13 +1,23 @@
 {
-  "name": "complexipy-wasm",
+  "name": "complexipy",
   "type": "module",
-  "version": "0.1.0",
+  "collaborators": [
+    "Robin Quintero <rohaquinlop301@gmail.com>"
+  ],
+  "description": "An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.",
+  "version": "2.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rohaquinlop/complexipy"
+  },
   "files": [
     "complexipy_wasm_bg.wasm",
     "complexipy_wasm.js",
     "complexipy_wasm.d.ts"
   ],
   "main": "complexipy_wasm.js",
+  "homepage": "https://github.com/rohaquinlop/complexipy",
   "types": "complexipy_wasm.d.ts",
   "sideEffects": [
     "./snippets/*"

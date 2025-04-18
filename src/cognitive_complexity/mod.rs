@@ -1,28 +1,52 @@
 pub mod utils;
 
 use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity};
+#[cfg(feature = "python")]
 use ignore::Walk;
+#[cfg(feature = "python")]
 use indicatif::ProgressBar;
+#[cfg(feature = "python")]
 use indicatif::ProgressStyle;
+#[cfg(feature = "python")]
 use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use rayon::prelude::*;
+#[cfg(feature = "python")]
 use regex::Regex;
 
 // Import from ruff crates
+#[cfg(feature = "python")]
 use ruff_python_ast::{self as ast, Stmt};
+#[cfg(feature = "python")]
 use ruff_python_parser::parse_program;
 
+// Import ruff crates for WASM
+#[cfg(feature = "wasm")]
+use ruff_python_ast;
+#[cfg(feature = "wasm")]
+use ruff_python_parser::parse_program;
+
+#[cfg(feature = "python")]
 use std::env;
+#[cfg(feature = "python")]
 use std::fs::metadata;
+#[cfg(feature = "python")]
 use std::path;
+#[cfg(feature = "python")]
 use std::process;
+#[cfg(feature = "python")]
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "python")]
 use std::thread;
+#[cfg(feature = "python")]
 use tempfile::tempdir;
+#[cfg(feature = "python")]
 use utils::{count_bool_ops, get_repo_name, is_decorator};
 
 // Main function
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
@@ -59,6 +83,7 @@ pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
     }
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
@@ -123,6 +148,7 @@ pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<File
     Ok(ans)
 }
 
+#[cfg(feature = "python")]
 fn evaluate_dir(path: &str) -> PyResult<Vec<FileComplexity>> {
     let mut files_paths: Vec<String> = Vec::new();
 
@@ -165,6 +191,7 @@ fn evaluate_dir(path: &str) -> PyResult<Vec<FileComplexity>> {
 }
 
 /// Calculate the cognitive complexity of a python file.
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
@@ -192,6 +219,7 @@ pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplex
 }
 
 /// Calculate the cognitive complexity of a string of python code.
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
     let parsed = match parse_program(code) {
@@ -215,6 +243,7 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
     })
 }
 
+#[cfg(feature = "python")]
 fn function_level_cognitive_complexity(
     ast_body: &ast::Suite, // Use ruff_python_ast::Suite
 ) -> PyResult<(Vec<FunctionComplexity>, u64)> {
@@ -263,6 +292,7 @@ fn function_level_cognitive_complexity(
 }
 
 /// Calculate the cognitive complexity of a python statement using ruff_python_ast
+#[cfg(feature = "python")]
 fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResult<u64> {
     let mut complexity: u64 = 0;
 
@@ -392,6 +422,203 @@ fn statement_cognitive_complexity(statement: Stmt, nesting_level: u64) -> PyResu
             for item in w.items.iter() {
                 complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
             }
+            for node in w.body.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+            }
+        }
+        _ => {}
+    };
+
+    Ok(complexity)
+}
+
+/// Calculate the cognitive complexity of a string of python code.
+#[cfg(not(feature = "python"))]
+pub fn code_complexity(code: &str) -> Result<CodeComplexity, String> {
+    let parsed = match parse_program(code) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            return Err(format!("Failed to parse code: {}", e));
+        }
+    };
+
+    // The ruff parser returns a Program, which contains a body (Suite) of statements.
+    let ast_body = &parsed.body;
+
+    let (functions, complexity) = function_level_cognitive_complexity(ast_body)?;
+
+    Ok(CodeComplexity {
+        functions,
+        complexity,
+    })
+}
+
+#[cfg(not(feature = "python"))]
+fn function_level_cognitive_complexity(
+    ast_body: &[ruff_python_ast::Stmt], // Use ruff_python_ast::Suite
+) -> Result<(Vec<FunctionComplexity>, u64), String> {
+    let mut functions: Vec<FunctionComplexity> = Vec::new();
+    let mut complexity: u64 = 0;
+
+    for node in ast_body.iter() {
+        match node {
+            ruff_python_ast::Stmt::FunctionDef(f) => {
+                // Pass the function statement itself to calculate its complexity
+                let func_complexity = statement_cognitive_complexity(node.clone(), 0)?;
+
+                #[cfg(feature = "wasm")]
+                let function = FunctionComplexity {
+                    name: f.name.to_string(),
+                    complexity: func_complexity,
+                    line_start: 0, // This is filled in by the wasm module
+                    line_end: 0,   // This is filled in by the wasm module
+                    line_complexities: Vec::new(),
+                };
+
+                #[cfg(not(feature = "wasm"))]
+                let function = FunctionComplexity {
+                    name: f.name.to_string(),
+                    complexity: func_complexity,
+                };
+
+                functions.push(function);
+            }
+            ruff_python_ast::Stmt::ClassDef(c) => {
+                for node in c.body.iter() {
+                    match node {
+                        ruff_python_ast::Stmt::FunctionDef(f) => {
+                            // Methods inside classes start at nesting level 1 relative to the class
+                            // Pass the method statement itself to calculate its complexity
+                            let func_complexity = statement_cognitive_complexity(node.clone(), 0)?;
+
+                            #[cfg(feature = "wasm")]
+                            let function = FunctionComplexity {
+                                name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
+                                complexity: func_complexity,
+                                line_start: 0, // This is filled in by the wasm module
+                                line_end: 0,   // This is filled in by the wasm module
+                                line_complexities: Vec::new(),
+                            };
+
+                            #[cfg(not(feature = "wasm"))]
+                            let function = FunctionComplexity {
+                                name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
+                                complexity: func_complexity,
+                            };
+
+                            functions.push(function);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {
+                complexity += statement_cognitive_complexity(node.clone(), 0)?;
+            }
+        }
+    }
+
+    for function in functions.iter() {
+        complexity += function.complexity;
+    }
+
+    Ok((functions, complexity))
+}
+
+#[cfg(not(feature = "python"))]
+fn statement_cognitive_complexity(
+    statement: ruff_python_ast::Stmt,
+    nesting_level: u64,
+) -> Result<u64, String> {
+    let mut complexity: u64 = 0;
+
+    if is_decorator(statement.clone()) {
+        match statement {
+            ruff_python_ast::Stmt::FunctionDef(f) => {
+                return statement_cognitive_complexity(f.body[0].clone(), nesting_level);
+            }
+            _ => {}
+        }
+    }
+
+    match statement {
+        ruff_python_ast::Stmt::FunctionDef(f) => {
+            for node in f.body.iter() {
+                match node {
+                    ruff_python_ast::Stmt::FunctionDef(..) => {
+                        complexity +=
+                            statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+                    }
+                    _ => {
+                        complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                    }
+                }
+            }
+        }
+        ruff_python_ast::Stmt::ClassDef(c) => {
+            for node in c.body.iter() {
+                match node {
+                    ruff_python_ast::Stmt::FunctionDef(..) => {
+                        complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        ruff_python_ast::Stmt::For(f) => {
+            complexity += 1 + nesting_level;
+            for node in f.body.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+            for node in f.orelse.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+        }
+        ruff_python_ast::Stmt::While(w) => {
+            complexity += 1 + nesting_level;
+            for node in w.body.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+            for node in w.orelse.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+        }
+        ruff_python_ast::Stmt::If(i) => {
+            complexity += 1 + nesting_level;
+            for node in i.body.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+            for clause in i.elif_else_clauses {
+                for node in clause.body.iter() {
+                    complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
+                }
+            }
+        }
+        ruff_python_ast::Stmt::Try(t) => {
+            for node in t.body.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+            for handler in t.handlers.iter() {
+                complexity += 1; // Increment for each except handler
+                for node in handler.clone().expect_except_handler().body.iter() {
+                    complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+                }
+            }
+            for node in t.orelse.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+            for node in t.finalbody.iter() {
+                complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+            }
+        }
+        ruff_python_ast::Stmt::Match(m) => {
+            for case in m.cases.iter() {
+                for node in case.body.iter() {
+                    complexity += statement_cognitive_complexity(node.clone(), nesting_level + 1)?;
+                }
+            }
+        }
+        ruff_python_ast::Stmt::With(w) => {
             for node in w.body.iter() {
                 complexity += statement_cognitive_complexity(node.clone(), nesting_level)?;
             }

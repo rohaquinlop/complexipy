@@ -5,8 +5,8 @@ set -e
 
 echo "Building WebAssembly module..."
 
-# Navigate to the wasm/complexipy directory
-cd wasm/complexipy
+# Navigate to the project root directory (one level up from web directory)
+cd ..
 
 # Install wasm-pack if it's not already installed
 if ! command -v wasm-pack &> /dev/null; then
@@ -14,15 +14,16 @@ if ! command -v wasm-pack &> /dev/null; then
     cargo install wasm-pack
 fi
 
-# Build the WebAssembly module
+# Build the WebAssembly module with the wasm feature
 echo "Building with wasm-pack..."
-wasm-pack build --target web
+# Note: --out-name is for wasm-pack, while --features and --no-default-features are for cargo
+wasm-pack build --target web --out-name complexipy_wasm -- --features wasm --no-default-features
 
-# Create the wasm directory in the web root if it doesn't exist
-mkdir -p ../
+# Ensure the wasm directory exists in the web folder
+mkdir -p web/wasm
 
-# Copy the generated files to the web/wasm directory
+# Copy the output files to web/wasm directory
 echo "Copying generated files..."
-cp -r pkg/* ../
+cp -r pkg/* web/wasm/
 
 echo "WebAssembly module built successfully!" 

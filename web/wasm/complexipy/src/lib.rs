@@ -77,8 +77,8 @@ fn function_level_complexity(
                 let func_name = func_def.name.to_string();
 
                 // Extract line numbers from source range
-                let line_start = get_line_number(func_def.range.start().into() , code);
-                let line_end = get_line_number(func_def.range.end().into() , code);
+                let line_start = get_line_number(func_def.range.start().into(), code);
+                let line_end = get_line_number(func_def.range.end().into(), code);
 
                 // Calculate complexity for this function
                 let (statements_complexity, func_complexity) =
@@ -109,8 +109,8 @@ fn function_level_complexity(
                         let method_name = format!("{}::{}", class_def.name, method_def.name);
 
                         // Extract line numbers from source range
-                        let line_start = get_line_number(method_def.range.start().into() , code);
-                        let line_end = get_line_number(method_def.range.end().into() , code);
+                        let line_start = get_line_number(method_def.range.start().into(), code);
+                        let line_end = get_line_number(method_def.range.end().into(), code);
 
                         // Calculate complexity for this method
                         let (statements_complexity, method_complexity) =
@@ -176,7 +176,7 @@ fn statement_cognitive_complexity(
         ast::Stmt::If(if_stmt) => {
             // Add base complexity for 'if'
             complexity += 1 + nesting_level;
-            let line = get_line_number(if_stmt.range.start().into() , code);
+            let line = get_line_number(if_stmt.range.start().into(), code);
             line_complexities.push((line, 1 + nesting_level));
 
             // Process body
@@ -204,7 +204,7 @@ fn statement_cognitive_complexity(
         ast::Stmt::For(for_stmt) => {
             // Add base complexity for 'for'
             complexity += 1 + nesting_level;
-            let line = get_line_number(for_stmt.range.start().into() , code);
+            let line = get_line_number(for_stmt.range.start().into(), code);
             line_complexities.push((line, 1 + nesting_level));
 
             // Process body
@@ -230,7 +230,7 @@ fn statement_cognitive_complexity(
         ast::Stmt::While(while_stmt) => {
             // Add base complexity for 'while'
             complexity += 1 + nesting_level;
-            let line = get_line_number(while_stmt.range.start().into() , code);
+            let line = get_line_number(while_stmt.range.start().into(), code);
             line_complexities.push((line, 1 + nesting_level));
 
             // Process body
@@ -256,7 +256,7 @@ fn statement_cognitive_complexity(
         ast::Stmt::Try(try_stmt) => {
             // Add base complexity for 'try'
             complexity += 1;
-            let line = get_line_number(try_stmt.range.start().into() , code);
+            let line = get_line_number(try_stmt.range.start().into(), code);
             line_complexities.push((line, 1));
 
             // Process try body
@@ -273,7 +273,7 @@ fn statement_cognitive_complexity(
                 // Add complexity for each 'except'
                 complexity += 1;
                 let handler_stmt = handler.clone().expect_except_handler();
-                let handler_line = get_line_number(handler_stmt.range.start().into() , code);
+                let handler_line = get_line_number(handler_stmt.range.start().into(), code);
                 line_complexities.push((handler_line, 1));
 
                 for stmt in &handler_stmt.body {
@@ -308,7 +308,7 @@ fn statement_cognitive_complexity(
         ast::Stmt::Match(match_stmt) => {
             // Add base complexity for 'match'
             complexity += 1;
-            let line = get_line_number(match_stmt.range.start().into() , code);
+            let line = get_line_number(match_stmt.range.start().into(), code);
             line_complexities.push((line, 1));
 
             // Process cases
