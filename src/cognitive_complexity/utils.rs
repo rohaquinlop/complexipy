@@ -1,7 +1,7 @@
 use crate::classes::{FileComplexity, FunctionComplexity};
 use csv::Writer;
 use pyo3::prelude::*;
-use rustpython_parser::ast::{self, Stmt};
+use ruff_python_ast::{self as ast, Stmt};
 
 #[pyfunction]
 pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexity>, sort: &str) {
@@ -108,14 +108,14 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
                 complexity += count_bool_ops(comparator.clone(), nesting_level);
             }
         }
-        ast::Expr::IfExp(i) => {
+        ast::Expr::If(i) => {
             complexity += 1 + nesting_level;
             complexity += count_bool_ops(*i.test, nesting_level);
             complexity += count_bool_ops(*i.body, nesting_level);
             complexity += count_bool_ops(*i.orelse, nesting_level);
         }
         ast::Expr::Call(c) => {
-            for arg in c.args.iter() {
+            for arg in c.arguments.args.iter() {
                 complexity += count_bool_ops(arg.clone(), nesting_level);
             }
         }
@@ -135,12 +135,10 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
             }
         }
         ast::Expr::Dict(d) => {
-            for key in d.keys.iter() {
-                if let Some(key_value) = key {
-                    complexity += count_bool_ops(key_value.clone(), nesting_level);
-                }
+            for item in d.iter_keys() {
+                complexity += count_bool_ops(item.unwrap().clone(), nesting_level);
             }
-            for value in d.values.iter() {
+            for value in d.iter_values() {
                 complexity += count_bool_ops(value.clone(), nesting_level);
             }
         }

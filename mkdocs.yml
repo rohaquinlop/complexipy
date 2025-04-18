@@ -5,37 +5,80 @@ repo_name: rohaquinlop/complexipy
 repo_url: https://github.com/rohaquinlop/complexipy
 edit_uri: ""
 
+# Navigation structure (single page for now)
+nav:
+  - Home: index.md
+
 theme:
   name: material
   features:
+    - navigation.instant
+    - navigation.tracking
     - navigation.top
+    - navigation.indexes
+    - navigation.footer
     - search.suggest
     - search.highlight
+    - search.share
     - content.tabs.link
     - content.code.annotation
     - content.code.copy
+    - content.tooltips
   language: en
   palette:
-    primary: purple
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   icon:
     repo: fontawesome/brands/github-alt
   logo: img/icon.svg
   favicon: img/favicon.svg
 
+# Plugins (only using search which comes built-in)
+plugins:
+  - search
+
+# Extra configuration
 extra:
   social:
     - icon: fontawesome/brands/github-alt
       link: https://github.com/rohaquinlop
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/robin-hafid-quintero-lopez/
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
 
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - admonition
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.details
@@ -46,6 +89,8 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+      toc_depth: 3
 
-copyright:
-  Copyright &copy; 2021 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+copyright: Copyright &copy; 2021-2024 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>

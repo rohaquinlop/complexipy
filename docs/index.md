@@ -1,54 +1,50 @@
 # complexipy
 
-<p align="center">
-    <a href="https://rohaquinlop.github.io/complexipy/"><img src="img/logo-vector.svg" alt="complexipy"></a>
-</p>
+<div align="center">
 
-<p align="center">
-    <em>An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.</em>
-</p>
-
-<p align="center">
-    <a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
-        <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
-    </a>
-    <a href="https://pypi.org/project/complexipy" target="_blank">
+<a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
+    <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
+</a>
+<a href="https://pypi.org/project/complexipy" target="_blank">
     <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
 </a>
-</p>
+<a href="https://pepy.tech/project/complexipy" target="_blank">
+    <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
+</a>
+<a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
+</a>
 
+</div>
+
+An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
+
+## What is Cognitive Complexity?
 
 Cognitive Complexity breaks from using mathematical models to assess software
 maintainability by combining Cyclomatic Complexity precedents with human
 assessment. It yields method complexity scores that align well with how
-developers perceive maintainability. Read the white paper here: [Cognitive Complexity, a new way of measuring understandability](https://www.sonarsource.com/resources/cognitive-complexity/)
+developers perceive maintainability.
 
+Unlike traditional complexity metrics, cognitive complexity focuses on how difficult code is to *understand* by humans, making it more relevant for maintaining and reviewing code.
 
----
+**Key benefits:**
 
-**Documentation**: <a href="https://rohaquinlop.github.io/complexipy/" target="_blank">https://rohaquinlop.github.io/complexipy/</a>
+- Identifies hard-to-understand code sections
+- Helps improve code quality and maintainability
+- Provides a more intuitive metric than traditional complexity measures
 
-**Source Code**: <a href="https://github.com/rohaquinlop/complexipy" target="_blank">https://github.com/rohaquinlop/complexipy</a>
+📄 Read the white paper: [Cognitive Complexity, a new way of measuring understandability](https://www.sonarsource.com/resources/cognitive-complexity/)
 
-**PyPI**: <a href="https://pypi.org/project/complexipy/" target="_blank">https://pypi.org/project/complexipy/</a>
+## Resources
 
----
-
-
-## Contributors
-
-<p align="center">
-    <a href = "https://github.com/rohaquinlop/complexipy/graphs/contributors">
-    <img src = "https://contrib.rocks/image?repo=rohaquinlop/complexipy"/>
-    </a>
-</p>
-
-Made with [contributors-img](https://contrib.rocks)
+- **Source Code**: [GitHub Repository](https://github.com/rohaquinlop/complexipy)
+- **PyPI Package**: [PyPI - complexipy](https://pypi.org/project/complexipy/)
 
 ## Requirements
 
 - Python >= 3.8
-- You also need to install `git` in your computer if you want to analyze a git repository.
+- Git (optional) - required only if you want to analyze a git repository
 
 ## Installation
 
@@ -58,52 +54,94 @@ pip install complexipy
 
 ## Usage
 
-To run **complexipy** you can use the following command:
+### Command Line Interface
+
+Here are the various ways you can use complexipy:
 
 ```shell
-complexipy .                            # Use complexipy to analyze the current directory and any subdirectories
-complexipy path/to/directory            # Use complexipy to analyze a specific directory and any subdirectories
-complexipy git_repository_url           # Use complexipy to analyze a git repository
-complexipy path/to/file.py              # Use complexipy to analyze a specific file
-complexipy path/to/file.py -c 20        # Use the -c option to set the maximum congnitive complexity, default is 15
-complexipy path/to/directory -c 0       # Set the maximum cognitive complexity to 0 to disable the exit with error
-complexipy path/to/directory -o         # Use the -o option to output the results to a CSV file, default is False
-complexipy path/to/directory -d low     # Use the -d option to set detail level, default is "normal". If set to "low" will show only files with complexity greater than the maximum complexity
-complexipy path/to/directory -q         # Use the -q option to disable the output to the console, default is False.
-complexipy path/to/directory -s desc    # Use the -s option to set the sort order, default is "asc". If set to "desc" will sort the results in descending order. If set to "asc" will sort the results in ascending order. If set to "name" will sort the results by name.
+# Analyze the current directory and subdirectories
+complexipy .                            
+
+# Analyze a specific directory and subdirectories
+complexipy path/to/directory            
+
+# Analyze a git repository
+complexipy git_repository_url           
+
+# Analyze a specific file
+complexipy path/to/file.py              
+
+# Set maximum cognitive complexity (default: 15)
+complexipy path/to/file.py -c 20        
+
+# Disable exit with error (by setting max complexity to 0)
+complexipy path/to/directory -c 0       
+
+# Output results to a CSV file
+complexipy path/to/directory -o         
+
+# Show only files exceeding maximum complexity
+complexipy path/to/directory -d low     
+
+# Disable console output 
+complexipy path/to/directory -q         
+
+# Sort results in descending order
+complexipy path/to/directory -s desc    
 ```
 
 ### Options
 
-- `-c` or `--max-complexity`: Set the maximum cognitive complexity, default is 15.
-  If the cognitive complexity of a file is greater than the maximum cognitive,
-  then the return code will be 1 and exit with error, otherwise it will be 0.
-  If set to 0, the exit with error will be disabled.
-- `-o` or `--output`: Output the results to a CSV file, default is False. The
-  filename will be `complexipy.csv` and will be saved in the invocation directory.
-- `-d` or `--details`: Set the detail level, default is "normal". If set to "low"
-  will show only files or functions with complexity greater than the maximum
-  complexity.
-- `-q` or `--quiet`: Disable the output to the console, default is False.
-- `-s` or `--sort`: Set the sort order, default is "asc". If set to "desc" will
-  sort the results in descending order. If set to "asc" will sort the results in
-  ascending order. If set to "name" will sort the results by name. This option will
-  affect the output to the console and the output to the CSV file.
+| Option | Long form          | Description                            | Default |
+| ------ | ------------------ | -------------------------------------- | ------- |
+| `-c`   | `--max-complexity` | Maximum cognitive complexity threshold | 15      |
+| `-o`   | `--output`         | Output results to CSV file             | False   |
+| `-d`   | `--details`        | Detail level (normal/low)              | normal  |
+| `-q`   | `--quiet`          | Disable console output                 | False   |
+| `-s`   | `--sort`           | Sort order (asc/desc/name)             | asc     |
 
-If the cognitive complexity of a file or a function is greater than the maximum
-cognitive cognitive complexity, then the return code will be 1 and exit with
-error, otherwise it will be 0.
+**Notes:**
 
-## Use the library from python code
-The available library commands are:
- - `complexipy.file_complexity`: takes in a file-path and returns the complexity of the file
- - `complexipy.code_complexity`: takes in a string and (provided the string is a parsable snippet of python code) returns the complexity of the snippet.
+- If a file's complexity exceeds the maximum complexity, the program will exit with error code 1. Set to 0 to disable this behavior.
+- CSV output is saved to `complexipy.csv` in the current directory.
+- Detail level `low` shows only files/functions exceeding the maximum complexity.
+- Sort options:
+  - `asc`: Sort by complexity (ascending)
+  - `desc`: Sort by complexity (descending)
+  - `name`: Sort by name (ascending)
 
-## Example
+## Python API
 
-### Analyzing a file
+The library provides two main functions:
 
-For example, given the following file:
+- `complexipy.file_complexity`: Analyze a Python file at a specified path
+- `complexipy.code_complexity`: Analyze a string containing Python code
+
+### Example
+
+```python
+# Analyze a file
+from complexipy import file_complexity
+result = file_complexity("path/to/your/file.py")
+print(f"File complexity: {result.complexity}")
+
+# Analyze a code snippet
+from complexipy import code_complexity
+code = """
+def example_function(x):
+    if x > 0:
+        for i in range(x):
+            print(i)
+"""
+result = code_complexity(code)
+print(f"Code complexity: {result.complexity}")
+```
+
+## Examples
+
+### Analyzing a Python File
+
+Let's analyze this sample Python file:
 
 ```python
 def a_decorator(a, b):
@@ -119,11 +157,12 @@ def b_decorator(a, b):
     return inner
 ```
 
-The cognitive complexity of the file is 1, and the output of the command
-`complexipy path/to/file.py` will be:
+#### Command Line Output
+
+Running `complexipy path/to/file.py` produces:
 
 ```txt
-───────────────────────────── 🐙 complexipy 1.2.0 ──────────────────────────────
+───────────────────────────── 🐙 complexipy 2.0.0 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
@@ -137,9 +176,9 @@ The cognitive complexity of the file is 1, and the output of the command
 ────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
 ```
 
-#### Using the library
+#### Using the Python API
 
-Calling `file_complexity` on a file-path:
+With `file_complexity`:
 ```python
 >>> from complexipy import file_complexity
 >>> fc = file_complexity("path/to/file.py")
@@ -147,18 +186,18 @@ Calling `file_complexity` on a file-path:
 1
 ```
 
-Calling `code_complexity` on a snippet of code:
+With `code_complexity`:
 ```python
 >>> from complexipy import code_complexity
 >>> snippet = """for x in range(0, 10):
     print(x)
 """
 >>> cc = code_complexity(snippet)
-cc.complexity
+>>> cc.complexity
 1
 ```
 
-#### Explaining the results of the analysis
+#### Understanding Complexity Calculation
 
 ```python
 def a_decorator(a, b): # 0
@@ -174,26 +213,17 @@ def b_decorator(a, b): # 0
     return inner # 0
 ```
 
-The cognitive complexity of the file is 1, and the cognitive complexity of the
-function `b_decorator` is 1. This example is simple, but it shows how
-**complexipy** calculates the cognitive complexity according to the specifications
-of the paper "Cognitive Complexity a new way to measure understandability",
-considering the decorators and the if statement.
+The cognitive complexity of the file is 1, with the function `b_decorator` having a complexity of 1 due to the if statement. This demonstrates how complexipy assesses code according to cognitive complexity principles that focus on how difficult the code is to understand by humans.
 
-#### Output to a CSV file
+### Generating CSV Output
 
-If you want to output the results to a CSV file, you can use the `-o` option,
-this is really useful if you want to integrate **complexipy** with other tools,
-for example, a CI/CD pipeline. You will get the output in the console and will
-create a CSV file with the results of the analysis.
-
-The filename will be `complexipy.csv` and will be saved in the current directory.
+To export results to a CSV file, use the `-o` option:
 
 ```bash
-$ complexipy path/to/file.py -o
+complexipy path/to/file.py -o
 ```
 
-The output will be:
+The CSV file will contain:
 
 ```csv
 Path,File Name,Function Name,Cognitive Complexity
@@ -201,42 +231,46 @@ test_decorator.py,test_decorator.py,a_decorator,0
 test_decorator.py,test_decorator.py,b_decorator,1
 ```
 
-### Analyzing a directory
+This is useful for integrating complexipy into CI/CD pipelines or other automated analysis workflows.
 
-You can also analyze a directory, for example:
+### Analyzing a Directory
 
-```bash
-$ complexipy .
-```
-
-And **complexipy** will analyze all the files in the current directory and any
-subdirectories.
-
-### Analyzing a git repository
-
-You can also analyze a git repository, for example:
+To analyze all Python files in a directory and its subdirectories:
 
 ```bash
-$ complexipy https://github.com/rohaquinlop/complexipy
+complexipy /path/to/directory
 ```
 
-And to generate the output to a CSV file:
+### Analyzing a Git Repository
+
+To analyze a remote Git repository:
 
 ```bash
-$ complexipy https://github.com/rohaquinlop/complexipy -o
+# Clone and analyze
+complexipy https://github.com/rohaquinlop/complexipy
+
+# With CSV output
+complexipy https://github.com/rohaquinlop/complexipy -o
 ```
+
+## Contributors
+
+<div align="center">
+    <a href = "https://github.com/rohaquinlop/complexipy/graphs/contributors">
+    <img src = "https://contrib.rocks/image?repo=rohaquinlop/complexipy"/>
+    </a>
+</div>
+
+Made with [contributors-img](https://contrib.rocks)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/rohaquinlop/complexipy/blob/main/LICENSE) file
-for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/rohaquinlop/complexipy/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
-- Thanks to G. Ann Campbell for publishing the paper "Cognitive Complexity a new
-way to measure understandability".
-- This project is inspired by the Sonar way to calculate the cognitive
-complexity.
+- Thanks to G. Ann Campbell for publishing the paper "Cognitive Complexity: A new way to measure understandability".
+- This project is inspired by SonarSource's approach to calculating cognitive complexity.
 
 ## References
 
