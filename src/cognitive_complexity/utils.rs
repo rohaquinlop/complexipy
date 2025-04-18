@@ -1,8 +1,10 @@
+#[cfg(feature = "python")]
 use crate::classes::{FileComplexity, FunctionComplexity};
 #[cfg(feature = "python")]
 use csv::Writer;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use ruff_python_ast::{self as ast, Stmt};
 
 #[cfg(feature = "python")]

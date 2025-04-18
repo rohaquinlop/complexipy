@@ -1,6 +1,9 @@
 pub mod utils;
 
+#[cfg(feature = "python")]
 use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity};
+#[cfg(not(feature = "python"))]
+use crate::classes::{CodeComplexity, FunctionComplexity};
 #[cfg(feature = "python")]
 use ignore::Walk;
 #[cfg(feature = "python")]
@@ -532,14 +535,9 @@ fn statement_cognitive_complexity(
 ) -> Result<u64, String> {
     let mut complexity: u64 = 0;
 
-    if is_decorator(statement.clone()) {
-        match statement {
-            ruff_python_ast::Stmt::FunctionDef(f) => {
-                return statement_cognitive_complexity(f.body[0].clone(), nesting_level);
-            }
-            _ => {}
-        }
-    }
+    // Note: We don't check for decorators in the WASM version
+    // This is different from the Python version which has:
+    // if is_decorator(statement.clone()) { ... }
 
     match statement {
         ruff_python_ast::Stmt::FunctionDef(f) => {
