@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComplexiPy - Cognitive Complexity Analyzer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>ComplexiPy</h1>
+            <p>Cognitive Complexity Analyzer</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="editor-container">
+            <div class="editor-header">
+                <button id="analyze-btn">Analyze</button>
+                <select id="language-select">
+                    <option value="python" selected>Python</option>
+                </select>
+            </div>
+            <div class="editor-wrapper">
+                <textarea id="code-editor"></textarea>
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="summary">
+                <h3>Summary</h3>
+                <div id="summary-content">
+                    <p>Total Complexity: <span id="total-complexity">0</span></p>
+                    <p>Functions: <span id="function-count">0</span></p>
+                </div>
+            </div>
+            <div class="functions">
+                <h3>Functions</h3>
+                <div id="functions-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Powered by <a href="https://github.com/rohaquinlop/complexipy" target="_blank">ComplexiPy</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
