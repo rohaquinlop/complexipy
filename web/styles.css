@@ -19,20 +19,25 @@ body {
     line-height: 1.6;
     color: var(--text-color);
     background-color: var(--background-color);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
-    width: 95%;
-    max-width: 1400px;
+    width: 98%;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 10px;
 }
 
 header {
     background-color: var(--primary-color);
-    padding: 1.5rem 0;
+    padding: 1rem 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
+    flex-shrink: 0;
 }
 
 header h1 {
@@ -41,15 +46,18 @@ header h1 {
 }
 
 main {
+    flex: 1;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: 1.5rem;
+    padding-bottom: 1rem;
+    overflow: hidden;
 }
 
 @media (min-width: 1024px) {
     main {
-        grid-template-columns: 7fr 3fr;
+        grid-template-columns: 8fr 4fr;
+        gap: 1.5rem;
     }
 }
 
@@ -58,6 +66,9 @@ main {
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .editor-header {
@@ -94,13 +105,16 @@ main {
 
 .editor-wrapper {
     position: relative;
-    height: 700px;
+    flex-grow: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .CodeMirror {
-    height: 100%;
+    height: 100% !important;
     font-family: 'Fira Code', 'Courier New', monospace;
     font-size: 14px;
+    line-height: 1.5;
 }
 
 /* Complexity gutter and markers */
@@ -194,12 +208,9 @@ main {
 
 footer {
     background-color: #343746;
-    padding: 1rem 0;
+    padding: 0.5rem 0;
     text-align: center;
-    margin-top: 2rem;
-    position: relative;
-    bottom: 0;
-    width: 100%;
+    flex-shrink: 0;
 }
 
 footer a {

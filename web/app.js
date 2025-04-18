@@ -15,9 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
         tabSize: 4,
         indentWithTabs: false,
         autofocus: true,
+        viewportMargin: Infinity,
+        scrollbarStyle: 'native',
         extraKeys: { 'Tab': 'insertSoftTab' },
         gutters: ["CodeMirror-linenumbers", "complexity-gutter"]
     });
+
+    // Make the editor fill the available space
+    const refreshLayout = () => {
+        setTimeout(() => {
+            editor.refresh();
+            editor.scrollIntoView({ line: 0, ch: 0 });
+        }, 100);
+    };
+
+    window.addEventListener('resize', refreshLayout);
+    refreshLayout(); // Initial refresh
 
     // Add sample code
     const sampleCode = `def factorial(n):
