@@ -22,7 +22,7 @@ def output_summary(
     details: DetailTypes,
     sort: Sort,
 ) -> bool:
-    table, has_success, total_complexity = create_table(
+    table, has_success, total_complexity, all_functions = create_table(
         files, max_complexity, details, sort
     )
 
@@ -31,8 +31,17 @@ def output_summary(
             f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
         )
     else:
-        console.print(Align.center(table))
-    console.print(f":brain: Total Cognitive Complexity: {total_complexity}")
+        if len(all_functions) == 0:
+            console.print(
+                Align.center(
+                    "No files were found with functions. No complexity was calculated."
+                )
+            )
+        else:
+            console.print(Align.center(table))
+            console.print(
+                f":brain: Total Cognitive Complexity: {total_complexity}"
+            )
 
     return has_success
 
@@ -42,7 +51,7 @@ def create_table(
     complexity: int,
     details: DetailTypes,
     sort: bool = False,
-) -> tuple[Table, bool, int]:
+) -> tuple[Table, bool, int, list[tuple[str, str, FunctionComplexity]]]:
     has_success = True
     all_functions: list[tuple[str, str, FunctionComplexity]] = []
     total_complexity = 0
@@ -85,7 +94,7 @@ def create_table(
                 f"[green]{function[2].name}[/green]",
                 f"[blue]{function[2].complexity}[/blue]",
             )
-    return table, has_success, total_complexity
+    return table, has_success, total_complexity, all_functions
 
 
 def has_success_functions(files: list[FileComplexity], complexity: int) -> bool:

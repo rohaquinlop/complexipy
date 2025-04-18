@@ -1,1 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>complexipy</title><path fill="purple" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,7A2,2 0 0,0 9,9V15A2,2 0 0,0 11,17H13A2,2 0 0,0 15,15V14H13V15H11V9H13V10H15V9A2,2 0 0,0 13,7H11Z" /></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>complexipy</title>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9c27b0" />
+      <stop offset="100%" stop-color="#673ab7" />
+    </linearGradient>
+  </defs>
+  <!-- Base circle with gradient -->
+  <circle cx="12" cy="12" r="12" fill="url(#gradient)" />
+  
+  <!-- Simplified brain outline (for small favicon) -->
+  <path d="M12,5 C15,5 16,7 16,9 C18,9 19,10 19,12 C19,14 18,15 17,15 C18,16 18,17 17,18 C16,19 15,19 12,19 C9,19 8,19 7,18 C6,17 6,16 7,15 C6,15 5,14 5,12 C5,10 6,9 8,9 C8,7 9,5 12,5" 
+        fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.4" />
+        
+  <!-- Simplified nested code blocks -->
+  <rect x="8" y="8" width="8" height="8" rx="1" ry="1" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.8" />
+  <rect x="10" y="10" width="4" height="4" rx="0.5" ry="0.5" fill="none" stroke="#ffffff" stroke-width="0.6" opacity="0.9" />
+  
+  <!-- C letter for brand identity -->
+  <path fill="#ffffff" d="M10.5,8.5 C10.2,8.5 10,8.7 10,9 L10,15 C10,15.3 10.2,15.5 10.5,15.5 L13.5,15.5 C13.8,15.5 14,15.3 14,15 L14,14 L13,14 L13,14.5 L11,14.5 L11,9.5 L13,9.5 L13,10 L14,10 L14,9 C14,8.7 13.8,8.5 13.5,8.5 L10.5,8.5 Z" />
+</svg>

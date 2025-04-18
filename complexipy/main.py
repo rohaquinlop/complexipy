@@ -20,10 +20,9 @@ from rich.console import (
 import time
 import typer
 
-root_dir = Path(__file__).resolve().parent.parent
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "1.2.0"
+version = "2.0.0"
 
 
 @app.command()

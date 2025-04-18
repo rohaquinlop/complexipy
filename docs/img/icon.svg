@@ -1,1 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>complexipy</title><path fill="white" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,7A2,2 0 0,0 9,9V15A2,2 0 0,0 11,17H13A2,2 0 0,0 15,15V14H13V15H11V9H13V10H15V9A2,2 0 0,0 13,7H11Z" /></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>complexipy</title>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9c27b0" />
+      <stop offset="100%" stop-color="#673ab7" />
+    </linearGradient>
+    <!-- Brain pattern -->
+    <pattern id="brainPattern" patternUnits="userSpaceOnUse" width="24" height="24">
+      <path d="M12,4 C16,4 18,7 18,9 C20,9 22,11 22,13 C22,15 20,16 19,16 C20,17 20,18 20,19 C20,21 18,22 16,22 C14,22 13,21 12,20 C11,21 10,22 8,22 C6,22 4,21 4,19 C4,18 4,17 5,16 C4,16 2,15 2,13 C2,11 4,9 6,9 C6,7 8,4 12,4" 
+        fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.3" />
+    </pattern>
+  </defs>
+  <!-- Base circle with gradient -->
+  <circle cx="12" cy="12" r="10" fill="url(#gradient)" />
+  <!-- Brain-like pattern overlay -->
+  <circle cx="12" cy="12" r="10" fill="url(#brainPattern)" />
+  
+  <!-- Code structure visualization (nested blocks representing complexity) -->
+  <rect x="6" y="6" width="12" height="12" rx="1" ry="1" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.7" />
+  <rect x="8" y="8" width="8" height="8" rx="1" ry="1" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.8" />
+  <rect x="10" y="10" width="4" height="4" rx="1" ry="1" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.9" />
+  
+  <!-- Nested branching structure (representing decision trees) -->
+  <line x1="6" y1="9" x2="4" y2="9" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="4" y1="9" x2="4" y2="7" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="4" y1="9" x2="4" y2="11" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  
+  <line x1="18" y1="9" x2="20" y2="9" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="20" y1="9" x2="20" y2="7" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="20" y1="9" x2="20" y2="11" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  
+  <line x1="12" y1="18" x2="12" y2="20" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="12" y1="20" x2="10" y2="20" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  <line x1="12" y1="20" x2="14" y2="20" stroke="#ffffff" stroke-width="0.4" opacity="0.8" />
+  
+  <!-- C letter centrally placed -->
+  <path fill="#ffffff" d="M10.5,8.5 C10.2,8.5 10,8.7 10,9 L10,15 C10,15.3 10.2,15.5 10.5,15.5 L13.5,15.5 C13.8,15.5 14,15.3 14,15 L14,14 L13,14 L13,14.5 L11,14.5 L11,9.5 L13,9.5 L13,10 L14,10 L14,9 C14,8.7 13.8,8.5 13.5,8.5 L10.5,8.5 Z" />
+</svg>
