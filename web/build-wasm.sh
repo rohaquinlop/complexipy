@@ -5,9 +5,6 @@ set -e
 
 echo "Building WebAssembly module..."
 
-# Navigate to the project root directory (one level up from web directory)
-cd ..
-
 # Install wasm-pack if it's not already installed
 if ! command -v wasm-pack &> /dev/null; then
     echo "Installing wasm-pack..."

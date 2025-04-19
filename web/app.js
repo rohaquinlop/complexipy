@@ -226,9 +226,23 @@ function addComplexityIndicators(result) {
         functionComplexityMap.set(func.line_start, func.complexity);
 
         // If we have line-by-line complexity data, add it to our map
-        if (func.line_complexities) {
+        if (func.line_complexities && func.line_complexities.length > 0) {
+            // First, aggregate complexity values by line
+            const lineAggregates = new Map();
+
             func.line_complexities.forEach(lineComp => {
-                lineComplexityMap.set(lineComp.line, lineComp.complexity);
+                if (lineComp.complexity > 0) {
+                    const line = lineComp.line;
+                    const currentValue = lineAggregates.get(line) || 0;
+                    lineAggregates.set(line, currentValue + lineComp.complexity);
+                }
+            });
+
+            // Then update the main map with aggregated values
+            lineAggregates.forEach((complexity, line) => {
+                // Add to any existing values from other functions
+                const existingComplexity = lineComplexityMap.get(line) || 0;
+                lineComplexityMap.set(line, existingComplexity + complexity);
             });
         }
     });
@@ -260,6 +274,7 @@ function addComplexityIndicators(result) {
             return;
         }
 
+        // Only show markers for meaningful complexity
         if (complexity > 0) {
             // Create the marker element
             const marker = document.createElement("div");

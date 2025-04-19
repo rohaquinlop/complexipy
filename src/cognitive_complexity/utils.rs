@@ -4,7 +4,7 @@ use crate::classes::{FileComplexity, FunctionComplexity};
 use csv::Writer;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
 
 #[cfg(feature = "python")]
@@ -74,7 +74,7 @@ pub fn get_repo_name(url: &str) -> String {
     repo_name.to_string()
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm"))]
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
     match statement {
@@ -96,7 +96,7 @@ pub fn is_decorator(statement: Stmt) -> bool {
     ans
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm"))]
 pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
