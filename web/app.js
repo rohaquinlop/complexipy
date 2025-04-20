@@ -32,44 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', refreshLayout);
     refreshLayout(); // Initial refresh
 
-    // Add sample code
-    const sampleCode = `def factorial(n):
-    if n <= 1:
-        return 1
-    else:
-        return n * factorial(n - 1)
-
-def calculate_fibonacci(n):
-    if n <= 0:
-        return 0
-    elif n == 1:
-        return 1
-    else:
-        return calculate_fibonacci(n - 1) + calculate_fibonacci(n - 2)
-
-def complex_function(data, threshold=10):
-    result = []
-    
-    for item in data:
-        if item > threshold:
-            if item % 2 == 0:
-                result.append(item * 2)
-            else:
-                result.append(item * 3)
-        elif item < 0:
-            continue
-        else:
-            if item % 3 == 0:
-                result.append(item // 3)
-            elif item % 2 == 0:
-                result.append(item // 2)
-            else:
-                result.append(item)
-    
-    return result
-`;
-    editor.setValue(sampleCode);
-
     // Analyze button click handler
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.addEventListener('click', analyzeCode);
@@ -109,6 +71,7 @@ function analyzeCode() {
 
     const code = editor.getValue();
     if (!code.trim()) {
+        resetUI();
         return;
     }
 
