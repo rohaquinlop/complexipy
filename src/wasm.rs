@@ -1,11 +1,11 @@
-use ruff_python_ast as ast;
+use ruff_python_ast::{self as ast, Stmt};
 use ruff_python_parser::parse_program;
 use std::panic;
 use wasm_bindgen::prelude::*;
 
 use crate::classes::{CodeComplexity, FunctionComplexity, LineComplexity};
 use crate::cognitive_complexity::code_complexity as analyze_complexity;
-use crate::cognitive_complexity::utils::count_bool_ops;
+use crate::cognitive_complexity::utils::{count_bool_ops, is_decorator};
 
 // Initialize panic hook for better error messages
 #[wasm_bindgen(start)]
@@ -141,48 +141,121 @@ fn get_statement_complexity(
 ) -> Result<Vec<LineComplexity>, String> {
     let mut result = Vec::new();
 
-    match statement {
-        ast::Stmt::If(if_stmt) => {
-            // Add complexity for 'if'
-            let complexity = 1 + nesting_level;
-            let line = get_line_number(usize::from(if_stmt.range.start()), code);
-            result.push(LineComplexity { line, complexity });
+    if is_decorator(statement.clone()) {
+        match statement {
+            ast::Stmt::FunctionDef(f) => {
+                return get_statement_complexity(&f.body[0], nesting_level, code);
+            }
+            _ => {}
+        }
+    }
 
-            // Add complexity for boolean operations in the test condition
-            let bool_ops_complexity = count_bool_ops(*if_stmt.test.clone(), nesting_level);
-            if bool_ops_complexity > 0 {
-                // Add to the same line if there are boolean operations
+    match statement {
+        Stmt::FunctionDef(f) => {
+            for node in &f.body {
+                match node {
+                    Stmt::FunctionDef(..) => {
+                        let stmt_complexity =
+                            get_statement_complexity(node, nesting_level + 1, code)?;
+                        result.extend(stmt_complexity);
+                    }
+                    _ => {
+                        let stmt_complexity = get_statement_complexity(node, nesting_level, code)?;
+                        result.extend(stmt_complexity)
+                    }
+                }
+            }
+        }
+        Stmt::ClassDef(c) => {
+            for node in &c.body {
+                match node {
+                    Stmt::FunctionDef(..) => {
+                        let stmt_complexity = get_statement_complexity(node, nesting_level, code)?;
+                        result.extend(stmt_complexity);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Stmt::Assign(a) => {
+            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
+            let line = get_line_number(usize::from(a.range.start()), code);
+            result.push(LineComplexity {
+                line,
+                complexity: bool_ops_complexity,
+            });
+        }
+        Stmt::AnnAssign(a) => {
+            if let Some(value) = &a.value {
+                let bool_ops_complexity = count_bool_ops(*value.clone(), nesting_level);
+                let line = get_line_number(usize::from(a.range.start()), code);
                 result.push(LineComplexity {
                     line,
                     complexity: bool_ops_complexity,
                 });
             }
+        }
+        Stmt::AugAssign(a) => {
+            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
+            let line = get_line_number(usize::from(a.range.start()), code);
+            result.push(LineComplexity {
+                line,
+                complexity: bool_ops_complexity,
+            });
+        }
+        Stmt::For(f) => {
+            let complexity = 1 + nesting_level;
+            let line = get_line_number(usize::from(f.range.start()), code);
+            result.push(LineComplexity { line, complexity });
 
-            // Process body
-            for stmt in &if_stmt.body {
+            for stmt in &f.body {
                 let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
                 result.extend(stmt_complexity);
             }
 
-            // Process elif and else clauses
-            for clause in &if_stmt.elif_else_clauses {
+            for stmt in &f.orelse {
+                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+                result.extend(stmt_complexity);
+            }
+        }
+        Stmt::While(w) => {
+            let complexity = 1 + nesting_level + count_bool_ops(*w.test.clone(), nesting_level);
+            let line = get_line_number(usize::from(w.range.start()), code);
+            result.push(LineComplexity { line, complexity });
+
+            for stmt in &w.body {
+                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+                result.extend(stmt_complexity);
+            }
+
+            for stmt in &w.orelse {
+                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+                result.extend(stmt_complexity);
+            }
+        }
+        Stmt::If(i) => {
+            let complexity = 1 + nesting_level + count_bool_ops(*i.test.clone(), nesting_level);
+            let line = get_line_number(usize::from(i.range.start()), code);
+            result.push(LineComplexity { line, complexity });
+
+            for stmt in &i.body {
+                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+                result.extend(stmt_complexity);
+            }
+
+            for clause in &i.elif_else_clauses {
+                let mut complexity = 0;
                 let clause_line = get_line_number(usize::from(clause.range.start()), code);
+                if let Some(test) = &clause.test {
+                    complexity += count_bool_ops(test.clone(), nesting_level);
+                }
 
-                // Add complexity for elif/else
-                result.push(LineComplexity {
-                    line: clause_line,
-                    complexity: 1 + nesting_level,
-                });
-
-                // Add complexity for boolean operations in elif conditions
-                if let Some(test) = clause.test.as_ref() {
-                    let bool_ops_complexity = count_bool_ops(test.clone(), nesting_level);
-                    if bool_ops_complexity > 0 {
-                        result.push(LineComplexity {
-                            line: clause_line,
-                            complexity: bool_ops_complexity,
-                        });
-                    }
+                if complexity > 0 {
+                    complexity += 1 + nesting_level;
+                    result.push(LineComplexity {
+                        line: clause_line,
+                        complexity,
+                    });
                 }
 
                 for stmt in &clause.body {
@@ -191,260 +264,79 @@ fn get_statement_complexity(
                 }
             }
         }
-        ast::Stmt::For(for_stmt) => {
-            // Add complexity for 'for'
-            let complexity = 1 + nesting_level;
-            let line = get_line_number(usize::from(for_stmt.range.start()), code);
-            result.push(LineComplexity { line, complexity });
-
-            // Process body
-            for stmt in &for_stmt.body {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+        Stmt::Try(t) => {
+            for node in &t.body {
+                let stmt_complexity = get_statement_complexity(node, nesting_level + 1, code)?;
                 result.extend(stmt_complexity);
             }
 
-            // Process else block
-            for stmt in &for_stmt.orelse {
-                // Add complexity for the else clause of a for loop
-                if let Some(start_pos) = get_stmt_pos(stmt) {
-                    let else_line = get_line_number(start_pos, code);
-                    result.push(LineComplexity {
-                        line: else_line,
-                        complexity: 1 + nesting_level,
-                    });
-                }
-
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
-                result.extend(stmt_complexity);
-            }
-        }
-        ast::Stmt::While(while_stmt) => {
-            // Add complexity for 'while'
-            let complexity = 1 + nesting_level;
-            let line = get_line_number(usize::from(while_stmt.range.start()), code);
-            result.push(LineComplexity { line, complexity });
-
-            // Add complexity for boolean operations in the test condition
-            let bool_ops_complexity = count_bool_ops(*while_stmt.test.clone(), nesting_level);
-            if bool_ops_complexity > 0 {
-                result.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
-            }
-
-            // Process body
-            for stmt in &while_stmt.body {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
-                result.extend(stmt_complexity);
-            }
-
-            // Process else block
-            for stmt in &while_stmt.orelse {
-                // Add complexity for the else clause of a while loop
-                if let Some(start_pos) = get_stmt_pos(stmt) {
-                    let else_line = get_line_number(start_pos, code);
-                    result.push(LineComplexity {
-                        line: else_line,
-                        complexity: 1 + nesting_level,
-                    });
-                }
-
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
-                result.extend(stmt_complexity);
-            }
-        }
-        ast::Stmt::Try(try_stmt) => {
-            // Add complexity for 'try'
-            let _line = get_line_number(usize::from(try_stmt.range.start()), code);
-            // try itself doesn't add complexity in Python
-
-            // Process body
-            for stmt in &try_stmt.body {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
-                result.extend(stmt_complexity);
-            }
-
-            // Process except handlers
-            for handler in &try_stmt.handlers {
-                // Add complexity for each except handler
-                if let Some(handler_pos) = get_handler_pos(handler) {
-                    let handler_line = get_line_number(handler_pos, code);
-                    result.push(LineComplexity {
-                        line: handler_line,
-                        complexity: 1,
-                    });
-                }
-
+            for handler in &t.handlers {
                 for stmt in &handler.clone().expect_except_handler().body {
                     let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
                     result.extend(stmt_complexity);
                 }
             }
 
-            // Process else block
-            for stmt in &try_stmt.orelse {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+            for node in &t.orelse {
+                let stmt_complexity = get_statement_complexity(node, nesting_level + 1, code)?;
                 result.extend(stmt_complexity);
             }
 
-            // Process finally block
-            for stmt in &try_stmt.finalbody {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
+            for node in &t.finalbody {
+                let stmt_complexity = get_statement_complexity(node, nesting_level + 1, code)?;
                 result.extend(stmt_complexity);
             }
         }
-        ast::Stmt::Match(match_stmt) => {
-            // Add complexity for 'match'
-            let _line = get_line_number(usize::from(match_stmt.range.start()), code);
-            // match itself doesn't add complexity in the implementation
-
-            for case in &match_stmt.cases {
-                // Add complexity for each case
-                let case_line = get_line_number(usize::from(case.range.start()), code);
-                result.push(LineComplexity {
-                    line: case_line,
-                    complexity: 1,
-                });
-
+        Stmt::Match(m) => {
+            for case in &m.cases {
                 for stmt in &case.body {
                     let stmt_complexity = get_statement_complexity(stmt, nesting_level + 1, code)?;
                     result.extend(stmt_complexity);
                 }
             }
         }
-        ast::Stmt::With(with_stmt) => {
-            // Add complexity for 'with'
-            let line = get_line_number(usize::from(with_stmt.range.start()), code);
-            // with itself doesn't add to complexity, but its context expressions might
-
-            // Check for boolean operations in context expressions
-            for item in &with_stmt.items {
-                let bool_ops_complexity = count_bool_ops(item.context_expr.clone(), nesting_level);
-                if bool_ops_complexity > 0 {
-                    result.push(LineComplexity {
-                        line,
-                        complexity: bool_ops_complexity,
-                    });
-                }
+        Stmt::Return(r) => {
+            if let Some(value) = &r.value {
+                let line = get_line_number(usize::from(r.range.start()), code);
+                result.push(LineComplexity {
+                    line,
+                    complexity: count_bool_ops(*value.clone(), nesting_level),
+                })
+            }
+        }
+        Stmt::Raise(r) => {
+            let mut complexity = 0;
+            if let Some(exc) = &r.exc {
+                complexity += count_bool_ops(*exc.clone(), nesting_level);
+            }
+            if let Some(cause) = &r.cause {
+                complexity += count_bool_ops(*cause.clone(), nesting_level);
+            }
+            let line = get_line_number(usize::from(r.range.start()), code);
+            result.push(LineComplexity { line, complexity });
+        }
+        Stmt::Assert(a) => {
+            let line = get_line_number(usize::from(a.range.start()), code);
+            let mut complexity = count_bool_ops(*a.test.clone(), nesting_level);
+            if let Some(msg) = &a.msg {
+                complexity += count_bool_ops(*msg.clone(), nesting_level);
+            }
+            result.push(LineComplexity { line, complexity });
+        }
+        Stmt::With(w) => {
+            let mut complexity = 0;
+            for item in &w.items {
+                complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
             }
 
-            for stmt in &with_stmt.body {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level, code)?;
+            let line = get_line_number(usize::from(w.range.start()), code);
+            result.push(LineComplexity { line, complexity });
+
+            for node in &w.body {
+                let stmt_complexity = get_statement_complexity(node, nesting_level + 1, code)?;
                 result.extend(stmt_complexity);
             }
         }
-        ast::Stmt::Assign(assign_stmt) => {
-            // Check for boolean operations in assignments
-            let bool_ops_complexity = count_bool_ops(*assign_stmt.value.clone(), nesting_level);
-            if bool_ops_complexity > 0 {
-                let line = get_line_number(usize::from(assign_stmt.range.start()), code);
-                result.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
-            }
-        }
-        ast::Stmt::AugAssign(aug_assign_stmt) => {
-            // Check for boolean operations in augmented assignments
-            let bool_ops_complexity = count_bool_ops(*aug_assign_stmt.value.clone(), nesting_level);
-            if bool_ops_complexity > 0 {
-                let line = get_line_number(usize::from(aug_assign_stmt.range.start()), code);
-                result.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
-            }
-        }
-        ast::Stmt::AnnAssign(ann_assign_stmt) => {
-            // Check for boolean operations in annotated assignments
-            if let Some(value) = &ann_assign_stmt.value {
-                let bool_ops_complexity = count_bool_ops(*value.clone(), nesting_level);
-                if bool_ops_complexity > 0 {
-                    let line = get_line_number(usize::from(ann_assign_stmt.range.start()), code);
-                    result.push(LineComplexity {
-                        line,
-                        complexity: bool_ops_complexity,
-                    });
-                }
-            }
-        }
-        ast::Stmt::Return(return_stmt) => {
-            // Check for boolean operations in return statements
-            if let Some(value) = &return_stmt.value {
-                let bool_ops_complexity = count_bool_ops(*value.clone(), nesting_level);
-                if bool_ops_complexity > 0 {
-                    let line = get_line_number(usize::from(return_stmt.range.start()), code);
-                    result.push(LineComplexity {
-                        line,
-                        complexity: bool_ops_complexity,
-                    });
-                }
-            }
-        }
-        ast::Stmt::Assert(assert_stmt) => {
-            // Check for boolean operations in assertions
-            let bool_ops_complexity = count_bool_ops(*assert_stmt.test.clone(), nesting_level);
-            if bool_ops_complexity > 0 {
-                let line = get_line_number(usize::from(assert_stmt.range.start()), code);
-                result.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
-            }
-
-            if let Some(msg) = &assert_stmt.msg {
-                let msg_bool_ops = count_bool_ops(*msg.clone(), nesting_level);
-                if msg_bool_ops > 0 {
-                    let line = get_line_number(usize::from(assert_stmt.range.start()), code);
-                    result.push(LineComplexity {
-                        line,
-                        complexity: msg_bool_ops,
-                    });
-                }
-            }
-        }
-        ast::Stmt::Raise(raise_stmt) => {
-            // Check for boolean operations in raise statements
-            if let Some(exc) = &raise_stmt.exc {
-                let bool_ops_complexity = count_bool_ops(*exc.clone(), nesting_level);
-                if bool_ops_complexity > 0 {
-                    let line = get_line_number(usize::from(raise_stmt.range.start()), code);
-                    result.push(LineComplexity {
-                        line,
-                        complexity: bool_ops_complexity,
-                    });
-                }
-            }
-
-            if let Some(cause) = &raise_stmt.cause {
-                let cause_bool_ops = count_bool_ops(*cause.clone(), nesting_level);
-                if cause_bool_ops > 0 {
-                    let line = get_line_number(usize::from(raise_stmt.range.start()), code);
-                    result.push(LineComplexity {
-                        line,
-                        complexity: cause_bool_ops,
-                    });
-                }
-            }
-        }
-        ast::Stmt::FunctionDef(func_def) => {
-            // Process nested functions
-            for stmt in &func_def.body {
-                let stmt_complexity = get_statement_complexity(stmt, nesting_level, code)?;
-                result.extend(stmt_complexity);
-            }
-        }
-        ast::Stmt::ClassDef(class_def) => {
-            // Process class methods
-            for stmt in &class_def.body {
-                if let ast::Stmt::FunctionDef(_) = stmt {
-                    let stmt_complexity = get_statement_complexity(stmt, nesting_level, code)?;
-                    result.extend(stmt_complexity);
-                }
-            }
-        }
-        // Other statement types currently don't contribute line-by-line complexity
         _ => {}
     }
 

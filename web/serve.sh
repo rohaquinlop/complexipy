@@ -12,4 +12,5 @@ if ! command -v npx &> /dev/null; then
 fi
 
 # Start the server
+cd web
 npx http-server -c-1 -p 8080 . 

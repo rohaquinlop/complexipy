@@ -400,9 +400,12 @@ fn statement_cognitive_complexity_shared(statement: Stmt, nesting_level: u64) ->
             }
 
             for clause in i.elif_else_clauses {
+                if let Some(test) = clause.test {
+                    complexity += count_bool_ops(test, nesting_level);
+                }
                 for node in clause.body.iter() {
                     complexity +=
-                        statement_cognitive_complexity_shared(node.clone(), nesting_level);
+                        statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
                 }
             }
         }
