@@ -79,15 +79,11 @@ pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
     match statement {
         Stmt::FunctionDef(f) => {
-            if f.body.len() == 2 {
-                ans =
-                    true && match f.body[0].clone() {
-                        Stmt::FunctionDef(..) => true,
-                        _ => false,
-                    } && match f.body[1].clone() {
-                        Stmt::Return(..) => true,
-                        _ => false,
-                    };
+            if f.body.len() >= 1 {
+                ans = match f.body[0].clone() {
+                    Stmt::FunctionDef(..) => true,
+                    _ => false,
+                }
             }
         }
         _ => {}

@@ -65,7 +65,7 @@ fn analyze_code_complexity(code: &str) -> Result<CodeComplexity, String> {
                     let line_end = get_line_number(end_idx, code);
 
                     // Calculate line-by-line complexity
-                    let line_complexities = calculate_line_complexities(statement, code)?;
+                    let line_complexities = get_statement_complexity(statement, 0, code)?;
 
                     enhanced_functions.push(FunctionComplexity {
                         name: func_name,
@@ -90,7 +90,7 @@ fn analyze_code_complexity(code: &str) -> Result<CodeComplexity, String> {
                             let line_end = get_line_number(end_idx, code);
 
                             // Calculate line-by-line complexity
-                            let line_complexities = calculate_line_complexities(stmt, code)?;
+                            let line_complexities = get_statement_complexity(stmt, 0, code)?;
 
                             enhanced_functions.push(FunctionComplexity {
                                 name: method_name,
@@ -111,26 +111,6 @@ fn analyze_code_complexity(code: &str) -> Result<CodeComplexity, String> {
         complexity: basic_result.complexity,
         functions: enhanced_functions,
     })
-}
-
-// Calculate line-by-line complexity for statements
-fn calculate_line_complexities(
-    statement: &ast::Stmt,
-    code: &str,
-) -> Result<Vec<LineComplexity>, String> {
-    let mut result = Vec::new();
-
-    match statement {
-        ast::Stmt::FunctionDef(func_def) => {
-            for stmt in &func_def.body {
-                let complexity_info = get_statement_complexity(stmt, 0, code)?;
-                result.extend(complexity_info);
-            }
-        }
-        _ => {}
-    }
-
-    Ok(result)
 }
 
 // Get complexity information for individual statements
@@ -341,32 +321,4 @@ fn get_statement_complexity(
     }
 
     Ok(result)
-}
-
-// Helper function to get position from a statement node
-fn get_stmt_pos(stmt: &ast::Stmt) -> Option<usize> {
-    match stmt {
-        ast::Stmt::If(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::For(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::While(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::With(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Assign(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::AugAssign(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::AnnAssign(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Return(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Assert(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Raise(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::FunctionDef(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::ClassDef(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Try(s) => Some(usize::from(s.range.start())),
-        ast::Stmt::Match(s) => Some(usize::from(s.range.start())),
-        _ => None,
-    }
-}
-
-// Helper function to get position from an except handler
-fn get_handler_pos(handler: &ast::ExceptHandler) -> Option<usize> {
-    match handler {
-        ast::ExceptHandler::ExceptHandler(h) => Some(usize::from(h.range.start())),
-    }
 }
