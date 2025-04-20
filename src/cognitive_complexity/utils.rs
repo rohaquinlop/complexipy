@@ -152,3 +152,10 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
 
     complexity
 }
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
+    let before_slice = &code[..byte_index];
+    let newline_count = before_slice.chars().filter(|&c| c == '\n').count();
+    (newline_count + 1) as u64
+}

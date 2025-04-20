@@ -1,9 +1,9 @@
 pub mod utils;
 
 #[cfg(feature = "python")]
-use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity};
+use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
 #[cfg(not(feature = "python"))]
-use crate::classes::{CodeComplexity, FunctionComplexity};
+use crate::classes::{CodeComplexity, FunctionComplexity, LineComplexity};
 #[cfg(feature = "python")]
 use ignore::Walk;
 #[cfg(feature = "python")]
@@ -30,6 +30,7 @@ use ruff_python_parser::parse_program;
 use ruff_python_ast::{self as ast, Stmt};
 #[cfg(feature = "wasm")]
 use ruff_python_parser::parse_program;
+use utils::get_line_number;
 #[cfg(feature = "wasm")]
 use utils::{count_bool_ops, is_decorator};
 
@@ -240,7 +241,7 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
     // The ruff parser returns a Program, which contains a body (Suite) of statements.
     let ast_body = &parsed.body;
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body, Some(code));
 
     Ok(CodeComplexity {
         functions,
@@ -249,8 +250,9 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-fn function_level_cognitive_complexity_shared(
+pub fn function_level_cognitive_complexity_shared(
     ast_body: &ast::Suite,
+    code: Option<&str>,
 ) -> (Vec<FunctionComplexity>, u64) {
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
@@ -258,21 +260,15 @@ fn function_level_cognitive_complexity_shared(
     for node in ast_body.iter() {
         match node {
             Stmt::FunctionDef(f) => {
-                let func_complexity = statement_cognitive_complexity_shared(node.clone(), 0);
+                let (func_complexity, line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), 0, code);
 
-                #[cfg(feature = "wasm")]
                 let function = FunctionComplexity {
                     name: f.name.to_string(),
                     complexity: func_complexity,
-                    line_start: 0, // This is filled in by the wasm module
-                    line_end: 0,   // This is filled in by the wasm module
-                    line_complexities: Vec::new(),
-                };
-
-                #[cfg(not(feature = "wasm"))]
-                let function = FunctionComplexity {
-                    name: f.name.to_string(),
-                    complexity: func_complexity,
+                    line_start: 0,
+                    line_end: 0,
+                    line_complexities,
                 };
 
                 functions.push(function);
@@ -281,22 +277,15 @@ fn function_level_cognitive_complexity_shared(
                 for node in c.body.iter() {
                     match node {
                         Stmt::FunctionDef(f) => {
-                            let func_complexity =
-                                statement_cognitive_complexity_shared(node.clone(), 0);
+                            let (func_complexity, line_complexities) =
+                                statement_cognitive_complexity_shared(node.clone(), 0, code);
 
-                            #[cfg(feature = "wasm")]
                             let function = FunctionComplexity {
                                 name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
                                 complexity: func_complexity,
-                                line_start: 0, // This is filled in by the wasm module
-                                line_end: 0,   // This is filled in by the wasm module
-                                line_complexities: Vec::new(),
-                            };
-
-                            #[cfg(not(feature = "wasm"))]
-                            let function = FunctionComplexity {
-                                name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
-                                complexity: func_complexity,
+                                line_start: 0,
+                                line_end: 0,
+                                line_complexities,
                             };
 
                             functions.push(function);
@@ -306,7 +295,9 @@ fn function_level_cognitive_complexity_shared(
                 }
             }
             _ => {
-                complexity += statement_cognitive_complexity_shared(node.clone(), 0);
+                let (stmt_complexity, _) =
+                    statement_cognitive_complexity_shared(node.clone(), 0, code);
+                complexity += stmt_complexity;
             }
         }
     }
@@ -318,13 +309,22 @@ fn function_level_cognitive_complexity_shared(
     (functions, complexity)
 }
 
-fn statement_cognitive_complexity_shared(statement: Stmt, nesting_level: u64) -> u64 {
+fn statement_cognitive_complexity_shared(
+    statement: Stmt,
+    nesting_level: u64,
+    code: Option<&str>,
+) -> (u64, Vec<LineComplexity>) {
     let mut complexity: u64 = 0;
+    let mut line_complexities: Vec<LineComplexity> = Vec::new();
 
     if is_decorator(statement.clone()) {
         match statement {
             Stmt::FunctionDef(f) => {
-                return statement_cognitive_complexity_shared(f.body[0].clone(), nesting_level);
+                return statement_cognitive_complexity_shared(
+                    f.body[0].clone(),
+                    nesting_level,
+                    code,
+                );
             }
             _ => {}
         }
@@ -335,12 +335,24 @@ fn statement_cognitive_complexity_shared(statement: Stmt, nesting_level: u64) ->
             for node in f.body.iter() {
                 match node {
                     Stmt::FunctionDef(..) => {
-                        complexity +=
-                            statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                        let (stmt_complexity, stmt_line_complexities) =
+                            statement_cognitive_complexity_shared(
+                                node.clone(),
+                                nesting_level + 1,
+                                code,
+                            );
+                        complexity += stmt_complexity;
+                        line_complexities.extend(stmt_line_complexities);
                     }
                     _ => {
-                        complexity +=
-                            statement_cognitive_complexity_shared(node.clone(), nesting_level);
+                        let (stmt_complexity, stmt_line_complexities) =
+                            statement_cognitive_complexity_shared(
+                                node.clone(),
+                                nesting_level,
+                                code,
+                            );
+                        complexity += stmt_complexity;
+                        line_complexities.extend(stmt_line_complexities);
                     }
                 }
             }
@@ -349,126 +361,263 @@ fn statement_cognitive_complexity_shared(statement: Stmt, nesting_level: u64) ->
             for node in c.body.iter() {
                 match node {
                     Stmt::FunctionDef(..) => {
-                        complexity +=
-                            statement_cognitive_complexity_shared(node.clone(), nesting_level)
+                        let (stmt_complexity, stmt_line_complexities) =
+                            statement_cognitive_complexity_shared(
+                                node.clone(),
+                                nesting_level,
+                                code,
+                            );
+                        complexity += stmt_complexity;
+                        line_complexities.extend(stmt_line_complexities);
                     }
                     _ => {}
                 }
             }
         }
         Stmt::Assign(a) => {
-            complexity += count_bool_ops(*a.value, nesting_level);
+            let bool_ops_complexity = count_bool_ops(*a.value, nesting_level);
+            complexity += bool_ops_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(a.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: bool_ops_complexity,
+                });
+            }
         }
         Stmt::AnnAssign(a) => {
             if let Some(value) = a.value {
-                complexity += count_bool_ops(*value, nesting_level);
+                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
+                complexity += bool_ops_complexity;
+                if let Some(code_str) = code {
+                    let line = get_line_number(usize::from(a.range.start()), code_str);
+                    line_complexities.push(LineComplexity {
+                        line,
+                        complexity: bool_ops_complexity,
+                    });
+                }
             }
         }
         Stmt::AugAssign(a) => {
-            complexity += count_bool_ops(*a.value, nesting_level);
+            let bool_ops_complexity = count_bool_ops(*a.value, nesting_level);
+            complexity += bool_ops_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(a.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: bool_ops_complexity,
+                });
+            }
         }
         Stmt::For(f) => {
-            complexity += 1 + nesting_level;
+            let stmt_complexity = 1 + nesting_level;
+            complexity += stmt_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(f.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: stmt_complexity,
+                });
+            }
             for node in f.body.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
             for node in f.orelse.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
         }
         Stmt::While(w) => {
-            complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*w.test, nesting_level);
+            let stmt_complexity = 1 + nesting_level + count_bool_ops(*w.test, nesting_level);
+            complexity += stmt_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(w.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: stmt_complexity,
+                });
+            }
             for node in w.body.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
             for node in w.orelse.iter() {
-                // Handle orelse in While loops
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
         }
         Stmt::If(i) => {
-            complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*i.test, nesting_level);
-            for node in i.body.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+            let stmt_complexity = 1 + nesting_level + count_bool_ops(*i.test, nesting_level);
+            complexity += stmt_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(i.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: stmt_complexity,
+                });
             }
-
+            for node in i.body.iter() {
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
+            }
             for clause in i.elif_else_clauses {
                 if let Some(test) = clause.test {
-                    complexity += count_bool_ops(test, nesting_level);
+                    let clause_complexity = count_bool_ops(test, nesting_level);
+                    complexity += clause_complexity;
+                    if let Some(code_str) = code {
+                        let line = get_line_number(usize::from(clause.range.start()), code_str);
+                        line_complexities.push(LineComplexity {
+                            line,
+                            complexity: clause_complexity,
+                        });
+                    }
                 }
                 for node in clause.body.iter() {
-                    complexity +=
-                        statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                    let (stmt_complexity, stmt_line_complexities) =
+                        statement_cognitive_complexity_shared(
+                            node.clone(),
+                            nesting_level + 1,
+                            code,
+                        );
+                    complexity += stmt_complexity;
+                    line_complexities.extend(stmt_line_complexities);
                 }
             }
         }
         Stmt::Try(t) => {
             for node in t.body.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
             for handler in t.handlers.iter() {
-                complexity += 1; // Increment for each except handler
+                complexity += 1;
+                if let Some(code_str) = code {
+                    let handler = handler.clone().expect_except_handler();
+                    let line = get_line_number(usize::from(handler.range.start()), code_str);
+                    line_complexities.push(LineComplexity {
+                        line,
+                        complexity: 1,
+                    });
+                }
                 for node in handler.clone().expect_except_handler().body.iter() {
-                    complexity +=
-                        statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                    let (stmt_complexity, stmt_line_complexities) =
+                        statement_cognitive_complexity_shared(
+                            node.clone(),
+                            nesting_level + 1,
+                            code,
+                        );
+                    complexity += stmt_complexity;
+                    line_complexities.extend(stmt_line_complexities);
                 }
             }
             for node in t.orelse.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
             for node in t.finalbody.iter() {
-                complexity +=
-                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
         }
         Stmt::Match(m) => {
             for case in m.cases.iter() {
                 for node in case.body.iter() {
-                    complexity +=
-                        statement_cognitive_complexity_shared(node.clone(), nesting_level + 1);
+                    let (stmt_complexity, stmt_line_complexities) =
+                        statement_cognitive_complexity_shared(
+                            node.clone(),
+                            nesting_level + 1,
+                            code,
+                        );
+                    complexity += stmt_complexity;
+                    line_complexities.extend(stmt_line_complexities);
                 }
             }
         }
         Stmt::Return(r) => {
             if let Some(value) = r.value {
-                complexity += count_bool_ops(*value, nesting_level);
+                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
+                complexity += bool_ops_complexity;
+                if let Some(code_str) = code {
+                    let line = get_line_number(usize::from(r.range.start()), code_str);
+                    line_complexities.push(LineComplexity {
+                        line,
+                        complexity: bool_ops_complexity,
+                    });
+                }
             }
         }
         Stmt::Raise(r) => {
+            let mut raise_complexity = 0;
             if let Some(exc) = r.exc {
-                complexity += count_bool_ops(*exc, nesting_level);
+                raise_complexity += count_bool_ops(*exc, nesting_level);
             }
             if let Some(cause) = r.cause {
-                complexity += count_bool_ops(*cause, nesting_level);
+                raise_complexity += count_bool_ops(*cause, nesting_level);
+            }
+            complexity += raise_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(r.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: raise_complexity,
+                });
             }
         }
         Stmt::Assert(a) => {
-            complexity += count_bool_ops(*a.test, nesting_level);
+            let mut assert_complexity = count_bool_ops(*a.test, nesting_level);
             if let Some(msg) = a.msg {
-                complexity += count_bool_ops(*msg, nesting_level);
+                assert_complexity += count_bool_ops(*msg, nesting_level);
+            }
+            complexity += assert_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(a.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: assert_complexity,
+                });
             }
         }
         Stmt::With(w) => {
+            let mut with_complexity = 0;
             for item in w.items.iter() {
-                complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
+                with_complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
+            }
+            complexity += with_complexity;
+            if let Some(code_str) = code {
+                let line = get_line_number(usize::from(w.range.start()), code_str);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: with_complexity,
+                });
             }
             for node in w.body.iter() {
-                complexity += statement_cognitive_complexity_shared(node.clone(), nesting_level);
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node.clone(), nesting_level + 1, code);
+                complexity += stmt_complexity;
+                line_complexities.extend(stmt_line_complexities);
             }
         }
         _ => {}
     }
 
-    complexity
+    (complexity, line_complexities)
 }
 
 /// Calculate the cognitive complexity of a string of python code.
@@ -484,7 +633,7 @@ pub fn code_complexity(code: &str) -> Result<CodeComplexity, String> {
     // The ruff parser returns a Program, which contains a body (Suite) of statements.
     let ast_body = &parsed.body;
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body, None);
 
     Ok(CodeComplexity {
         functions,
