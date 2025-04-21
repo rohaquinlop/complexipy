@@ -167,21 +167,24 @@ main {
     height: 100% !important;
     font-family: 'Fira Code', 'Courier New', monospace;
     font-size: 14px;
-    line-height: 20px !important;
+    line-height: 1.5 !important;
     padding: 1rem 0;
     background-color: #282a36 !important;
+}
+
+/* Add current line highlight */
+.CodeMirror-activeline-background {
+    background: rgba(189, 147, 249, 0.08) !important;
 }
 
 /* Fix line padding and selection */
 .CodeMirror pre.CodeMirror-line,
 .CodeMirror pre.CodeMirror-line-like {
     padding: 0 8px;
-    position: relative;
-    top: -1px;
 }
 
 .CodeMirror-lines {
-    padding: 8px 0;
+    padding: 0;
 }
 
 .CodeMirror-line {

@@ -18,7 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
         viewportMargin: Infinity,
         scrollbarStyle: 'native',
         extraKeys: { 'Tab': 'insertSoftTab' },
-        gutters: ["CodeMirror-linenumbers", "complexity-gutter"]
+        gutters: ["CodeMirror-linenumbers", "complexity-gutter"],
+        styleActiveLine: {
+            nonEmpty: true,
+            gutter: false
+        }
     });
 
     // Make the editor fill the available space
