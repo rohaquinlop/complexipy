@@ -90,15 +90,6 @@ function analyzeCode() {
 
 // Add a new function to reset the UI
 function resetUI() {
-    // Clear any existing error messages
-    const summaryElement = document.getElementById('summary-content');
-    if (summaryElement) {
-        summaryElement.innerHTML = `
-            <p>Total Complexity: <span id="total-complexity">0</span></p>
-            <p>Functions: <span id="function-count">0</span></p>
-        `;
-    }
-
     // Clear function list
     const functionsList = document.getElementById('functions-list');
     if (functionsList) {
@@ -115,13 +106,6 @@ function resetUI() {
 
 function updateUI(result) {
     if (!result) return;
-
-    // Update summary
-    const totalComplexity = document.getElementById('total-complexity');
-    const functionCount = document.getElementById('function-count');
-
-    if (totalComplexity) totalComplexity.textContent = result.complexity;
-    if (functionCount) functionCount.textContent = result.functions.length;
 
     // Update function list
     const functionsListElement = document.getElementById('functions-list');
@@ -143,17 +127,11 @@ function updateUI(result) {
 
         // Create more detailed function display
         functionItem.innerHTML = `
-            <div class="function-item-header">
+            <div class="function-name-container">
                 <span class="function-name">${func.name}</span>
-                <span class="function-complexity ${complexityClass}">${func.complexity}</span>
+                <span class="function-location">Line ${func.line_start}</span>
             </div>
-            <div class="function-details">
-                <div class="function-location">Line: ${func.line_start}</div>
-                <div class="function-cognitive-info">
-                    <span class="function-cognitive-label">Cognitive Complexity:</span>
-                    <span class="function-cognitive-value ${complexityClass}">${func.complexity}</span>
-                </div>
-            </div>
+            <div class="function-complexity ${complexityClass}">${func.complexity}</div>
         `;
 
         // Add click event to jump to function in editor
@@ -261,15 +239,9 @@ function addComplexityIndicators(result) {
 
 function showError(message) {
     // Display error to the user
-    const summaryElement = document.getElementById('summary-content');
-    if (summaryElement) {
-        summaryElement.innerHTML = `<div class="error-message">${message}</div>`;
-    }
-
-    // Clear function list
     const functionsList = document.getElementById('functions-list');
     if (functionsList) {
-        functionsList.innerHTML = '';
+        functionsList.innerHTML = `<div class="error-message">${message}</div>`;
     }
 
     // Clear any remaining gutter markers
@@ -278,11 +250,4 @@ function showError(message) {
             editor.setGutterMarker(i, "complexity-gutter", null);
         }
     }
-
-    // Reset complexity counts
-    const totalComplexity = document.getElementById('total-complexity');
-    const functionCount = document.getElementById('function-count');
-
-    if (totalComplexity) totalComplexity.textContent = '0';
-    if (functionCount) functionCount.textContent = '0';
 } 
