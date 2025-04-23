@@ -22,7 +22,7 @@ import typer
 
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "2.0.0"
+version = "2.1.0"
 
 
 @app.command()
@@ -74,7 +74,7 @@ def main(
         has_success = has_success_functions(files_complexities, max_complexity)
 
     console.print(
-        f"{len(files_complexities)} file{'s' if len(files_complexities)> 1 else ''} analyzed in {execution_time:.4f} seconds"
+        f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"
     )
     console.rule(":tada: Analysis completed! :tada:")
 
