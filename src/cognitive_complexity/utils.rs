@@ -135,9 +135,6 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
             }
         }
         ast::Expr::Dict(d) => {
-            for item in d.iter_keys() {
-                complexity += count_bool_ops(item.unwrap().clone(), nesting_level);
-            }
             for value in d.iter_values() {
                 complexity += count_bool_ops(value.clone(), nesting_level);
             }

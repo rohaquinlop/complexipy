@@ -4,12 +4,35 @@ build-backend = "maturin"
 
 [project]
 name = "complexipy"
-keywords = ["cognitive", "complexity", "cognitive complexity", "rust", "fast"]
+keywords = [
+    "cognitive",
+    "complexity",
+    "cognitive complexity",
+    "quality",
+    "quality assurance",
+    "testing",
+    "libraries",
+    "performance",
+    "sonar",
+]
 requires-python = ">=3.8"
 classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
 ]
 dynamic = ["version"]
 
@@ -23,8 +46,4 @@ features = ["pyo3/extension-module"]
 module-name = "complexipy.rust"
 
 [dependency-groups]
-dev = [
-    "maturin>=1.8.3",
-    "mkdocs-material>=9.6.12",
-    "pytest>=8.3.5",
-]
+dev = ["maturin>=1.8.3", "mkdocs-material>=9.6.12", "pytest>=8.3.5"]

@@ -68,6 +68,9 @@ docs/_build/
 # VSCode
 .vscode/
 
+# Cursor
+.cursor/
+
 # Emacs
 *~
 \#*\#
