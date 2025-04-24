@@ -17,17 +17,20 @@ from pathlib import (
 from rich.console import (
     Console,
 )
+from typing import (
+    List,  # It's important to use this to make it compatible with python 3.8, don't remove it
+)
 import time
 import typer
 
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "2.1.0"
+version = "2.1.1"
 
 
 @app.command()
 def main(
-    paths: list[str] = typer.Argument(
+    paths: List[str] = typer.Argument(
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
     max_complexity: int = typer.Option(
@@ -58,7 +61,7 @@ def main(
     invocation_path = os.getcwd()
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files_complexities: list[FileComplexity] = rust.main(paths)
+    files_complexities: List[FileComplexity] = rust.main(paths)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
