@@ -13,11 +13,15 @@ from rich.console import (
     Console,
 )
 from rich.table import Table
+from typing import (
+    List,  # It's important to use this to make it compatible with python 3.8, don't remove it
+    Tuple,
+)
 
 
 def output_summary(
     console: Console,
-    files: list[FileComplexity],
+    files: List[FileComplexity],
     max_complexity: int,
     details: DetailTypes,
     sort: Sort,
@@ -47,13 +51,13 @@ def output_summary(
 
 
 def create_table(
-    files: list[FileComplexity],
+    files: List[FileComplexity],
     complexity: int,
     details: DetailTypes,
     sort: bool = False,
-) -> tuple[Table, bool, int, list[tuple[str, str, FunctionComplexity]]]:
+) -> Tuple[Table, bool, int, List[Tuple[str, str, FunctionComplexity]]]:
     has_success = True
-    all_functions: list[tuple[str, str, FunctionComplexity]] = []
+    all_functions: List[Tuple[str, str, FunctionComplexity]] = []
     total_complexity = 0
 
     table = Table(
@@ -97,7 +101,7 @@ def create_table(
     return table, has_success, total_complexity, all_functions
 
 
-def has_success_functions(files: list[FileComplexity], complexity: int) -> bool:
+def has_success_functions(files: List[FileComplexity], complexity: int) -> bool:
     for file in files:
         for function in file.functions:
             if function.complexity > complexity and complexity != 0:

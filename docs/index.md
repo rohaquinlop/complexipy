@@ -162,7 +162,7 @@ def b_decorator(a, b):
 Running `complexipy path/to/file.py` produces:
 
 ```txt
-───────────────────────────── 🐙 complexipy 2.1.0 ──────────────────────────────
+───────────────────────────── 🐙 complexipy 2.1.1 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
