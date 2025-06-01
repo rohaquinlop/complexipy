@@ -23,4 +23,4 @@ mkdir -p web/wasm
 echo "Copying generated files..."
 cp -r pkg/* web/wasm/
 
-echo "WebAssembly module built successfully!" 
+echo "WebAssembly module built successfully!"

@@ -13,4 +13,4 @@ fi
 
 # Start the server
 cd web
-npx http-server -c-1 -p 8080 . 
+npx http-server -c-1 -p 8080 .

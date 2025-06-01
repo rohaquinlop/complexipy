@@ -1,5 +1,5 @@
 use ruff_python_ast::Stmt;
-use ruff_python_parser::parse_program;
+use ruff_python_parser::parse_module;
 use std::panic;
 use wasm_bindgen::prelude::*;
 
@@ -31,14 +31,14 @@ fn get_line_number(byte_index: usize, code: &str) -> u64 {
 // Process code complexity but also add line numbers information needed for the web UI
 fn analyze_code_complexity(code: &str) -> Result<CodeComplexity, String> {
     // Parse the code to get source positions
-    let parsed = match parse_program(code) {
+    let parsed = match parse_module(code) {
         Ok(parsed) => parsed,
         Err(e) => return Err(format!("Parse error: {}", e)),
     };
 
     // Get complexity analysis with line information
     let (functions, complexity) =
-        function_level_cognitive_complexity_shared(&parsed.body, Some(code));
+        function_level_cognitive_complexity_shared(&parsed.suite(), Some(code));
 
     // Add line numbers to functions
     let mut enhanced_functions = Vec::new();
@@ -47,7 +47,7 @@ fn analyze_code_complexity(code: &str) -> Result<CodeComplexity, String> {
         let mut line_start = 0;
         let mut line_end = 0;
 
-        for node in &parsed.body {
+        for node in parsed.suite() {
             if let Stmt::FunctionDef(f) = node {
                 if f.name.to_string() == func.name {
                     line_start = get_line_number(usize::from(f.range.start()), code);

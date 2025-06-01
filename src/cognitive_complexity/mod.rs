@@ -3,7 +3,7 @@ pub mod utils;
 #[cfg(feature = "python")]
 use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
 #[cfg(feature = "wasm")]
-use crate::classes::{CodeComplexity, FunctionComplexity, LineComplexity};
+use crate::classes::{FunctionComplexity, LineComplexity};
 #[cfg(feature = "python")]
 use ignore::Walk;
 #[cfg(feature = "python")]
@@ -28,8 +28,6 @@ use ruff_python_parser::parse_module;
 // Import ruff crates for WASM
 #[cfg(feature = "wasm")]
 use ruff_python_ast::{self as ast, Stmt};
-#[cfg(feature = "wasm")]
-use ruff_python_parser::parse_module;
 use utils::get_line_number;
 #[cfg(feature = "wasm")]
 use utils::{count_bool_ops, is_decorator};
@@ -618,25 +616,4 @@ fn statement_cognitive_complexity_shared(
     }
 
     (complexity, line_complexities)
-}
-
-/// Calculate the cognitive complexity of a string of python code.
-#[cfg(feature = "wasm")]
-pub fn code_complexity(code: &str) -> Result<CodeComplexity, String> {
-    let parsed = match parse_module(code) {
-        Ok(parsed) => parsed,
-        Err(e) => {
-            return Err(format!("Failed to parse code: {}", e));
-        }
-    };
-
-    // The ruff parser returns a Program, which contains a body (Suite) of statements.
-    let ast_body = &parsed.body;
-
-    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body, None);
-
-    Ok(CodeComplexity {
-        functions,
-        complexity,
-    })
 }
