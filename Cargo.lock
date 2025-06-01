@@ -12,12 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.98"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -47,14 +41,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 
 [[package]]
+name = "castaway"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0abae9be0aaf9ea96a3b1b8b1b55c602ca751eba1b1500220cea4ecbafe7c0d5"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "compact_str"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fdb1325a1cece981e8a296ab8f0f9b63ae357bd0784a9faaf548cc7b480707a"
+dependencies = [
+ "castaway",
+ "cfg-if",
+ "itoa",
+ "rustversion",
+ "ryu",
+ "static_assertions",
+]
+
+[[package]]
 name = "complexipy"
-version = "2.1.1"
+version = "3.0.0"
 dependencies = [
  "console_error_panic_hook",
  "csv",
@@ -270,9 +287,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -599,13 +616,14 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "ruff_python_ast"
 version = "0.0.0"
-source = "git+https://github.com/astral-sh/ruff?tag=v0.4.4#3e8878a1c852399dffedb0236097afcfb4780b81"
+source = "git+https://github.com/astral-sh/ruff?tag=0.11.5#7186d5e9add868037df5bb9a42c43d5340c7ea44"
 dependencies = [
  "aho-corasick",
  "bitflags",
+ "compact_str",
  "is-macro",
  "itertools",
- "once_cell",
+ "memchr",
  "ruff_python_trivia",
  "ruff_source_file",
  "ruff_text_size",
@@ -615,15 +633,14 @@ dependencies = [
 [[package]]
 name = "ruff_python_parser"
 version = "0.0.0"
-source = "git+https://github.com/astral-sh/ruff?tag=v0.4.4#3e8878a1c852399dffedb0236097afcfb4780b81"
+source = "git+https://github.com/astral-sh/ruff?tag=0.11.5#7186d5e9add868037df5bb9a42c43d5340c7ea44"
 dependencies = [
- "anyhow",
  "bitflags",
  "bstr",
- "is-macro",
- "itertools",
+ "compact_str",
  "memchr",
  "ruff_python_ast",
+ "ruff_python_trivia",
  "ruff_text_size",
  "rustc-hash",
  "static_assertions",
@@ -635,7 +652,7 @@ dependencies = [
 [[package]]
 name = "ruff_python_trivia"
 version = "0.0.0"
-source = "git+https://github.com/astral-sh/ruff?tag=v0.4.4#3e8878a1c852399dffedb0236097afcfb4780b81"
+source = "git+https://github.com/astral-sh/ruff?tag=0.11.5#7186d5e9add868037df5bb9a42c43d5340c7ea44"
 dependencies = [
  "itertools",
  "ruff_source_file",
@@ -646,23 +663,22 @@ dependencies = [
 [[package]]
 name = "ruff_source_file"
 version = "0.0.0"
-source = "git+https://github.com/astral-sh/ruff?tag=v0.4.4#3e8878a1c852399dffedb0236097afcfb4780b81"
+source = "git+https://github.com/astral-sh/ruff?tag=0.11.5#7186d5e9add868037df5bb9a42c43d5340c7ea44"
 dependencies = [
  "memchr",
- "once_cell",
  "ruff_text_size",
 ]
 
 [[package]]
 name = "ruff_text_size"
 version = "0.0.0"
-source = "git+https://github.com/astral-sh/ruff?tag=v0.4.4#3e8878a1c852399dffedb0236097afcfb4780b81"
+source = "git+https://github.com/astral-sh/ruff?tag=0.11.5#7186d5e9add868037df5bb9a42c43d5340c7ea44"
 
 [[package]]
 name = "rustc-hash"
-version = "1.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustix"

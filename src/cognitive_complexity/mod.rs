@@ -2,7 +2,7 @@ pub mod utils;
 
 #[cfg(feature = "python")]
 use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
-#[cfg(not(feature = "python"))]
+#[cfg(feature = "wasm")]
 use crate::classes::{CodeComplexity, FunctionComplexity, LineComplexity};
 #[cfg(feature = "python")]
 use ignore::Walk;
@@ -23,13 +23,13 @@ use regex::Regex;
 #[cfg(feature = "python")]
 use ruff_python_ast::{self as ast, Stmt};
 #[cfg(feature = "python")]
-use ruff_python_parser::parse_program;
+use ruff_python_parser::parse_module;
 
 // Import ruff crates for WASM
 #[cfg(feature = "wasm")]
 use ruff_python_ast::{self as ast, Stmt};
 #[cfg(feature = "wasm")]
-use ruff_python_parser::parse_program;
+use ruff_python_parser::parse_module;
 use utils::get_line_number;
 #[cfg(feature = "wasm")]
 use utils::{count_bool_ops, is_decorator};
@@ -228,7 +228,7 @@ pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplex
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
-    let parsed = match parse_program(code) {
+    let parsed = match parse_module(code) {
         Ok(parsed) => parsed,
         Err(e) => {
             return Err(PyValueError::new_err(format!(
@@ -239,7 +239,7 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
     };
 
     // The ruff parser returns a Program, which contains a body (Suite) of statements.
-    let ast_body = &parsed.body;
+    let ast_body = &parsed.suite();
 
     let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body, Some(code));
 
@@ -621,9 +621,9 @@ fn statement_cognitive_complexity_shared(
 }
 
 /// Calculate the cognitive complexity of a string of python code.
-#[cfg(not(feature = "python"))]
+#[cfg(feature = "wasm")]
 pub fn code_complexity(code: &str) -> Result<CodeComplexity, String> {
-    let parsed = match parse_program(code) {
+    let parsed = match parse_module(code) {
         Ok(parsed) => parsed,
         Err(e) => {
             return Err(format!("Failed to parse code: {}", e));

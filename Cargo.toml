@@ -1,6 +1,6 @@
 [package]
 name = "complexipy"
-version = "2.1.1"
+version = "3.0.0"
 edition = "2021"
 authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
 license = "MIT"
@@ -35,8 +35,8 @@ ignore = "0.4.22"
 indicatif = "0.17.8"
 rayon = "1.8.1"
 regex = "1.11.1"
-ruff-python-parser = { git = "https://github.com/astral-sh/ruff", tag = "v0.4.4", package = "ruff_python_parser" }
-ruff-python-ast = { git = "https://github.com/astral-sh/ruff", tag = "v0.4.4", package = "ruff_python_ast" }
+ruff-python-parser = { git = "https://github.com/astral-sh/ruff", tag = "0.11.5", package = "ruff_python_parser" }
+ruff-python-ast = { git = "https://github.com/astral-sh/ruff", tag = "0.11.5", package = "ruff_python_ast" }
 tempfile = "3.10.0"
 
 # Optional dependencies for Python
