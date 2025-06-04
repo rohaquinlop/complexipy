@@ -5,7 +5,7 @@
     "Robin Quintero <rohaquinlop301@gmail.com>"
   ],
   "description": "An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "license": "MIT",
   "repository": {
     "type": "git",
