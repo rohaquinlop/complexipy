@@ -60,34 +60,99 @@ Here are the various ways you can use complexipy:
 
 ```shell
 # Analyze the current directory and subdirectories
-complexipy .                            
+complexipy .
 
 # Analyze a specific directory and subdirectories
-complexipy path/to/directory            
+complexipy path/to/directory
 
 # Analyze a git repository
-complexipy git_repository_url           
+complexipy git_repository_url
 
 # Analyze a specific file
-complexipy path/to/file.py              
+complexipy path/to/file.py
 
 # Set maximum cognitive complexity (default: 15)
-complexipy path/to/file.py -c 20        
+complexipy path/to/file.py -c 20
 
 # Disable exit with error (by setting max complexity to 0)
-complexipy path/to/directory -c 0       
+complexipy path/to/directory -c 0
 
 # Output results to a CSV file
-complexipy path/to/directory -o         
+complexipy path/to/directory -o
 
 # Show only files exceeding maximum complexity
-complexipy path/to/directory -d low     
+complexipy path/to/directory -d low
 
-# Disable console output 
-complexipy path/to/directory -q         
+# Disable console output
+complexipy path/to/directory -q
 
 # Sort results in descending order
-complexipy path/to/directory -s desc    
+complexipy path/to/directory -s desc
+```
+
+### GitHub Action
+
+You can use complexipy as a GitHub Action to automatically check code complexity in your CI/CD pipeline:
+
+```yaml
+name: Check Code Complexity
+on: [push, pull_request]
+
+jobs:
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check Python Code Complexity
+      uses: rohaquinlop/complexipy-action@v1
+      with:
+        paths: '.'  # Analyze the entire repository
+        max_complexity: 15  # Set maximum allowed complexity
+```
+
+#### Action Inputs
+
+| Input          | Description                                                      | Required | Default                 |
+| -------------- | ---------------------------------------------------------------- | -------- | ----------------------- |
+| paths          | Paths to analyze. Can be local paths or a git repository URL.    | Yes      | ${{ github.workspace }} |
+| max_complexity | Maximum allowed complexity per function. Set to 0 for unlimited. | No       | 15                      |
+| output         | Generate results in a CSV file.                                  | No       | false                   |
+| details        | Output detail level (low or normal).                             | No       | normal                  |
+| quiet          | Suppress console output.                                         | No       | false                   |
+| sort           | Sort results by complexity (asc, desc, or name).                 | No       | asc                     |
+
+#### Examples
+
+Basic Usage:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: '.'
+```
+
+Custom Maximum Complexity:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: './src'
+    max_complexity: 20
+```
+
+Generate CSV Report:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: '.'
+    output: true
+```
+
+Analyze Specific Directory with Low Detail Output:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: './src/python'
+    details: 'low'
+    sort: 'desc'
 ```
 
 ### Options

@@ -21,6 +21,6 @@ mkdir -p web/wasm
 
 # Copy the output files to web/wasm directory
 echo "Copying generated files..."
-cp -r pkg/* web/wasm/
+cp -r pkg/*.{js,d.ts,wasm} web/wasm/
 
 echo "WebAssembly module built successfully!"

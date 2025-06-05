@@ -1,7 +1,7 @@
 {
     "name": "complexipy-web",
     "version": "1.0.0",
-    "description": "Web interface for the ComplexiPy cognitive complexity analyzer",
+    "description": "Web interface for the complexipy cognitive complexity analyzer",
     "main": "app.js",
     "scripts": {
         "start": "http-server -c-1 -p 8080 .",

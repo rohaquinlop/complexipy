@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-echo "Setting up ComplexiPy Web Interface..."
+echo "Setting up complexipy Web Interface..."
 
 # Check if npm is installed
 if ! command -v npm &> /dev/null; then
