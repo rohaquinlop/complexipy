@@ -88,7 +88,7 @@ function analyzeCode() {
         updateUI(result);
     } catch (error) {
         console.error('Analysis error:', error);
-        showError(error.message || 'An error occurred during analysis');
+        showError(error.message || 'An error occurred during analysis, please check the python code and try again');
     }
 }
 
