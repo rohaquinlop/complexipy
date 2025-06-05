@@ -264,8 +264,8 @@ pub fn function_level_cognitive_complexity_shared(
                 let function = FunctionComplexity {
                     name: f.name.to_string(),
                     complexity: func_complexity,
-                    line_start: 0,
-                    line_end: 0,
+                    line_start: get_line_number(usize::from(f.range.start()), code.unwrap()),
+                    line_end: get_line_number(usize::from(f.range.end()), code.unwrap()),
                     line_complexities,
                 };
 
@@ -281,8 +281,14 @@ pub fn function_level_cognitive_complexity_shared(
                             let function = FunctionComplexity {
                                 name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
                                 complexity: func_complexity,
-                                line_start: 0,
-                                line_end: 0,
+                                line_start: get_line_number(
+                                    usize::from(f.range.start()),
+                                    code.unwrap(),
+                                ),
+                                line_end: get_line_number(
+                                    usize::from(f.range.end()),
+                                    code.unwrap(),
+                                ),
                                 line_complexities,
                             };
 
