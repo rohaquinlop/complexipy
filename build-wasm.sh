@@ -22,5 +22,6 @@ mkdir -p web/wasm
 # Copy the output files to web/wasm directory
 echo "Copying generated files..."
 cp -r pkg/*.{js,d.ts,wasm} web/wasm/
+cp -r pkg/*.{js,d.ts,wasm} complexipy-vscode/wasm/
 
 echo "WebAssembly module built successfully!"
