@@ -26,8 +26,7 @@ fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
         Err(e) => return Err(format!("Parse error: {}", e)),
     };
 
-    let (functions, complexity) =
-        function_level_cognitive_complexity_shared(&parsed.suite(), Some(code));
+    let (functions, complexity) = function_level_cognitive_complexity_shared(&parsed.suite(), code);
 
     Ok(CodeComplexity {
         complexity,
