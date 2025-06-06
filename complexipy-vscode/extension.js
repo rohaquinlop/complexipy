@@ -3,66 +3,44 @@ const vscode = require('vscode');
 const path = require('path');
 
 const lowComplexityDecorationType = vscode.window.createTextEditorDecorationType({
-	isWholeLine: true,
 	dark: {
 		after: {
-			margin: '0 0 0 1em',
+			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#50fa7b',
-			color: '#282a36',
-		}
-	},
-	light: {
-		after: {
-			margin: '0 0 0 1em',
-			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#28a745',
-			color: '#ffffff',
-		}
-	}
-});
-
-const mediumComplexityDecorationType = vscode.window.createTextEditorDecorationType({
-	isWholeLine: true,
-	dark: {
-		after: {
-			margin: '0 0 0 1em',
-			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#ffb86c',
-			color: '#282a36',
-		}
-	},
-	light: {
-		after: {
-			margin: '0 0 0 1em',
-			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#ffc107',
-			color: '#212529',
-		}
-	}
-});
-
-const highComplexityDecorationType = vscode.window.createTextEditorDecorationType({
-	isWholeLine: true,
-	dark: {
-		after: {
-			margin: '0 0 0 1em',
-			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#ff5555',
+			backgroundColor: '#3D8B40',
 			color: '#FFFFFF',
 		}
 	},
 	light: {
 		after: {
-			margin: '0 0 0 1em',
+			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#dc3545',
-			color: '#ffffff',
+			backgroundColor: '#D4EDDA',
+			color: '#155724',
 		}
 	}
 });
 
-const allDecorationTypes = [lowComplexityDecorationType, mediumComplexityDecorationType, highComplexityDecorationType];
+const highComplexityDecorationType = vscode.window.createTextEditorDecorationType({
+	dark: {
+		after: {
+			margin: '0 0.5em',
+			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
+			backgroundColor: '#A63333',
+			color: '#FFFFFF',
+		}
+	},
+	light: {
+		after: {
+			margin: '0 0.5em',
+			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
+			backgroundColor: '#F8D7DA',
+			color: '#721C24',
+		}
+	}
+});
+
+const allDecorationTypes = [lowComplexityDecorationType, highComplexityDecorationType];
 
 function analyzeAndDecorate(editor, complexityModule) {
 	if (!editor) return;
@@ -77,7 +55,6 @@ function analyzeAndDecorate(editor, complexityModule) {
 		const result = complexityModule.code_complexity(code);
 
 		const lowComplexityDecorations = [];
-		const mediumComplexityDecorations = [];
 		const highComplexityDecorations = [];
 
 		const lineComplexityMap = new Map();
@@ -104,15 +81,13 @@ function analyzeAndDecorate(editor, complexityModule) {
 		functionComplexityMap.forEach((complexity, lineNum) => {
 			const line = lineNum - 1;
 			if (line >= 0 && line < document.lineCount) {
-				const position = new vscode.Position(line, document.lineAt(line).range.end.character);
+				const position = new vscode.Position(line, 0);
 				const range = new vscode.Range(position, position);
 				const decoration = { range, renderOptions: { after: { contentText: ` ${complexity}` } } };
 
-				if (complexity > 15) {
+				if (complexity >= 15) {
 					highComplexityDecorations.push(decoration);
-				} else if (complexity > 5) {
-					mediumComplexityDecorations.push(decoration);
-				} else {
+				} else if (complexity > 0) {
 					lowComplexityDecorations.push(decoration);
 				}
 			}
@@ -124,14 +99,12 @@ function analyzeAndDecorate(editor, complexityModule) {
 			}
 			const line = lineNum - 1;
 			if (line >= 0 && line < document.lineCount) {
-				const position = new vscode.Position(line, document.lineAt(line).range.end.character);
+				const position = new vscode.Position(line, 0);
 				const range = new vscode.Range(position, position);
 				const decoration = { range, renderOptions: { after: { contentText: ` ${complexity}` } } };
 
 				if (complexity > 5) {
 					highComplexityDecorations.push(decoration);
-				} else if (complexity > 2) {
-					mediumComplexityDecorations.push(decoration);
 				} else {
 					lowComplexityDecorations.push(decoration);
 				}
@@ -139,7 +112,6 @@ function analyzeAndDecorate(editor, complexityModule) {
 		});
 
 		editor.setDecorations(lowComplexityDecorationType, lowComplexityDecorations);
-		editor.setDecorations(mediumComplexityDecorationType, mediumComplexityDecorations);
 		editor.setDecorations(highComplexityDecorationType, highComplexityDecorations);
 	} catch (e) {
 		console.error(`Error analyzing complexity: ${e.message}`);
