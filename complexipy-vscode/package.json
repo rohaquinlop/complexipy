@@ -1,0 +1,33 @@
+{
+  "name": "complexipy-vscode",
+  "displayName": "complexipy-vscode",
+  "description": "cognitive complexity",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:python"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "complexipy-vscode.cognitiveComplexity",
+        "title": "complexipy"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "16.x",
+    "eslint": "^8.56.0"
+  }
+}
