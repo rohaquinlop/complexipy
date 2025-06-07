@@ -1,6 +1,6 @@
 {
   "name": "complexipy-vscode",
-  "displayName": "complexipy-vscode",
+  "displayName": "complexipy",
   "description": "cognitive complexity",
   "version": "0.0.1",
   "engines": {
