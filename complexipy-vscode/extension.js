@@ -7,7 +7,7 @@ const lowComplexityDecorationType = vscode.window.createTextEditorDecorationType
 		after: {
 			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#3D8B40',
+			backgroundColor: 'rgba(61, 139, 64, 0.8)',
 			color: '#FFFFFF',
 		}
 	},
@@ -15,7 +15,7 @@ const lowComplexityDecorationType = vscode.window.createTextEditorDecorationType
 		after: {
 			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#D4EDDA',
+			backgroundColor: 'rgba(212, 237, 218, 0.8)',
 			color: '#155724',
 		}
 	}
@@ -26,7 +26,7 @@ const highComplexityDecorationType = vscode.window.createTextEditorDecorationTyp
 		after: {
 			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#A63333',
+			backgroundColor: 'rgba(166, 51, 51, 0.8)',
 			color: '#FFFFFF',
 		}
 	},
@@ -34,7 +34,7 @@ const highComplexityDecorationType = vscode.window.createTextEditorDecorationTyp
 		after: {
 			margin: '0 0.5em',
 			textDecoration: 'none; border-radius: 3px; padding: 0.1em 0.4em;',
-			backgroundColor: '#F8D7DA',
+			backgroundColor: 'rgba(248, 215, 218, 0.8)',
 			color: '#721C24',
 		}
 	}
@@ -81,9 +81,10 @@ function analyzeAndDecorate(editor, complexityModule) {
 		functionComplexityMap.forEach((complexity, lineNum) => {
 			const line = lineNum - 1;
 			if (line >= 0 && line < document.lineCount) {
-				const position = new vscode.Position(line, 0);
+				const lineText = document.lineAt(line);
+				const position = new vscode.Position(line, lineText.range.end.character);
 				const range = new vscode.Range(position, position);
-				const decoration = { range, renderOptions: { after: { contentText: ` ${complexity}` } } };
+				const decoration = { range, renderOptions: { after: { contentText: `ƒ ${complexity}` } } };
 
 				if (complexity >= 15) {
 					highComplexityDecorations.push(decoration);
@@ -99,9 +100,10 @@ function analyzeAndDecorate(editor, complexityModule) {
 			}
 			const line = lineNum - 1;
 			if (line >= 0 && line < document.lineCount) {
-				const position = new vscode.Position(line, 0);
+				const lineText = document.lineAt(line);
+				const position = new vscode.Position(line, lineText.range.end.character);
 				const range = new vscode.Range(position, position);
-				const decoration = { range, renderOptions: { after: { contentText: ` ${complexity}` } } };
+				const decoration = { range, renderOptions: { after: { contentText: `+${complexity}` } } };
 
 				if (complexity > 5) {
 					highComplexityDecorations.push(decoration);
