@@ -1,13 +1,12 @@
 # complexipy Web Interface
 
-This is a web interface for complexipy, a tool that calculates cognitive complexity of Python code. The web interface allows users to paste their code and see the cognitive complexity of each line in real-time.
+This is a web interface for complexipy, a tool that calculates the cognitive complexity of Python code. The interface provides a real-time, inline analysis of Python code pasted into the editor.
 
 ## Features
 
-- Syntax highlighted code editor
-- Line-by-line cognitive complexity indicators
-- Function-level complexity analysis
-- Summary of total complexity
+- Syntax-highlighted code editor with real-time feedback.
+- Inline complexity indicators for functions and lines, displayed directly in the editor.
+- Automatic analysis that runs as you type.
 
 ## Project Structure
 
