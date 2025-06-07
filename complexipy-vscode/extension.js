@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 const vscode = require('vscode');
 const path = require('path');
+const fs = require('fs').promises;
 
 const lowComplexityDecorationType = vscode.window.createTextEditorDecorationType({
 	dark: {
@@ -126,12 +127,23 @@ function analyzeAndDecorate(editor, complexityModule) {
 /**
  * @param {vscode.ExtensionContext} context
  */
-function activate(context) {
+async function activate(context) {
 	console.log('Extension "complexipy-vscode" is now active!');
 	console.log('Current extension path:', context.extensionPath);
 
-	const wasmPath = path.join(context.extensionPath, 'wasm', 'complexipy.js');
-	const complexityModule = require(wasmPath);
+	const wasmJsPath = path.join(context.extensionPath, 'wasm', 'complexipy_wasm.js');
+	const complexityModule = require(wasmJsPath);
+	const wasmBgPath = path.join(context.extensionPath, 'wasm', 'complexipy_wasm_bg.wasm');
+
+	try {
+		const wasmBuffer = await fs.readFile(wasmBgPath);
+		const wasmModule = await WebAssembly.compile(wasmBuffer);
+		await complexityModule.default({ module_or_path: wasmModule });
+	} catch (err) {
+		vscode.window.showErrorMessage('Failed to load complexipy WASM module. Please check the console for details.');
+		console.error("Failed to load/initialize complexipy WASM module:", err);
+		return;
+	}
 
 	let activeEditor = vscode.window.activeTextEditor;
 
