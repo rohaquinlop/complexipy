@@ -49,7 +49,6 @@ use tempfile::tempdir;
 #[cfg(feature = "python")]
 use utils::{count_bool_ops, get_repo_name, is_decorator};
 
-// Main function
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
@@ -62,28 +61,28 @@ pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
             let is_url = re.is_match(path);
 
             if is_url {
-                return (path, false, true);
+                (path, false, true)
             } else if metadata(path).unwrap().is_dir() {
-                return (path, true, false);
+                (path, true, false)
             } else {
-                return (path, false, false);
+                (path, false, false)
             }
         })
         .collect();
 
     let all_files_processed: Vec<Result<Vec<FileComplexity>, PyErr>> = all_files_paths
-        .iter()
+        .par_iter()
         .map(|(path, is_dir, is_url)| process_path(path, *is_dir, *is_url))
         .collect();
 
-    if all_files_processed.iter().all(|x| !x.is_err()) {
+    if all_files_processed.iter().all(|x| x.is_ok()) {
         let ans: Vec<FileComplexity> = all_files_processed
-            .iter()
-            .flat_map(|file_complexities| file_complexities.as_ref().unwrap().iter().cloned())
+            .into_iter()
+            .flat_map(|file_complexities| file_complexities.unwrap())
             .collect();
-        return Ok(ans);
+        Ok(ans)
     } else {
-        return Err(PyValueError::new_err("Failed to process the paths"));
+        Err(PyValueError::new_err("Failed to process the paths"))
     }
 }
 
