@@ -85,3 +85,9 @@ pyrightconfig.json
 # Web
 node_modules/
 pkg/
+
+# WASM files
+
+complexipy-vscode/wasm/
+
+web/wasm/
