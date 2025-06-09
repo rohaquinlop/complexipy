@@ -9,7 +9,14 @@ readme = "README.md"
 homepage = "https://github.com/rohaquinlop/complexipy"
 documentation = "https://rohaquinlop.github.io/complexipy/"
 repository = "https://github.com/rohaquinlop/complexipy"
-exclude = ["/tests", ".github", ".gitignore", "targets"]
+exclude = [
+    "/tests",
+    ".github",
+    ".gitignore",
+    "targets",
+    "web",
+    "complexipy-vscode",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
