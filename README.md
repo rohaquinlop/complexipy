@@ -32,7 +32,6 @@ An extremely fast Python library to calculate the cognitive complexity of Python
       - [Action Inputs](#action-inputs)
       - [Examples](#examples)
     - [Options](#options)
-    - [Web Interface](#web-interface)
   - [Use the library from python code](#use-the-library-from-python-code)
     - [Example](#example)
   - [Example](#example-1)
@@ -202,24 +201,6 @@ Analyze Specific Directory with Low Detail Output:
   - `asc` (default): Sort by complexity (ascending)
   - `desc`: Sort by complexity (descending)
   - `name`: Sort by name (ascending)
-
-### Web Interface
-
-complexipy also includes a web interface that allows you to analyze Python code directly in your browser:
-
-- Paste your Python code into the editor
-- See cognitive complexity metrics for each line
-- View a summary of function complexities
-- No installation required (other than building the web app)
-
-To use the web interface:
-
-1. Navigate to the web directory: `cd web`
-2. Run the setup script: `./setup.sh`
-3. Start the server: `npm start` or `./serve.sh`
-4. Open your browser to `http://localhost:8080`
-
-For more information, see the [web interface documentation](web/README.md).
 
 ## Use the library from python code
 
