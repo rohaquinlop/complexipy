@@ -1,5 +1,5 @@
 {
-  "name": "complexipy-vscode",
+  "name": "complexipy",
   "displayName": "complexipy",
   "description": "Real-time cognitive complexity analyzer for Python code with visual indicators for function and line-level complexity",
   "version": "0.0.1",
@@ -19,7 +19,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "complexipy-vscode.calculateCognitiveComplexity",
+        "command": "complexipy.calculateCognitiveComplexity",
         "title": "complexipy: Calculate Cognitive Complexity"
       }
     ]

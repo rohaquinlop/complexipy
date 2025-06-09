@@ -18,10 +18,11 @@ wasm-pack build --target web --out-name complexipy_wasm -- --features wasm --no-
 
 # Ensure the wasm directory exists in the web folder
 mkdir -p web/wasm
+mkdir -p vscode/complexipy/wasm
 
 # Copy the output files to web/wasm directory
 echo "Copying generated files..."
 cp -r pkg/*.{js,d.ts,wasm} web/wasm/
-cp -r pkg/*.{js,d.ts,wasm} complexipy-vscode/wasm/
+cp -r pkg/*.{js,d.ts,wasm} vscode/complexipy/wasm/
 
 echo "WebAssembly module built successfully!"

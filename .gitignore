@@ -87,7 +87,5 @@ node_modules/
 pkg/
 
 # WASM files
-
-complexipy-vscode/wasm/
-
+vscode/complexipy/wasm/
 web/wasm/

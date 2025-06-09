@@ -178,7 +178,7 @@ async function activate(context) {
 		}
 	}, null, context.subscriptions);
 
-	let disposable = vscode.commands.registerCommand('complexipy-vscode.calculateCognitiveComplexity', () => {
+	let disposable = vscode.commands.registerCommand('complexipy.calculateCognitiveComplexity', () => {
 		if (activeEditor && activeEditor.document.languageId === 'python') {
 			analyzeAndDecorate(activeEditor, complexityModule);
 		} else if (activeEditor) {
