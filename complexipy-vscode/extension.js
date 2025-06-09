@@ -1,4 +1,3 @@
-// The module 'vscode' contains the VS Code extensibility API
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs').promises;
@@ -128,9 +127,6 @@ function analyzeAndDecorate(editor, complexityModule) {
  * @param {vscode.ExtensionContext} context
  */
 async function activate(context) {
-	console.log('Extension "complexipy-vscode" is now active!');
-	console.log('Current extension path:', context.extensionPath);
-
 	const wasmJsPath = path.join(context.extensionPath, 'wasm', 'complexipy_wasm.js');
 	const complexityModule = require(wasmJsPath);
 	const wasmBgPath = path.join(context.extensionPath, 'wasm', 'complexipy_wasm_bg.wasm');
@@ -182,10 +178,7 @@ async function activate(context) {
 		}
 	}, null, context.subscriptions);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with  registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('complexipy-vscode.cognitiveComplexity', () => {
+	let disposable = vscode.commands.registerCommand('complexipy-vscode.calculateCognitiveComplexity', () => {
 		if (activeEditor && activeEditor.document.languageId === 'python') {
 			analyzeAndDecorate(activeEditor, complexityModule);
 		} else if (activeEditor) {
@@ -196,12 +189,9 @@ async function activate(context) {
 	});
 
 	context.subscriptions.push(disposable);
-	console.log('Command registered successfully');
 }
 
-// This method is called when your extension is deactivated
 function deactivate() {
-	console.log('Extension "complexipy-vscode" is now deactivated');
 }
 
 module.exports = {

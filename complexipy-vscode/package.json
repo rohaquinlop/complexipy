@@ -1,13 +1,16 @@
 {
   "name": "complexipy-vscode",
   "displayName": "complexipy",
-  "description": "cognitive complexity",
+  "description": "Real-time cognitive complexity analyzer for Python code with visual indicators for function and line-level complexity",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Linters",
+    "Quality Assurance",
+    "Testing"
   ],
   "activationEvents": [
     "onLanguage:python"
@@ -16,8 +19,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "complexipy-vscode.cognitiveComplexity",
-        "title": "complexipy"
+        "command": "complexipy-vscode.calculateCognitiveComplexity",
+        "title": "complexipy: Calculate Cognitive Complexity"
       }
     ]
   },

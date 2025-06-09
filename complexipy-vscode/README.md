@@ -1,65 +1,61 @@
-# complexipy README
+# Complexipy VSCode Extension
 
-This is the README for your extension "complexipy". After writing up a brief description, we recommend including the following sections.
+A Visual Studio Code extension that provides real-time cognitive complexity analysis for Python code. This extension helps developers identify and manage code complexity by providing visual indicators for both function-level and line-level complexity.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- **Real-time Complexity Analysis**: Automatically analyzes Python code as you type
+- **Visual Complexity Indicators**:
+  - Function complexity shown with `ƒ` symbol
+  - Line-level complexity shown with `+` symbol
+  - Color-coded indicators:
+    - Green: Low complexity (functions < 15, lines ≤ 5)
+    - Red: High complexity (functions ≥ 15, lines > 5)
+- **Automatic Updates**: Complexity analysis updates on:
+  - File save
+  - Active editor change
+  - Text changes
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Visual Studio Code version 1.85.0 or higher
+- Python files to analyze
 
-## Extension Settings
+## Installation
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+1. Open VS Code
+2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "complexipy"
+4. Click Install
 
-For example:
+## Usage
 
-This extension contributes the following settings:
+The extension automatically activates when you open a Python file. You'll see complexity indicators appear at the end of each line:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- `ƒ N`: Function complexity score (where N is the complexity value)
+- `+N`: Line-level complexity score (where N is the complexity value)
 
-## Known Issues
+### Manual Analysis
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+You can trigger a manual analysis by:
+1. Opening the Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
+2. Typing "complexipy"
+3. Selecting the "complexipy" command
 
-## Release Notes
+## Complexity Thresholds
 
-Users appreciate release notes as you update your extension.
+- **Function Complexity**:
+  - Low: < 15
+  - High: ≥ 15
 
-### 1.0.0
+- **Line Complexity**:
+  - Low: ≤ 5
+  - High: > 5
 
-Initial release of ...
+## Contributing
 
-### 1.0.1
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Fixed issue #.
+## License
 
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+This extension is licensed under the MIT License - see the LICENSE file for details.
