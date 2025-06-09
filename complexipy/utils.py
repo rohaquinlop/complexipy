@@ -2,7 +2,7 @@ from .types import (
     DetailTypes,
     Sort,
 )
-from complexipy.rust import (
+from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
 )

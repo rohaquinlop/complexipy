@@ -7,9 +7,9 @@ from .utils import (
     has_success_functions,
 )
 from complexipy import (
-    rust,
+    _complexipy,
 )
-from complexipy.rust import FileComplexity, CodeComplexity
+from complexipy._complexipy import FileComplexity, CodeComplexity
 import os
 from pathlib import (
     Path,
@@ -61,12 +61,12 @@ def main(
     invocation_path = os.getcwd()
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files_complexities: List[FileComplexity] = rust.main(paths)
+    files_complexities: List[FileComplexity] = _complexipy.main(paths)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
     if output:
-        rust.output_csv(output_csv_path, files_complexities, sort.value)
+        _complexipy.output_csv(output_csv_path, files_complexities, sort.value)
         console.print(f"Results saved at {output_csv_path}")
 
     if not quiet:
@@ -88,13 +88,13 @@ def main(
 def code_complexity(
     code: str,
 ) -> CodeComplexity:
-    return rust.code_complexity(code)
+    return _complexipy.code_complexity(code)
 
 
 def file_complexity(file_path: str) -> FileComplexity:
     path = Path(file_path)
     base_path = path.parent
-    return rust.file_complexity(
+    return _complexipy.file_complexity(
         file_path=path.resolve().as_posix(),
         base_path=base_path.resolve().as_posix(),
     )

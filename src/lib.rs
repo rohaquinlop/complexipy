@@ -18,7 +18,8 @@ use cognitive_complexity::{code_complexity, file_complexity, main};
 /// A Python module implemented in Rust.
 #[cfg(feature = "python")]
 #[pymodule]
-fn rust(_py: Python, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "_complexipy")]
+fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(main, m)?)?;
     m.add_function(wrap_pyfunction!(file_complexity, m)?)?;
     m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
