@@ -14,6 +14,9 @@
 <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
 </a>
+<a href="https://github.com/marketplace/actions/complexipy" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
+</a>
 
 </div>
 
