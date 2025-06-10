@@ -3,6 +3,10 @@
   "displayName": "complexipy",
   "description": "Real-time cognitive complexity analyzer for Python code with visual indicators for function and line-level complexity",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rohaquinlop/complexipy"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
