@@ -12,6 +12,10 @@
 <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
 </a>
+<a href="https://github.com/marketplace/actions/complexipy" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
+</a>
+
 
 An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
 
@@ -24,6 +28,9 @@ An extremely fast Python library to calculate the cognitive complexity of Python
   - [Installation](#installation)
   - [Usage](#usage)
     - [Command Line Interface](#command-line-interface)
+    - [GitHub Action](#github-action)
+      - [Action Inputs](#action-inputs)
+      - [Examples](#examples)
     - [Options](#options)
   - [Use the library from python code](#use-the-library-from-python-code)
     - [Example](#example)
@@ -111,6 +118,71 @@ complexipy path/to/directory -q
 complexipy path/to/directory -s desc
 ```
 
+### GitHub Action
+
+You can use complexipy as a GitHub Action to automatically check code complexity in your CI/CD pipeline:
+
+```yaml
+name: Check Code Complexity
+on: [push, pull_request]
+
+jobs:
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check Python Code Complexity
+      uses: rohaquinlop/complexipy-action@v1
+      with:
+        paths: '.'  # Analyze the entire repository
+        max_complexity: 15  # Set maximum allowed complexity
+```
+
+#### Action Inputs
+
+| Input          | Description                                                      | Required | Default                 |
+| -------------- | ---------------------------------------------------------------- | -------- | ----------------------- |
+| paths          | Paths to analyze. Can be local paths or a git repository URL.    | Yes      | ${{ github.workspace }} |
+| max_complexity | Maximum allowed complexity per function. Set to 0 for unlimited. | No       | 15                      |
+| output         | Generate results in a CSV file.                                  | No       | false                   |
+| details        | Output detail level (low or normal).                             | No       | normal                  |
+| quiet          | Suppress console output.                                         | No       | false                   |
+| sort           | Sort results by complexity (asc, desc, or name).                 | No       | asc                     |
+
+#### Examples
+
+Basic Usage:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: '.'
+```
+
+Custom Maximum Complexity:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: './src'
+    max_complexity: 20
+```
+
+Generate CSV Report:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: '.'
+    output: true
+```
+
+Analyze Specific Directory with Low Detail Output:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: './src/python'
+    details: 'low'
+    sort: 'desc'
+```
+
 ### Options
 
 - `-c` or `--max-complexity`: Set the maximum cognitive complexity (default: 15).
@@ -182,7 +254,7 @@ def b_decorator(a, b):
 Running `complexipy path/to/file.py` produces:
 
 ```txt
-───────────────────────────── 🐙 complexipy 2.1.1 ──────────────────────────────
+───────────────────────────── 🐙 complexipy 3.0.0 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃

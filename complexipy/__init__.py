@@ -1,4 +1,4 @@
-from complexipy.rust import (
+from complexipy._complexipy import (
     CodeComplexity,
     FileComplexity,
     FunctionComplexity,

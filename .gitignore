@@ -1,4 +1,4 @@
-/target
+target/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -81,3 +81,14 @@ docs/_build/
 
 # Pyright LSP
 pyrightconfig.json
+
+# Web
+node_modules/
+pkg/
+
+# WASM files
+vscode/complexipy/wasm/
+web/wasm/
+
+# VSCode package
+vscode/complexipy/complexipy-*.vsix

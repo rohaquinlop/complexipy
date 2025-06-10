@@ -28,7 +28,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Testing",
@@ -36,14 +35,14 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = ["typer==0.12.5"]
+dependencies = ["typer>=0.12.5"]
 
 [project.scripts]
 complexipy = "complexipy.main:app"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "complexipy.rust"
+module-name = "complexipy._complexipy"
 
 [dependency-groups]
 dev = ["maturin>=1.8.3", "mkdocs-material>=9.6.12", "pytest>=8.3.5"]

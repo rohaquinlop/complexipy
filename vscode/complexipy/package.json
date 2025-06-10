@@ -1,0 +1,40 @@
+{
+  "name": "complexipy",
+  "displayName": "complexipy",
+  "description": "Real-time cognitive complexity analyzer for Python code with visual indicators for function and line-level complexity",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rohaquinlop/complexipy"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onLanguage:python"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "complexipy.calculateCognitiveComplexity",
+        "title": "complexipy: Calculate Cognitive Complexity"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "16.x",
+    "eslint": "^8.56.0"
+  }
+}

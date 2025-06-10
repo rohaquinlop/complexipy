@@ -1,8 +1,13 @@
+#[cfg(feature = "python")]
 use crate::classes::{FileComplexity, FunctionComplexity};
+#[cfg(feature = "python")]
 use csv::Writer;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexity>, sort: &str) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
@@ -54,6 +59,7 @@ pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexit
     writer.flush().unwrap();
 }
 
+#[cfg(feature = "python")]
 pub fn get_repo_name(url: &str) -> String {
     let url = url.trim_end_matches('/');
 
@@ -68,6 +74,7 @@ pub fn get_repo_name(url: &str) -> String {
     repo_name.to_string()
 }
 
+#[cfg(any(feature = "python", feature = "wasm"))]
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
     match statement {
@@ -89,6 +96,7 @@ pub fn is_decorator(statement: Stmt) -> bool {
     ans
 }
 
+#[cfg(any(feature = "python", feature = "wasm"))]
 pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
@@ -143,4 +151,11 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     }
 
     complexity
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
+    let before_slice = &code[..byte_index];
+    let newline_count = before_slice.chars().filter(|&c| c == '\n').count();
+    (newline_count + 1) as u64
 }

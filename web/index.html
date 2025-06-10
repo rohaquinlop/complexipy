@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>complexipy - Cognitive Complexity Analyzer</title>
+    <link rel="stylesheet" href="styles.css?v=1.1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>complexipy</h1>
+            <p>Cognitive Complexity Analyzer</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="editor-container">
+            <div class="editor-header">
+                <span id="analysis-status">Ready</span>
+            </div>
+            <div class="editor-wrapper">
+                <textarea id="code-editor"></textarea>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Powered by <a href="https://github.com/rohaquinlop/complexipy" target="_blank">complexipy</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"
+        integrity="sha384-oG4CsOtmTEhYO9bKzsYPGRJyqcREeEElY9hokeI8NndemZlK5k6d+0LX0xY5HObE"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"
+        integrity="sha384-Ny0AmQ4PQSEDyIr2KVR5jt2mw1BMPLwTNoXm0EIsGzk+7d1iBgcBZezH8gO5OgA9"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"
+        integrity="sha384-G0dW669yzC7wSAJf0Tqu4PyeHKXY0vAX9xZtaTPnK/+EHjtucblXS/5GHR55j1mx"
+        crossorigin="anonymous"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
