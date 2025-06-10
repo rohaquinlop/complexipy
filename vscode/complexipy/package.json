@@ -7,13 +7,13 @@
     "type": "git",
     "url": "https://github.com/rohaquinlop/complexipy"
   },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Programming Languages",
     "Linters",
-    "Quality Assurance",
     "Testing"
   ],
   "activationEvents": [

@@ -89,3 +89,6 @@ pkg/
 # WASM files
 vscode/complexipy/wasm/
 web/wasm/
+
+# VSCode package
+vscode/complexipy/complexipy-*.vsix
