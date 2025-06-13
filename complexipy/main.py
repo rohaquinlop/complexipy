@@ -33,8 +33,11 @@ def main(
     paths: List[str] = typer.Argument(
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
-    output: bool = typer.Option(
-        False, "--output", "-o", help="Output the results to a CSV file."
+    output_csv: bool = typer.Option(
+        False, "--output-csv", "-c", help="Output the results to a CSV file."
+    ),
+    output_json: bool = typer.Option(
+        False, "--output-json", "-j", help="Output the results to a JSON file."
     ),
     ignore_complexity: bool = typer.Option(
         False,
@@ -64,8 +67,9 @@ def main(
     files_complexities: List[FileComplexity] = _complexipy.main(paths)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
+    output_json_path = f"{invocation_path}/complexipy.json"
 
-    if output:
+    if output_csv:
         _complexipy.output_csv(
             output_csv_path,
             files_complexities,
@@ -73,6 +77,14 @@ def main(
             details.value == DetailTypes.normal.value,
         )
         console.print(f"Results saved at {output_csv_path}")
+
+    if output_json:
+        _complexipy.output_json(
+            output_json_path,
+            files_complexities,
+            details.value == DetailTypes.normal.value,
+        )
+        console.print(f"Results saved at {output_json_path}")
 
     if not quiet:
         has_success = output_summary(

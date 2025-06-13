@@ -81,7 +81,10 @@ complexipy path/to/file.py
 complexipy path/to/file.py -i
 
 # Output results to a CSV file
-complexipy path/to/directory -o
+complexipy path/to/directory -c
+
+# Output results to a JSON file
+complexipy path/to/directory -j
 
 # Show only files exceeding maximum complexity
 complexipy path/to/directory -d low
@@ -114,13 +117,14 @@ jobs:
 
 #### Action Inputs
 
-| Input   | Description                                                   | Required | Default                 |
-| ------- | ------------------------------------------------------------- | -------- | ----------------------- |
-| paths   | Paths to analyze. Can be local paths or a git repository URL. | Yes      | ${{ github.workspace }} |
-| output  | Generate results in a CSV file.                               | No       | false                   |
-| details | Output detail level (low or normal).                          | No       | normal                  |
-| quiet   | Suppress console output.                                      | No       | false                   |
-| sort    | Sort results by complexity (asc, desc, or name).              | No       | asc                     |
+| Input       | Description                                                   | Required | Default                 |
+| ----------- | ------------------------------------------------------------- | -------- | ----------------------- |
+| paths       | Paths to analyze. Can be local paths or a git repository URL. | Yes      | ${{ github.workspace }} |
+| output_csv  | Generate results in a CSV file.                               | No       | false                   |
+| output_json | Generate results in a JSON file.                              | No       | false                   |
+| details     | Output detail level (low or normal).                          | No       | normal                  |
+| quiet       | Suppress console output.                                      | No       | false                   |
+| sort        | Sort results by complexity (asc, desc, or name).              | No       | asc                     |
 
 #### Examples
 
@@ -136,7 +140,15 @@ Generate CSV Report:
 - uses: rohaquinlop/complexipy-action@v1
   with:
     paths: '.'
-    output: true
+    output_csv: true
+```
+
+Generate JSON Report:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: '.'
+    output_json: true
 ```
 
 Analyze Specific Directory with Low Detail Output:
@@ -179,8 +191,9 @@ You can also trigger a manual analysis by:
 
 | Option | Long form             | Description                                        | Default |
 | ------ | --------------------- | -------------------------------------------------- | ------- |
+| `-c`   | `--output-csv`        | Output results to CSV file                         | False   |
+| `-j`   | `--output-json`       | Output results to JSON file                        | False   |
 | `-i`   | `--ignore-complexity` | Ignore complexity threshold and show all functions | False   |
-| `-o`   | `--output`            | Output results to CSV file                         | False   |
 | `-d`   | `--details`           | Detail level (normal/low)                          | normal  |
 | `-q`   | `--quiet`             | Disable console output                             | False   |
 | `-s`   | `--sort`              | Sort order (asc/desc/name)                         | asc     |
@@ -189,6 +202,7 @@ You can also trigger a manual analysis by:
 
 - The program will exit with error code 1 if any function has a cognitive complexity greater than or equal to 15. Use the `-i` option to ignore this behavior.
 - CSV output is saved to `complexipy.csv` in the current directory.
+- JSON output is saved to `complexipy.json` in the current directory.
 - Detail level `low` shows only files/functions exceeding the maximum complexity.
 - Sort options:
   - `asc`: Sort by complexity (ascending)
