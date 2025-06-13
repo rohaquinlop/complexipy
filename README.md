@@ -103,11 +103,8 @@ complexipy git_repository_url
 # Analyze a specific file
 complexipy path/to/file.py
 
-# Set maximum cognitive complexity (default: 15)
-complexipy path/to/file.py -c 20
-
-# Disable exit with error (by setting max complexity to 0)
-complexipy path/to/directory -c 0
+# Ignore complexity threshold and show all functions
+complexipy path/to/file.py -i
 
 # Output results to a CSV file
 complexipy path/to/directory -o
@@ -139,19 +136,17 @@ jobs:
       uses: rohaquinlop/complexipy-action@v1
       with:
         paths: '.'  # Analyze the entire repository
-        max_complexity: 15  # Set maximum allowed complexity
 ```
 
 #### Action Inputs
 
-| Input          | Description                                                      | Required | Default                 |
-| -------------- | ---------------------------------------------------------------- | -------- | ----------------------- |
-| paths          | Paths to analyze. Can be local paths or a git repository URL.    | Yes      | ${{ github.workspace }} |
-| max_complexity | Maximum allowed complexity per function. Set to 0 for unlimited. | No       | 15                      |
-| output         | Generate results in a CSV file.                                  | No       | false                   |
-| details        | Output detail level (low or normal).                             | No       | normal                  |
-| quiet          | Suppress console output.                                         | No       | false                   |
-| sort           | Sort results by complexity (asc, desc, or name).                 | No       | asc                     |
+| Input   | Description                                                   | Required | Default                 |
+| ------- | ------------------------------------------------------------- | -------- | ----------------------- |
+| paths   | Paths to analyze. Can be local paths or a git repository URL. | Yes      | ${{ github.workspace }} |
+| output  | Generate results in a CSV file.                               | No       | false                   |
+| details | Output detail level (low or normal).                          | No       | normal                  |
+| quiet   | Suppress console output.                                      | No       | false                   |
+| sort    | Sort results by complexity (asc, desc, or name).              | No       | asc                     |
 
 #### Examples
 
@@ -216,9 +211,7 @@ You can also trigger a manual analysis by:
 
 ### Options
 
-- `-c` or `--max-complexity`: Set the maximum cognitive complexity (default: 15).
-  If the cognitive complexity of a file exceeds this value, the program will exit with error code 1.
-  Set to 0 to disable this behavior.
+- `-i` or `--ignore-complexity`: Ignore the complexity threshold and show all functions.
 
 - `-o` or `--output`: Output results to a CSV file named `complexipy.csv` in the current directory.
 
@@ -232,6 +225,8 @@ You can also trigger a manual analysis by:
   - `asc` (default): Sort by complexity (ascending)
   - `desc`: Sort by complexity (descending)
   - `name`: Sort by name (ascending)
+
+**Note:** The program will exit with error code 1 if any function has a cognitive complexity greater than or equal to 15. Use the `-i` option to ignore this behavior.
 
 ## Use the library from python code
 
