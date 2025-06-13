@@ -6,6 +6,12 @@ use csv::Writer;
 use pyo3::prelude::*;
 #[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
+#[cfg(feature = "python")]
+use serde_json;
+#[cfg(feature = "python")]
+use std::fs::File;
+#[cfg(feature = "python")]
+use std::io::Write;
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -68,6 +74,44 @@ pub fn output_csv(
     }
 
     writer.flush().unwrap();
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn output_json(
+    invocation_path: &str,
+    functions_complexity: Vec<FileComplexity>,
+    show_detailed_results: bool,
+) {
+    let mut json_data = Vec::new();
+
+    for file in functions_complexity {
+        for function in file.functions {
+            if show_detailed_results {
+                let entry = serde_json::json!({
+                    "path": file.path,
+                    "file_name": file.file_name,
+                    "function_name": function.name,
+                    "complexity": function.complexity
+                });
+                json_data.push(entry);
+            } else {
+                if function.complexity >= 15 {
+                    let entry = serde_json::json!({
+                        "path": file.path,
+                        "file_name": file.file_name,
+                        "function_name": function.name,
+                        "complexity": function.complexity
+                    });
+                    json_data.push(entry);
+                }
+            }
+        }
+    }
+
+    let json_string = serde_json::to_string_pretty(&json_data).unwrap();
+    let mut file = File::create(invocation_path).unwrap();
+    file.write_all(json_string.as_bytes()).unwrap();
 }
 
 #[cfg(feature = "python")]
