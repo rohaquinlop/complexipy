@@ -44,8 +44,8 @@ theme:
         name: Switch to light mode
   icon:
     repo: fontawesome/brands/github-alt
-  logo: img/icon.svg
-  favicon: img/favicon.svg
+  logo: img/complexipy_icon.svg
+  favicon: img/complexipy_icon.svg
 
 # Plugins (only using search which comes built-in)
 plugins:
