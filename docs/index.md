@@ -161,6 +161,33 @@ Analyze Specific Directory with Low Detail Output:
     sort: 'desc'
 ```
 
+### VSCode Extension
+
+You can also use complexipy directly in Visual Studio Code through our official [extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy):
+
+1. Open VS Code
+2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "complexipy"
+4. Click Install
+
+The extension provides:
+- Real-time complexity analysis as you type
+- Visual complexity indicators:
+  - Function complexity shown with ƒ symbol
+  - Line-level complexity shown with + symbol
+  - Color-coded indicators:
+    - Green: Low complexity (functions < 15, lines ≤ 5)
+    - Red: High complexity (functions ≥ 15, lines > 5)
+- Automatic updates on:
+  - File save
+  - Active editor change
+  - Text changes
+
+You can also trigger a manual analysis by:
+1. Opening the Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
+2. Typing "complexipy"
+3. Selecting the "complexipy" command
+
 ### Options
 
 | Option | Long form          | Description                            | Default |
