@@ -9,7 +9,12 @@ use ruff_python_ast::{self as ast, Stmt};
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexity>, sort: &str) {
+pub fn output_csv(
+    invocation_path: &str,
+    functions_complexity: Vec<FileComplexity>,
+    sort: &str,
+    show_detailed_results: bool,
+) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
     writer
@@ -21,7 +26,13 @@ pub fn output_csv(invocation_path: &str, functions_complexity: Vec<FileComplexit
 
         for file in functions_complexity {
             for function in file.functions {
-                all_functions.push((file.path.clone(), file.file_name.clone(), function));
+                if show_detailed_results {
+                    all_functions.push((file.path.clone(), file.file_name.clone(), function));
+                } else {
+                    if function.complexity >= 15 {
+                        all_functions.push((file.path.clone(), file.file_name.clone(), function));
+                    }
+                }
             }
         }
 
