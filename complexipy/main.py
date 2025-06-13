@@ -33,14 +33,14 @@ def main(
     paths: List[str] = typer.Argument(
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
-    max_complexity: int = typer.Option(
-        15,
-        "--max-complexity",
-        "-c",
-        help="The maximum complexity allowed per file, set this value as 0 to set it as unlimited. Default is 15.",
-    ),
     output: bool = typer.Option(
         False, "--output", "-o", help="Output the results to a CSV file."
+    ),
+    ignore_complexity: bool = typer.Option(
+        False,
+        "--ignore-complexity",
+        "-i",
+        help="Ignore the complexity and show all functions.",
     ),
     details: DetailTypes = typer.Option(
         DetailTypes.normal.value,
@@ -66,15 +66,20 @@ def main(
     output_csv_path = f"{invocation_path}/complexipy.csv"
 
     if output:
-        _complexipy.output_csv(output_csv_path, files_complexities, sort.value)
+        _complexipy.output_csv(
+            output_csv_path,
+            files_complexities,
+            sort.value,
+            details.value == DetailTypes.normal.value,
+        )
         console.print(f"Results saved at {output_csv_path}")
 
     if not quiet:
         has_success = output_summary(
-            console, files_complexities, max_complexity, details, sort
+            console, files_complexities, details, sort, ignore_complexity
         )
     if quiet:
-        has_success = has_success_functions(files_complexities, max_complexity)
+        has_success = has_success_functions(files_complexities)
 
     console.print(
         f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"
