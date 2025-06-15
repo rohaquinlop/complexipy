@@ -45,4 +45,9 @@ features = ["pyo3/extension-module"]
 module-name = "complexipy._complexipy"
 
 [dependency-groups]
-dev = ["maturin>=1.8.3", "mkdocs-material>=9.6.12", "pytest>=8.3.5"]
+dev = [
+    "maturin>=1.8.3",
+ "mkdocs-material>=9.6.12",
+ "pre-commit>=3.5.0",
+ "pytest>=8.3.5",
+]
