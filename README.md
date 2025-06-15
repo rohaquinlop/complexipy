@@ -18,6 +18,10 @@
 <a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
     <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
 </a>
+<a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
+    <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
+</a>
+
 
 
 An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
