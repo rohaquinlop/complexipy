@@ -34,6 +34,7 @@ An extremely fast Python library to calculate the cognitive complexity of Python
     - [GitHub Action](#github-action)
       - [Action Inputs](#action-inputs)
       - [Examples](#examples)
+    - [Pre-commit Hook](#pre-commit-hook)
     - [VSCode Extension](#vscode-extension)
     - [Options](#options)
   - [Use the library from python code](#use-the-library-from-python-code)
@@ -185,6 +186,37 @@ Analyze Specific Directory with Low Detail Output:
     details: 'low'
     sort: 'desc'
 ```
+
+### Pre-commit Hook
+
+You can use complexipy as a pre-commit hook to automatically check code complexity before each commit. This helps maintain code quality by preventing complex code from being committed.
+
+To use complexipy with pre-commit, add the following to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+- repo: https://github.com/rohaquinlop/complexipy-pre-commit
+  rev: v3.0.0  # Use the latest version
+  hooks:
+    - id: complexipy
+```
+
+To exclude Jupyter Notebooks from the analysis, you can specify the file types:
+
+```yaml
+repos:
+- repo: https://github.com/rohaquinlop/complexipy-pre-commit
+  rev: v3.0.0
+  hooks:
+    - id: complexipy
+      types_or: [ python, pyi ]  # Only analyze Python files
+```
+
+The pre-commit hook will:
+- Run automatically before each commit
+- Check the cognitive complexity of your Python files
+- Prevent commits if any function exceeds the complexity threshold
+- Help maintain code quality standards in your repository
 
 ### VSCode Extension
 

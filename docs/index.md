@@ -160,6 +160,37 @@ Analyze Specific Directory with Low Detail Output:
     sort: 'desc'
 ```
 
+### Pre-commit Hook
+
+You can use complexipy as a pre-commit hook to automatically check code complexity before each commit. This helps maintain code quality by preventing complex code from being committed.
+
+To use complexipy with pre-commit, add the following to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+- repo: https://github.com/rohaquinlop/complexipy-pre-commit
+  rev: v3.0.0  # Use the latest version
+  hooks:
+    - id: complexipy
+```
+
+To exclude Jupyter Notebooks from the analysis, you can specify the file types:
+
+```yaml
+repos:
+- repo: https://github.com/rohaquinlop/complexipy-pre-commit
+  rev: v3.0.0
+  hooks:
+    - id: complexipy
+      types_or: [ python, pyi ]  # Only analyze Python files
+```
+
+The pre-commit hook will:
+- Run automatically before each commit
+- Check the cognitive complexity of your Python files
+- Prevent commits if any function exceeds the complexity threshold
+- Help maintain code quality standards in your repository
+
 ### VSCode Extension
 
 You can also use complexipy directly in Visual Studio Code through our official [extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy):
