@@ -1,29 +1,27 @@
 # complexipy
 
 <div align="center">
-
-<a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
-    <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
-</a>
-<a href="https://pypi.org/project/complexipy" target="_blank">
-    <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
-</a>
-<a href="https://pepy.tech/project/complexipy" target="_blank">
-    <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
-</a>
-<a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
-</a>
-<a href="https://github.com/marketplace/actions/complexipy" target="_blank">
-    <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
-</a>
-<a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
-</a>
-<a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
-    <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
-</a>
-
+    <a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
+        <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
+    </a>
+    <a href="https://pypi.org/project/complexipy" target="_blank">
+        <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
+    </a>
+    <a href="https://pepy.tech/project/complexipy" target="_blank">
+        <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
+    </a>
+    <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
+        <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
+    </a>
+    <a href="https://github.com/marketplace/actions/complexipy" target="_blank">
+        <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
+    </a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
+        <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
+    </a>
+    <a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
+        <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
+    </a>
 </div>
 
 An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
