@@ -1,28 +1,28 @@
 # complexipy
 
-<a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
-    <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
-</a>
-<a href="https://pypi.org/project/complexipy" target="_blank">
-    <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
-</a>
-<a href="https://pepy.tech/project/complexipy" target="_blank">
-    <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
-</a>
-<a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
-</a>
-<a href="https://github.com/marketplace/actions/complexipy" target="_blank">
-    <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
-</a>
-<a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
-</a>
-<a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
-    <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
-</a>
-
-
+<div align="center">
+  <a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
+      <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
+  </a>
+  <a href="https://pypi.org/project/complexipy" target="_blank">
+      <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
+  </a>
+  <a href="https://pepy.tech/project/complexipy" target="_blank">
+      <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
+  </a>
+  <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
+      <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
+  </a>
+  <a href="https://github.com/marketplace/actions/complexipy" target="_blank">
+      <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
+      <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
+  </a>
+  <a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
+      <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
+  </a>
+</div>
 
 An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
 
@@ -35,22 +35,21 @@ An extremely fast Python library to calculate the cognitive complexity of Python
   - [Installation](#installation)
   - [Usage](#usage)
     - [Command Line Interface](#command-line-interface)
+      - [Command-line options](#command-line-options)
     - [GitHub Action](#github-action)
       - [Action Inputs](#action-inputs)
       - [Examples](#examples)
     - [Pre-commit Hook](#pre-commit-hook)
     - [VSCode Extension](#vscode-extension)
-    - [Options](#options)
-  - [Use the library from python code](#use-the-library-from-python-code)
-    - [Example](#example)
-  - [Example](#example-1)
-    - [Analyzing a file](#analyzing-a-file)
-      - [From the CLI](#from-the-cli)
-      - [Using the library](#using-the-library)
-      - [Understanding the Analysis](#understanding-the-analysis)
-    - [Output to a CSV file](#output-to-a-csv-file)
-    - [Analyzing a directory](#analyzing-a-directory)
-    - [Analyzing a git repository](#analyzing-a-git-repository)
+  - [Python API](#python-api)
+    - [Quick-start](#quick-start)
+  - [End-to-End Example](#end-to-end-example)
+    - [1.  Prepare a sample file](#1--prepare-a-sample-file)
+    - [2.  Run the CLI](#2--run-the-cli)
+    - [3.  Use the Python API](#3--use-the-python-api)
+    - [4.  Why is the score 1?](#4--why-is-the-score-1)
+    - [5.  Persisting the results](#5--persisting-the-results)
+    - [6.  Scaling up your analysis](#6--scaling-up-your-analysis)
   - [Contributors](#contributors)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
@@ -96,36 +95,47 @@ pip install complexipy
 ### Command Line Interface
 
 ```shell
-# Analyze the current directory and subdirectories
+# Analyze the current directory (recursively)
 complexipy .
 
-# Analyze a specific directory and subdirectories
+# Analyze a specific directory (recursively)
 complexipy path/to/directory
 
-# Analyze a git repository
-complexipy git_repository_url
+# Analyze a remote Git repository
+complexipy https://github.com/user/repo.git
 
-# Analyze a specific file
+# Analyze a single file
 complexipy path/to/file.py
 
-# Ignore complexity threshold and show all functions
-complexipy path/to/file.py -i
+# Suppress console output
+complexipy path/to/directory --quiet      # or -q
 
-# Output results to a CSV file
-complexipy path/to/directory -c
+# List every function, ignoring the 15-point complexity threshold
+complexipy path/to/file.py --ignore-complexity   # or -i
 
-# Output results to a JSON file
-complexipy path/to/directory -j
+# Show only files / functions whose complexity exceeds the threshold
+complexipy path/to/directory --details low       # or -d low
 
-# Show only files exceeding maximum complexity
-complexipy path/to/directory -d low
+# Sort results (asc: ascending complexity, desc: descending complexity, name: A→Z)
+complexipy path/to/directory --sort desc         # or -s desc
 
-# Disable console output
-complexipy path/to/directory -q
-
-# Sort results in descending order
-complexipy path/to/directory -s desc
+# Save results
+complexipy path/to/directory --output-csv        # -c, writes complexipy.csv
+complexipy path/to/directory --output-json       # -j, writes complexipy.json
 ```
+
+#### Command-line options
+
+| Short | Long                     | Parameters | Description                                                                                                                                                     | Default  |
+| ----- | ------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `-c`  | `--output-csv`           | –          | Write the report to `complexipy.csv` in the current working directory.                                                                                          | false    |
+| `-j`  | `--output-json`          | –          | Write the report to `complexipy.json` in the current working directory.                                                                                         | false    |
+| `-i`  | `--ignore-complexity`    | –          | Do not stop with an error when a function's cognitive complexity is > 15. All functions are still listed in the output.                                         | off      |
+| `-d`  | `--details <normal∣low>` | required   | Control the verbosity of the output.<br>• `normal` – show every file and function (default)<br>• `low` – show only entries that exceed the complexity threshold | `normal` |
+| `-q`  | `--quiet`                | –          | Suppress console output. Exit codes are still returned.                                                                                                         | false    |
+| `-s`  | `--sort <asc∣desc∣name>` | required   | Order the results.<br>• `asc` – complexity ascending (default)<br>• `desc` – complexity descending<br>• `name` – alphabetical A→Z                               | `asc`    |
+
+> **Note**  The CLI exits with code **1** when at least one function exceeds the threshold of **15** points. Pass `--ignore-complexity` (`-i`) to disable this behaviour.
 
 ### GitHub Action
 
@@ -141,21 +151,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Check Python Code Complexity
-      uses: rohaquinlop/complexipy-action@v1
+      uses: rohaquinlop/complexipy-action@v2
       with:
-        paths: '.'  # Analyze the entire repository
+        paths: .  # Analyze the entire repository
 ```
 
 #### Action Inputs
 
-| Input       | Description                                                   | Required | Default                 |
-| ----------- | ------------------------------------------------------------- | -------- | ----------------------- |
-| paths       | Paths to analyze. Can be local paths or a git repository URL. | Yes      | ${{ github.workspace }} |
-| output_csv  | Generate results in a CSV file.                               | No       | false                   |
-| output_json | Generate results in a JSON file.                              | No       | false                   |
-| details     | Output detail level (low or normal).                          | No       | normal                  |
-| quiet       | Suppress console output.                                      | No       | false                   |
-| sort        | Sort results by complexity (asc, desc, or name).              | No       | asc                     |
+| Input             | Type / Allowed Values                 | Required |
+| ----------------- | ------------------------------------- | -------- |
+| paths             | string (single path or list of paths) | Yes      |
+| quiet             | boolean                               | No       |
+| ignore_complexity | boolean                               | No       |
+| details           | normal, low                           | No       |
+| sort              | asc, desc, name                       | No       |
+| output_csv        | boolean                               | No       |
+| output_json       | boolean                               | No       |
 
 #### Examples
 
@@ -163,14 +174,16 @@ Basic Usage:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v1
   with:
-    paths: '.'
+    paths: |
+      .
+      project_path
 ```
 
 Generate CSV Report:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v1
   with:
-    paths: '.'
+    paths: .
     output_csv: true
 ```
 
@@ -178,7 +191,7 @@ Generate JSON Report:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v1
   with:
-    paths: '.'
+    paths: .
     output_json: true
 ```
 
@@ -186,9 +199,9 @@ Analyze Specific Directory with Low Detail Output:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v1
   with:
-    paths: './src/python'
-    details: 'low'
-    sort: 'desc'
+    paths: ./src/python
+    details: low
+    sort: desc
 ```
 
 ### Pre-commit Hook
@@ -203,17 +216,6 @@ repos:
   rev: v3.0.0  # Use the latest version
   hooks:
     - id: complexipy
-```
-
-To exclude Jupyter Notebooks from the analysis, you can specify the file types:
-
-```yaml
-repos:
-- repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v3.0.0
-  hooks:
-    - id: complexipy
-      types_or: [ python, pyi ]  # Only analyze Python files
 ```
 
 The pre-commit hook will:
@@ -237,8 +239,8 @@ The extension provides:
   - Function complexity shown with ƒ symbol
   - Line-level complexity shown with + symbol
   - Color-coded indicators:
-    - Green: Low complexity (functions < 15, lines ≤ 5)
-    - Red: High complexity (functions ≥ 15, lines > 5)
+    - Green: Low complexity (functions ≤ 15, lines ≤ 5)
+    - Red: High complexity (functions > 15, lines > 5)
 - Automatic updates on:
   - File save
   - Active editor change
@@ -249,65 +251,71 @@ You can also trigger a manual analysis by:
 2. Typing "complexipy"
 3. Selecting the "complexipy" command
 
-### Options
+## Python API
 
-- `-c` or `--output-csv`: Output results to a CSV file named `complexipy.csv` in the current directory.
+Complexipy can also be used directly from your Python code. The high-level helper functions below wrap the Rust core and return lightweight Python classes that behave like regular dataclasses.
 
-- `-j` or `--output-json`: Output results to a JSON file named `complexipy.json` in the current directory.
+- `complexipy.file_complexity(path: str) -> FileComplexity` – analyse a Python file on disk.
+- `complexipy.code_complexity(src: str) -> CodeComplexity` – analyse a string that contains Python source.
 
-- `-i` or `--ignore-complexity`: Ignore the complexity threshold and show all functions.
+Both helpers return objects whose public attributes you can freely access:
 
-- `-d` or `--details`: Set detail level:
-  - `normal` (default): Show all files and functions
-  - `low`: Show only files/functions exceeding the maximum complexity
+```text
+FileComplexity
+├─ path: str                   # Relative path of the analysed file
+├─ file_name: str              # Filename without the directory part
+├─ complexity: int             # Cognitive complexity of the whole file
+└─ functions: List[FunctionComplexity]
 
-- `-q` or `--quiet`: Disable console output.
+FunctionComplexity
+├─ name: str
+├─ complexity: int
+├─ line_start: int
+├─ line_end: int
+└─ line_complexities: List[LineComplexity]
 
-- `-s` or `--sort`: Set sort order:
-  - `asc` (default): Sort by complexity (ascending)
-  - `desc`: Sort by complexity (descending)
-  - `name`: Sort by name (ascending)
+LineComplexity
+├─ line: int
+└─ complexity: int
+```
 
-**Note:** The program will exit with error code 1 if any function has a cognitive complexity greater than or equal to 15. Use the `-i` option to ignore this behavior.
-
-## Use the library from python code
-
-The library provides two main functions:
-
-- `complexipy.file_complexity`: Analyze a Python file at a specified path
-- `complexipy.code_complexity`: Analyze a string containing Python code
-
-### Example
+### Quick-start
 
 ```python
-# Analyze a file
-from complexipy import file_complexity
-result = file_complexity("path/to/your/file.py")
-print(f"File complexity: {result.complexity}")
+from complexipy import file_complexity, code_complexity
 
-# Analyze a code snippet
-from complexipy import code_complexity
-code = """
+# Analyse a file
+fc = file_complexity("path/to/your/file.py")
+print(f"Total file complexity: {fc.complexity}")
+
+for fn in fc.functions:
+    print(f"{fn.name}:{fn.line_start}-{fn.line_end} → {fn.complexity}")
+
+# Analyse an in-memory snippet
+snippet = """
 def example_function(x):
     if x > 0:
         for i in range(x):
             print(i)
 """
-result = code_complexity(code)
-print(f"Code complexity: {result.complexity}")
+cc = code_complexity(snippet)
+print(f"Snippet complexity: {cc.complexity}")
 ```
 
-## Example
+## End-to-End Example
 
-### Analyzing a file
+The following walk-through shows how to use **Complexipy** from both the **command line** *and* the **Python API**, how to interpret the scores it returns, and how to save them for later use.
 
-Given the following Python file:
+### 1.  Prepare a sample file
+
+Create `example.py` with two simple functions:
 
 ```python
 def a_decorator(a, b):
     def inner(func):
         return func
     return inner
+
 
 def b_decorator(a, b):
     def inner(func):
@@ -317,12 +325,18 @@ def b_decorator(a, b):
     return inner
 ```
 
-#### From the CLI
+### 2.  Run the CLI
 
-Running `complexipy path/to/file.py` produces:
+Analyse the file from your terminal:
 
-```txt
-───────────────────────────── 🐙 complexipy 3.0.0 ──────────────────────────────
+```bash
+complexipy example.py
+```
+
+Typical output (shortened):
+
+```text
+───────────────────────────── 🐙 complexipy 3.1.0 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
@@ -336,79 +350,54 @@ Running `complexipy path/to/file.py` produces:
 ────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
 ```
 
-#### Using the library
+**What do those columns mean?**
 
-With `file_complexity`:
-```python
->>> from complexipy import file_complexity
->>> fc = file_complexity("path/to/file.py")
->>> fc.complexity
-1
-```
+* **Path / File** – location of the analysed source file
+* **Function** – function or method name that was measured
+* **Complexity** – the cognitive complexity score of that function *(lower is better)*
 
-With `code_complexity`:
-```python
->>> from complexipy import code_complexity
->>> snippet = """for x in range(0, 10):
-    print(x)
-"""
->>> cc = code_complexity(snippet)
->>> cc.complexity
-1
-```
-
-#### Understanding the Analysis
+### 3.  Use the Python API
 
 ```python
-def a_decorator(a, b): # 0
-    def inner(func): # 0
-        return func # 0
-    return inner # 0
+from complexipy import file_complexity, code_complexity
 
-def b_decorator(a, b): # 0
-    def inner(func): # 0
-        if func: # 1 (nested = 0), total 1
-            return None # 0
-        return func # 0
-    return inner # 0
+# Analyse the file on disk
+fc = file_complexity("example.py")
+print(fc.complexity)   # → 1
+
+# Analyse an in-memory snippet
+snippet = "for x in range(10):\n    print(x)"
+cc = code_complexity(snippet)
+print(cc.complexity)   # → 1
 ```
 
-The cognitive complexity of the file is 1, with function `b_decorator` having a complexity of 1 due to the if statement.
+### 4.  Why is the score 1?
 
-### Output to a CSV file
-
-Using the `-o` option outputs results to `complexipy.csv` in the current directory:
-
-```bash
-complexipy path/to/file.py -o
+```python
+def b_decorator(a, b):  # 0
+  def inner(func):      # 0
+    if func:            # +1 – decision point
+      return None       # 0
+    return func         # 0
+  return inner          # 0
 ```
 
-CSV content:
-```csv
-Path,File Name,Function Name,Cognitive Complexity
-test_decorator.py,test_decorator.py,a_decorator,0
-test_decorator.py,test_decorator.py,b_decorator,1
-```
+Only a single `if` branch is encountered, therefore the file's total complexity is **1**.
 
-### Analyzing a directory
+### 5.  Persisting the results
 
-Analyze all Python files in the current directory and subdirectories:
+* **CSV** – `complexipy example.py -c` → creates `complexipy.csv`
+* **JSON** – `complexipy example.py -j` → creates `complexipy.json`
 
-```bash
-complexipy .
-```
+### 6.  Scaling up your analysis
 
-### Analyzing a git repository
-
-Analyze a remote repository:
-
-```bash
-# Analyze repository
-complexipy https://github.com/rohaquinlop/complexipy
-
-# With CSV output
-complexipy https://github.com/rohaquinlop/complexipy -o
-```
+* **Entire folder (recursively):** `complexipy .`
+* **Specific directory:** `complexipy ~/projects/my_app`
+* **Remote Git repository:**
+  ```bash
+  complexipy https://github.com/rohaquinlop/complexipy          # print to screen
+  complexipy https://github.com/rohaquinlop/complexipy -c       # save as CSV
+  ```
 
 ## Contributors
 

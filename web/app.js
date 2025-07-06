@@ -123,7 +123,7 @@ function addComplexityDecorations(result) {
             widget.className = 'complexity-widget';
             widget.textContent = `ƒ ${complexity}`;
 
-            if (complexity >= 15) {
+            if (complexity > 15) {
                 widget.classList.add('high-complexity');
             } else {
                 widget.classList.add('low-complexity');

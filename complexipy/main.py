@@ -25,7 +25,7 @@ import typer
 
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "3.0.0"
+version = "3.1.0"
 
 
 @app.command()
@@ -33,11 +33,8 @@ def main(
     paths: List[str] = typer.Argument(
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
-    output_csv: bool = typer.Option(
-        False, "--output-csv", "-c", help="Output the results to a CSV file."
-    ),
-    output_json: bool = typer.Option(
-        False, "--output-json", "-j", help="Output the results to a JSON file."
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Suppress the output to the console."
     ),
     ignore_complexity: bool = typer.Option(
         False,
@@ -51,14 +48,17 @@ def main(
         "-d",
         help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
     ),
-    quiet: bool = typer.Option(
-        False, "--quiet", "-q", help="Suppress the output to the console."
-    ),
     sort: Sort = typer.Option(
         Sort.asc.value,
         "--sort",
         "-s",
         help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
+    ),
+    output_csv: bool = typer.Option(
+        False, "--output-csv", "-c", help="Output the results to a CSV file."
+    ),
+    output_json: bool = typer.Option(
+        False, "--output-json", "-j", help="Output the results to a JSON file."
     ),
 ):
     invocation_path = os.getcwd()
@@ -86,12 +86,12 @@ def main(
         )
         console.print(f"Results saved at {output_json_path}")
 
-    if not quiet:
+    if quiet:
+        has_success = has_success_functions(files_complexities)
+    else:
         has_success = output_summary(
             console, files_complexities, details, sort, ignore_complexity
         )
-    if quiet:
-        has_success = has_success_functions(files_complexities)
 
     console.print(
         f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"

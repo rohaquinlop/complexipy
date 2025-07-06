@@ -32,7 +32,7 @@ def output_summary(
 
     if details == DetailTypes.low and table.row_count < 1:
         console.print(
-            f"No function{'s' if len(files) > 1 else ''} were found with complexity greater or equal to 15."
+            f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than 15."
         )
     else:
         if len(all_functions) == 0:
@@ -83,7 +83,7 @@ def create_table(
             all_functions.reverse()
 
     for function in all_functions:
-        if function[2].complexity >= 15:
+        if function[2].complexity > 15:
             table.add_row(
                 f"{function[0]}",
                 f"[green]{function[1]}[/green]",
@@ -108,6 +108,6 @@ def create_table(
 def has_success_functions(files: List[FileComplexity]) -> bool:
     for file in files:
         for function in file.functions:
-            if function.complexity >= 15:
+            if function.complexity > 15:
                 return False
     return True
