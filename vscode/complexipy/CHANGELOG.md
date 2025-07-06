@@ -25,5 +25,5 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Manual analysis trigger via command palette
 - Support for Python files
 - Complexity thresholds:
-  - Function complexity: Low (< 15), High (≥ 15)
+  - Function complexity: Low (≤ 15), High (> 15)
   - Line complexity: Low (≤ 5), High (> 5)

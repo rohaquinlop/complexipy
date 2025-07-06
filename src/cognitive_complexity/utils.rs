@@ -35,7 +35,7 @@ pub fn output_csv(
                 if show_detailed_results {
                     all_functions.push((file.path.clone(), file.file_name.clone(), function));
                 } else {
-                    if function.complexity >= 15 {
+                    if function.complexity > 15 {
                         all_functions.push((file.path.clone(), file.file_name.clone(), function));
                     }
                 }
@@ -96,7 +96,7 @@ pub fn output_json(
                 });
                 json_data.push(entry);
             } else {
-                if function.complexity >= 15 {
+                if function.complexity > 15 {
                     let entry = serde_json::json!({
                         "path": file.path,
                         "file_name": file.file_name,

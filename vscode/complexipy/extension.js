@@ -86,7 +86,7 @@ function analyzeAndDecorate(editor, complexityModule) {
 				const range = new vscode.Range(position, position);
 				const decoration = { range, renderOptions: { after: { contentText: `ƒ ${complexity}` } } };
 
-				if (complexity >= 15) {
+				if (complexity > 15) {
 					highComplexityDecorations.push(decoration);
 				} else if (complexity > 0) {
 					lowComplexityDecorations.push(decoration);

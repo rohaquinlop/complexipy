@@ -130,12 +130,12 @@ complexipy path/to/directory --output-json       # -j, writes complexipy.json
 | ----- | ------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | `-c`  | `--output-csv`           | –          | Write the report to `complexipy.csv` in the current working directory.                                                                                          | false    |
 | `-j`  | `--output-json`          | –          | Write the report to `complexipy.json` in the current working directory.                                                                                         | false    |
-| `-i`  | `--ignore-complexity`    | –          | Do not stop with an error when a function's cognitive complexity is ≥ 15. All functions are still listed in the output.                                         | off      |
+| `-i`  | `--ignore-complexity`    | –          | Do not stop with an error when a function's cognitive complexity is > 15. All functions are still listed in the output.                                         | off      |
 | `-d`  | `--details <normal∣low>` | required   | Control the verbosity of the output.<br>• `normal` – show every file and function (default)<br>• `low` – show only entries that exceed the complexity threshold | `normal` |
 | `-q`  | `--quiet`                | –          | Suppress console output. Exit codes are still returned.                                                                                                         | false    |
 | `-s`  | `--sort <asc∣desc∣name>` | required   | Order the results.<br>• `asc` – complexity ascending (default)<br>• `desc` – complexity descending<br>• `name` – alphabetical A→Z                               | `asc`    |
 
-> **Note**  The CLI exits with code **1** when at least one function reaches the threshold of **15** points. Pass `--ignore-complexity` (`-i`) to disable this behaviour.
+> **Note**  The CLI exits with code **1** when at least one function exceeds the threshold of **15** points. Pass `--ignore-complexity` (`-i`) to disable this behaviour.
 
 ### GitHub Action
 
@@ -239,8 +239,8 @@ The extension provides:
   - Function complexity shown with ƒ symbol
   - Line-level complexity shown with + symbol
   - Color-coded indicators:
-    - Green: Low complexity (functions < 15, lines ≤ 5)
-    - Red: High complexity (functions ≥ 15, lines > 5)
+    - Green: Low complexity (functions ≤ 15, lines ≤ 5)
+    - Red: High complexity (functions > 15, lines > 5)
 - Automatic updates on:
   - File save
   - Active editor change

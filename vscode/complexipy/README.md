@@ -9,8 +9,8 @@ A Visual Studio Code extension that provides real-time cognitive complexity anal
   - Function complexity shown with `ƒ` symbol
   - Line-level complexity shown with `+` symbol
   - Color-coded indicators:
-    - Green: Low complexity (functions < 15, lines ≤ 5)
-    - Red: High complexity (functions ≥ 15, lines > 5)
+    - Green: Low complexity (functions ≤ 15, lines ≤ 5)
+    - Red: High complexity (functions > 15, lines > 5)
 - **Automatic Updates**: Complexity analysis updates on:
   - File save
   - Active editor change
@@ -45,8 +45,8 @@ You can trigger a manual analysis by:
 ## Complexity Thresholds
 
 - **Function Complexity**:
-  - Low: < 15
-  - High: ≥ 15
+  - Low: ≤ 15
+  - High: > 15
 
 - **Line Complexity**:
   - Low: ≤ 5
