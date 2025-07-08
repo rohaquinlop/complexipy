@@ -153,10 +153,10 @@ jobs:
             target: aarch64
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.10'
-          architecture: ${{ startsWith(matrix.platform.runner, 'windows') && matrix.platform.target || '' }}
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -165,10 +165,10 @@ jobs:
       - name: pytest
         shell: bash
         run: |
-          set -e
-          pip install complexipy --find-links dist --force-reinstall
-          pip install pytest
-          pytest tests/main.py
+          uv sync --all-extras --frozen
+          uv run maturin develop
+          uv run pytest tests/main.py
+          uv run complexipy complexipy -d low
 
   release:
     name: Release
@@ -193,12 +193,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.10'
       - uses: actions/cache@v4
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install mkdocs-material
-      - run: mkdocs gh-deploy --force
+      - run: uv run mkdocs gh-deploy --force
