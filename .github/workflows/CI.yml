@@ -136,13 +136,27 @@ jobs:
 
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
-    needs: [linux, sdist]
+    runs-on: ${{ matrix.platform.runner }}
+    needs: [linux, windows, macos, sdist]
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64
+          - runner: windows-latest
+            target: x64
+          - runner: windows-latest
+            target: x86
+          - runner: macos-latest
+            target: x86_64
+          - runner: macos-14
+            target: aarch64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          architecture: ${{ startsWith(matrix.platform.runner, 'windows') && matrix.platform.target || '' }}
       - uses: actions/download-artifact@v4
         with:
           path: dist

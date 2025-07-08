@@ -6,6 +6,8 @@ from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
 )
+import os
+import platform
 from rich.align import (
     Align,
 )
@@ -17,6 +19,11 @@ from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Tuple,
 )
+
+
+def check_os():
+    if platform.system() == "Windows":
+        os.environ["PYTHONUTF8"] = 1
 
 
 def output_summary(

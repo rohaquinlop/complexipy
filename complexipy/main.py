@@ -3,6 +3,7 @@ from .types import (
     Sort,
 )
 from .utils import (
+    check_os,
     output_summary,
     has_success_functions,
 )
@@ -61,6 +62,7 @@ def main(
         False, "--output-json", "-j", help="Output the results to a JSON file."
     ),
 ):
+    check_os()
     invocation_path = os.getcwd()
     console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
