@@ -6,6 +6,7 @@ from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
 )
+import platform
 from rich.align import (
     Align,
 )
@@ -17,6 +18,14 @@ from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Tuple,
 )
+
+
+def get_brain_icon():
+    """Get platform-appropriate brain icon"""
+    if platform.system() == "Windows":
+        return "Brain"
+    else:
+        return ":brain:"
 
 
 def output_summary(
@@ -43,8 +52,9 @@ def output_summary(
             )
         else:
             console.print(Align.center(table))
+            brain_icon = get_brain_icon()
             console.print(
-                f":brain: Total Cognitive Complexity: {total_complexity}"
+                f"{brain_icon} Total Cognitive Complexity: {total_complexity}"
             )
 
     return has_success

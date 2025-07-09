@@ -51,28 +51,28 @@ use utils::{count_bool_ops, get_repo_name, is_decorator};
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
+pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<Vec<FileComplexity>> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .unwrap();
 
-    let all_files_paths: Vec<(&str, bool, bool)> = paths
+    let all_files_paths: Vec<(&str, bool, bool, bool)> = paths
         .par_iter()
         .map(|&path| {
             let is_url = re.is_match(path);
 
             if is_url {
-                (path, false, true)
+                (path, false, true, quiet)
             } else if metadata(path).unwrap().is_dir() {
-                (path, true, false)
+                (path, true, false, quiet)
             } else {
-                (path, false, false)
+                (path, false, false, quiet)
             }
         })
         .collect();
 
     let all_files_processed: Vec<Result<Vec<FileComplexity>, PyErr>> = all_files_paths
         .par_iter()
-        .map(|(path, is_dir, is_url)| process_path(path, *is_dir, *is_url))
+        .map(|(path, is_dir, is_url, quiet)| process_path(path, *is_dir, *is_url, *quiet))
         .collect();
 
     if all_files_processed.iter().all(|x| x.is_ok()) {
@@ -88,7 +88,12 @@ pub fn main(paths: Vec<&str>) -> PyResult<Vec<FileComplexity>> {
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<FileComplexity>> {
+pub fn process_path(
+    path: &str,
+    is_dir: bool,
+    is_url: bool,
+    quiet: bool,
+) -> PyResult<Vec<FileComplexity>> {
     let mut ans: Vec<FileComplexity> = Vec::new();
 
     if is_url {
@@ -111,27 +116,29 @@ pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<File
             *done = true;
         });
 
-        let pb = ProgressBar::new_spinner();
-        pb.set_style(ProgressStyle::default_spinner());
-        pb.set_message("Cloning repository...");
+        if !quiet {
+            let pb = ProgressBar::new_spinner();
+            pb.set_style(ProgressStyle::default_spinner());
+            pb.set_message("Cloning repository...");
 
-        while !*cloning_done.lock().unwrap() {
-            pb.tick();
-            thread::sleep(std::time::Duration::from_millis(100));
+            while !*cloning_done.lock().unwrap() {
+                pb.tick();
+                thread::sleep(std::time::Duration::from_millis(100));
+            }
+
+            pb.finish_with_message("Repository cloned!");
         }
-
-        pb.finish_with_message("Repository cloned!");
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
 
-        match evaluate_dir(&repo_path) {
+        match evaluate_dir(&repo_path, quiet) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
 
         dir.close()?;
     } else if is_dir {
-        match evaluate_dir(path) {
+        match evaluate_dir(path, quiet) {
             Ok(files_complexity) => ans = files_complexity,
             Err(e) => return Err(e),
         }
@@ -152,7 +159,7 @@ pub fn process_path(path: &str, is_dir: bool, is_url: bool) -> PyResult<Vec<File
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str) -> PyResult<Vec<FileComplexity>> {
+fn evaluate_dir(path: &str, quiet: bool) -> PyResult<Vec<FileComplexity>> {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
@@ -167,28 +174,41 @@ fn evaluate_dir(path: &str) -> PyResult<Vec<FileComplexity>> {
         }
     }
 
-    let pb = ProgressBar::new(files_paths.len() as u64);
-    pb.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template(
-                "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-            )
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    if !quiet {
+        let pb = ProgressBar::new(files_paths.len() as u64);
+        pb.set_style(
+            indicatif::ProgressStyle::default_bar()
+                .template(
+                    "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+                )
+                .unwrap()
+                .progress_chars("##-"),
+        );
+        let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
+            .par_iter()
+            .map(|file_path| {
+                pb.inc(1);
+                match file_complexity(file_path, parent_dir) {
+                    Ok(file_complexity) => Ok(file_complexity),
+                    Err(e) => Err(e), // Propagate the error
+                }
+            })
+            .collect();
+
+        pb.finish_with_message("Done!");
+
+        return files_complexity_result;
+    }
 
     let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
         .par_iter()
         .map(|file_path| {
-            pb.inc(1);
             match file_complexity(file_path, parent_dir) {
                 Ok(file_complexity) => Ok(file_complexity),
                 Err(e) => Err(e), // Propagate the error
             }
         })
         .collect();
-
-    pb.finish_with_message("Done!");
 
     files_complexity_result // Return the collected result
 }

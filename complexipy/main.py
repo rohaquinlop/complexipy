@@ -11,6 +11,7 @@ from complexipy import (
 )
 from complexipy._complexipy import FileComplexity, CodeComplexity
 import os
+import platform
 from pathlib import (
     Path,
 )
@@ -62,9 +63,12 @@ def main(
     ),
 ):
     invocation_path = os.getcwd()
-    console.rule(f":octopus: complexipy {version}")
+    if platform.system() == "Windows":
+        console.rule(f"complexipy {version}")
+    else:
+        console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files_complexities: List[FileComplexity] = _complexipy.main(paths)
+    files_complexities: List[FileComplexity] = _complexipy.main(paths, quiet)
     execution_time = time.time() - start_time
     output_csv_path = f"{invocation_path}/complexipy.csv"
     output_json_path = f"{invocation_path}/complexipy.json"
@@ -92,11 +96,13 @@ def main(
         has_success = output_summary(
             console, files_complexities, details, sort, ignore_complexity
         )
-
-    console.print(
-        f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"
-    )
-    console.rule(":tada: Analysis completed! :tada:")
+        console.print(
+            f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"
+        )
+        if platform.system() == "Windows":
+            console.rule("Analysis completed!")
+        else:
+            console.rule(":tada: Analysis completed! :tada:")
 
     if not has_success:
         raise typer.Exit(code=1)
