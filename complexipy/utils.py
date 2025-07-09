@@ -6,7 +6,6 @@ from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
 )
-import os
 import platform
 from rich.align import (
     Align,
@@ -21,9 +20,12 @@ from typing import (
 )
 
 
-def check_os():
+def get_brain_icon():
+    """Get platform-appropriate brain icon"""
     if platform.system() == "Windows":
-        os.environ["PYTHONUTF8"] = "1"
+        return "Brain"
+    else:
+        return ":brain:"
 
 
 def output_summary(
@@ -50,8 +52,9 @@ def output_summary(
             )
         else:
             console.print(Align.center(table))
+            brain_icon = get_brain_icon()
             console.print(
-                f":brain: Total Cognitive Complexity: {total_complexity}"
+                f"{brain_icon} Total Cognitive Complexity: {total_complexity}"
             )
 
     return has_success
