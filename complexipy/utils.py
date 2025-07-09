@@ -23,7 +23,7 @@ from typing import (
 
 def check_os():
     if platform.system() == "Windows":
-        os.environ["PYTHONUTF8"] = 1
+        os.environ["PYTHONUTF8"] = "1"
 
 
 def output_summary(
