@@ -2,6 +2,43 @@
 
 ## [0.1.0] - 2025-07-09
 
+### Added
+- **Status Bar Integration**:
+  - Real-time file complexity overview in the status bar
+  - Shows total functions and high-complexity function count
+  - Visual indicators (green function icon, yellow warning, red error) based on complexity levels
+  - Detailed tooltip with complexity grade (A-D), statistics, and recommendations
+  - Clickable status bar item to trigger manual analysis
+  - Automatic updates when switching files or making changes
+  - Hides when non-Python files are active
+
+- **Advanced Hover Message System**: Comprehensive complexity insights with rich markdown formatting
+  - **Function-level hover messages**: Detailed analysis including function location, size, complexity breakdown, and context-aware refactoring strategies
+  - **Line-level hover messages**: Granular complexity analysis with parent function context, complexity source identification, and targeted improvement suggestions
+  - **Intelligent complexity categorization**: Automatic detection of accumulative vs. high complexity patterns with tailored recommendations
+  - **Educational hover content**: Comprehensive explanations of cognitive complexity calculations, formulas, and optimization strategies
+  - **Trusted hover content**: Enabled link support and interactive elements within hover messages
+
+- **Technical complexity metrics** in hover messages:
+  - Control flow structures count
+  - Boolean operators count
+  - Deeply nested lines detection (>2 levels)
+  - High-complexity lines identification
+  - Average complexity per line calculation
+
+- **Specialized refactoring strategies** based on complexity patterns:
+  - Function decomposition for accumulative complexity
+  - Priority-based refactoring for high complexity functions
+  - Sequential refactoring guidance (3-5 lines at a time)
+  - Design pattern suggestions (Strategy, State, Command)
+
+- **Comprehensive educational content** about cognitive complexity:
+  - Base cost calculation (+1 for if/for/while/try/except)
+  - Nesting penalty explanation (+1 per level)
+  - Boolean operations impact (+1 per and/or)
+  - Structural complexity factors
+  - Complete formula breakdown
+
 ### Enhanced
 - **Comprehensive hover messages**: Significantly improved hover information for both functions and lines
 - **Intelligent complexity analysis**: Enhanced function complexity hover with detailed breakdown including:

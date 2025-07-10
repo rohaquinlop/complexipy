@@ -2,6 +2,8 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs').promises;
 
+let statusBarItem;
+
 const lowComplexityDecorationType = vscode.window.createTextEditorDecorationType({
 	dark: {
 		after: {
@@ -42,11 +44,77 @@ const highComplexityDecorationType = vscode.window.createTextEditorDecorationTyp
 
 const allDecorationTypes = [lowComplexityDecorationType, highComplexityDecorationType];
 
+function updateStatusBar(fileStats) {
+	if (!statusBarItem) return;
+
+	if (!fileStats) {
+		statusBarItem.hide();
+		return;
+	}
+
+	const { totalFunctions, highComplexityFunctions, averageComplexity, maxComplexity, fileName } = fileStats;
+
+	if (totalFunctions === 0) {
+		statusBarItem.text = `$(symbol-function) No functions`;
+		statusBarItem.tooltip = `No functions found in ${fileName}`;
+		statusBarItem.backgroundColor = undefined;
+		statusBarItem.show();
+		return;
+	}
+
+	let icon = '$(symbol-function)';
+	let backgroundColor = undefined;
+	let status = 'Good';
+
+	if (highComplexityFunctions > 0) {
+		icon = '$(warning)';
+		backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+		status = 'Needs Review';
+	}
+
+	if (highComplexityFunctions > totalFunctions * 0.5) {
+		icon = '$(error)';
+		backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+		status = 'Urgent';
+	}
+
+	statusBarItem.text = `${icon} ${totalFunctions} functions (${highComplexityFunctions} high)`;
+	statusBarItem.backgroundColor = backgroundColor;
+
+	const complexityGrade = maxComplexity <= 15 ? 'A' : maxComplexity <= 25 ? 'B' : maxComplexity <= 35 ? 'C' : 'D';
+	statusBarItem.tooltip = new vscode.MarkdownString(`
+**File Cognitive Complexity Analysis**
+
+**File:** \`${fileName}\`
+**Status:** ${status}
+**Complexity Grade:** ${complexityGrade}
+
+**📊 Statistics:**
+- Total Functions: ${totalFunctions}
+- High Complexity: ${highComplexityFunctions} (${((highComplexityFunctions / totalFunctions) * 100).toFixed(1)}%)
+- Average Complexity: ${averageComplexity.toFixed(1)}
+- Max Complexity: ${maxComplexity}
+
+**🎯 Recommendations:**
+${highComplexityFunctions === 0
+			? '✅ Well-structured code with good maintainability'
+			: `⚠️ ${highComplexityFunctions} function${highComplexityFunctions === 1 ? '' : 's'} need${highComplexityFunctions === 1 ? 's' : ''} refactoring`}
+
+*Click to run analysis*
+	`);
+	statusBarItem.tooltip.isTrusted = true;
+	statusBarItem.show();
+}
+
 function analyzeAndDecorate(editor, complexityModule) {
-	if (!editor) return;
+	if (!editor) {
+		updateStatusBar(null);
+		return;
+	}
 
 	const { document } = editor;
 	if (document.languageId !== 'python') {
+		updateStatusBar(null);
 		return;
 	}
 
@@ -61,9 +129,25 @@ function analyzeAndDecorate(editor, complexityModule) {
 		const functionComplexityMap = new Map();
 		const functionInfoMap = new Map();
 
+		const fileStats = {
+			fileName: path.basename(document.fileName),
+			totalFunctions: result.functions.length,
+			highComplexityFunctions: 0,
+			totalComplexity: 0,
+			maxComplexity: 0,
+			averageComplexity: 0
+		};
+
 		result.functions.forEach(func => {
 			functionComplexityMap.set(func.line_start, func.complexity);
 			functionInfoMap.set(func.line_start, func);
+
+			fileStats.totalComplexity += func.complexity;
+			fileStats.maxComplexity = Math.max(fileStats.maxComplexity, func.complexity);
+			if (func.complexity > 15) {
+				fileStats.highComplexityFunctions++;
+			}
+
 			if (func.line_complexities && func.line_complexities.length > 0) {
 				const lineAggregates = new Map();
 				func.line_complexities.forEach(lineComp => {
@@ -79,6 +163,12 @@ function analyzeAndDecorate(editor, complexityModule) {
 				});
 			}
 		});
+
+		if (fileStats.totalFunctions > 0) {
+			fileStats.averageComplexity = fileStats.totalComplexity / fileStats.totalFunctions;
+		}
+
+		updateStatusBar(fileStats);
 
 		functionComplexityMap.forEach((complexity, lineNum) => {
 			const line = lineNum - 1;
@@ -374,6 +464,7 @@ function analyzeAndDecorate(editor, complexityModule) {
 		allDecorationTypes.forEach(decorationType => {
 			editor.setDecorations(decorationType, []);
 		});
+		updateStatusBar(null);
 	}
 }
 
@@ -394,6 +485,10 @@ async function activate(context) {
 		console.error("Failed to load/initialize complexipy WASM module:", err);
 		return;
 	}
+
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	statusBarItem.command = 'complexipy.calculateCognitiveComplexity';
+	context.subscriptions.push(statusBarItem);
 
 	let activeEditor = vscode.window.activeTextEditor;
 
@@ -446,6 +541,9 @@ async function activate(context) {
 }
 
 function deactivate() {
+	if (statusBarItem) {
+		statusBarItem.dispose();
+	}
 }
 
 module.exports = {
