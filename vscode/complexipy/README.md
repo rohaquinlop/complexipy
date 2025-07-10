@@ -11,6 +11,17 @@ A Visual Studio Code extension that provides real-time cognitive complexity anal
   - Color-coded indicators:
     - Green: Low complexity (functions ≤ 15, lines ≤ 5)
     - Red: High complexity (functions > 15, lines > 5)
+- **Status Bar Integration**:
+  - Overall file complexity overview in the status bar
+  - Shows total functions and high-complexity function count
+  - Visual indicators (green/yellow/red) based on complexity levels
+  - Detailed tooltip with complexity grade and recommendations
+  - Clickable to trigger manual analysis
+- **Comprehensive Hover Information**:
+  - Detailed function complexity breakdown
+  - Line-level complexity explanations
+  - Actionable refactoring suggestions
+  - Educational content about cognitive complexity
 - **Automatic Updates**: Complexity analysis updates on:
   - File save
   - Active editor change

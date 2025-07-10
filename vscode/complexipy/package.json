@@ -1,8 +1,8 @@
 {
   "name": "complexipy",
   "displayName": "complexipy",
-  "description": "Real-time cognitive complexity analyzer for Python code with visual indicators for function and line-level complexity",
-  "version": "0.0.3",
+  "description": "Real-time cognitive complexity analyzer for Python code with visual indicators, status bar integration, and detailed hover information for function and line-level complexity",
+  "version": "0.1.0",
   "icon": "img/complexipy.png",
   "publisher": "rohaquinlop",
   "repository": {

@@ -92,3 +92,6 @@ web/wasm/
 
 # VSCode package
 vscode/complexipy/complexipy-*.vsix
+
+vscode/complexipy/.vscode/**
+vscode/complexipy/.vscode-test/**
