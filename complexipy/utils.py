@@ -121,15 +121,13 @@ def has_success_functions(
     files: List[FileComplexity], max_complexity: int
 ) -> bool:
     return all(
-        map(
-            lambda file: all(
-                map(
-                    lambda function,
-                    complexity=max_complexity: function.complexity
-                    <= complexity,
-                    file.functions,
-                )
-            ),
-            files,
-        )
+        [
+            all(
+                [
+                    function.complexity <= max_complexity
+                    for function in file.functions
+                ]
+            )
+            for file in files
+        ]
     )
