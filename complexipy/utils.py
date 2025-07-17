@@ -34,14 +34,15 @@ def output_summary(
     details: DetailTypes,
     sort: Sort,
     ignore_complexity: bool,
+    max_complexity: int,
 ) -> bool:
     table, has_success, total_complexity, all_functions = create_table(
-        files, details, sort, ignore_complexity
+        files, details, sort, ignore_complexity, max_complexity
     )
 
     if details == DetailTypes.low and table.row_count < 1:
         console.print(
-            f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than 15."
+            f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
         )
     else:
         if len(all_functions) == 0:
@@ -65,6 +66,7 @@ def create_table(
     details: DetailTypes,
     sort: Sort,
     ignore_complexity: bool,
+    max_complexity: int,
 ) -> Tuple[Table, bool, int, List[Tuple[str, str, FunctionComplexity]]]:
     has_success = True
     all_functions: List[Tuple[str, str, FunctionComplexity]] = []
@@ -93,7 +95,7 @@ def create_table(
             all_functions.reverse()
 
     for function in all_functions:
-        if function[2].complexity > 15:
+        if function[2].complexity > max_complexity:
             table.add_row(
                 f"{function[0]}",
                 f"[green]{function[1]}[/green]",
@@ -115,9 +117,12 @@ def create_table(
     return table, has_success, total_complexity, all_functions
 
 
-def has_success_functions(files: List[FileComplexity]) -> bool:
-    for file in files:
-        for function in file.functions:
-            if function.complexity > 15:
-                return False
-    return True
+def has_success_functions(
+    files: List[FileComplexity], max_complexity: int
+) -> bool:
+    return all(
+        all(
+            function.complexity <= max_complexity for function in file.functions
+        )
+        for file in files
+    )

@@ -9,7 +9,7 @@ use pyo3::prelude::*;
 mod wasm;
 
 #[cfg(feature = "python")]
-use classes::{CodeComplexity, FileComplexity, FunctionComplexity};
+use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
 #[cfg(feature = "python")]
 use cognitive_complexity::utils::{output_csv, output_json};
 #[cfg(feature = "python")]
@@ -25,8 +25,9 @@ fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
     m.add_function(wrap_pyfunction!(output_csv, m)?)?;
     m.add_function(wrap_pyfunction!(output_json, m)?)?;
+    m.add_class::<CodeComplexity>()?;
     m.add_class::<FileComplexity>()?;
     m.add_class::<FunctionComplexity>()?;
-    m.add_class::<CodeComplexity>()?;
+    m.add_class::<LineComplexity>()?;
     Ok(())
 }

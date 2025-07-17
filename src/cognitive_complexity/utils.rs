@@ -20,6 +20,7 @@ pub fn output_csv(
     functions_complexity: Vec<FileComplexity>,
     sort: &str,
     show_detailed_results: bool,
+    max_complexity: i32,
 ) {
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
@@ -35,7 +36,7 @@ pub fn output_csv(
                 if show_detailed_results {
                     all_functions.push((file.path.clone(), file.file_name.clone(), function));
                 } else {
-                    if function.complexity > 15 {
+                    if function.complexity > max_complexity.try_into().unwrap() {
                         all_functions.push((file.path.clone(), file.file_name.clone(), function));
                     }
                 }
@@ -82,6 +83,7 @@ pub fn output_json(
     invocation_path: &str,
     functions_complexity: Vec<FileComplexity>,
     show_detailed_results: bool,
+    max_complexity: i32,
 ) {
     let mut json_data = Vec::new();
 
@@ -96,7 +98,7 @@ pub fn output_json(
                 });
                 json_data.push(entry);
             } else {
-                if function.complexity > 15 {
+                if function.complexity > max_complexity.try_into().unwrap() {
                     let entry = serde_json::json!({
                         "path": file.path,
                         "file_name": file.file_name,

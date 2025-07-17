@@ -2,6 +2,7 @@ from complexipy._complexipy import (
     CodeComplexity,
     FileComplexity,
     FunctionComplexity,
+    LineComplexity,
 )
 
 from .main import (
@@ -13,6 +14,7 @@ __all__ = [
     "CodeComplexity",
     "FileComplexity",
     "FunctionComplexity",
+    "LineComplexity",
     "code_complexity",
     "file_complexity",
 ]

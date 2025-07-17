@@ -122,20 +122,27 @@ complexipy path/to/directory --sort desc         # or -s desc
 # Save results
 complexipy path/to/directory --output-csv        # -c, writes complexipy.csv
 complexipy path/to/directory --output-json       # -j, writes complexipy.json
+
+# Set custom complexity threshold (default is 15)
+complexipy path/to/directory --max-complexity-allowed 10    # or -mx 10
+
+# Combine with other options
+complexipy path/to/directory --max-complexity-allowed 20 --details low --sort desc
 ```
 
 #### Command-line options
 
-| Short | Long                     | Parameters | Description                                                                                                                                                     | Default  |
-| ----- | ------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `-c`  | `--output-csv`           | –          | Write the report to `complexipy.csv` in the current working directory.                                                                                          | false    |
-| `-j`  | `--output-json`          | –          | Write the report to `complexipy.json` in the current working directory.                                                                                         | false    |
-| `-i`  | `--ignore-complexity`    | –          | Do not stop with an error when a function's cognitive complexity is > 15. All functions are still listed in the output.                                         | off      |
-| `-d`  | `--details <normal∣low>` | required   | Control the verbosity of the output.<br>• `normal` – show every file and function (default)<br>• `low` – show only entries that exceed the complexity threshold | `normal` |
-| `-q`  | `--quiet`                | –          | Suppress console output. Exit codes are still returned.                                                                                                         | false    |
-| `-s`  | `--sort <asc∣desc∣name>` | required   | Order the results.<br>• `asc` – complexity ascending (default)<br>• `desc` – complexity descending<br>• `name` – alphabetical A→Z                               | `asc`    |
+| Short | Long                       | Parameters | Description                                                                                                                                                     | Default  |
+| ----- | -------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `-c`  | `--output-csv`             | –          | Write the report to `complexipy.csv` in the current working directory.                                                                                          | false    |
+| `-j`  | `--output-json`            | –          | Write the report to `complexipy.json` in the current working directory.                                                                                         | false    |
+| `-i`  | `--ignore-complexity`      | –          | Do not stop with an error when a function's cognitive complexity exceeds the threshold. All functions are still listed in the output.                           | off      |
+| `-d`  | `--details <normal∣low>`   | required   | Control the verbosity of the output.<br>• `normal` – show every file and function (default)<br>• `low` – show only entries that exceed the complexity threshold | `normal` |
+| `-q`  | `--quiet`                  | –          | Suppress console output. Exit codes are still returned.                                                                                                         | false    |
+| `-s`  | `--sort <asc∣desc∣name>`   | required   | Order the results.<br>• `asc` – complexity ascending (default)<br>• `desc` – complexity descending<br>• `name` – alphabetical A→Z                               | `asc`    |
+| `-mx` | `--max-complexity-allowed` | number     | Set the maximum allowed cognitive complexity threshold per function. Functions exceeding this value will be highlighted and cause exit code 1.                  | `15`     |
 
-> **Note**  The CLI exits with code **1** when at least one function exceeds the threshold of **15** points. Pass `--ignore-complexity` (`-i`) to disable this behaviour.
+> **Note**  The CLI exits with code **1** when at least one function exceeds the complexity threshold (default: 15 points). You can customize this threshold using `--max-complexity-allowed` or disable this behavior with `--ignore-complexity` (`-i`).
 
 ### GitHub Action
 
@@ -158,15 +165,16 @@ jobs:
 
 #### Action Inputs
 
-| Input             | Type / Allowed Values                 | Required |
-| ----------------- | ------------------------------------- | -------- |
-| paths             | string (single path or list of paths) | Yes      |
-| quiet             | boolean                               | No       |
-| ignore_complexity | boolean                               | No       |
-| details           | normal, low                           | No       |
-| sort              | asc, desc, name                       | No       |
-| output_csv        | boolean                               | No       |
-| output_json       | boolean                               | No       |
+| Input                  | Type / Allowed Values                 | Required |
+| ---------------------- | ------------------------------------- | -------- |
+| paths                  | string (single path or list of paths) | Yes      |
+| quiet                  | boolean                               | No       |
+| ignore_complexity      | boolean                               | No       |
+| details                | normal, low                           | No       |
+| sort                   | asc, desc, name                       | No       |
+| output_csv             | boolean                               | No       |
+| output_json            | boolean                               | No       |
+| max_complexity_allowed | number                                | No       |
 
 #### Examples
 
@@ -200,6 +208,24 @@ Analyze Specific Directory with Low Detail Output:
 - uses: rohaquinlop/complexipy-action@v1
   with:
     paths: ./src/python
+    details: low
+    sort: desc
+```
+
+Set Custom Complexity Threshold:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: .
+    max_complexity_allowed: 10
+```
+
+Strict Analysis with Low Threshold and Details:
+```yaml
+- uses: rohaquinlop/complexipy-action@v1
+  with:
+    paths: ./src
+    max_complexity_allowed: 8
     details: low
     sort: desc
 ```
@@ -336,7 +362,7 @@ complexipy example.py
 Typical output (shortened):
 
 ```text
-───────────────────────────── 🐙 complexipy 3.2.0 ──────────────────────────────
+───────────────────────────── 🐙 complexipy 3.3.0 ──────────────────────────────
                                     Summary
       ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
       ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
