@@ -35,7 +35,7 @@ class LineComplexity:
     complexity: int
     """
     The cognitive complexity value contributed by this line.
-    
+
     - 0: No complexity contribution (simple statements)
     - 1+: Complexity added by control flow structures on this line
     """
@@ -75,7 +75,7 @@ class FunctionComplexity:
     name: str
     """
     The name of the function as it appears in the source code.
-    
+
     For methods, this includes just the method name (not the class).
     For nested functions, this is the inner function name.
     """
@@ -83,7 +83,7 @@ class FunctionComplexity:
     complexity: int
     """
     The total cognitive complexity score for this function.
-    
+
     This is the sum of all complexity contributions from control flow
     structures within the function, including nesting penalties.
     Higher values indicate more complex, harder-to-understand code.
@@ -92,25 +92,25 @@ class FunctionComplexity:
     line_start: int
     """
     The starting line number of the function definition (1-indexed).
-    
+
     Points to the line containing 'def function_name(...):' 
     """
 
     line_end: int
     """
     The ending line number of the function definition (1-indexed).
-    
+
     Points to the last line that belongs to this function's body.
     """
 
     line_complexities: List[LineComplexity]
     """
     Detailed complexity information for each line in the function.
-    
+
     This list contains LineComplexity objects for every line in the function,
     allowing you to identify exactly which lines contribute to the overall
     complexity score. Lines with zero complexity are included for completeness.
-    
+
     Example:
         >>> # Find lines that add complexity
         >>> complex_lines = [lc for lc in func.line_complexities if lc.complexity > 0]
@@ -159,7 +159,7 @@ class FileComplexity:
     path: str
     """
     The absolute file path to the analyzed Python file.
-    
+
     This is the complete path as resolved by the system, useful for
     identifying the exact location of the file in the filesystem.
     """
@@ -167,24 +167,24 @@ class FileComplexity:
     file_name: str
     """
     The basename of the file (filename without directory path).
-    
+
     Example: For "/path/to/mymodule.py", this would be "mymodule.py"
     """
 
     functions: List[FunctionComplexity]
     """
     List of complexity analysis results for each function in the file.
-    
+
     This includes all top-level functions and methods found in the file.
     Nested functions are analyzed as part of their containing function.
     The list is ordered by appearance in the source code.
-    
+
     Example:
         >>> # Find the most complex function
         >>> most_complex = max(file_analysis.functions, key=lambda f: f.complexity)
         >>> print(f"Most complex function: {most_complex.name} ({most_complex.complexity})")
-        
-        >>> # Get functions that exceed threshold
+    
+            >>> # Get functions that exceed threshold
         >>> threshold = 15
         >>> problematic = [f for f in file_analysis.functions if f.complexity > threshold]
     """
@@ -192,7 +192,7 @@ class FileComplexity:
     complexity: int
     """
     The total cognitive complexity of the entire file.
-    
+
     This is calculated as the sum of complexity scores from all functions
     in the file. It provides a high-level metric for the overall complexity
     of the module and can help identify files that need refactoring.
@@ -237,11 +237,11 @@ class CodeComplexity:
     functions: List[FunctionComplexity]
     """
     List of complexity analysis results for each function found in the code.
-    
+
     This includes all function definitions found in the provided code string,
     analyzed in the same way as file-based analysis. Functions are ordered
     by their appearance in the code.
-    
+
     Example:
         >>> for func in analysis.functions:
         ...     print(f"Function '{func.name}': complexity {func.complexity}")
@@ -252,7 +252,7 @@ class CodeComplexity:
     complexity: int
     """
     The total cognitive complexity of all functions in the code string.
-    
+
     This is the sum of complexity scores from all functions found in the
     provided code. It gives an overall measure of how complex the code is.
     """
