@@ -5,7 +5,7 @@ from complexipy._complexipy import (
     LineComplexity,
 )
 
-from .main import (
+from complexipy.api import (
     code_complexity,
     file_complexity,
 )

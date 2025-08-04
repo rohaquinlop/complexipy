@@ -1,0 +1,10 @@
+paths = ["src", "complexipy"]
+max-complexity-allowed = 9
+quiet = false
+ignore-complexity = false
+details = "normal"
+sort = "asc"
+
+[output]
+csv = false
+json = false
