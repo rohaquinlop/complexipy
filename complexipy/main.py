@@ -33,7 +33,7 @@ TOML_CONFIG = load_toml_config(INVOCATION_PATH)
 
 @app.command()
 def main(
-    paths: Optional[List[str]] = typer.Option(
+    paths: Optional[List[str]] = typer.Argument(
         None,
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
