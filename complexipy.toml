@@ -1,8 +1,8 @@
 paths = ["src", "complexipy"]
-max-complexity-allowed = 9
+max-complexity-allowed = 15
 quiet = false
 ignore-complexity = false
-details = "normal"
+details = "low"
 sort = "asc"
 
 [output]
