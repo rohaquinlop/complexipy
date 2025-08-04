@@ -160,6 +160,9 @@ jobs:
           uv sync --all-extras --frozen
           uv run maturin develop
           uv run pytest tests/main.py
+      - name: complexipy execution
+        shell: bash
+        run: |
           uv run complexipy complexipy -d low
 
   unit-tests-windows:
@@ -190,6 +193,9 @@ jobs:
           uv sync --all-extras --frozen
           uv run maturin develop
           uv run pytest tests/main.py
+      - name: complexipy execution
+        shell: bash
+        run: |
           uv run complexipy complexipy -d low
 
   unit-tests-macos:
@@ -220,6 +226,9 @@ jobs:
           uv sync --all-extras --frozen
           uv run maturin develop
           uv run pytest tests/main.py
+      - name: complexipy execution
+        shell: bash
+        run: |
           uv run complexipy complexipy -d low
 
   release:
