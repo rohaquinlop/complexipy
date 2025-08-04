@@ -34,7 +34,7 @@ def get_brain_icon():
         return ":brain:"
 
 
-def load_values_from_toml_key(key: str, value: str) -> TOMLType:
+def load_values_from_toml_key(value: str) -> TOMLType:
     if value == "details":
         DetailTypes[value]
     if value == "sort":
@@ -54,17 +54,17 @@ def load_toml_config(invocation_path: str) -> TOMLType | None:
         data = toml_library.load(config_file)
 
     for key, value in data.items():
-        data[key] = load_values_from_toml_key(key, value)
+        data[key] = load_values_from_toml_key(value)
 
     return data
 
 
 def template_getter(
-    TOML_CONFIG: TOMLType | None, arg_name: str, default_value: TOMLType | None = None
+    toml_config: TOMLType | None, arg_name: str, default_value: TOMLType | None = None
 ) -> TOMLType:
-    error_handler(TOML_CONFIG, arg_name)
+    error_handler(toml_config, arg_name)
 
-    arg_value = TOML_CONFIG.get(arg_name, default_value)
+    arg_value = toml_config.get(arg_name, default_value)
 
     error_handler(arg_value, arg_name)
 
@@ -72,7 +72,7 @@ def template_getter(
 
 
 def get_argument_value(
-    TOML_CONFIG: TOMLType | None,
+    toml_config: TOMLType | None,
     arg_name: str,
     arg_value: TOMLType | None = None,
     default_value: TOMLType | None = None,
@@ -80,11 +80,11 @@ def get_argument_value(
     if arg_value is not None:
         return arg_value
 
-    return template_getter(TOML_CONFIG, arg_name, default_value)
+    return template_getter(toml_config, arg_name, default_value)
 
 
 def get_arguments_value(
-    TOML_CONFIG: TOMLType | None,
+    toml_config: TOMLType | None,
     paths: List[str] | None,
     max_complexity_allowed: int | None,
     quiet: bool | None,
@@ -94,18 +94,18 @@ def get_arguments_value(
     output_csv: bool | None,
     output_json: bool | None,
 ) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool]:
-    paths = get_argument_value(TOML_CONFIG, "paths", paths)
+    paths = get_argument_value(toml_config, "paths", paths)
     max_complexity_allowed = get_argument_value(
-        TOML_CONFIG, "max-complexity-allowed", max_complexity_allowed, 15
+        toml_config, "max-complexity-allowed", max_complexity_allowed, 15
     )
-    quiet = get_argument_value(TOML_CONFIG, "quiet", quiet, False)
+    quiet = get_argument_value(toml_config, "quiet", quiet, False)
     ignore_complexity = get_argument_value(
-        TOML_CONFIG, "ignore-complexity", ignore_complexity, False
+        toml_config, "ignore-complexity", ignore_complexity, False
     )
-    details = get_argument_value(TOML_CONFIG, "details", details, DetailTypes.normal)
-    sort_arg = get_argument_value(TOML_CONFIG, "sort", sort_arg, Sort.asc)
-    output_csv = get_argument_value(TOML_CONFIG, "output-csv", output_csv, False)
-    output_json = get_argument_value(TOML_CONFIG, "output-json", output_json, False)
+    details = get_argument_value(toml_config, "details", details, DetailTypes.normal)
+    sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
+    output_csv = get_argument_value(toml_config, "output-csv", output_csv, False)
+    output_json = get_argument_value(toml_config, "output-json", output_json, False)
 
     return (
         paths,
