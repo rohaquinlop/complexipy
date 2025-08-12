@@ -108,6 +108,9 @@ def get_argument_value(
     if arg_value is not None:
         return arg_value
 
+    if toml_config is None and arg_name != "paths":
+        return default_value
+
     return template_getter(toml_config, arg_name, default_value)
 
 
