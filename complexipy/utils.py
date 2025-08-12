@@ -43,8 +43,16 @@ def load_values_from_toml_key(value: str) -> TOMLType:
     return value
 
 
-def load_toml_config(invocation_path: str) -> TOMLType | None:
-    config_file_name = "complexipy.toml"
+def get_dict_from_pyproject(data: TOMLType) -> TOMLType | None:
+    tools_info = data.get("tool", None)
+
+    if tools_info is None:
+        return None
+
+    return tools_info.get("complexipy", None)
+
+
+def load_toml_config(invocation_path: str, config_file_name: str) -> TOMLType | None:
     config_file_path = os.path.join(invocation_path, config_file_name)
 
     if not os.path.exists(config_file_path):
@@ -53,10 +61,30 @@ def load_toml_config(invocation_path: str) -> TOMLType | None:
     with open(config_file_path, "rb") as config_file:
         data = toml_library.load(config_file)
 
+    if config_file_name == "pyproject.toml":
+        data = get_dict_from_pyproject(data)
+
+        if data is None:
+            return None
+
     for key, value in data.items():
         data[key] = load_values_from_toml_key(value)
 
     return data
+
+
+def get_complexipy_toml_config(invocation_path: str) -> TOMLType | None:
+    toml = load_toml_config(invocation_path, "complexipy.toml")
+
+    if toml is not None:
+        return toml
+
+    toml = load_toml_config(invocation_path, ".complexipy.toml")
+
+    if toml is not None:
+        return toml
+
+    return load_toml_config(invocation_path, "pyproject.toml")
 
 
 def template_getter(
