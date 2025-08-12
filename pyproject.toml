@@ -47,6 +47,18 @@ complexipy = "complexipy.main:app"
 features = ["pyo3/extension-module"]
 module-name = "complexipy._complexipy"
 
+[tool.complexipy]
+paths = ["src", "complexipy"]
+max-complexity-allowed = 15
+quiet = true
+ignore-complexity = false
+details = "low"
+sort = "asc"
+
+[tool.complexipy.output]
+csv = false
+json = false
+
 [dependency-groups]
 dev = [
     "maturin>=1.8.3",

@@ -5,7 +5,7 @@ from .types import (
 from .utils import (
     output_summary,
     has_success_functions,
-    load_toml_config,
+    get_complexipy_toml_config,
     get_arguments_value,
 )
 from complexipy import (
@@ -28,7 +28,7 @@ app = typer.Typer(name="complexipy")
 console = Console()
 version = "3.3.0"
 INVOCATION_PATH = os.getcwd()
-TOML_CONFIG = load_toml_config(INVOCATION_PATH)
+TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
 
 @app.command()
@@ -101,10 +101,11 @@ def main(
         output_json,
     )
 
-    if platform.system() == "Windows":
-        console.rule(f"complexipy {version}")
-    else:
-        console.rule(f":octopus: complexipy {version}")
+    if not quiet:
+        if platform.system() == "Windows":
+            console.rule(f"complexipy {version}")
+        else:
+            console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
     files_complexities: List[FileComplexity] = _complexipy.main(paths, quiet)
     execution_time = time.time() - start_time
