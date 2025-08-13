@@ -1,5 +1,5 @@
 from complexipy.types import TOMLType
-from typer import Abort
+from typer import Exit
 
 
 def error_handler(
@@ -10,4 +10,4 @@ def error_handler(
         print(
             f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
         )
-        Abort()
+        raise Exit(code=1)
