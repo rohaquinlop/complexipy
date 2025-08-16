@@ -1,53 +1,36 @@
 pub mod utils;
 
-#[cfg(feature = "python")]
-use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
-#[cfg(feature = "wasm")]
-use crate::classes::{FunctionComplexity, LineComplexity};
-#[cfg(feature = "python")]
-use ignore::Walk;
-#[cfg(feature = "python")]
-use indicatif::ProgressBar;
-#[cfg(feature = "python")]
-use indicatif::ProgressStyle;
-#[cfg(feature = "python")]
-use pyo3::exceptions::PyValueError;
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
-#[cfg(feature = "python")]
-use rayon::prelude::*;
-#[cfg(feature = "python")]
-use regex::Regex;
+#[cfg(any(feature = "python", feature = "wasm"))]
+mod shared_deps {
+    pub use super::utils::{count_bool_ops, get_line_number, get_repo_name, is_decorator};
+    pub use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
+    pub use ruff_python_ast::{self as ast, Stmt};
+}
 
-// Import from ruff crates
-#[cfg(feature = "python")]
-use ruff_python_ast::{self as ast, Stmt};
-#[cfg(feature = "python")]
-use ruff_python_parser::parse_module;
-
-// Import ruff crates for WASM
-#[cfg(feature = "wasm")]
-use ruff_python_ast::{self as ast, Stmt};
-use utils::get_line_number;
-#[cfg(feature = "wasm")]
-use utils::{count_bool_ops, is_decorator};
+#[cfg(any(feature = "python", feature = "wasm"))]
+use shared_deps::*;
 
 #[cfg(feature = "python")]
-use std::env;
+mod python_deps {
+    pub use ignore::Walk;
+    pub use indicatif::ProgressBar;
+    pub use indicatif::ProgressStyle;
+    pub use pyo3::exceptions::PyValueError;
+    pub use pyo3::prelude::*;
+    pub use rayon::prelude::*;
+    pub use regex::Regex;
+    pub use ruff_python_parser::parse_module;
+    pub use std::env;
+    pub use std::fs::metadata;
+    pub use std::path;
+    pub use std::process;
+    pub use std::sync::{Arc, Mutex};
+    pub use std::thread;
+    pub use tempfile::tempdir;
+}
+
 #[cfg(feature = "python")]
-use std::fs::metadata;
-#[cfg(feature = "python")]
-use std::path;
-#[cfg(feature = "python")]
-use std::process;
-#[cfg(feature = "python")]
-use std::sync::{Arc, Mutex};
-#[cfg(feature = "python")]
-use std::thread;
-#[cfg(feature = "python")]
-use tempfile::tempdir;
-#[cfg(feature = "python")]
-use utils::{count_bool_ops, get_repo_name, is_decorator};
+use python_deps::*;
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -104,11 +87,11 @@ pub fn process_path(
 
         let cloning_done = Arc::new(Mutex::new(false));
         let cloning_done_clone = Arc::clone(&cloning_done);
-        let path_clone = path.to_owned(); // Clone the path variable
+        let path_clone = path.to_owned();
 
         thread::spawn(move || {
             let _output = process::Command::new("git")
-                .args(&["clone", &path_clone]) // Use the cloned path variable
+                .args(["clone", &path_clone])
                 .output()
                 .expect("failed to execute process");
 
@@ -292,22 +275,19 @@ pub fn function_level_cognitive_complexity_shared(
             }
             Stmt::ClassDef(c) => {
                 for node in c.body.iter() {
-                    match node {
-                        Stmt::FunctionDef(f) => {
-                            let (func_complexity, line_complexities) =
-                                statement_cognitive_complexity_shared(node, 0, code);
+                    if let Stmt::FunctionDef(f) = node {
+                        let (func_complexity, line_complexities) =
+                            statement_cognitive_complexity_shared(node, 0, code);
 
-                            let function = FunctionComplexity {
-                                name: format!("{}::{}", c.name.to_string(), f.name.to_string()),
-                                complexity: func_complexity,
-                                line_start: get_line_number(usize::from(f.range.start()), code),
-                                line_end: get_line_number(usize::from(f.range.end()), code),
-                                line_complexities,
-                            };
+                        let function = FunctionComplexity {
+                            name: format!("{}::{}", c.name, f.name),
+                            complexity: func_complexity,
+                            line_start: get_line_number(usize::from(f.range.start()), code),
+                            line_end: get_line_number(usize::from(f.range.end()), code),
+                            line_complexities,
+                        };
 
-                            functions.push(function);
-                        }
-                        _ => {}
+                        functions.push(function);
                     }
                 }
             }
@@ -334,11 +314,8 @@ fn statement_cognitive_complexity_shared(
     let mut line_complexities: Vec<LineComplexity> = Vec::new();
 
     if is_decorator(statement.clone()) {
-        match statement {
-            Stmt::FunctionDef(f) => {
-                return statement_cognitive_complexity_shared(&f.body[0], nesting_level, &code);
-            }
-            _ => {}
+        if let Stmt::FunctionDef(f) = statement {
+            return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
         }
     }
 
@@ -348,13 +325,13 @@ fn statement_cognitive_complexity_shared(
                 match node {
                     Stmt::FunctionDef(..) => {
                         let (stmt_complexity, stmt_line_complexities) =
-                            statement_cognitive_complexity_shared(node, nesting_level + 1, &code);
+                            statement_cognitive_complexity_shared(node, nesting_level + 1, code);
                         complexity += stmt_complexity;
                         line_complexities.extend(stmt_line_complexities);
                     }
                     _ => {
                         let (stmt_complexity, stmt_line_complexities) =
-                            statement_cognitive_complexity_shared(node, nesting_level, &code);
+                            statement_cognitive_complexity_shared(node, nesting_level, code);
                         complexity += stmt_complexity;
                         line_complexities.extend(stmt_line_complexities);
                     }
@@ -363,14 +340,11 @@ fn statement_cognitive_complexity_shared(
         }
         Stmt::ClassDef(c) => {
             for node in c.body.iter() {
-                match node {
-                    Stmt::FunctionDef(..) => {
-                        let (stmt_complexity, stmt_line_complexities) =
-                            statement_cognitive_complexity_shared(node, nesting_level, &code);
-                        complexity += stmt_complexity;
-                        line_complexities.extend(stmt_line_complexities);
-                    }
-                    _ => {}
+                if let Stmt::FunctionDef(..) = node {
+                    let (stmt_complexity, stmt_line_complexities) =
+                        statement_cognitive_complexity_shared(node, nesting_level, code);
+                    complexity += stmt_complexity;
+                    line_complexities.extend(stmt_line_complexities);
                 }
             }
         }
