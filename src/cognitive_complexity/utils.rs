@@ -1,17 +1,18 @@
-#[cfg(feature = "python")]
-use crate::classes::{FileComplexity, FunctionComplexity};
-#[cfg(feature = "python")]
-use csv::Writer;
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
 #[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
+
 #[cfg(feature = "python")]
-use serde_json;
+mod python_deps {
+    pub use crate::classes::{FileComplexity, FunctionComplexity};
+    pub use csv::Writer;
+    pub use pyo3::prelude::*;
+    pub use serde_json;
+    pub use std::fs::File;
+    pub use std::io::Write;
+}
+
 #[cfg(feature = "python")]
-use std::fs::File;
-#[cfg(feature = "python")]
-use std::io::Write;
+use python_deps::*;
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -25,7 +26,7 @@ pub fn output_csv(
     let mut writer = Writer::from_path(invocation_path).unwrap();
 
     writer
-        .write_record(&["Path", "File Name", "Function Name", "Cognitive Complexity"])
+        .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
         .unwrap();
 
     if sort != "name" {
@@ -33,12 +34,9 @@ pub fn output_csv(
 
         for file in functions_complexity {
             for function in file.functions {
-                if show_detailed_results {
+                if show_detailed_results || function.complexity > max_complexity.try_into().unwrap()
+                {
                     all_functions.push((file.path.clone(), file.file_name.clone(), function));
-                } else {
-                    if function.complexity > max_complexity.try_into().unwrap() {
-                        all_functions.push((file.path.clone(), file.file_name.clone(), function));
-                    }
                 }
             }
         }
@@ -51,7 +49,7 @@ pub fn output_csv(
 
         for (path, file_name, function) in all_functions.into_iter() {
             writer
-                .write_record(&[
+                .write_record([
                     &path,
                     &file_name,
                     &function.name,
@@ -63,7 +61,7 @@ pub fn output_csv(
         for file in functions_complexity {
             for function in file.functions {
                 writer
-                    .write_record(&[
+                    .write_record([
                         &file.path,
                         &file.file_name,
                         &function.name,
@@ -89,7 +87,7 @@ pub fn output_json(
 
     for file in functions_complexity {
         for function in file.functions {
-            if show_detailed_results {
+            if show_detailed_results || function.complexity > max_complexity.try_into().unwrap() {
                 let entry = serde_json::json!({
                     "path": file.path,
                     "file_name": file.file_name,
@@ -97,16 +95,6 @@ pub fn output_json(
                     "complexity": function.complexity
                 });
                 json_data.push(entry);
-            } else {
-                if function.complexity > max_complexity.try_into().unwrap() {
-                    let entry = serde_json::json!({
-                        "path": file.path,
-                        "file_name": file.file_name,
-                        "function_name": function.name,
-                        "complexity": function.complexity
-                    });
-                    json_data.push(entry);
-                }
             }
         }
     }
@@ -120,13 +108,11 @@ pub fn output_json(
 pub fn get_repo_name(url: &str) -> String {
     let url = url.trim_end_matches('/');
 
-    let repo_name = url.split('/').last().unwrap();
+    let repo_name = url.split('/').next_back().unwrap();
 
-    let repo_name = if repo_name.ends_with(".git") {
-        &repo_name[..repo_name.len() - 4]
-    } else {
-        repo_name
-    };
+    if let Some(name) = repo_name.strip_suffix(".git") {
+        return name.to_string();
+    }
 
     repo_name.to_string()
 }
@@ -134,20 +120,11 @@ pub fn get_repo_name(url: &str) -> String {
 #[cfg(any(feature = "python", feature = "wasm"))]
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
-    match statement {
-        Stmt::FunctionDef(f) => {
-            if f.body.len() == 2 {
-                ans =
-                    true && match f.body[0].clone() {
-                        Stmt::FunctionDef(..) => true,
-                        _ => false,
-                    } && match f.body[1].clone() {
-                        Stmt::Return(..) => true,
-                        _ => false,
-                    };
-            }
+    if let Stmt::FunctionDef(f) = statement {
+        if f.body.len() == 2 {
+            ans = matches!(f.body[0].clone(), Stmt::FunctionDef(..))
+                && matches!(f.body[1].clone(), Stmt::Return(..));
         }
-        _ => {}
     }
 
     ans

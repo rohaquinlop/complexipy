@@ -32,6 +32,8 @@ mod python_deps {
 #[cfg(feature = "python")]
 use python_deps::*;
 
+type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
+
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<Vec<FileComplexity>> {
@@ -53,20 +55,24 @@ pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<Vec<FileComplexity>> {
         })
         .collect();
 
-    let all_files_processed: Vec<Result<Vec<FileComplexity>, PyErr>> = all_files_paths
+    let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
         .par_iter()
         .map(|(path, is_dir, is_url, quiet)| process_path(path, *is_dir, *is_url, *quiet))
         .collect();
 
-    if all_files_processed.iter().all(|x| x.is_ok()) {
-        let ans: Vec<FileComplexity> = all_files_processed
-            .into_iter()
-            .flat_map(|file_complexities| file_complexities.unwrap())
-            .collect();
-        Ok(ans)
-    } else {
-        Err(PyValueError::new_err("Failed to process the paths"))
+    let mut successful = Vec::new();
+    let mut failed_paths = Vec::new();
+
+    for result in all_files_processed {
+        if result.is_ok() {
+            let (mut complexities, mut f_paths) = result.unwrap();
+
+            successful.append(&mut complexities);
+            failed_paths.append(&mut f_paths);
+        }
     }
+
+    Ok(successful)
 }
 
 #[cfg(feature = "python")]
@@ -76,8 +82,9 @@ pub fn process_path(
     is_dir: bool,
     is_url: bool,
     quiet: bool,
-) -> PyResult<Vec<FileComplexity>> {
-    let mut ans: Vec<FileComplexity> = Vec::new();
+) -> Result<ComplexitiesAndFailedPaths, PyErr> {
+    let mut file_complexities = Vec::new();
+    let mut failed_paths = Vec::new();
 
     if is_url {
         let dir = tempdir()?;
@@ -113,36 +120,33 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
-
-        match evaluate_dir(&repo_path, quiet) {
-            Ok(files_complexity) => ans = files_complexity,
-            Err(e) => return Err(e),
-        }
-
+        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet);
         dir.close()?;
+
+        file_complexities = complexities;
+        failed_paths = f_paths;
     } else if is_dir {
-        match evaluate_dir(path, quiet) {
-            Ok(files_complexity) => ans = files_complexity,
-            Err(e) => return Err(e),
-        }
+        let (complexities, f_paths) = evaluate_dir(path, quiet);
+        file_complexities = complexities;
+        failed_paths = f_paths;
     } else {
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
-
-        match file_complexity(path, parent_dir) {
-            Ok(file_complexity) => ans.push(file_complexity),
-            Err(e) => return Err(e),
+        if let Ok(complexity) = file_complexity(path, parent_dir) {
+            file_complexities.push(complexity);
         }
     }
 
-    ans.iter_mut()
+    file_complexities
+        .iter_mut()
         .for_each(|f| f.functions.sort_by_key(|f| (f.complexity, f.name.clone())));
 
-    ans.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
-    Ok(ans)
+    file_complexities.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
+
+    Ok((file_complexities, failed_paths))
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str, quiet: bool) -> PyResult<Vec<FileComplexity>> {
+fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
@@ -157,43 +161,64 @@ fn evaluate_dir(path: &str, quiet: bool) -> PyResult<Vec<FileComplexity>> {
         }
     }
 
-    if !quiet {
-        let pb = ProgressBar::new(files_paths.len() as u64);
-        pb.set_style(
-            indicatif::ProgressStyle::default_bar()
-                .template(
-                    "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-                )
-                .unwrap()
-                .progress_chars("##-"),
-        );
-        let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
+    if quiet {
+        let results: Vec<_> = files_paths
             .par_iter()
-            .map(|file_path| {
-                pb.inc(1);
-                match file_complexity(file_path, parent_dir) {
-                    Ok(file_complexity) => Ok(file_complexity),
-                    Err(e) => Err(e), // Propagate the error
-                }
+            .map(|file_path| match file_complexity(file_path, parent_dir) {
+                Ok(file_complexity) => (Some(file_complexity), None),
+                Err(_) => (None, Some(file_path.clone())),
             })
             .collect();
 
-        pb.finish_with_message("Done!");
+        let mut complexities = Vec::new();
+        let mut failed_paths = Vec::new();
 
-        return files_complexity_result;
+        for (success, error_path) in results {
+            match (success, error_path) {
+                (Some(file_complexity), None) => complexities.push(file_complexity),
+                (None, Some(failed_path)) => failed_paths.push(failed_path),
+                _ => unreachable!(),
+            }
+        }
+
+        return (complexities, failed_paths);
     }
 
-    let files_complexity_result: Result<Vec<FileComplexity>, PyErr> = files_paths
+    let pb = ProgressBar::new(files_paths.len() as u64);
+    pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template(
+                "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+            )
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    let results: Vec<_> = files_paths
         .par_iter()
         .map(|file_path| {
+            pb.inc(1);
             match file_complexity(file_path, parent_dir) {
-                Ok(file_complexity) => Ok(file_complexity),
-                Err(e) => Err(e), // Propagate the error
+                Ok(file_complexity) => (Some(file_complexity), None),
+                Err(_) => (None, Some(file_path.clone())),
             }
         })
         .collect();
 
-    files_complexity_result // Return the collected result
+    let mut complexities = Vec::new();
+    let mut failed_paths = Vec::new();
+
+    for (success, error_path) in results {
+        match (success, error_path) {
+            (Some(file_complexity), None) => complexities.push(file_complexity),
+            (None, Some(failed_path)) => failed_paths.push(failed_path),
+            _ => unreachable!(),
+        }
+    }
+
+    pb.finish_with_message("Done!");
+
+    (complexities, failed_paths)
 }
 
 /// Calculate the cognitive complexity of a python file.
