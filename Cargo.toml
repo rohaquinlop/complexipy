@@ -1,6 +1,6 @@
 [package]
 name = "complexipy"
-version = "3.3.0"
+version = "4.0.0"
 edition = "2024"
 authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
 license = "MIT"
@@ -42,8 +42,8 @@ ignore = "0.4.22"
 indicatif = "0.17.8"
 rayon = "1.8.1"
 regex = "1.11.1"
-ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag = "0.11.13", package = "ruff_python_parser" }
-ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.11.13", package = "ruff_python_ast" }
+ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag = "0.12.9", package = "ruff_python_parser" }
+ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.12.9", package = "ruff_python_ast" }
 tempfile = "3.10.0"
 serde_json = "1.0"
 

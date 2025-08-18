@@ -12,6 +12,7 @@ from rich.align import (
 )
 from rich.console import (
     Console,
+    Text,
 )
 from rich.table import Table
 from typing import (
@@ -158,7 +159,7 @@ def output_summary(
     ignore_complexity: bool,
     max_complexity: int,
 ) -> bool:
-    table, has_success, total_complexity, all_functions = create_table(
+    table, has_success, total_complexity, total_functions = create_table(
         files, details, sort, ignore_complexity, max_complexity
     )
 
@@ -167,7 +168,7 @@ def output_summary(
             f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
         )
     else:
-        if len(all_functions) == 0:
+        if total_functions == 0:
             console.print(
                 Align.center(
                     "No files were found with functions. No complexity was calculated."
@@ -189,7 +190,7 @@ def create_table(
     sort: Sort,
     ignore_complexity: bool,
     max_complexity: int,
-) -> Tuple[Table, bool, int, List[Tuple[str, str, FunctionComplexity]]]:
+) -> Tuple[Table, bool, int, int]:
     has_success = True
     all_functions: List[Tuple[str, str, FunctionComplexity]] = []
     total_complexity = 0
@@ -236,7 +237,26 @@ def create_table(
     if ignore_complexity:
         has_success = True
 
-    return table, has_success, total_complexity, all_functions
+    return table, has_success, total_complexity, len(all_functions)
+
+
+def print_failed_paths(console: Console, quiet: bool, failed_paths: List[str]):
+    has_success = True
+
+    if failed_paths:
+        has_success = False
+
+    if quiet:
+        return has_success
+
+    for failed_path in failed_paths:
+        text = Text()
+        text.append("error", style="bold red")
+        text.append(f": Failed to process {failed_path}", style="bold white")
+        text.append(" - Please check syntax")
+        console.print(text)
+
+    return has_success
 
 
 def has_success_functions(files: List[FileComplexity], max_complexity: int) -> bool:
