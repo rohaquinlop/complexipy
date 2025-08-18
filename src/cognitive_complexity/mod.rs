@@ -41,7 +41,7 @@ pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<ComplexitiesAndFailedPath
         .unwrap();
 
     let all_files_paths: Vec<(&str, bool, bool, bool)> = paths
-        .par_iter()
+        .iter()
         .map(|&path| {
             let is_url = re.is_match(path);
 
@@ -56,7 +56,7 @@ pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<ComplexitiesAndFailedPath
         .collect();
 
     let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
-        .par_iter()
+        .iter()
         .map(|(path, is_dir, is_url, quiet)| process_path(path, *is_dir, *is_url, *quiet))
         .collect();
 
@@ -165,7 +165,7 @@ fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
 
     if quiet {
         let results: Vec<_> = files_paths
-            .par_iter()
+            .iter()
             .map(|file_path| match file_complexity(file_path, parent_dir) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
@@ -197,7 +197,7 @@ fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
     );
 
     let results: Vec<_> = files_paths
-        .par_iter()
+        .iter()
         .map(|file_path| {
             pb.inc(1);
             match file_complexity(file_path, parent_dir) {
@@ -265,10 +265,9 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
         }
     };
 
-    // The ruff parser returns a Program, which contains a body (Suite) of statements.
-    let ast_body = &parsed.suite();
+    let ast_body = parsed.into_suite();
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(ast_body, code);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code);
 
     Ok(CodeComplexity {
         functions,

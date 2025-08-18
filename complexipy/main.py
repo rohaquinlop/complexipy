@@ -28,7 +28,7 @@ import typer
 
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "3.3.0"
+version = "4.0.0"
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
