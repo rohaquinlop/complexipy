@@ -36,7 +36,7 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<Vec<FileComplexity>> {
+pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .unwrap();
 
@@ -72,7 +72,7 @@ pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<Vec<FileComplexity>> {
         }
     }
 
-    Ok(successful)
+    Ok((successful, failed_paths))
 }
 
 #[cfg(feature = "python")]
@@ -133,6 +133,8 @@ pub fn process_path(
         let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
         if let Ok(complexity) = file_complexity(path, parent_dir) {
             file_complexities.push(complexity);
+        } else {
+            failed_paths.push(path.to_string());
         }
     }
 

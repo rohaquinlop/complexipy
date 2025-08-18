@@ -7,6 +7,7 @@ from .utils import (
     has_success_functions,
     get_complexipy_toml_config,
     get_arguments_value,
+    print_failed_paths,
 )
 from complexipy import (
     _complexipy,
@@ -20,6 +21,7 @@ from rich.console import (
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
+    Tuple,
 )
 import time
 import typer
@@ -107,7 +109,8 @@ def main(
         else:
             console.rule(f":octopus: complexipy {version}")
     start_time = time.time()
-    files_complexities: List[FileComplexity] = _complexipy.main(paths, quiet)
+    result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(paths, quiet)
+    files_complexities, failed_paths = result
     execution_time = time.time() - start_time
     output_csv_path = f"{INVOCATION_PATH}/complexipy.csv"
     output_json_path = f"{INVOCATION_PATH}/complexipy.json"
@@ -150,6 +153,7 @@ def main(
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
+    has_success = print_failed_paths(console, quiet, failed_paths) and has_success
     if not has_success:
         raise typer.Exit(code=1)
 
