@@ -111,6 +111,52 @@ complexipy app.py                       # Single file
 complexipy https://github.com/user/repo # Remote repository
 ```
 
+### Configuration
+
+complexipy supports configuration via TOML files for consistent settings across your project. Configuration files are loaded in this order of precedence:
+
+1. `complexipy.toml` (project-specific config)
+2. `.complexipy.toml` (hidden config file)  
+3. `pyproject.toml` (under `[tool.complexipy]` section)
+
+#### Configuration Options
+
+All CLI options can be configured via TOML files:
+
+```toml
+# complexipy.toml or .complexipy.toml
+paths = ["src", "tests"]
+max-complexity-allowed = 10
+quiet = false
+ignore-complexity = false
+details = "normal"
+sort = "asc"
+
+[output]
+csv = true
+json = true
+```
+
+For `pyproject.toml`, use the `[tool.complexipy]` section:
+
+```toml
+# pyproject.toml
+[tool.complexipy]
+paths = ["src", "tests"]
+max-complexity-allowed = 10
+quiet = false
+ignore-complexity = false
+details = "normal"
+sort = "asc"
+
+[tool.complexipy.output]
+csv = true
+json = true
+```
+
+!!! tip "Configuration Precedence"
+    CLI arguments always override TOML configuration values, allowing for flexible per-run customization.
+
 ### Options
 
 | Option | Description | Default |

@@ -116,7 +116,48 @@ Install from the [marketplace](https://marketplace.visualstudio.com/items?itemNa
 
 </details>
 
-## CLI Options
+## Configuration
+
+### TOML Configuration Files
+
+complexipy supports configuration via TOML files. Configuration files are loaded in this order of precedence:
+
+1. `complexipy.toml` (project-specific config)
+2. `.complexipy.toml` (hidden config file)
+3. `pyproject.toml` (under `[tool.complexipy]` section)
+
+#### Example Configuration
+
+```toml
+# complexipy.toml or .complexipy.toml
+paths = ["src", "tests"]
+max-complexity-allowed = 10
+quiet = false
+ignore-complexity = false
+details = "normal"
+sort = "asc"
+
+[output]
+csv = true
+json = true
+```
+
+```toml
+# pyproject.toml
+[tool.complexipy]
+paths = ["src", "tests"]
+max-complexity-allowed = 10
+quiet = false
+ignore-complexity = false
+details = "normal"
+sort = "asc"
+
+[tool.complexipy.output]
+csv = true
+json = true
+```
+
+### CLI Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -126,6 +167,7 @@ Install from the [marketplace](https://marketplace.visualstudio.com/items?itemNa
 | `--details <normal\|low>` | Output verbosity | `normal` |
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
+| `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 
 ## API Reference
 
