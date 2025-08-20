@@ -135,14 +135,16 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(b) => {
+        ast::Expr::BoolOp(..) => {
             complexity += 1;
+            let b = expr.clone().bool_op_expr().unwrap();
             for value in b.values.iter() {
-                complexity += count_bool_ops(value.clone(), nesting_level);
+                complexity += count_different_childs_type(value.clone(), expr.clone());
             }
         }
-        ast::Expr::UnaryOp(u) => {
-            complexity += count_bool_ops(*u.operand, nesting_level);
+        ast::Expr::UnaryOp(..) => {
+            let u = expr.clone().unary_op_expr().unwrap();
+            complexity += 1 + count_different_childs_type(*u.operand, expr.clone());
         }
         ast::Expr::Compare(c) => {
             complexity += count_bool_ops(*c.left, nesting_level);
@@ -181,6 +183,52 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
                 complexity += count_bool_ops(value.clone(), nesting_level);
             }
         }
+        ast::Expr::FString(f) => {
+            for element in f.value.elements() {
+                if element.is_interpolation() {
+                    let inter = element.as_interpolation().unwrap();
+                    complexity += count_bool_ops(*inter.expression.clone(), nesting_level);
+                }
+            }
+        }
+        _ => {}
+    }
+
+    complexity
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
+    let mut complexity: u64 = 0;
+
+    match expr {
+        ast::Expr::BoolOp(..) => match prev_pr {
+            ast::Expr::BoolOp(p) => {
+                let b = expr.clone().bool_op_expr().unwrap().op;
+                if b != p.op {
+                    complexity += 1;
+                }
+
+                for value in p.values {
+                    complexity += count_different_childs_type(value, expr.clone());
+                }
+            }
+            ast::Expr::UnaryOp(p) => {
+                complexity = 1 + count_different_childs_type(*p.operand, expr);
+            }
+            _ => {}
+        },
+        ast::Expr::UnaryOp(..) => match prev_pr {
+            ast::Expr::BoolOp(p) => {
+                for value in p.values {
+                    complexity += count_different_childs_type(value, expr.clone());
+                }
+            }
+            ast::Expr::UnaryOp(p) => {
+                complexity = count_different_childs_type(*p.operand, expr);
+            }
+            _ => {}
+        },
         _ => {}
     }
 

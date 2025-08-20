@@ -267,6 +267,8 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
 
     let ast_body = parsed.into_suite();
 
+    // println!("{:#?}", ast_body);
+
     let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code);
 
     Ok(CodeComplexity {
