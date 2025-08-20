@@ -183,6 +183,14 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
                 complexity += count_bool_ops(value.clone(), nesting_level);
             }
         }
+        ast::Expr::FString(f) => {
+            for element in f.value.elements() {
+                if element.is_interpolation() {
+                    let inter = element.as_interpolation().unwrap();
+                    complexity += count_bool_ops(*inter.expression.clone(), nesting_level);
+                }
+            }
+        }
         _ => {}
     }
 
