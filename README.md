@@ -1,449 +1,160 @@
 # complexipy
 
 <div align="center">
-  <a href="https://sonarcloud.io/summary/new_code?id=rohaquinlop_complexipy" target="_blank">
-      <img src="https://sonarcloud.io/api/project_badges/measure?project=rohaquinlop_complexipy&metric=alert_status" alt="Quality Gate">
-  </a>
-  <a href="https://pypi.org/project/complexipy" target="_blank">
-      <img src="https://img.shields.io/pypi/v/complexipy?color=%2334D058&label=pypi%20package" alt="Package version">
-  </a>
-  <a href="https://pepy.tech/project/complexipy" target="_blank">
-      <img src="https://static.pepy.tech/badge/complexipy" alt="Downloads">
-  </a>
-  <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE" target="_blank">
-      <img src="https://img.shields.io/github/license/rohaquinlop/complexipy" alt="License">
-  </a>
-  <a href="https://github.com/marketplace/actions/complexipy" target="_blank">
-      <img src="https://img.shields.io/badge/GitHub%20Actions-complexipy-2088FF?logo=github-actions&logoColor=white" alt="GitHub Actions">
-  </a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy" target="_blank">
-      <img src="https://img.shields.io/visual-studio-marketplace/v/rohaquinlop.complexipy?color=%2334D058&label=vscode%20extension" alt="VSCode Extension">
-  </a>
-  <a href="https://github.com/rohaquinlop/complexipy-pre-commit" target="_blank">
-      <img src="https://img.shields.io/badge/pre--commit-complexipy-2088FF?logo=pre-commit&logoColor=white" alt="Pre-commit">
-  </a>
+  <img src="docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
+  
+  <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
+
+  <p>
+    <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
+    <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
+    <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rohaquinlop/complexipy?style=flat-square" alt="License"></a>
+  </p>
+
+  <p>
+    <a href="#installation">Installation</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#integrations">Integrations</a> •
+    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a>
+  </p>
 </div>
-
-An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
-
-## Table of Contents
-- [complexipy](#complexipy)
-  - [Table of Contents](#table-of-contents)
-  - [What is Cognitive Complexity?](#what-is-cognitive-complexity)
-  - [Documentation](#documentation)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Command Line Interface](#command-line-interface)
-      - [Command-line options](#command-line-options)
-    - [GitHub Action](#github-action)
-      - [Action Inputs](#action-inputs)
-      - [Examples](#examples)
-    - [Pre-commit Hook](#pre-commit-hook)
-    - [VSCode Extension](#vscode-extension)
-  - [Python API](#python-api)
-    - [Quick-start](#quick-start)
-  - [End-to-End Example](#end-to-end-example)
-    - [1.  Prepare a sample file](#1--prepare-a-sample-file)
-    - [2.  Run the CLI](#2--run-the-cli)
-    - [3.  Use the Python API](#3--use-the-python-api)
-    - [4.  Why is the score 1?](#4--why-is-the-score-1)
-    - [5.  Persisting the results](#5--persisting-the-results)
-    - [6.  Scaling up your analysis](#6--scaling-up-your-analysis)
-  - [Contributors](#contributors)
-  - [License](#license)
-  - [Acknowledgments](#acknowledgments)
-  - [References](#references)
 
 ## What is Cognitive Complexity?
 
-Cognitive Complexity breaks from using mathematical models to assess software
-maintainability by combining Cyclomatic Complexity precedents with human
-assessment. It yields method complexity scores that align well with how
-developers perceive maintainability.
+> Cognitive complexity measures how hard code is to understand by humans, not machines.
 
-Unlike traditional complexity metrics, cognitive complexity focuses on how difficult code is to *understand* by humans, making it more relevant for maintaining and reviewing code.
+Unlike traditional metrics, cognitive complexity considers the mental effort required to read and comprehend code. It identifies truly complex code that needs refactoring, making it perfect for code reviews and maintaining clean codebases.
 
 **Key benefits:**
-- Identifies hard-to-understand code sections
-- Helps improve code quality and maintainability
-- Provides a more intuitive metric than traditional complexity measures
-
-📄 Read the white paper: [Cognitive Complexity, a new way of measuring understandability](https://www.sonarsource.com/resources/cognitive-complexity/)
-
-## Documentation
-
-**Documentation**: <a href="https://rohaquinlop.github.io/complexipy/" target="_blank">https://rohaquinlop.github.io/complexipy/</a>
-
-**Source Code**: <a href="https://github.com/rohaquinlop/complexipy" target="_blank">https://github.com/rohaquinlop/complexipy</a>
-
-**PyPI**: <a href="https://pypi.org/project/complexipy/" target="_blank">https://pypi.org/project/complexipy/</a>
-
-## Requirements
-
-- Python >= 3.8
-- Git (optional) - required only if you want to analyze a git repository
+- **Human-focused** — Aligns with developer intuition
+- **Actionable insights** — Pinpoints hard-to-understand code
+- **Better maintenance** — Improves long-term code quality
 
 ## Installation
 
 ```bash
 pip install complexipy
+# or
+uv add complexipy
 ```
 
-## Usage
+## Quick Start
 
-### Command Line Interface
+### Command Line
 
-```shell
-# Analyze the current directory (recursively)
+```bash
+# Analyze current directory
 complexipy .
 
-# Analyze a specific directory (recursively)
-complexipy path/to/directory
+# Analyze specific file/directory
+complexipy path/to/code.py
 
-# Analyze a remote Git repository
-complexipy https://github.com/user/repo.git
+# Analyze with custom threshold
+complexipy . --max-complexity-allowed 10
 
-# Analyze a single file
-complexipy path/to/file.py
-
-# Suppress console output
-complexipy path/to/directory --quiet      # or -q
-
-# List every function, ignoring the 15-point complexity threshold
-complexipy path/to/file.py --ignore-complexity   # or -i
-
-# Show only files / functions whose complexity exceeds the threshold
-complexipy path/to/directory --details low       # or -d low
-
-# Sort results (asc: ascending complexity, desc: descending complexity, name: A→Z)
-complexipy path/to/directory --sort desc         # or -s desc
-
-# Save results
-complexipy path/to/directory --output-csv        # -c, writes complexipy.csv
-complexipy path/to/directory --output-json       # -j, writes complexipy.json
-
-# Set custom complexity threshold (default is 15)
-complexipy path/to/directory --max-complexity-allowed 10    # or -mx 10
-
-# Combine with other options
-complexipy path/to/directory --max-complexity-allowed 20 --details low --sort desc
+# Save results to JSON/CSV
+complexipy . --output-json --output-csv
 ```
 
-#### Command-line options
+### Python API
 
-| Short | Long                       | Parameters | Description                                                                                                                                                     | Default  |
-| ----- | -------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `-c`  | `--output-csv`             | –          | Write the report to `complexipy.csv` in the current working directory.                                                                                          | false    |
-| `-j`  | `--output-json`            | –          | Write the report to `complexipy.json` in the current working directory.                                                                                         | false    |
-| `-i`  | `--ignore-complexity`      | –          | Do not stop with an error when a function's cognitive complexity exceeds the threshold. All functions are still listed in the output.                           | off      |
-| `-d`  | `--details <normal∣low>`   | required   | Control the verbosity of the output.<br>• `normal` – show every file and function (default)<br>• `low` – show only entries that exceed the complexity threshold | `normal` |
-| `-q`  | `--quiet`                  | –          | Suppress console output. Exit codes are still returned.                                                                                                         | false    |
-| `-s`  | `--sort <asc∣desc∣name>`   | required   | Order the results.<br>• `asc` – complexity ascending (default)<br>• `desc` – complexity descending<br>• `name` – alphabetical A→Z                               | `asc`    |
-| `-mx` | `--max-complexity-allowed` | number     | Set the maximum allowed cognitive complexity threshold per function. Functions exceeding this value will be highlighted and cause exit code 1.                  | `15`     |
+```python
+from complexipy import file_complexity, code_complexity
 
-> **Note**  The CLI exits with code **1** when at least one function exceeds the complexity threshold (default: 15 points). You can customize this threshold using `--max-complexity-allowed` or disable this behavior with `--ignore-complexity` (`-i`).
+# Analyze a file
+result = file_complexity("app.py")
+print(f"File complexity: {result.complexity}")
 
-### GitHub Action
+for func in result.functions:
+    print(f"{func.name}: {func.complexity}")
 
-You can use complexipy as a GitHub Action to automatically check code complexity in your CI/CD pipeline:
+# Analyze code string
+snippet = """
+def complex_function(data):
+    if data:
+        for item in data:
+            if item.is_valid():
+                process(item)
+"""
 
-```yaml
-name: Check Code Complexity
-on: [push, pull_request]
-
-jobs:
-  complexity:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Check Python Code Complexity
-      uses: rohaquinlop/complexipy-action@v2
-      with:
-        paths: .  # Analyze the entire repository
+result = code_complexity(snippet)
+print(f"Complexity: {result.complexity}")
 ```
 
-#### Action Inputs
+## Integrations
 
-| Input                  | Type / Allowed Values                 | Required |
-| ---------------------- | ------------------------------------- | -------- |
-| paths                  | string (single path or list of paths) | Yes      |
-| quiet                  | boolean                               | No       |
-| ignore_complexity      | boolean                               | No       |
-| details                | normal, low                           | No       |
-| sort                   | asc, desc, name                       | No       |
-| output_csv             | boolean                               | No       |
-| output_json            | boolean                               | No       |
-| max_complexity_allowed | number                                | No       |
+<details>
+<summary><strong>🔧 GitHub Actions</strong></summary>
 
-#### Examples
-
-Basic Usage:
 ```yaml
-- uses: rohaquinlop/complexipy-action@v1
-  with:
-    paths: |
-      .
-      project_path
-```
-
-Generate CSV Report:
-```yaml
-- uses: rohaquinlop/complexipy-action@v1
-  with:
-    paths: .
-    output_csv: true
-```
-
-Generate JSON Report:
-```yaml
-- uses: rohaquinlop/complexipy-action@v1
-  with:
-    paths: .
-    output_json: true
-```
-
-Analyze Specific Directory with Low Detail Output:
-```yaml
-- uses: rohaquinlop/complexipy-action@v1
-  with:
-    paths: ./src/python
-    details: low
-    sort: desc
-```
-
-Set Custom Complexity Threshold:
-```yaml
-- uses: rohaquinlop/complexipy-action@v1
+- uses: rohaquinlop/complexipy-action@v2
   with:
     paths: .
     max_complexity_allowed: 10
+    output_json: true
 ```
 
-Strict Analysis with Low Threshold and Details:
-```yaml
-- uses: rohaquinlop/complexipy-action@v1
-  with:
-    paths: ./src
-    max_complexity_allowed: 8
-    details: low
-    sort: desc
-```
+</details>
 
-### Pre-commit Hook
-
-You can use complexipy as a pre-commit hook to automatically check code complexity before each commit. This helps maintain code quality by preventing complex code from being committed.
-
-To use complexipy with pre-commit, add the following to your `.pre-commit-config.yaml`:
+<details>
+<summary><strong>🪝 Pre-commit Hook</strong></summary>
 
 ```yaml
 repos:
 - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v3.0.0  # Use the latest version
+  rev: v3.0.0
   hooks:
     - id: complexipy
 ```
 
-The pre-commit hook will:
-- Run automatically before each commit
-- Check the cognitive complexity of your Python files
-- Prevent commits if any function exceeds the complexity threshold
-- Help maintain code quality standards in your repository
+</details>
 
-### VSCode Extension
+<details>
+<summary><strong>🔌 VS Code Extension</strong></summary>
 
-You can also use complexipy directly in Visual Studio Code through our official [extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy):
+Install from the [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) for real-time complexity analysis with visual indicators.
 
-1. Open VS Code
-2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
-3. Search for "complexipy"
-4. Click Install
+</details>
 
-The extension provides:
-- Real-time complexity analysis as you type
-- Visual complexity indicators:
-  - Function complexity shown with ƒ symbol
-  - Line-level complexity shown with + symbol
-  - Color-coded indicators:
-    - Green: Low complexity (functions ≤ 15, lines ≤ 5)
-    - Red: High complexity (functions > 15, lines > 5)
-- Automatic updates on:
-  - File save
-  - Active editor change
-  - Text changes
+## CLI Options
 
-You can also trigger a manual analysis by:
-1. Opening the Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
-2. Typing "complexipy"
-3. Selecting the "complexipy" command
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--max-complexity-allowed` | Complexity threshold | `15` |
+| `--output-json` | Save results as JSON | `false` |
+| `--output-csv` | Save results as CSV | `false` |
+| `--details <normal\|low>` | Output verbosity | `normal` |
+| `--sort <asc\|desc\|name>` | Sort results | `asc` |
+| `--quiet` | Suppress output | `false` |
 
-## Python API
-
-Complexipy can also be used directly from your Python code. The high-level helper functions below wrap the Rust core and return lightweight Python classes that behave like regular dataclasses.
-
-- `complexipy.file_complexity(path: str) -> FileComplexity` – analyse a Python file on disk.
-- `complexipy.code_complexity(src: str) -> CodeComplexity` – analyse a string that contains Python source.
-
-Both helpers return objects whose public attributes you can freely access:
-
-```text
-FileComplexity
-├─ path: str                   # Relative path of the analysed file
-├─ file_name: str              # Filename without the directory part
-├─ complexity: int             # Cognitive complexity of the whole file
-└─ functions: List[FunctionComplexity]
-
-FunctionComplexity
-├─ name: str
-├─ complexity: int
-├─ line_start: int
-├─ line_end: int
-└─ line_complexities: List[LineComplexity]
-
-LineComplexity
-├─ line: int
-└─ complexity: int
-```
-
-### Quick-start
+## API Reference
 
 ```python
-from complexipy import file_complexity, code_complexity
+# Core functions
+file_complexity(path: str) -> FileComplexity
+code_complexity(source: str) -> CodeComplexity
 
-# Analyse a file
-fc = file_complexity("path/to/your/file.py")
-print(f"Total file complexity: {fc.complexity}")
+# Return types
+FileComplexity:
+  ├─ path: str
+  ├─ complexity: int  
+  └─ functions: List[FunctionComplexity]
 
-for fn in fc.functions:
-    print(f"{fn.name}:{fn.line_start}-{fn.line_end} → {fn.complexity}")
-
-# Analyse an in-memory snippet
-snippet = """
-def example_function(x):
-    if x > 0:
-        for i in range(x):
-            print(i)
-"""
-cc = code_complexity(snippet)
-print(f"Snippet complexity: {cc.complexity}")
+FunctionComplexity:
+  ├─ name: str
+  ├─ complexity: int
+  ├─ line_start: int
+  └─ line_end: int
 ```
 
-## End-to-End Example
+---
 
-The following walk-through shows how to use **Complexipy** from both the **command line** *and* the **Python API**, how to interpret the scores it returns, and how to save them for later use.
+<div align="center">
 
-### 1.  Prepare a sample file
+**[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
 
-Create `example.py` with two simple functions:
+<sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub>
 
-```python
-def a_decorator(a, b):
-    def inner(func):
-        return func
-    return inner
+<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource</sub>
 
-
-def b_decorator(a, b):
-    def inner(func):
-        if func:
-            return None
-        return func
-    return inner
-```
-
-### 2.  Run the CLI
-
-Analyse the file from your terminal:
-
-```bash
-complexipy example.py
-```
-
-Typical output (shortened):
-
-```text
-───────────────────────────── 🐙 complexipy 3.3.0 ──────────────────────────────
-                                    Summary
-      ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
-      ┃ Path              ┃ File              ┃ Function    ┃ Complexity ┃
-      ┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
-      │ test_decorator.py │ test_decorator.py │ a_decorator │ 0          │
-      ├───────────────────┼───────────────────┼─────────────┼────────────┤
-      │ test_decorator.py │ test_decorator.py │ b_decorator │ 1          │
-      └───────────────────┴───────────────────┴─────────────┴────────────┘
-🧠 Total Cognitive Complexity: 1
-1 file analyzed in 0.0092 seconds
-────────────────────────── 🎉 Analysis completed! 🎉 ───────────────────────────
-```
-
-**What do those columns mean?**
-
-* **Path / File** – location of the analysed source file
-* **Function** – function or method name that was measured
-* **Complexity** – the cognitive complexity score of that function *(lower is better)*
-
-### 3.  Use the Python API
-
-```python
-from complexipy import file_complexity, code_complexity
-
-# Analyse the file on disk
-fc = file_complexity("example.py")
-print(fc.complexity)   # → 1
-
-# Analyse an in-memory snippet
-snippet = "for x in range(10):\n    print(x)"
-cc = code_complexity(snippet)
-print(cc.complexity)   # → 1
-```
-
-### 4.  Why is the score 1?
-
-```python
-def b_decorator(a, b):  # 0
-  def inner(func):      # 0
-    if func:            # +1 – decision point
-      return None       # 0
-    return func         # 0
-  return inner          # 0
-```
-
-Only a single `if` branch is encountered, therefore the file's total complexity is **1**.
-
-### 5.  Persisting the results
-
-* **CSV** – `complexipy example.py -c` → creates `complexipy.csv`
-* **JSON** – `complexipy example.py -j` → creates `complexipy.json`
-
-### 6.  Scaling up your analysis
-
-* **Entire folder (recursively):** `complexipy .`
-* **Specific directory:** `complexipy ~/projects/my_app`
-* **Remote Git repository:**
-  ```bash
-  complexipy https://github.com/rohaquinlop/complexipy          # print to screen
-  complexipy https://github.com/rohaquinlop/complexipy -c       # save as CSV
-  ```
-
-## Contributors
-
-<p align="center">
-    <a href = "https://github.com/rohaquinlop/complexipy/graphs/contributors">
-    <img src = "https://contrib.rocks/image?repo=rohaquinlop/complexipy"/>
-    </a>
-</p>
-
-Made with [contributors-img](https://contrib.rocks)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/rohaquinlop/complexipy/blob/main/LICENSE) file for details.
-
-## Acknowledgments
-
-- Thanks to G. Ann Campbell for publishing the paper "Cognitive Complexity a new way to measure understandability".
-- This project is inspired by the Sonar way to calculate cognitive complexity.
-
-## References
-
-- [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/)
+</div>

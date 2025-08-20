@@ -1,11 +1,11 @@
 site_name: complexipy
-site_description: An extremely fast Python library to calculate the cognitive complexity of python files, written in Rust.
+site_description: Blazingly fast cognitive complexity analysis for Python, written in Rust.
 site_url: https://rohaquinlop.github.io/complexipy/
 repo_name: rohaquinlop/complexipy
 repo_url: https://github.com/rohaquinlop/complexipy
-edit_uri: ""
+edit_uri: edit/main/docs/
 
-# Navigation structure (single page for now)
+# Navigation structure
 nav:
   - Home: index.md
 
@@ -15,7 +15,6 @@ theme:
     - navigation.instant
     - navigation.tracking
     - navigation.top
-    - navigation.indexes
     - navigation.footer
     - search.suggest
     - search.highlight
@@ -24,6 +23,8 @@ theme:
     - content.code.annotation
     - content.code.copy
     - content.tooltips
+    - content.action.edit
+    - content.action.view
   language: en
   palette:
     # Light mode
@@ -44,12 +45,15 @@ theme:
         name: Switch to light mode
   icon:
     repo: fontawesome/brands/github-alt
+    edit: material/pencil
+    view: material/eye
   logo: img/complexipy_icon.svg
   favicon: img/complexipy_icon.svg
 
-# Plugins (only using search which comes built-in)
+# Plugins
 plugins:
-  - search
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
 
 # Extra configuration
 extra:
@@ -79,6 +83,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.details
@@ -93,4 +99,4 @@ markdown_extensions:
       permalink: true
       toc_depth: 3
 
-copyright: Copyright &copy; 2021-2024 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+copyright: Copyright &copy; 2021-2025 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
