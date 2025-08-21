@@ -239,6 +239,9 @@ jobs:
     permissions:
       id-token: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/download-artifact@v4
         with:
           path: dist
