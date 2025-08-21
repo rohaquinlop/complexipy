@@ -28,7 +28,6 @@ import typer
 
 app = typer.Typer(name="complexipy")
 console = Console()
-version = "4.0.0"
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
@@ -105,9 +104,9 @@ def main(
 
     if not quiet:
         if platform.system() == "Windows":
-            console.rule(f"complexipy {version}")
+            console.rule("complexipy")
         else:
-            console.rule(f":octopus: complexipy {version}")
+            console.rule(":octopus: complexipy")
     start_time = time.time()
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(paths, quiet)
     files_complexities, failed_paths = result

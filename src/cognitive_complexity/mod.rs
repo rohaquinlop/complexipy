@@ -116,7 +116,7 @@ pub fn process_path(
                 thread::sleep(std::time::Duration::from_millis(100));
             }
 
-            pb.finish_with_message("Repository cloned!");
+            pb.finish_and_clear();
         }
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
@@ -218,7 +218,7 @@ fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
         }
     }
 
-    pb.finish_with_message("Done!");
+    pb.finish_and_clear();
 
     (complexities, failed_paths)
 }
