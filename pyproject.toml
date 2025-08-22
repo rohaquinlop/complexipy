@@ -4,6 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "complexipy"
+description = "An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{name = "Robin Quintero", email = "rohaquinlop301@gmail.com"}]
 keywords = [
     "cognitive",
     "complexity",
@@ -39,6 +43,11 @@ dependencies = [
     "tomli>=2.2.1",
     "typer>=0.12.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/rohaquinlop/complexipy"
+Documentation = "https://rohaquinlop.github.io/complexipy/"
+Repository = "https://github.com/rohaquinlop/complexipy"
 
 [project.scripts]
 complexipy = "complexipy.main:app"
