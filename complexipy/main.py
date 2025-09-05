@@ -25,11 +25,24 @@ from typing import (
 )
 import time
 import typer
+from importlib.metadata import (
+    PackageNotFoundError,
+    version as pkg_version,
+)
 
 app = typer.Typer(name="complexipy")
 console = Console()
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
+
+
+def _version_callback(value: bool):
+    if value:
+        try:
+            console.print(pkg_version("complexipy"))
+        except PackageNotFoundError:
+            console.print("Unknown version")
+        raise typer.Exit()
 
 
 @app.command()
@@ -79,6 +92,13 @@ def main(
         "--output-json",
         "-j",
         help="Output the results to a JSON file.",
+    ),
+    version: bool = typer.Option(  # type: ignore[assignment]
+        False,
+        "--version",
+        help="Show the complexipy version and exit.",
+        callback=_version_callback,
+        is_eager=True,
     ),
 ):
     (

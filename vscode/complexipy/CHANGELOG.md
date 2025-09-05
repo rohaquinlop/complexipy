@@ -1,5 +1,15 @@
 # Change Log
 
+## [0.2.0] - 2025-08-22
+
+### Breaking Changes
+
+- Updated the bool operators complexity algorithm that counts the complexity based on the bool operators
+
+### Improved
+
+- Performance
+
 ## [0.1.0] - 2025-07-09
 
 ### Added

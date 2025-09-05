@@ -67,6 +67,15 @@ You can trigger a manual analysis by:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## Changelog
+
+### 0.2.0 — 2025-08-22
+
+- Breaking: Updated boolean operators complexity algorithm to count complexity based on boolean operators
+- Improved: Performance improvements
+
+For a full history, see `CHANGELOG.md`.
+
 ## License
 
 This extension is licensed under the MIT License - see the LICENSE file for details.
