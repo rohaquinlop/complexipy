@@ -168,6 +168,7 @@ json = true
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
+| `--version` | Show installed complexipy version and exit | - |
 
 ## API Reference
 
