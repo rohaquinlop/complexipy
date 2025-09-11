@@ -8,4 +8,4 @@ def ignored_complex_function(a, b):  # noqa: complexipy (legacy API wrapper; saf
 
 
 def not_ignored_function(a, b):
-    return list(i for i in range(a, b))
+    return range(a, b)
