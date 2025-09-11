@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from complexipy._complexipy import (
     CodeComplexity,
     FileComplexity,

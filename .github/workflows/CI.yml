@@ -143,12 +143,13 @@ jobs:
         platform:
           - runner: ubuntu-latest
             target: x86_64
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -158,12 +159,12 @@ jobs:
         shell: bash
         run: |
           uv sync --all-extras --frozen
-          uv run maturin develop
-          uv run pytest tests/main.py
+          uv run -p ${{ matrix.python-version }} maturin develop
+          uv run -p ${{ matrix.python-version }} pytest tests/main.py
       - name: complexipy execution
         shell: bash
         run: |
-          uv run complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
 
   unit-tests-windows:
     name: Unit Tests
@@ -176,12 +177,13 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -191,12 +193,12 @@ jobs:
         shell: bash
         run: |
           uv sync --all-extras --frozen
-          uv run maturin develop
-          uv run pytest tests/main.py
+          uv run -p ${{ matrix.python-version }} maturin develop
+          uv run -p ${{ matrix.python-version }} pytest tests/main.py
       - name: complexipy execution
         shell: bash
         run: |
-          uv run complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
 
   unit-tests-macos:
     name: Unit Tests
@@ -209,12 +211,13 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -224,12 +227,12 @@ jobs:
         shell: bash
         run: |
           uv sync --all-extras --frozen
-          uv run maturin develop
-          uv run pytest tests/main.py
+          uv run -p ${{ matrix.python-version }} maturin develop
+          uv run -p ${{ matrix.python-version }} pytest tests/main.py
       - name: complexipy execution
         shell: bash
         run: |
-          uv run complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
 
   release:
     name: Release
