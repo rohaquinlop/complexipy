@@ -170,6 +170,19 @@ json = true
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
 
+### Inline Ignores
+
+You can explicitly ignore a known complex function inline, similar to Ruff's `C901` ignores:
+
+```python
+def legacy_adapter(x, y):  # noqa: complexipy (safe wrapper)
+    if x and y:
+        return x + y
+    return 0
+```
+
+Place `# noqa: complexipy` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
+
 ## API Reference
 
 ```python

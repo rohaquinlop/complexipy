@@ -129,6 +129,13 @@ def hello_world(s: str) -> str:
         result = code_complexity(snippet)
         self.assertEqual(2, result.complexity)
 
+    def test_noqa_complexipy_ignore(self):
+        path = self.local_path / "src/test_noqa_complex.py"
+        files, _ = _complexipy.main([path.resolve().as_posix()], quiet=False)
+        total_complexity = sum([file.complexity for file in files])
+        # The only function has a noqa: complexipy, so it is ignored.
+        self.assertEqual(0, total_complexity)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -241,3 +241,28 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
     let newline_count = before_slice.chars().filter(|&c| c == '\n').count();
     (newline_count + 1) as u64
 }
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
+    if line_number == 0 {
+        return false;
+    }
+
+    let lines: Vec<&str> = code.lines().collect();
+    let idx = (line_number as usize).saturating_sub(1);
+
+    let contains_marker = |s: &str| -> bool {
+        let lower = s.to_lowercase();
+        lower.contains("noqa: complexipy")
+    };
+
+    if idx < lines.len() && contains_marker(lines[idx]) {
+        return true;
+    }
+
+    if idx > 0 && contains_marker(lines[idx - 1]) {
+        return true;
+    }
+
+    false
+}
