@@ -186,6 +186,19 @@ complexipy src/ --sort name --quiet
 !!! tip "Exit Codes"
     complexipy returns exit code `1` when functions exceed the complexity threshold. Use `--ignore-complexity` to suppress this behavior in CI/CD pipelines.
 
+### Inline Ignores
+
+You can explicitly ignore a known complex function inline, similar to Ruff's `C901` ignores:
+
+```python
+def legacy_adapter(x, y):  # noqa: complexipy (safe wrapper)
+    if x and y:
+        return x + y
+    return 0
+```
+
+Place `# noqa: complexipy` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
+
 ## API Reference
 
 ### Functions
