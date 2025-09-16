@@ -366,7 +366,7 @@ def process_orders(orders):           # Base: 0
 ```bash
 $ complexipy example.py
 
-───────────────────────────── 🐙 complexipy 4.0.0 ──────────────────────────────
+───────────────────────────── 🐙 complexipy ──────────────────────────────
                                     Summary
            ┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
            ┃ Path       ┃ File       ┃ Function       ┃ Complexity ┃
@@ -385,7 +385,7 @@ $ complexipy example.py
 
 ## Links & Resources
 
-- **📚 [Research Paper](https://www.sonarsource.com/resources/cognitive-complexity/)** - Original cognitive complexity research by SonarSource
+- **📚 [Research Paper](https://www.sonarsource.com/resources/cognitive-complexity/)** - Original cognitive complexity research by SonarSource, G. Ann Campbell
 - **🐙 [GitHub Repository](https://github.com/rohaquinlop/complexipy)** - Source code and issue tracking  
 - **📦 [PyPI Package](https://pypi.org/project/complexipy/)** - Installation and version history
 - **🛠️ [GitHub Action](https://github.com/marketplace/actions/complexipy)** - CI/CD integration

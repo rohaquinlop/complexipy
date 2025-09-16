@@ -1,7 +1,7 @@
 # complexipy
 
 <div align="center">
-  <img src="docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
+  <img src="https://raw.githubusercontent.com/rohaquinlop/complexipy/refs/heads/main/docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
   
   <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
@@ -207,10 +207,10 @@ FunctionComplexity:
 
 <div align="center">
 
+<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource, G. Ann Campbell</sub>
+
 **[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
 
 <sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub>
-
-<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource</sub>
 
 </div>
