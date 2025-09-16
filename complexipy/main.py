@@ -100,6 +100,12 @@ def main(
         callback=_version_callback,
         is_eager=True,
     ),
+    exclude: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Paths to the directories or files to exclude.",
+    ),
 ):
     (
         paths,
@@ -110,6 +116,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        exclude,
     ) = get_arguments_value(
         TOML_CONFIG,
         paths,
@@ -120,6 +127,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        exclude,
     )
 
     if not quiet:
@@ -128,7 +136,9 @@ def main(
         else:
             console.rule(":octopus: complexipy")
     start_time = time.time()
-    result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(paths, quiet)
+    result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
+        paths, quiet, exclude
+    )
     files_complexities, failed_paths = result
     execution_time = time.time() - start_time
     output_csv_path = f"{INVOCATION_PATH}/complexipy.csv"

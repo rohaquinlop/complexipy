@@ -127,7 +127,8 @@ def get_arguments_value(
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
-) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool]:
+    exclude: List[str] | None,
+) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool, List[str]]:
     paths = get_argument_value(toml_config, "paths", paths)
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
@@ -140,6 +141,7 @@ def get_arguments_value(
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = get_argument_value(toml_config, "output-csv", output_csv, False)
     output_json = get_argument_value(toml_config, "output-json", output_json, False)
+    exclude = get_argument_value(toml_config, "exclude", exclude, [])
 
     return (
         paths,
@@ -150,6 +152,7 @@ def get_arguments_value(
         sort_arg,
         output_csv,
         output_json,
+        exclude,
     )
 
 

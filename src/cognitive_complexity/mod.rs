@@ -37,28 +37,34 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<ComplexitiesAndFailedPaths> {
+pub fn main(
+    paths: Vec<&str>,
+    quiet: bool,
+    exclude: Vec<&str>,
+) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .unwrap();
 
-    let all_files_paths: Vec<(&str, bool, bool, bool)> = paths
+    let all_files_paths: Vec<(&str, bool, bool, bool, Vec<&str>)> = paths
         .iter()
         .map(|&path| {
             let is_url = re.is_match(path);
 
             if is_url {
-                (path, false, true, quiet)
+                (path, false, true, quiet, exclude.clone())
             } else if metadata(path).unwrap().is_dir() {
-                (path, true, false, quiet)
+                (path, true, false, quiet, exclude.clone())
             } else {
-                (path, false, false, quiet)
+                (path, false, false, quiet, exclude.clone())
             }
         })
         .collect();
 
     let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
         .iter()
-        .map(|(path, is_dir, is_url, quiet)| process_path(path, *is_dir, *is_url, *quiet))
+        .map(|(path, is_dir, is_url, quiet, exclude)| {
+            process_path(path, *is_dir, *is_url, *quiet, exclude.clone())
+        })
         .collect();
 
     let mut successful = Vec::new();
@@ -83,6 +89,7 @@ pub fn process_path(
     is_dir: bool,
     is_url: bool,
     quiet: bool,
+    exclude: Vec<&str>,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -121,13 +128,13 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet);
+        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone());
         dir.close()?;
 
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, quiet);
+        let (complexities, f_paths) = evaluate_dir(path, quiet, exclude.clone());
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
@@ -149,7 +156,7 @@ pub fn process_path(
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
+fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
@@ -159,7 +166,9 @@ fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
         let entry = entry.unwrap();
         let file_path_str = entry.path().to_str().unwrap();
 
-        if entry.path().extension().and_then(|s| s.to_str()) == Some("py") {
+        if entry.path().extension().and_then(|s| s.to_str()) == Some("py")
+            && !exclude.iter().any(|p| file_path_str.contains(p))
+        {
             files_paths.push(file_path_str.to_string());
         }
     }
