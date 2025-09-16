@@ -37,11 +37,32 @@ def get_brain_icon():
         return ":brain:"
 
 
-def load_values_from_toml_key(value: str) -> TOMLType:
-    if value == "details":
-        DetailTypes[value]
-    if value == "sort":
-        Sort[value]
+def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
+    """Normalize TOML values to expected runtime types.
+
+    - Convert `details` and `sort` string values to their Enum variants.
+    - Ensure `paths` and `exclude` are lists when provided as strings.
+    """
+    if key == "details":
+        # Accept either Enum or string in TOML
+        if isinstance(value, DetailTypes):
+            return value
+        if isinstance(value, str):
+            return DetailTypes(value)
+        return value
+
+    if key == "sort":
+        if isinstance(value, Sort):
+            return value
+        if isinstance(value, str):
+            return Sort(value)
+        return value
+
+    if key in ("paths", "exclude"):
+        # Allow a single string, normalize to list for downstream processing
+        if isinstance(value, str):
+            return [value]
+        return value
 
     return value
 
@@ -71,7 +92,7 @@ def load_toml_config(invocation_path: str, config_file_name: str) -> TOMLType | 
             return None
 
     for key, value in data.items():
-        data[key] = load_values_from_toml_key(value)
+        data[key] = load_values_from_toml_key(key, value)
 
     return data
 

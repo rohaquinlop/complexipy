@@ -161,13 +161,21 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
+    // Normalize exclude patterns to use forward slashes so that matching
+    // works consistently across platforms (Windows uses '\\').
+    let exclude_normalized: Vec<String> = exclude.iter().map(|p| p.replace('\\', "/")).collect();
+
     // Get all the python files in the directory
     for entry in Walk::new(path) {
         let entry = entry.unwrap();
         let file_path_str = entry.path().to_str().unwrap();
+        // Normalize the file path for matching as well
+        let file_path_str_normalized = file_path_str.replace('\\', "/");
 
         if entry.path().extension().and_then(|s| s.to_str()) == Some("py")
-            && !exclude.iter().any(|p| file_path_str.contains(p))
+            && !exclude_normalized
+                .iter()
+                .any(|p| file_path_str_normalized.contains(p))
         {
             files_paths.push(file_path_str.to_string());
         }
