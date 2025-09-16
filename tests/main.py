@@ -15,7 +15,7 @@ class TestFiles(unittest.TestCase):
         path = self.local_path / "src"
         files, _ = _complexipy.main([path.resolve().as_posix()], quiet=False, exclude=[])
         total_complexity = sum([file.complexity for file in files])
-        self.assertEqual(42, total_complexity)
+        self.assertEqual(43, total_complexity)
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -141,7 +141,17 @@ def hello_world(s: str) -> str:
         files, _ = _complexipy.main(
             [path.resolve().as_posix()],
             quiet=False,
-            exclude=["test_exclude.py"],
+            exclude=["exlude_dir/test_exclude1.py"],
+        )
+        total_complexity = sum([file.complexity for file in files])
+        self.assertEqual(43, total_complexity)
+
+    def test_exclude_directory(self):
+        path = self.local_path / "src"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()],
+            quiet=False,
+            exclude=["exclude_dir"],
         )
         total_complexity = sum([file.complexity for file in files])
         self.assertEqual(41, total_complexity)
