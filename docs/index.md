@@ -175,7 +175,7 @@ json = true
 | `--quiet` | Suppress terminal output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
-| `--exclude` | Paths to the directories or files to exclude. |  |
+| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 
 ### Examples
 
@@ -188,6 +188,11 @@ complexipy . --max-complexity-allowed 8 --output-json
 
 # Silent analysis sorted by name
 complexipy src/ --sort name --quiet
+
+# Exclude specific paths relative to root
+complexipy . --exclude tests --exclude utils
+# Note: this excludes only './tests/**' and './utils/**' under '.',
+# it does not exclude './complexipy/utils.py'.
 ```
 
 !!! tip "Exit Codes"

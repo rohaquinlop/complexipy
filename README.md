@@ -174,7 +174,16 @@ json = true
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
-| `--exclude` | Paths to the directories or files to exclude. |  |
+| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
+
+Example:
+
+```
+# Exclude only top-level 'tests' directory under the provided root
+complexipy . --exclude tests
+# This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
+# because there is no './utils' directory or file at that level.
+```
 
 ### Inline Ignores
 

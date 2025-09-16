@@ -161,23 +161,80 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
-    // Normalize exclude patterns to use forward slashes so that matching
-    // works consistently across platforms (Windows uses '\\').
-    let exclude_normalized: Vec<String> = exclude.iter().map(|p| p.replace('\\', "/")).collect();
+    // Build path-aware exclude specs, relative to the provided root `path`.
+    // Only exclude if the exclude entry resolves to an existing directory (prefix match)
+    // or file (exact match) under the root. Otherwise, ignore the entry.
+    #[derive(Clone)]
+    struct ExcludeSpec {
+        // canonical, normalized absolute path
+        abs: String,
+        is_dir: bool,
+    }
+
+    let root_canon = match path::Path::new(path).canonicalize() {
+        Ok(p) => p,
+        Err(_) => path::PathBuf::from(path),
+    };
+
+    let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
+    for raw in exclude.iter() {
+        let mut candidate: path::PathBuf;
+        let p = path::Path::new(raw);
+        if p.is_absolute() {
+            candidate = p.to_path_buf();
+        } else {
+            candidate = root_canon.join(p);
+        }
+
+        // Resolve to canonical if possible
+        let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
+            Ok(canon) => {
+                let is_dir = canon.is_dir();
+                let is_file = canon.is_file();
+                let s = canon.to_string_lossy().replace('\\', "/");
+                (true, is_dir, is_file, s)
+            }
+            Err(_) => (false, false, false, String::new()),
+        };
+
+        if exists {
+            if is_dir || is_file {
+                exclude_specs.push(ExcludeSpec { abs: abs_str, is_dir });
+            }
+        }
+        // If it doesn't exist under the root, ignore the exclude entry
+    }
 
     // Get all the python files in the directory
     for entry in Walk::new(path) {
         let entry = entry.unwrap();
-        let file_path_str = entry.path().to_str().unwrap();
-        // Normalize the file path for matching as well
-        let file_path_str_normalized = file_path_str.replace('\\', "/");
+        let entry_path = entry.path();
 
-        if entry.path().extension().and_then(|s| s.to_str()) == Some("py")
-            && !exclude_normalized
-                .iter()
-                .any(|p| file_path_str_normalized.contains(p))
-        {
-            files_paths.push(file_path_str.to_string());
+        if entry_path.extension().and_then(|s| s.to_str()) != Some("py") {
+            continue;
+        }
+
+        // Determine if this file should be excluded using path-aware specs
+        let file_abs = match entry_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => entry_path.to_path_buf(),
+        };
+        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
+
+        let is_excluded = exclude_specs.iter().any(|spec| {
+            if spec.is_dir {
+                // Directory prefix match
+                file_abs_str.starts_with(&spec.abs)
+            } else {
+                // Exact file match
+                file_abs_str == spec.abs
+            }
+        });
+
+        if !is_excluded {
+            if let Some(file_path_str) = entry_path.to_str() {
+                files_paths.push(file_path_str.to_string());
+            }
         }
     }
 
