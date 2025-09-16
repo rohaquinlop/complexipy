@@ -67,6 +67,10 @@ complexipy . --max-complexity-allowed 10
 
 # Generate reports
 complexipy . --output-json --output-csv
+
+# Analyze current directory while excluding specific files
+complexipy . --exclude file_to_exclude.py
+
 ```
 
 ### Python API
@@ -131,6 +135,7 @@ quiet = false
 ignore-complexity = false
 details = "normal"
 sort = "asc"
+exclude = []
 
 [output]
 csv = true
@@ -148,6 +153,7 @@ quiet = false
 ignore-complexity = false
 details = "normal"
 sort = "asc"
+exclude = []
 
 [tool.complexipy.output]
 csv = true
@@ -169,6 +175,7 @@ json = true
 | `--quiet` | Suppress terminal output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
+| `--exclude` | Paths to the directories or files to exclude. |  |
 
 ### Examples
 
