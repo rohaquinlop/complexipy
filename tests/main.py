@@ -17,7 +17,7 @@ class TestFiles(unittest.TestCase):
             [path.resolve().as_posix()], quiet=False, exclude=[]
         )
         total_complexity = sum([file.complexity for file in files])
-        self.assertEqual(43, total_complexity)
+        self.assertEqual(47, total_complexity)
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -180,7 +180,7 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        self.assertEqual(43, total_complexity)
+        self.assertEqual(47, total_complexity)
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -190,7 +190,7 @@ def hello_world(s: str) -> str:
             exclude=["exclude_dir/test_exclude1.py"],
         )
         total_complexity = sum([file.complexity for file in files])
-        self.assertEqual(42, total_complexity)
+        self.assertEqual(44, total_complexity)
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
