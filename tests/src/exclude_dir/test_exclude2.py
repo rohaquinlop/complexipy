@@ -1,4 +1,4 @@
-def f(n):
+def f():
     lst = []
     n = 10
     for i in range(n):
