@@ -37,11 +37,32 @@ def get_brain_icon():
         return ":brain:"
 
 
-def load_values_from_toml_key(value: str) -> TOMLType:
-    if value == "details":
-        DetailTypes[value]
-    if value == "sort":
-        Sort[value]
+def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
+    """Normalize TOML values to expected runtime types.
+
+    - Convert `details` and `sort` string values to their Enum variants.
+    - Ensure `paths` and `exclude` are lists when provided as strings.
+    """
+    if key == "details":
+        # Accept either Enum or string in TOML
+        if isinstance(value, DetailTypes):
+            return value
+        if isinstance(value, str):
+            return DetailTypes(value)
+        return value
+
+    if key == "sort":
+        if isinstance(value, Sort):
+            return value
+        if isinstance(value, str):
+            return Sort(value)
+        return value
+
+    if key in ("paths", "exclude"):
+        # Allow a single string, normalize to list for downstream processing
+        if isinstance(value, str):
+            return [value]
+        return value
 
     return value
 
@@ -71,7 +92,7 @@ def load_toml_config(invocation_path: str, config_file_name: str) -> TOMLType | 
             return None
 
     for key, value in data.items():
-        data[key] = load_values_from_toml_key(value)
+        data[key] = load_values_from_toml_key(key, value)
 
     return data
 
@@ -127,7 +148,8 @@ def get_arguments_value(
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
-) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool]:
+    exclude: List[str] | None,
+) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool, List[str]]:
     paths = get_argument_value(toml_config, "paths", paths)
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
@@ -140,6 +162,7 @@ def get_arguments_value(
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = get_argument_value(toml_config, "output-csv", output_csv, False)
     output_json = get_argument_value(toml_config, "output-json", output_json, False)
+    exclude = get_argument_value(toml_config, "exclude", exclude, [])
 
     return (
         paths,
@@ -150,6 +173,7 @@ def get_arguments_value(
         sort_arg,
         output_csv,
         output_json,
+        exclude,
     )
 
 

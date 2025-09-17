@@ -37,28 +37,34 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn main(paths: Vec<&str>, quiet: bool) -> PyResult<ComplexitiesAndFailedPaths> {
+pub fn main(
+    paths: Vec<&str>,
+    quiet: bool,
+    exclude: Vec<&str>,
+) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .unwrap();
 
-    let all_files_paths: Vec<(&str, bool, bool, bool)> = paths
+    let all_files_paths: Vec<(&str, bool, bool, bool, Vec<&str>)> = paths
         .iter()
         .map(|&path| {
             let is_url = re.is_match(path);
 
             if is_url {
-                (path, false, true, quiet)
+                (path, false, true, quiet, exclude.clone())
             } else if metadata(path).unwrap().is_dir() {
-                (path, true, false, quiet)
+                (path, true, false, quiet, exclude.clone())
             } else {
-                (path, false, false, quiet)
+                (path, false, false, quiet, exclude.clone())
             }
         })
         .collect();
 
     let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
         .iter()
-        .map(|(path, is_dir, is_url, quiet)| process_path(path, *is_dir, *is_url, *quiet))
+        .map(|(path, is_dir, is_url, quiet, exclude)| {
+            process_path(path, *is_dir, *is_url, *quiet, exclude.clone())
+        })
         .collect();
 
     let mut successful = Vec::new();
@@ -83,6 +89,7 @@ pub fn process_path(
     is_dir: bool,
     is_url: bool,
     quiet: bool,
+    exclude: Vec<&str>,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -121,13 +128,13 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet);
+        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone());
         dir.close()?;
 
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, quiet);
+        let (complexities, f_paths) = evaluate_dir(path, quiet, exclude.clone());
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
@@ -149,18 +156,85 @@ pub fn process_path(
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str, quiet: bool) -> ComplexitiesAndFailedPaths {
+fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
 
+    // Build path-aware exclude specs, relative to the provided root `path`.
+    // Only exclude if the exclude entry resolves to an existing directory (prefix match)
+    // or file (exact match) under the root. Otherwise, ignore the entry.
+    #[derive(Clone)]
+    struct ExcludeSpec {
+        // canonical, normalized absolute path
+        abs: String,
+        is_dir: bool,
+    }
+
+    let root_canon = match path::Path::new(path).canonicalize() {
+        Ok(p) => p,
+        Err(_) => path::PathBuf::from(path),
+    };
+
+    let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
+    for raw in exclude.iter() {
+        let mut candidate: path::PathBuf;
+        let p = path::Path::new(raw);
+        if p.is_absolute() {
+            candidate = p.to_path_buf();
+        } else {
+            candidate = root_canon.join(p);
+        }
+
+        // Resolve to canonical if possible
+        let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
+            Ok(canon) => {
+                let is_dir = canon.is_dir();
+                let is_file = canon.is_file();
+                let s = canon.to_string_lossy().replace('\\', "/");
+                (true, is_dir, is_file, s)
+            }
+            Err(_) => (false, false, false, String::new()),
+        };
+
+        if exists {
+            if is_dir || is_file {
+                exclude_specs.push(ExcludeSpec { abs: abs_str, is_dir });
+            }
+        }
+        // If it doesn't exist under the root, ignore the exclude entry
+    }
+
     // Get all the python files in the directory
     for entry in Walk::new(path) {
         let entry = entry.unwrap();
-        let file_path_str = entry.path().to_str().unwrap();
+        let entry_path = entry.path();
 
-        if entry.path().extension().and_then(|s| s.to_str()) == Some("py") {
-            files_paths.push(file_path_str.to_string());
+        if entry_path.extension().and_then(|s| s.to_str()) != Some("py") {
+            continue;
+        }
+
+        // Determine if this file should be excluded using path-aware specs
+        let file_abs = match entry_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => entry_path.to_path_buf(),
+        };
+        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
+
+        let is_excluded = exclude_specs.iter().any(|spec| {
+            if spec.is_dir {
+                // Directory prefix match
+                file_abs_str.starts_with(&spec.abs)
+            } else {
+                // Exact file match
+                file_abs_str == spec.abs
+            }
+        });
+
+        if !is_excluded {
+            if let Some(file_path_str) = entry_path.to_str() {
+                files_paths.push(file_path_str.to_string());
+            }
         }
     }
 
