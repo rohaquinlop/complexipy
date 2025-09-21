@@ -69,7 +69,7 @@ complexipy . --max-complexity-allowed 10
 complexipy . --output-json --output-csv
 
 # Analyze current directory while excluding specific files
-complexipy . --exclude file_to_exclude.py
+complexipy . --exclude file_to_exclude.py --exclude path/to/other/exclude.py
 
 ```
 
@@ -167,6 +167,7 @@ json = true
 
 | Option | Description | Default |
 |--------|-------------|---------|
+| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 | `--max-complexity-allowed <N>` | Complexity threshold for warnings | `15` |
 | `--output-json` | Export results to JSON | `false` |
 | `--output-csv` | Export results to CSV | `false` |
@@ -175,7 +176,6 @@ json = true
 | `--quiet` | Suppress terminal output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
-| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 
 ### Examples
 

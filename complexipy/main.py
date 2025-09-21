@@ -51,6 +51,12 @@ def main(
         None,
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
+    exclude: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Paths to the directories or files to exclude.",
+    ),
     max_complexity_allowed: Optional[int] = typer.Option(
         None,
         "--max-complexity-allowed",
@@ -99,12 +105,6 @@ def main(
         help="Show the complexipy version and exit.",
         callback=_version_callback,
         is_eager=True,
-    ),
-    exclude: Optional[List[str]] = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help="Paths to the directories or files to exclude.",
     ),
 ):
     (
