@@ -72,6 +72,6 @@ def file_complexity(file_path: str) -> FileComplexity:
     path = Path(file_path)
     base_path = path.parent
     return _complexipy.file_complexity(
-        file_path=path.resolve().as_posix(),
-        base_path=base_path.resolve().as_posix(),
+        path.resolve().as_posix(),
+        base_path.resolve().as_posix(),
     )

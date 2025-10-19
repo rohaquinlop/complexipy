@@ -37,15 +37,17 @@ jobs:
             target: s390x
           - runner: ubuntu-latest
             target: ppc64le
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+        uses: PyO3/maturin-action@v1.49.4
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
@@ -54,7 +56,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.platform.target }}
+          name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
 
   windows-build:
@@ -66,16 +68,18 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+        uses: PyO3/maturin-action@v1.49.4
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
@@ -83,7 +87,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.platform.target }}
+          name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
 
   macos-build:
@@ -95,15 +99,17 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+        uses: PyO3/maturin-action@v1.49.4
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
@@ -111,7 +117,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos-${{ matrix.platform.target }}
+          name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
 
   sdist:
@@ -121,7 +127,7 @@ jobs:
         with:
           submodules: recursive
       - name: Build sdist
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+        uses: PyO3/maturin-action@v1.49.4
         with:
           command: sdist
           args: --out dist
@@ -140,11 +146,11 @@ jobs:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
-        uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
+        uses: astral-sh/setup-uv@v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
@@ -174,11 +180,11 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
-        uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
+        uses: astral-sh/setup-uv@v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
@@ -208,11 +214,11 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
-        uses: astral-sh/setup-uv@d9e0f98d3fc6adb07d1e3d37f3043649ddad06a1
+        uses: astral-sh/setup-uv@v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
@@ -248,7 +254,7 @@ jobs:
           pattern: wheels-*
           merge-multiple: true
       - name: Publish to PyPI
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+        uses: PyO3/maturin-action@v1.49.4
         with:
           command: upload
           args: --non-interactive --skip-existing dist/*

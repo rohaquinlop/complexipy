@@ -120,11 +120,11 @@ pub fn get_repo_name(url: &str) -> String {
 #[cfg(any(feature = "python", feature = "wasm"))]
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
-    if let Stmt::FunctionDef(f) = statement {
-        if f.body.len() == 2 {
-            ans = matches!(f.body[0].clone(), Stmt::FunctionDef(..))
-                && matches!(f.body[1].clone(), Stmt::Return(..));
-        }
+    if let Stmt::FunctionDef(f) = statement
+        && f.body.len() == 2
+    {
+        ans = matches!(f.body[0].clone(), Stmt::FunctionDef(..))
+            && matches!(f.body[1].clone(), Stmt::Return(..));
     }
 
     ans

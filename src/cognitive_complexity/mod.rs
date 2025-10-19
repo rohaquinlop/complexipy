@@ -18,7 +18,6 @@ mod python_deps {
     pub use indicatif::ProgressStyle;
     pub use pyo3::exceptions::PyValueError;
     pub use pyo3::prelude::*;
-    pub use rayon::prelude::*;
     pub use regex::Regex;
     pub use ruff_python_parser::parse_module;
     pub use std::env;
@@ -70,13 +69,10 @@ pub fn main(
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
 
-    for result in all_files_processed {
-        if result.is_ok() {
-            let (mut complexities, mut f_paths) = result.unwrap();
-
-            successful.append(&mut complexities);
-            failed_paths.append(&mut f_paths);
-        }
+    for result in all_files_processed.into_iter().flatten() {
+        let (mut complexities, mut f_paths) = result;
+        successful.append(&mut complexities);
+        failed_paths.append(&mut f_paths);
     }
 
     Ok((successful, failed_paths))
@@ -178,13 +174,12 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
     let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
     for raw in exclude.iter() {
-        let mut candidate: path::PathBuf;
         let p = path::Path::new(raw);
-        if p.is_absolute() {
-            candidate = p.to_path_buf();
+        let candidate = if p.is_absolute() {
+            p.to_path_buf()
         } else {
-            candidate = root_canon.join(p);
-        }
+            root_canon.join(p)
+        };
 
         // Resolve to canonical if possible
         let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
@@ -197,11 +192,13 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             Err(_) => (false, false, false, String::new()),
         };
 
-        if exists {
-            if is_dir || is_file {
-                exclude_specs.push(ExcludeSpec { abs: abs_str, is_dir });
-            }
+        if exists && (is_dir || is_file) {
+            exclude_specs.push(ExcludeSpec {
+                abs: abs_str,
+                is_dir,
+            });
         }
+
         // If it doesn't exist under the root, ignore the exclude entry
     }
 
@@ -231,10 +228,8 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             }
         });
 
-        if !is_excluded {
-            if let Some(file_path_str) = entry_path.to_str() {
-                files_paths.push(file_path_str.to_string());
-            }
+        if !is_excluded && let Some(file_path_str) = entry_path.to_str() {
+            files_paths.push(file_path_str.to_string());
         }
     }
 
@@ -422,10 +417,10 @@ fn statement_cognitive_complexity_shared(
     let mut complexity: u64 = 0;
     let mut line_complexities: Vec<LineComplexity> = Vec::new();
 
-    if is_decorator(statement.clone()) {
-        if let Stmt::FunctionDef(f) = statement {
-            return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
-        }
+    if is_decorator(statement.clone())
+        && let Stmt::FunctionDef(f) = statement
+    {
+        return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
     }
 
     match statement {
