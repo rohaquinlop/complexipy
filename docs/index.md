@@ -134,6 +134,7 @@ max-complexity-allowed = 10
 quiet = false
 ignore-complexity = false
 details = "normal"
+color = "auto"
 sort = "asc"
 exclude = []
 
@@ -152,6 +153,7 @@ max-complexity-allowed = 10
 quiet = false
 ignore-complexity = false
 details = "normal"
+color = "auto"
 sort = "asc"
 exclude = []
 
@@ -172,6 +174,7 @@ json = true
 | `--output-json` | Export results to JSON | `false` |
 | `--output-csv` | Export results to CSV | `false` |
 | `--details <normal\|low>` | Output verbosity level | `normal` |
+| `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|name>` | Sort results by complexity or name | `asc` |
 | `--quiet` | Suppress terminal output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
@@ -189,8 +192,8 @@ complexipy . --max-complexity-allowed 8 --output-json
 # Silent analysis sorted by name
 complexipy src/ --sort name --quiet
 
-# Exclude specific paths relative to root
-complexipy . --exclude tests --exclude utils
+# Exclude specific paths relative to root, and disable color
+complexipy . --exclude tests --exclude utils --color no
 # Note: this excludes only './tests/**' and './utils/**' under '.',
 # it does not exclude './complexipy/utils.py'.
 ```
