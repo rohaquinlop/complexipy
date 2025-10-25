@@ -113,6 +113,8 @@ def main(
         is_eager=True,
     ),
 ):
+    global console
+
     (
         paths,
         max_complexity_allowed,
@@ -137,14 +139,13 @@ def main(
         output_json,
         exclude,
     )
+
     color_system = "auto"
     if color == ColorTypes.no:
         color_system = None
-    if color == ColorTypes.yes:
+    elif color == ColorTypes.yes:
         color_system = "standard"
-    global console
     console = Console(color_system=color_system)
-
 
     if not quiet:
         if platform.system() == "Windows":
