@@ -81,6 +81,12 @@ def main(
         "-d",
         help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
     ),
+    color: Optional[ColorTypes] = typer.Option(
+        None,
+        "--color",
+        "-C",
+        help="Whether the output should be in color: either 'auto', 'yes' or 'no'. Default is 'auto'.",
+    ),
     sort: Optional[Sort] = typer.Option(
         None,
         "--sort",
@@ -99,12 +105,6 @@ def main(
         "-j",
         help="Output the results to a JSON file.",
     ),
-    colors: Optional[ColorTypes] = typer.Option(
-        None,
-        "--colors",
-        "-C",
-        help="Whether the output should be in colors: either 'auto', 'yes' or 'no'. Default is 'auto'.",
-    ),
     version: bool = typer.Option(  # type: ignore[assignment]
         False,
         "--version",
@@ -119,7 +119,7 @@ def main(
         quiet,
         ignore_complexity,
         details,
-        colors,
+        color,
         sort,
         output_csv,
         output_json,
@@ -131,16 +131,16 @@ def main(
         quiet,
         ignore_complexity,
         details,
-        colors,
+        color,
         sort,
         output_csv,
         output_json,
         exclude,
     )
     color_system = "auto"
-    if colors == ColorTypes.no:
+    if color == ColorTypes.no:
         color_system = None
-    if colors == ColorTypes.yes:
+    if color == ColorTypes.yes:
         color_system = "standard"
     global console
     console = Console(color_system=color_system)

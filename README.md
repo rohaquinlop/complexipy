@@ -138,6 +138,7 @@ max-complexity-allowed = 10
 quiet = false
 ignore-complexity = false
 details = "normal"
+color = "auto"
 sort = "asc"
 exclude = []
 
@@ -154,6 +155,7 @@ max-complexity-allowed = 10
 quiet = false
 ignore-complexity = false
 details = "normal"
+color = "auto"
 sort = "asc"
 exclude = []
 
@@ -171,6 +173,7 @@ json = true
 | `--output-json` | Save results as JSON | `false` |
 | `--output-csv` | Save results as CSV | `false` |
 | `--details <normal\|low>` | Output verbosity | `normal` |
+| `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |

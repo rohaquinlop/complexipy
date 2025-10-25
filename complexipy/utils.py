@@ -51,7 +51,7 @@ def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
             return DetailTypes(value)
         return value
 
-    if key == "colors":
+    if key == "color":
         # Accept either Enum or string in TOML
         if isinstance(value, ColorTypes):
             return value
@@ -153,7 +153,7 @@ def get_arguments_value(
     quiet: bool | None,
     ignore_complexity: bool | None,
     details: DetailTypes | None,
-    colors: ColorTypes | None,
+    color: ColorTypes | None,
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
@@ -168,7 +168,7 @@ def get_arguments_value(
         toml_config, "ignore-complexity", ignore_complexity, False
     )
     details = get_argument_value(toml_config, "details", details, DetailTypes.normal)
-    colors = get_argument_value(toml_config, "colors", colors, ColorTypes.auto)
+    color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = get_argument_value(toml_config, "output-csv", output_csv, False)
     output_json = get_argument_value(toml_config, "output-json", output_json, False)
@@ -180,7 +180,7 @@ def get_arguments_value(
         quiet,
         ignore_complexity,
         details,
-        colors,
+        color,
         sort_arg,
         output_csv,
         output_json,
