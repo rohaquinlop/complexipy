@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from complexipy.types import DetailTypes, ColorTypes, Sort, TOMLType
+from complexipy.types import ColorTypes, DetailTypes, Sort, TOMLType
 from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
