@@ -1,4 +1,5 @@
 from .types import (
+    ColorTypes,
     DetailTypes,
     Sort,
 )
@@ -31,7 +32,6 @@ from importlib.metadata import (
 )
 
 app = typer.Typer(name="complexipy")
-console = Console()
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
@@ -81,6 +81,12 @@ def main(
         "-d",
         help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
     ),
+    color: Optional[ColorTypes] = typer.Option(
+        None,
+        "--color",
+        "-C",
+        help="Whether the output should be in color: either 'auto', 'yes' or 'no'. Default is 'auto'.",
+    ),
     sort: Optional[Sort] = typer.Option(
         None,
         "--sort",
@@ -107,12 +113,15 @@ def main(
         is_eager=True,
     ),
 ):
+    global console
+
     (
         paths,
         max_complexity_allowed,
         quiet,
         ignore_complexity,
         details,
+        color,
         sort,
         output_csv,
         output_json,
@@ -124,11 +133,19 @@ def main(
         quiet,
         ignore_complexity,
         details,
+        color,
         sort,
         output_csv,
         output_json,
         exclude,
     )
+
+    color_system = "auto"
+    if color == ColorTypes.no:
+        color_system = None
+    elif color == ColorTypes.yes:
+        color_system = "standard"
+    console = Console(color_system=color_system)
 
     if not quiet:
         if platform.system() == "Windows":

@@ -7,6 +7,12 @@ class DetailTypes(str, Enum):
     normal = "normal"  # Show all files with their complexity
 
 
+class ColorTypes(str, Enum):
+    auto = "auto"  # Decide whether to color automatically, based on output tty
+    yes = "yes"  # Use color
+    no = "no"  # Do not use color
+
+
 class Sort(str, Enum):
     asc = "asc"
     desc = "desc"

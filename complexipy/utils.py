@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from complexipy.types import DetailTypes, Sort, TOMLType
+from complexipy.types import ColorTypes, DetailTypes, Sort, TOMLType
 from complexipy._complexipy import (
     FileComplexity,
     FunctionComplexity,
@@ -47,14 +47,22 @@ def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
         # Accept either Enum or string in TOML
         if isinstance(value, DetailTypes):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, str):
             return DetailTypes(value)
+        return value
+
+    if key == "color":
+        # Accept either Enum or string in TOML
+        if isinstance(value, ColorTypes):
+            return value
+        elif isinstance(value, str):
+            return ColorTypes(value)
         return value
 
     if key == "sort":
         if isinstance(value, Sort):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, str):
             return Sort(value)
         return value
 
@@ -145,11 +153,12 @@ def get_arguments_value(
     quiet: bool | None,
     ignore_complexity: bool | None,
     details: DetailTypes | None,
+    color: ColorTypes | None,
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
     exclude: List[str] | None,
-) -> Tuple[List[str], int, bool, bool, DetailTypes, Sort, bool, bool, List[str]]:
+) -> Tuple[List[str], int, bool, bool, DetailTypes, ColorTypes, Sort, bool, bool, List[str]]:
     paths = get_argument_value(toml_config, "paths", paths)
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
@@ -159,6 +168,7 @@ def get_arguments_value(
         toml_config, "ignore-complexity", ignore_complexity, False
     )
     details = get_argument_value(toml_config, "details", details, DetailTypes.normal)
+    color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = get_argument_value(toml_config, "output-csv", output_csv, False)
     output_json = get_argument_value(toml_config, "output-json", output_json, False)
@@ -170,6 +180,7 @@ def get_arguments_value(
         quiet,
         ignore_complexity,
         details,
+        color,
         sort_arg,
         output_csv,
         output_json,
