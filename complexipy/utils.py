@@ -47,7 +47,7 @@ def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
         # Accept either Enum or string in TOML
         if isinstance(value, DetailTypes):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, str):
             return DetailTypes(value)
         return value
 
@@ -55,14 +55,14 @@ def load_values_from_toml_key(key: str, value: TOMLType) -> TOMLType:
         # Accept either Enum or string in TOML
         if isinstance(value, ColorTypes):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, str):
             return ColorTypes(value)
         return value
 
     if key == "sort":
         if isinstance(value, Sort):
             return value
-        if isinstance(value, str):
+        elif isinstance(value, str):
             return Sort(value)
         return value
 
