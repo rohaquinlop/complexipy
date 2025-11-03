@@ -1,6 +1,7 @@
 import os
 import platform
 import time
+from datetime import datetime
 from importlib.metadata import (
     PackageNotFoundError,
 )
@@ -161,8 +162,11 @@ def main(
     )
     files_complexities, failed_paths = result
     execution_time = time.time() - start_time
-    output_csv_path = f"{INVOCATION_PATH}/complexipy.csv"
-    output_json_path = f"{INVOCATION_PATH}/complexipy.json"
+    current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
+    output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
+    output_json_path = (
+        f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
+    )
 
     if output_csv:
         _complexipy.output_csv(
