@@ -5,7 +5,5 @@ ignore-complexity = false
 details = "normal"
 sort = "asc"
 exclude = ["tests"]
-
-[output]
-csv = false
-json = false
+output-csv = false
+output-json = false

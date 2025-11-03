@@ -6,7 +6,6 @@ from complexipy._complexipy import (
     FunctionComplexity,
     LineComplexity,
 )
-
 from complexipy.api import (
     code_complexity,
     file_complexity,

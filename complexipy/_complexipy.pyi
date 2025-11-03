@@ -7,7 +7,7 @@ understand and maintain, focusing on control flow structures that make code
 harder to reason about.
 """
 
-from typing import List
+from typing import List, Tuple
 
 class LineComplexity:
     """
@@ -93,7 +93,7 @@ class FunctionComplexity:
     """
     The starting line number of the function definition (1-indexed).
 
-    Points to the line containing 'def function_name(...):' 
+    Points to the line containing 'def function_name(...):'
     """
 
     line_end: int
@@ -183,7 +183,7 @@ class FileComplexity:
         >>> # Find the most complex function
         >>> most_complex = max(file_analysis.functions, key=lambda f: f.complexity)
         >>> print(f"Most complex function: {most_complex.name} ({most_complex.complexity})")
-    
+
             >>> # Get functions that exceed threshold
         >>> threshold = 15
         >>> problematic = [f for f in file_analysis.functions if f.complexity > threshold]
@@ -261,7 +261,9 @@ class CodeComplexity:
         self, functions: List[FunctionComplexity], complexity: int
     ) -> None: ...
 
-def main(paths: List[str], quiet: bool) -> List[FileComplexity]:
+def main(
+    paths: List[str], quiet: bool, exclude: List[str]
+) -> Tuple[List[FileComplexity], List[str]]:
     """
     Analyze cognitive complexity of Python files and directories.
 
@@ -279,6 +281,8 @@ def main(paths: List[str], quiet: bool) -> List[FileComplexity]:
                Each path is processed independently and all results are combined.
         quiet: If True, suppresses console output during analysis. Useful for
                programmatic usage where you only want the returned data.
+        exclude: List of file paths, directory paths.
+                 Each path will be excluded from the analysis.
 
     Returns:
         List of FileComplexity objects, one for each Python file analyzed.

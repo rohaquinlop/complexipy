@@ -1,37 +1,43 @@
-from .types import (
-    ColorTypes,
-    DetailTypes,
-    Sort,
-)
-from .utils import (
-    output_summary,
-    has_success_functions,
-    get_complexipy_toml_config,
-    get_arguments_value,
-    print_failed_paths,
-)
-from complexipy import (
-    _complexipy,
-)
-from complexipy._complexipy import FileComplexity
 import os
 import platform
-from rich.console import (
-    Console,
+import time
+from importlib.metadata import (
+    PackageNotFoundError,
+)
+from importlib.metadata import (
+    version as pkg_version,
 )
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
     Tuple,
 )
-import time
+
 import typer
-from importlib.metadata import (
-    PackageNotFoundError,
-    version as pkg_version,
+from rich.console import (
+    Console,
+)
+
+from complexipy import (
+    _complexipy,
+)
+from complexipy._complexipy import FileComplexity
+
+from .types import (
+    ColorTypes,
+    DetailTypes,
+    Sort,
+)
+from .utils import (
+    get_arguments_value,
+    get_complexipy_toml_config,
+    has_success_functions,
+    output_summary,
+    print_failed_paths,
 )
 
 app = typer.Typer(name="complexipy")
+console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
@@ -139,13 +145,10 @@ def main(
         output_json,
         exclude,
     )
-
-    color_system = "auto"
     if color == ColorTypes.no:
-        color_system = None
+        console = Console(color_system=None)
     elif color == ColorTypes.yes:
-        color_system = "standard"
-    console = Console(color_system=color_system)
+        console = Console(color_system="standard")
 
     if not quiet:
         if platform.system() == "Windows":
@@ -181,7 +184,9 @@ def main(
         console.print(f"Results saved at {output_json_path}")
 
     if quiet:
-        has_success = has_success_functions(files_complexities, max_complexity_allowed)
+        has_success = has_success_functions(
+            files_complexities, max_complexity_allowed
+        )
     else:
         has_success = output_summary(
             console,
@@ -199,7 +204,9 @@ def main(
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
-    has_success = print_failed_paths(console, quiet, failed_paths) and has_success
+    has_success = (
+        print_failed_paths(console, quiet, failed_paths) and has_success
+    )
     if not has_success:
         raise typer.Exit(code=1)
 
