@@ -2,7 +2,7 @@
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/rohaquinlop/complexipy/refs/heads/main/docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
-  
+
   <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
   <p>
@@ -141,10 +141,8 @@ details = "normal"
 color = "auto"
 sort = "asc"
 exclude = []
-
-[output]
-csv = true
-json = true
+output-csv = false
+output-json = false
 ```
 
 ```toml
@@ -158,10 +156,8 @@ details = "normal"
 color = "auto"
 sort = "asc"
 exclude = []
-
-[tool.complexipy.output]
-csv = true
-json = true
+output-csv = false
+output-json = false
 ```
 
 ### CLI Options
@@ -170,14 +166,14 @@ json = true
 |------|-------------|---------|
 | `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
-| `--output-json` | Save results as JSON | `false` |
-| `--output-csv` | Save results as CSV | `false` |
 | `--details <normal\|low>` | Output verbosity | `normal` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
+| `--output-json` | Save results as JSON | `false` |
+| `--output-csv` | Save results as CSV | `false` |
 
 Example:
 
@@ -211,7 +207,7 @@ code_complexity(source: str) -> CodeComplexity
 # Return types
 FileComplexity:
   ├─ path: str
-  ├─ complexity: int  
+  ├─ complexity: int
   └─ functions: List[FunctionComplexity]
 
 FunctionComplexity:
