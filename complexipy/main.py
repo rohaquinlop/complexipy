@@ -29,6 +29,8 @@ from .types import (
     DetailTypes,
     Sort,
 )
+from .utils.csv import store_csv
+from .utils.json import store_json
 from .utils.output import (
     has_success_functions,
     output_summary,
@@ -178,24 +180,16 @@ def main(
         f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
     )
 
-    if output_csv:
-        _complexipy.output_csv(
-            output_csv_path,
-            files_complexities,
-            sort.value,
-            details.value == DetailTypes.normal.value,
-            max_complexity_allowed,
-        )
-        console.print(f"Results saved at {output_csv_path}")
-
-    if output_json:
-        _complexipy.output_json(
-            output_json_path,
-            files_complexities,
-            details.value == DetailTypes.normal.value,
-            max_complexity_allowed,
-        )
-        console.print(f"Results saved at {output_json_path}")
+    handle_result_store(
+        output_csv,
+        output_csv_path,
+        output_json,
+        output_json_path,
+        files_complexities,
+        sort.value,
+        details.value == DetailTypes.normal.value,
+        max_complexity_allowed,
+    )
 
     if quiet:
         has_success = has_success_functions(
@@ -225,6 +219,38 @@ def main(
     )
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def handle_result_store(
+    output_csv: bool,
+    output_csv_path: str,
+    output_json: bool,
+    output_json_path: str,
+    files_complexities: List[FileComplexity],
+    sort: str,
+    show_details: bool,
+    max_complexity: int,
+) -> None:
+    global console
+
+    if output_csv:
+        store_csv(
+            output_csv_path,
+            files_complexities,
+            sort,
+            show_details,
+            max_complexity,
+        )
+        console.print(f"Results saved at {output_csv_path}")
+
+    if output_json:
+        store_json(
+            output_json_path,
+            files_complexities,
+            show_details,
+            max_complexity,
+        )
+        console.print(f"Results saved at {output_json_path}")
 
 
 if __name__ == "__main__":
