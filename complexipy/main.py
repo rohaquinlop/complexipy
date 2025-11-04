@@ -29,12 +29,14 @@ from .types import (
     DetailTypes,
     Sort,
 )
-from .utils import (
-    get_arguments_value,
-    get_complexipy_toml_config,
+from .utils.output import (
     has_success_functions,
     output_summary,
     print_failed_paths,
+)
+from .utils.toml import (
+    get_arguments_value,
+    get_complexipy_toml_config,
 )
 
 app = typer.Typer(name="complexipy")
@@ -69,6 +71,12 @@ def main(
         "--max-complexity-allowed",
         "-mx",
         help="Max complexity allowed per function.",
+    ),
+    snapshot_create: Optional[bool] = typer.Option(
+        None,
+        "--snapshot-create",
+        "-spc",
+        help="Creates a snapshot of the current project state.",
     ),
     quiet: Optional[bool] = typer.Option(
         None,
@@ -125,6 +133,7 @@ def main(
     (
         paths,
         max_complexity_allowed,
+        snapshot_create,
         quiet,
         ignore_complexity,
         details,
@@ -137,6 +146,7 @@ def main(
         TOML_CONFIG,
         paths,
         max_complexity_allowed,
+        snapshot_create,
         quiet,
         ignore_complexity,
         details,
@@ -207,6 +217,8 @@ def main(
             console.rule("Analysis completed!")
         else:
             console.rule(":tada: Analysis completed! :tada:")
+
+    # create complexipy.json file, store the failed_paths
 
     has_success = (
         print_failed_paths(console, quiet, failed_paths) and has_success

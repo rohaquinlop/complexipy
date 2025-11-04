@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import platform
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
@@ -9,16 +8,8 @@ from typing import (
     overload,
 )
 
-from rich.align import Align
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
 from typer import Exit
 
-from complexipy._complexipy import (
-    FileComplexity,
-    FunctionComplexity,
-)
 from complexipy.types import (
     ColorTypes,
     DetailTypes,
@@ -33,14 +24,6 @@ try:
     import tomli as toml_library
 except ImportError:
     import tomllib as toml_library
-
-
-def get_brain_icon():
-    """Get platform-appropriate brain icon"""
-    if platform.system() == "Windows":
-        return "Brain"
-    else:
-        return ":brain:"
 
 
 @overload
@@ -215,6 +198,7 @@ def get_arguments_value(
     toml_config: TOMLConfig | None,
     paths: List[str] | None,
     max_complexity_allowed: int | None,
+    snapshot_create: bool | None,
     quiet: bool | None,
     ignore_complexity: bool | None,
     details: DetailTypes | None,
@@ -228,6 +212,7 @@ def get_arguments_value(
     int,
     bool,
     bool,
+    bool,
     DetailTypes,
     ColorTypes,
     Sort,
@@ -238,6 +223,9 @@ def get_arguments_value(
     paths = get_argument_value(toml_config, "paths", paths, [])
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
+    )
+    snapshot_create = get_argument_value(
+        toml_config, "snapshot-creaste", snapshot_create, False
     )
     quiet = get_argument_value(toml_config, "quiet", quiet, False)
     ignore_complexity = get_argument_value(
@@ -259,6 +247,7 @@ def get_arguments_value(
     return (
         paths,
         max_complexity_allowed,
+        snapshot_create,
         quiet,
         ignore_complexity,
         details,
@@ -267,123 +256,4 @@ def get_arguments_value(
         output_csv,
         output_json,
         exclude,
-    )
-
-
-def output_summary(
-    console: Console,
-    files: List[FileComplexity],
-    details: DetailTypes,
-    sort: Sort,
-    ignore_complexity: bool,
-    max_complexity: int,
-) -> bool:
-    table, has_success, total_complexity, total_functions = create_table(
-        files, details, sort, ignore_complexity, max_complexity
-    )
-
-    if details == DetailTypes.low and table.row_count < 1:
-        console.print(
-            f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
-        )
-    else:
-        if total_functions == 0:
-            console.print(
-                Align.center(
-                    "No files were found with functions. No complexity was calculated."
-                )
-            )
-        else:
-            console.print(Align.center(table))
-            brain_icon = get_brain_icon()
-            console.print(
-                f"{brain_icon} Total Cognitive Complexity: {total_complexity}"
-            )
-
-    return has_success
-
-
-def create_table(
-    files: List[FileComplexity],
-    details: DetailTypes,
-    sort: Sort,
-    ignore_complexity: bool,
-    max_complexity: int,
-) -> Tuple[Table, bool, int, int]:
-    has_success = True
-    all_functions: List[Tuple[str, str, FunctionComplexity]] = []
-    total_complexity = 0
-
-    table = Table(
-        title="Summary",
-        show_header=True,
-        header_style="bold magenta",
-        show_lines=True,
-    )
-    table.add_column("Path")
-    table.add_column("File")
-    table.add_column("Function")
-    table.add_column("Complexity")
-
-    for file in files:
-        for function in file.functions:
-            total_complexity += function.complexity
-            all_functions.append((file.path, file.file_name, function))
-
-    if sort != Sort.file_name:
-        all_functions.sort(key=lambda x: x[2].complexity)
-
-        if sort == Sort.desc:
-            all_functions.reverse()
-
-    for function in all_functions:
-        if function[2].complexity > max_complexity:
-            table.add_row(
-                f"{function[0]}",
-                f"[green]{function[1]}[/green]",
-                f"[green]{function[2].name}[/green]",
-                f"[red]{function[2].complexity}[/red]",
-            )
-            has_success = False
-        elif details != DetailTypes.low:
-            table.add_row(
-                f"{function[0]}",
-                f"[green]{function[1]}[/green]",
-                f"[green]{function[2].name}[/green]",
-                f"[blue]{function[2].complexity}[/blue]",
-            )
-
-    if ignore_complexity:
-        has_success = True
-
-    return table, has_success, total_complexity, len(all_functions)
-
-
-def print_failed_paths(console: Console, quiet: bool, failed_paths: List[str]):
-    has_success = True
-
-    if failed_paths:
-        has_success = False
-
-    if quiet:
-        return has_success
-
-    for failed_path in failed_paths:
-        text = Text()
-        text.append("error", style="bold red")
-        text.append(f": Failed to process {failed_path}", style="bold white")
-        text.append(" - Please check syntax")
-        console.print(text)
-
-    return has_success
-
-
-def has_success_functions(
-    files: List[FileComplexity], max_complexity: int
-) -> bool:
-    return all(
-        all(
-            function.complexity <= max_complexity for function in file.functions
-        )
-        for file in files
     )
