@@ -509,3 +509,10 @@ def output_json(
         >>> print(f"Analyzed {len(data)} files")
     """
     ...
+
+def create_snapshot_file(
+    snapshot_file_path: str,
+    max_complexity_allowed: int,
+    files_complexities: List[FileComplexity],
+) -> None: ...
+def load_snapshot_file(snapshot_file_path: str) -> List[FileComplexity]: ...

@@ -135,6 +135,8 @@ complexipy supports configuration via TOML files. Configuration files are loaded
 # complexipy.toml or .complexipy.toml
 paths = ["src", "tests"]
 max-complexity-allowed = 10
+snapshot-create = false
+snapshot-ignore = false
 quiet = false
 ignore-complexity = false
 details = "normal"
@@ -150,6 +152,8 @@ output-json = false
 [tool.complexipy]
 paths = ["src", "tests"]
 max-complexity-allowed = 10
+snapshot-create = false
+snapshot-ignore = false
 quiet = false
 ignore-complexity = false
 details = "normal"
@@ -166,6 +170,8 @@ output-json = false
 |------|-------------|---------|
 | `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
+| `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
+| `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
 | `--details <normal\|low>` | Output verbosity | `normal` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
@@ -183,6 +189,29 @@ complexipy . --exclude tests
 # This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
 # because there is no './utils' directory or file at that level.
 ```
+
+### Snapshot Baselines
+
+Use snapshots to adopt complexipy in large, existing codebases without touching every legacy function at once.
+
+```bash
+# Record the current state (creates complexipy-snapshot.json in the working directory)
+complexipy . --snapshot-create --max-complexity-allowed 15
+
+# Block regressions while allowing previously-recorded functions
+complexipy . --max-complexity-allowed 15
+
+# Temporarily skip the snapshot gate
+complexipy . --snapshot-ignore
+```
+
+The snapshot file only stores functions whose complexity exceeds the configured threshold. When a snapshot file exists, complexipy will automatically:
+
+- fail if a new function crosses the threshold,
+- fail if a tracked function becomes more complex, and
+- pass (and update the snapshot) when everything is stable or improved, automatically removing entries that now meet the standard.
+
+Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for example during a refactor or while regenerating the baseline).
 
 ### Inline Ignores
 

@@ -118,16 +118,18 @@ def create_table(
     return table, has_success, total_complexity, len(all_functions)
 
 
-def print_failed_paths(console: Console, quiet: bool, failed_paths: List[str]):
+def print_invalid_paths(
+    console: Console, quiet: bool, invalid_paths: List[str]
+):
     has_success = True
 
-    if failed_paths:
+    if invalid_paths:
         has_success = False
 
     if quiet:
         return has_success
 
-    for failed_path in failed_paths:
+    for failed_path in invalid_paths:
         text = Text()
         text.append("error", style="bold red")
         text.append(f": Failed to process {failed_path}", style="bold white")

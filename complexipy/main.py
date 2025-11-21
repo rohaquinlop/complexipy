@@ -34,7 +34,12 @@ from .utils.json import store_json
 from .utils.output import (
     has_success_functions,
     output_summary,
-    print_failed_paths,
+    print_invalid_paths,
+)
+from .utils.snapshot import (
+    handle_snapshot_file_creation,
+    handle_snapshot_functions_load,
+    handle_snapshot_watermark,
 )
 from .utils.toml import (
     get_arguments_value,
@@ -79,6 +84,12 @@ def main(
         "--snapshot-create",
         "-spc",
         help="Creates a snapshot of the current project state.",
+    ),
+    snapshot_ignore: Optional[bool] = typer.Option(
+        None,
+        "--snapshot-ignore",
+        "-spi",
+        help="Skip comparing against the existing snapshot file.",
     ),
     quiet: Optional[bool] = typer.Option(
         None,
@@ -136,6 +147,7 @@ def main(
         paths,
         max_complexity_allowed,
         snapshot_create,
+        snapshot_ignore,
         quiet,
         ignore_complexity,
         details,
@@ -149,6 +161,7 @@ def main(
         paths,
         max_complexity_allowed,
         snapshot_create,
+        snapshot_ignore,
         quiet,
         ignore_complexity,
         details,
@@ -179,8 +192,28 @@ def main(
     output_json_path = (
         f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
     )
+    output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
-    handle_result_store(
+    handle_snapshot_file_creation(
+        snapshot_create,
+        output_snapshot_path,
+        max_complexity_allowed,
+        files_complexities,
+    )
+
+    snapshot_file_exists = os.path.exists(output_snapshot_path)
+    snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
+    should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
+    watermark_success, watermark_messages = handle_snapshot_watermark(
+        should_run_snapshot_watermark,
+        snapshot_file_exists,
+        output_snapshot_path,
+        files_complexities,
+        snapshot_files,
+        max_complexity_allowed,
+    )
+
+    handle_results_storage(
         output_csv,
         output_csv_path,
         output_json,
@@ -212,16 +245,25 @@ def main(
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
-    # create complexipy.json file, store the failed_paths
+    has_success = (
+        handle_snapshot(
+            should_run_snapshot_watermark,
+            quiet,
+            watermark_messages,
+            output_snapshot_path,
+            watermark_success,
+        )
+        and has_success
+    )
 
     has_success = (
-        print_failed_paths(console, quiet, failed_paths) and has_success
+        print_invalid_paths(console, quiet, failed_paths) and has_success
     )
     if not has_success:
         raise typer.Exit(code=1)
 
 
-def handle_result_store(
+def handle_results_storage(
     output_csv: bool,
     output_csv_path: str,
     output_json: bool,
@@ -251,6 +293,30 @@ def handle_result_store(
             max_complexity,
         )
         console.print(f"Results saved at {output_json_path}")
+
+
+def handle_snapshot(
+    should_run_snapshot_watermark: bool,
+    quiet: bool,
+    watermark_messages: List[str],
+    output_snapshot_path: str,
+    watermark_success: bool,
+) -> bool:
+    global console
+
+    if should_run_snapshot_watermark:
+        if not quiet:
+            if watermark_messages:
+                for message in watermark_messages:
+                    console.print(
+                        f"[bold red]Snapshot watermark[/bold red]: {message}"
+                    )
+            else:
+                console.print(
+                    f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
+                )
+        return watermark_success
+    return False
 
 
 if __name__ == "__main__":

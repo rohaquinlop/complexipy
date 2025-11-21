@@ -199,6 +199,7 @@ def get_arguments_value(
     paths: List[str] | None,
     max_complexity_allowed: int | None,
     snapshot_create: bool | None,
+    snapshot_ignore: bool | None,
     quiet: bool | None,
     ignore_complexity: bool | None,
     details: DetailTypes | None,
@@ -210,6 +211,7 @@ def get_arguments_value(
 ) -> Tuple[
     List[str],
     int,
+    bool,
     bool,
     bool,
     bool,
@@ -225,7 +227,10 @@ def get_arguments_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
     )
     snapshot_create = get_argument_value(
-        toml_config, "snapshot-creaste", snapshot_create, False
+        toml_config, "snapshot-create", snapshot_create, False
+    )
+    snapshot_ignore = get_argument_value(
+        toml_config, "snapshot-ignore", snapshot_ignore, False
     )
     quiet = get_argument_value(toml_config, "quiet", quiet, False)
     ignore_complexity = get_argument_value(
@@ -248,6 +253,7 @@ def get_arguments_value(
         paths,
         max_complexity_allowed,
         snapshot_create,
+        snapshot_ignore,
         quiet,
         ignore_complexity,
         details,
