@@ -1,5 +1,6 @@
-from complexipy import _complexipy
 from pathlib import Path
+
+from complexipy import _complexipy
 from complexipy._complexipy import CodeComplexity, FileComplexity
 
 

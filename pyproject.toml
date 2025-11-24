@@ -63,10 +63,8 @@ quiet = true
 ignore-complexity = false
 details = "low"
 sort = "asc"
-
-[tool.complexipy.output]
-csv = false
-json = false
+output-csv = false
+output-json = false
 
 [dependency-groups]
 dev = [

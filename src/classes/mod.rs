@@ -1,22 +1,27 @@
-#[cfg(feature = "wasm")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(any(feature = "python", feature = "wasm"))]
+use serde::{Deserialize, Serialize};
 
-// Line complexity struct
 #[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
-#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
+// Line complexity struct
 pub struct LineComplexity {
     pub line: u64,
     pub complexity: u64,
 }
 
-// Basic function complexity structure used by both Python and WASM
 #[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
-#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
+// Basic function complexity structure used by both Python and WASM
 pub struct FunctionComplexity {
     pub name: String,
     pub complexity: u64,
@@ -26,7 +31,10 @@ pub struct FunctionComplexity {
 }
 
 #[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
-#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
 pub struct FileComplexity {
     pub path: String,
@@ -36,7 +44,10 @@ pub struct FileComplexity {
 }
 
 #[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
-#[cfg_attr(feature = "wasm", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
 pub struct CodeComplexity {
     pub functions: Vec<FunctionComplexity>,

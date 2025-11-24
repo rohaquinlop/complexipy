@@ -11,7 +11,9 @@ mod wasm;
 #[cfg(feature = "python")]
 use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
 #[cfg(feature = "python")]
-use cognitive_complexity::utils::{output_csv, output_json};
+use cognitive_complexity::utils::{
+    create_snapshot_file, load_snapshot_file, output_csv, output_json,
+};
 #[cfg(feature = "python")]
 use cognitive_complexity::{code_complexity, file_complexity, main};
 
@@ -25,6 +27,8 @@ fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
     m.add_function(wrap_pyfunction!(output_csv, m)?)?;
     m.add_function(wrap_pyfunction!(output_json, m)?)?;
+    m.add_function(wrap_pyfunction!(create_snapshot_file, m)?)?;
+    m.add_function(wrap_pyfunction!(load_snapshot_file, m)?)?;
     m.add_class::<CodeComplexity>()?;
     m.add_class::<FileComplexity>()?;
     m.add_class::<FunctionComplexity>()?;

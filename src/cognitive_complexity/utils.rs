@@ -7,7 +7,7 @@ mod python_deps {
     pub use csv::Writer;
     pub use pyo3::prelude::*;
     pub use serde_json;
-    pub use std::fs::File;
+    pub use std::fs::{File, read_to_string};
     pub use std::io::Write;
 }
 
@@ -102,6 +102,47 @@ pub fn output_json(
     let json_string = serde_json::to_string_pretty(&json_data).unwrap();
     let mut file = File::create(invocation_path).unwrap();
     file.write_all(json_string.as_bytes()).unwrap();
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn create_snapshot_file(
+    snapshot_file_path: &str,
+    max_complexity: u64,
+    files_complexities: Vec<FileComplexity>,
+) {
+    let files_snapshot: Vec<FileComplexity> = files_complexities
+        .into_iter()
+        .filter_map(|file_complexity| {
+            let functions: Vec<FunctionComplexity> = file_complexity
+                .functions
+                .into_iter()
+                .filter(|function| function.complexity > max_complexity)
+                .collect();
+
+            if functions.is_empty() {
+                None
+            } else {
+                Some(FileComplexity {
+                    functions,
+                    ..file_complexity
+                })
+            }
+        })
+        .collect();
+
+    let json_string =
+        serde_json::to_string_pretty(&files_snapshot).expect("Failed to serialize JSON");
+    let mut file = File::create(snapshot_file_path).unwrap();
+    file.write_all(json_string.as_bytes()).unwrap();
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn load_snapshot_file(snapshot_file_path: &str) -> Vec<FileComplexity> {
+    let snapshot_content =
+        read_to_string(snapshot_file_path).expect("Failed to load snapshot file content");
+    serde_json::from_str(snapshot_content.as_str()).expect("Failed to read snapshot JSON file")
 }
 
 #[cfg(feature = "python")]

@@ -1,5 +1,10 @@
 from enum import Enum
-from typing import TypeVar, Dict, List
+from typing import List, Mapping, TypeVar
+
+try:
+    from typing import TypeAlias
+except ImportError:
+    from typing_extensions import TypeAlias
 
 
 class DetailTypes(str, Enum):
@@ -16,9 +21,19 @@ class ColorTypes(str, Enum):
 class Sort(str, Enum):
     asc = "asc"
     desc = "desc"
-    name = "name"
+    file_name = "file_name"
 
 
-TOMLType = TypeVar(
-    "TOMLType", int, bool, str, List[str], DetailTypes, Sort, Dict[str, "TOMLType"]
+TOMLTypes = TypeVar(
+    "TOMLTypes",
+    int,
+    bool,
+    List[str],
+    DetailTypes,
+    ColorTypes,
+    Sort,
 )
+
+TOMLType: TypeAlias = Mapping[str, TOMLTypes]
+TOMLConfig: TypeAlias = Mapping[str, TOMLTypes]
+TOMLBase = Mapping[str, TOMLConfig]

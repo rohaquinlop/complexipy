@@ -1,37 +1,53 @@
-from .types import (
-    ColorTypes,
-    DetailTypes,
-    Sort,
-)
-from .utils import (
-    output_summary,
-    has_success_functions,
-    get_complexipy_toml_config,
-    get_arguments_value,
-    print_failed_paths,
-)
-from complexipy import (
-    _complexipy,
-)
-from complexipy._complexipy import FileComplexity
 import os
 import platform
-from rich.console import (
-    Console,
+import time
+from datetime import datetime
+from importlib.metadata import (
+    PackageNotFoundError,
+)
+from importlib.metadata import (
+    version as pkg_version,
 )
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
     Tuple,
 )
-import time
+
 import typer
-from importlib.metadata import (
-    PackageNotFoundError,
-    version as pkg_version,
+from rich.console import (
+    Console,
+)
+
+from complexipy import (
+    _complexipy,
+)
+from complexipy._complexipy import FileComplexity
+
+from .types import (
+    ColorTypes,
+    DetailTypes,
+    Sort,
+)
+from .utils.csv import store_csv
+from .utils.json import store_json
+from .utils.output import (
+    has_success_functions,
+    output_summary,
+    print_invalid_paths,
+)
+from .utils.snapshot import (
+    handle_snapshot_file_creation,
+    handle_snapshot_functions_load,
+    handle_snapshot_watermark,
+)
+from .utils.toml import (
+    get_arguments_value,
+    get_complexipy_toml_config,
 )
 
 app = typer.Typer(name="complexipy")
+console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
@@ -62,6 +78,18 @@ def main(
         "--max-complexity-allowed",
         "-mx",
         help="Max complexity allowed per function.",
+    ),
+    snapshot_create: Optional[bool] = typer.Option(
+        None,
+        "--snapshot-create",
+        "-spc",
+        help="Creates a snapshot of the current project state.",
+    ),
+    snapshot_ignore: Optional[bool] = typer.Option(
+        None,
+        "--snapshot-ignore",
+        "-spi",
+        help="Skip comparing against the existing snapshot file.",
     ),
     quiet: Optional[bool] = typer.Option(
         None,
@@ -118,6 +146,8 @@ def main(
     (
         paths,
         max_complexity_allowed,
+        snapshot_create,
+        snapshot_ignore,
         quiet,
         ignore_complexity,
         details,
@@ -130,6 +160,8 @@ def main(
         TOML_CONFIG,
         paths,
         max_complexity_allowed,
+        snapshot_create,
+        snapshot_ignore,
         quiet,
         ignore_complexity,
         details,
@@ -139,13 +171,10 @@ def main(
         output_json,
         exclude,
     )
-
-    color_system = "auto"
     if color == ColorTypes.no:
-        color_system = None
+        console = Console(color_system=None)
     elif color == ColorTypes.yes:
-        color_system = "standard"
-    console = Console(color_system=color_system)
+        console = Console(color_system="standard")
 
     if not quiet:
         if platform.system() == "Windows":
@@ -158,30 +187,47 @@ def main(
     )
     files_complexities, failed_paths = result
     execution_time = time.time() - start_time
-    output_csv_path = f"{INVOCATION_PATH}/complexipy.csv"
-    output_json_path = f"{INVOCATION_PATH}/complexipy.json"
+    current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
+    output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
+    output_json_path = (
+        f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
+    )
+    output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
-    if output_csv:
-        _complexipy.output_csv(
-            output_csv_path,
-            files_complexities,
-            sort.value,
-            details.value == DetailTypes.normal.value,
-            max_complexity_allowed,
-        )
-        console.print(f"Results saved at {output_csv_path}")
+    handle_snapshot_file_creation(
+        snapshot_create,
+        output_snapshot_path,
+        max_complexity_allowed,
+        files_complexities,
+    )
 
-    if output_json:
-        _complexipy.output_json(
-            output_json_path,
-            files_complexities,
-            details.value == DetailTypes.normal.value,
-            max_complexity_allowed,
-        )
-        console.print(f"Results saved at {output_json_path}")
+    snapshot_file_exists = os.path.exists(output_snapshot_path)
+    snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
+    should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
+    watermark_success, watermark_messages = handle_snapshot_watermark(
+        should_run_snapshot_watermark,
+        snapshot_file_exists,
+        output_snapshot_path,
+        files_complexities,
+        snapshot_files,
+        max_complexity_allowed,
+    )
+
+    handle_results_storage(
+        output_csv,
+        output_csv_path,
+        output_json,
+        output_json_path,
+        files_complexities,
+        sort.value,
+        details.value == DetailTypes.normal.value,
+        max_complexity_allowed,
+    )
 
     if quiet:
-        has_success = has_success_functions(files_complexities, max_complexity_allowed)
+        has_success = has_success_functions(
+            files_complexities, max_complexity_allowed
+        )
     else:
         has_success = output_summary(
             console,
@@ -199,9 +245,78 @@ def main(
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
-    has_success = print_failed_paths(console, quiet, failed_paths) and has_success
+    has_success = (
+        handle_snapshot(
+            should_run_snapshot_watermark,
+            quiet,
+            watermark_messages,
+            output_snapshot_path,
+            watermark_success,
+        )
+        and has_success
+    )
+
+    has_success = (
+        print_invalid_paths(console, quiet, failed_paths) and has_success
+    )
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def handle_results_storage(
+    output_csv: bool,
+    output_csv_path: str,
+    output_json: bool,
+    output_json_path: str,
+    files_complexities: List[FileComplexity],
+    sort: str,
+    show_details: bool,
+    max_complexity: int,
+) -> None:
+    global console
+
+    if output_csv:
+        store_csv(
+            output_csv_path,
+            files_complexities,
+            sort,
+            show_details,
+            max_complexity,
+        )
+        console.print(f"Results saved at {output_csv_path}")
+
+    if output_json:
+        store_json(
+            output_json_path,
+            files_complexities,
+            show_details,
+            max_complexity,
+        )
+        console.print(f"Results saved at {output_json_path}")
+
+
+def handle_snapshot(
+    should_run_snapshot_watermark: bool,
+    quiet: bool,
+    watermark_messages: List[str],
+    output_snapshot_path: str,
+    watermark_success: bool,
+) -> bool:
+    global console
+
+    if should_run_snapshot_watermark:
+        if not quiet:
+            if watermark_messages:
+                for message in watermark_messages:
+                    console.print(
+                        f"[bold red]Snapshot watermark[/bold red]: {message}"
+                    )
+            else:
+                console.print(
+                    f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
+                )
+        return watermark_success
+    return True
 
 
 if __name__ == "__main__":
