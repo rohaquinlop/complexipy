@@ -16,6 +16,11 @@ from complexipy.utils.snapshot import (
 
 class TestFiles:
     local_path = Path(__file__).resolve().parent
+    tracked_path = "tracked.py"
+    tracked_function_body = [
+        "def tracked(value):\n    if value:\n        return 1\n    return 0\n",
+    ]
+    complexipy_snapshot_file = "complexipy-snapshot.json"
 
     def _analyze_paths(
         self, paths: List[Path]
@@ -183,17 +188,14 @@ def hello_world(s: str) -> str:
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
     ):
-        source_file = tmp_path / "tracked.py"
+        source_file = tmp_path / self.tracked_path
         source_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        return 1\n"
-            "    return 0\n",
+            *self.tracked_function_body,
             encoding="utf-8",
         )
 
         files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / "complexipy-snapshot.json"
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
         handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
         assert snapshot_path.exists()
 
@@ -232,7 +234,7 @@ def hello_world(s: str) -> str:
         )
 
     def test_snapshot_watermark_detects_regressions(self, tmp_path: Path):
-        tracked_file = tmp_path / "tracked.py"
+        tracked_file = tmp_path / self.tracked_path
         tracked_file.write_text(
             "def tracked(value):\n"
             "    if value:\n"
@@ -242,7 +244,7 @@ def hello_world(s: str) -> str:
         )
 
         files, _ = self._analyze_paths([tracked_file])
-        snapshot_path = tmp_path / "complexipy-snapshot.json"
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
         handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
 
         tracked_file.write_text(
@@ -297,16 +299,13 @@ def hello_world(s: str) -> str:
         assert any("new_file.py:newcomer" in message for message in messages)
 
     def test_snapshot_watermark_requires_existing_file(self, tmp_path: Path):
-        source_file = tmp_path / "tracked.py"
+        source_file = tmp_path / self.tracked_path
         source_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        return 1\n"
-            "    return 0\n",
+            *self.tracked_function_body,
             encoding="utf-8",
         )
         files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / "complexipy-snapshot.json"
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
 
         ok, messages = handle_snapshot_watermark(
             True,
@@ -321,16 +320,13 @@ def hello_world(s: str) -> str:
         assert "Snapshot watermark requested" in messages[0]
 
     def test_snapshot_watermark_can_be_ignored(self, tmp_path: Path):
-        source_file = tmp_path / "tracked.py"
+        source_file = tmp_path / self.tracked_path
         source_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        return 1\n"
-            "    return 0\n",
+            *self.tracked_function_body,
             encoding="utf-8",
         )
         files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / "complexipy-snapshot.json"
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
         handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
         snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
 

@@ -46,20 +46,16 @@ def output_summary(
         console.print(
             f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
         )
-        return has_success
-
-    if total_functions == 0:
+    elif total_functions == 0:
         console.print(
             Align.center(
                 "No files were found with functions. No complexity was calculated."
             )
         )
-        return has_success
-
-    output_file_entries(
-        console, file_entries, failing_functions, ignore_complexity
-    )
-
+    else:
+        output_file_entries(
+            console, file_entries, failing_functions, ignore_complexity
+        )
     return has_success
 
 
