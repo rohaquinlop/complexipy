@@ -316,7 +316,7 @@ def handle_snapshot(
                     f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
                 )
         return watermark_success
-    return False
+    return True
 
 
 if __name__ == "__main__":
