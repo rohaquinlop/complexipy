@@ -28,6 +28,14 @@ class TestFiles:
         string_paths = [str(path) for path in paths]
         return _complexipy.main(string_paths, False, [])
 
+    def test_missing_path_is_reported(self):
+        missing = self.local_path / "this_file_does_not_exist.py"
+
+        files, failed = _complexipy.main([missing.as_posix()], False, [])
+
+        assert files == []
+        assert failed == [missing.as_posix()]
+
     def test_path(self):
         path = self.local_path / "src"
         files, _ = _complexipy.main([path.resolve().as_posix()], False, [])

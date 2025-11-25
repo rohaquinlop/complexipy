@@ -178,7 +178,7 @@ def print_invalid_paths(
         text = Text()
         text.append("error", style="bold red")
         text.append(f": Failed to process {failed_path}", style="bold white")
-        text.append(" - Please check syntax")
+        text.append(" - Please check file/folder exists or check syntax")
         console.print(text)
 
     return has_success
