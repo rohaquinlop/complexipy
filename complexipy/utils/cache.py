@@ -52,7 +52,7 @@ def _build_cache_key(invocation_path: str, targets: List[str]) -> Optional[str]:
         return None
 
     joined = "||".join(normalized_targets)
-    return hashlib.sha1(joined.encode("utf-8")).hexdigest()
+    return hashlib.blake2b(joined.encode("utf-8"), digest_size=16).hexdigest()
 
 
 def _normalize_targets(invocation_path: str, targets: List[str]) -> List[str]:
