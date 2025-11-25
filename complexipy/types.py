@@ -7,11 +7,6 @@ except ImportError:
     from typing_extensions import TypeAlias
 
 
-class DetailTypes(str, Enum):
-    low = "low"  # Show only files with complexity above the max_complexity
-    normal = "normal"  # Show all files with their complexity
-
-
 class ColorTypes(str, Enum):
     auto = "auto"  # Decide whether to color automatically, based on output tty
     yes = "yes"  # Use color
@@ -29,7 +24,6 @@ TOMLTypes = TypeVar(
     int,
     bool,
     List[str],
-    DetailTypes,
     ColorTypes,
     Sort,
 )

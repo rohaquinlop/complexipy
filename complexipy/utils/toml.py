@@ -12,7 +12,6 @@ from typer import Exit
 
 from complexipy.types import (
     ColorTypes,
-    DetailTypes,
     Sort,
     TOMLBase,
     TOMLConfig,
@@ -28,10 +27,6 @@ except ImportError:
 
 @overload
 def load_values_from_toml_key(
-    key: Literal["details"], value: str | DetailTypes
-) -> DetailTypes: ...
-@overload
-def load_values_from_toml_key(
     key: Literal["color"], value: str | ColorTypes
 ) -> ColorTypes: ...
 @overload
@@ -45,40 +40,20 @@ def load_values_from_toml_key(
 @overload
 def load_values_from_toml_key(
     key: str,
-    value: int
-    | bool
-    | str
-    | List[str]
-    | DetailTypes
-    | Sort
-    | ColorTypes
-    | TOMLType,
-) -> int | bool | List[str] | DetailTypes | ColorTypes | Sort | TOMLType: ...
+    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
+) -> int | bool | List[str] | ColorTypes | Sort | TOMLType: ...
 
 
 def load_values_from_toml_key(
     key: str,
-    value: int
-    | bool
-    | str
-    | List[str]
-    | DetailTypes
-    | Sort
-    | ColorTypes
-    | TOMLType,
+    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
 ):
     """Normalize TOML values to expected runtime types.
 
-    - Convert `details` and `sort` string values to their Enum variants.
+    - Convert `sort` string values to their Enum variants.
     - Ensure `paths` and `exclude` are lists when provided as strings.
     """
-    if key == "details":
-        if isinstance(value, DetailTypes):
-            return value
-        elif isinstance(value, str):
-            return DetailTypes(value)
-        return value
-    elif key == "color":
+    if key == "color":
         if isinstance(value, ColorTypes):
             return value
         elif isinstance(value, str):
@@ -202,7 +177,7 @@ def get_arguments_value(
     snapshot_ignore: bool | None,
     quiet: bool | None,
     ignore_complexity: bool | None,
-    details: DetailTypes | None,
+    failed: bool | None,
     color: ColorTypes | None,
     sort_arg: Sort | None,
     output_csv: bool | None,
@@ -215,7 +190,7 @@ def get_arguments_value(
     bool,
     bool,
     bool,
-    DetailTypes,
+    bool,
     ColorTypes,
     Sort,
     bool,
@@ -236,9 +211,15 @@ def get_arguments_value(
     ignore_complexity = get_argument_value(
         toml_config, "ignore-complexity", ignore_complexity, False
     )
-    details = get_argument_value(
-        toml_config, "details", details, DetailTypes.normal
-    )
+    if (
+        failed is None
+        and toml_config is not None
+        and "failed" not in toml_config
+    ):
+        legacy_details = toml_config.get("details")
+        if legacy_details is not None:
+            failed = str(legacy_details).lower() == "low"
+    failed = get_argument_value(toml_config, "failed", failed, False)
     color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = get_argument_value(
@@ -256,7 +237,7 @@ def get_arguments_value(
         snapshot_ignore,
         quiet,
         ignore_complexity,
-        details,
+        failed,
         color,
         sort_arg,
         output_csv,

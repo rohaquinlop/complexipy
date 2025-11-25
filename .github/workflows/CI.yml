@@ -8,7 +8,7 @@ name: CI
 on:
   push:
     tags:
-      - '*'
+      - "*"
   pull_request:
   workflow_dispatch:
 
@@ -37,7 +37,7 @@ jobs:
             target: s390x
           - runner: ubuntu-latest
             target: ppc64le
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,7 +51,7 @@ jobs:
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
-          sccache: 'true'
+          sccache: "true"
           manylinux: auto
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -68,7 +68,7 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,7 +83,7 @@ jobs:
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
-          sccache: 'true'
+          sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -99,7 +99,7 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,7 +113,7 @@ jobs:
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
-          sccache: 'true'
+          sccache: "true"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -146,7 +146,7 @@ jobs:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -167,7 +167,7 @@ jobs:
       - name: complexipy execution
         shell: bash
         run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
   unit-tests-windows:
     name: Unit Tests
@@ -180,7 +180,7 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -201,7 +201,7 @@ jobs:
       - name: complexipy execution
         shell: bash
         run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
   unit-tests-macos:
     name: Unit Tests
@@ -214,7 +214,7 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -235,7 +235,7 @@ jobs:
       - name: complexipy execution
         shell: bash
         run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy -d low
+          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
   release:
     name: Release

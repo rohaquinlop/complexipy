@@ -139,7 +139,7 @@ snapshot-create = false
 snapshot-ignore = false
 quiet = false
 ignore-complexity = false
-details = "normal"
+failed = false
 color = "auto"
 sort = "asc"
 exclude = []
@@ -156,7 +156,7 @@ snapshot-create = false
 snapshot-ignore = false
 quiet = false
 ignore-complexity = false
-details = "normal"
+failed = false
 color = "auto"
 sort = "asc"
 exclude = []
@@ -172,7 +172,7 @@ output-json = false
 | `--max-complexity-allowed` | Complexity threshold | `15` |
 | `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
-| `--details <normal\|low>` | Output verbosity | `normal` |
+| `--failed` | Show only functions above the complexity threshold | `false` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
