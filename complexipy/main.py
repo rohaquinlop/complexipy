@@ -7,6 +7,7 @@ from importlib.metadata import (
 from importlib.metadata import (
     version as pkg_version,
 )
+from time import perf_counter
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
@@ -27,9 +28,11 @@ from .types import (
     ColorTypes,
     Sort,
 )
+from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
 from .utils.json import store_json
 from .utils.output import (
+    calculate_total_complexity,
     has_success_functions,
     output_summary,
     print_invalid_paths,
@@ -179,10 +182,13 @@ def main(
             console.rule("complexipy")
         else:
             console.rule(":octopus: complexipy")
+    analysis_start = perf_counter()
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         paths, quiet, exclude
     )
+    analysis_duration = perf_counter() - analysis_start
     files_complexities, failed_paths = result
+    total_complexity = calculate_total_complexity(files_complexities)
     current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
     output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
     output_json_path = (
@@ -220,6 +226,14 @@ def main(
         max_complexity_allowed,
     )
 
+    previous_total = None
+    if files_complexities:
+        previous_functions = remember_previous_functions(
+            INVOCATION_PATH, paths, files_complexities
+        )
+    else:
+        previous_functions = None
+
     if quiet:
         has_success = has_success_functions(
             files_complexities, max_complexity_allowed
@@ -232,6 +246,7 @@ def main(
             sort,
             ignore_complexity,
             max_complexity_allowed,
+            previous_functions,
         )
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
