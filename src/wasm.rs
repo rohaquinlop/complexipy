@@ -15,7 +15,8 @@ pub fn start() {
 #[wasm_bindgen]
 pub fn code_complexity(code: &str) -> Result<JsValue, JsValue> {
     match get_code_complexity(code) {
-        Ok(result) => Ok(serde_wasm_bindgen::to_value(&result).unwrap()),
+        Ok(result) => serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e))),
         Err(e) => Err(JsValue::from_str(&format!("Analysis error: {}", e))),
     }
 }
