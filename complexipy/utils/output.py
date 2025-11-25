@@ -14,7 +14,6 @@ from complexipy._complexipy import (
     FunctionComplexity,
 )
 from complexipy.types import (
-    DetailTypes,
     Sort,
 )
 
@@ -30,7 +29,7 @@ def get_brain_icon():
 def output_summary(
     console: Console,
     files: List[FileComplexity],
-    details: DetailTypes,
+    failed_only: bool,
     sort: Sort,
     ignore_complexity: bool,
     max_complexity: int,
@@ -39,10 +38,10 @@ def output_summary(
         file_entries,
         failing_functions,
         total_functions,
-    ) = build_output_rows(files, details, sort, max_complexity)
+    ) = build_output_rows(files, failed_only, sort, max_complexity)
     has_success = not failing_functions or ignore_complexity
 
-    if details == DetailTypes.low and not file_entries:
+    if failed_only and not file_entries:
         console.print(
             f"No function{'s' if len(files) > 1 else ''} were found with complexity greater than {max_complexity}."
         )
@@ -97,7 +96,7 @@ def output_file_entries(
 
 def build_output_rows(
     files: List[FileComplexity],
-    details: DetailTypes,
+    failed_only: bool,
     sort: Sort,
     max_complexity: int,
 ) -> tuple[
@@ -117,7 +116,7 @@ def build_output_rows(
             total_functions += 1
             passed = function.complexity <= max_complexity
 
-            if details == DetailTypes.low and passed:
+            if failed_only and passed:
                 continue
 
             if not passed:

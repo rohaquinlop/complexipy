@@ -1,6 +1,5 @@
 import os
 import platform
-import time
 from datetime import datetime
 from importlib.metadata import (
     PackageNotFoundError,
@@ -26,7 +25,6 @@ from complexipy._complexipy import FileComplexity
 
 from .types import (
     ColorTypes,
-    DetailTypes,
     Sort,
 )
 from .utils.csv import store_csv
@@ -103,11 +101,11 @@ def main(
         "-i",
         help="Ignore the complexity and show all functions.",
     ),
-    details: Optional[DetailTypes] = typer.Option(
+    failed: Optional[bool] = typer.Option(
         None,
-        "--details",
-        "-d",
-        help="Specify how detailed should be output, it can be 'low' or 'normal'. Default is 'normal'.",
+        "--failed",
+        "-f",
+        help="Show only functions that exceed the max complexity threshold.",
     ),
     color: Optional[ColorTypes] = typer.Option(
         None,
@@ -150,7 +148,7 @@ def main(
         snapshot_ignore,
         quiet,
         ignore_complexity,
-        details,
+        failed,
         color,
         sort,
         output_csv,
@@ -164,7 +162,7 @@ def main(
         snapshot_ignore,
         quiet,
         ignore_complexity,
-        details,
+        failed,
         color,
         sort,
         output_csv,
@@ -181,12 +179,10 @@ def main(
             console.rule("complexipy")
         else:
             console.rule(":octopus: complexipy")
-    start_time = time.time()
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         paths, quiet, exclude
     )
     files_complexities, failed_paths = result
-    execution_time = time.time() - start_time
     current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
     output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
     output_json_path = (
@@ -220,7 +216,7 @@ def main(
         output_json_path,
         files_complexities,
         sort.value,
-        details.value == DetailTypes.normal.value,
+        not failed,
         max_complexity_allowed,
     )
 
@@ -232,13 +228,10 @@ def main(
         has_success = output_summary(
             console,
             files_complexities,
-            details,
+            failed,
             sort,
             ignore_complexity,
             max_complexity_allowed,
-        )
-        console.print(
-            f"{len(files_complexities)} file{'s' if len(files_complexities) > 1 else ''} analyzed in {execution_time:.4f} seconds"
         )
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
