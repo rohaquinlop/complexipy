@@ -21,7 +21,6 @@ mod python_deps {
     pub use regex::Regex;
     pub use ruff_python_parser::parse_module;
     pub use std::env;
-    pub use std::fs::metadata;
     pub use std::path;
     pub use std::process;
     pub use std::sync::{Arc, Mutex};
@@ -44,36 +43,30 @@ pub fn main(
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
 
-    let all_files_paths: Vec<(&str, bool, bool, bool, Vec<&str>)> = paths
-        .iter()
-        .map(|&path| {
-            let is_url = re.is_match(path);
-            let is_dir = metadata(path).map(|m| m.is_dir()).unwrap_or(false);
-
-            if is_url {
-                (path, false, true, quiet, exclude.clone())
-            } else if is_dir {
-                (path, true, false, quiet, exclude.clone())
-            } else {
-                (path, false, false, quiet, exclude.clone())
-            }
-        })
-        .collect();
-
-    let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
-        .iter()
-        .map(|(path, is_dir, is_url, quiet, exclude)| {
-            process_path(path, *is_dir, *is_url, *quiet, exclude.clone())
-        })
-        .collect();
-
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
 
-    for result in all_files_processed.into_iter().flatten() {
-        let (mut complexities, mut f_paths) = result;
-        successful.append(&mut complexities);
-        failed_paths.append(&mut f_paths);
+    for path in paths {
+        let is_url = re.is_match(path);
+        let path_obj = path::Path::new(path);
+        let exists = path_obj.exists();
+        let is_dir = path_obj.is_dir();
+
+        // Treat missing local paths as a user error without panicking.
+        if !exists && !is_url {
+            failed_paths.push(path.to_string());
+            continue;
+        }
+
+        match process_path(path, is_dir, is_url, quiet, exclude.clone()) {
+            Ok((mut complexities, mut f_paths)) => {
+                successful.append(&mut complexities);
+                failed_paths.append(&mut f_paths);
+            }
+            Err(_) => {
+                failed_paths.push(path.to_string());
+            }
+        }
     }
 
     Ok((successful, failed_paths))
