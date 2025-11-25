@@ -565,15 +565,19 @@ fn statement_cognitive_complexity_shared(
                 line_complexities.extend(stmt_line_complexities);
             }
             for clause in i.elif_else_clauses.clone() {
+                let mut clause_complexity = 1;
                 if let Some(test) = clause.test.clone() {
-                    let clause_complexity = count_bool_ops(test, nesting_level);
-                    complexity += clause_complexity;
-                    let line = get_line_number(usize::from(clause.range.start()), code);
-                    line_complexities.push(LineComplexity {
-                        line,
-                        complexity: clause_complexity,
-                    });
+                    clause_complexity += count_bool_ops(test, nesting_level);
                 }
+
+                complexity += clause_complexity;
+
+                let line = get_line_number(usize::from(clause.range.start()), code);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: clause_complexity,
+                });
+
                 for node in clause.body.iter() {
                     let (stmt_complexity, stmt_line_complexities) =
                         statement_cognitive_complexity_shared(node, nesting_level + 1, code);

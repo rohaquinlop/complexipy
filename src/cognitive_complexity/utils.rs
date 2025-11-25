@@ -238,7 +238,7 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
         }
         ast::Expr::UnaryOp(..) => {
             if let Some(u) = expr.clone().unary_op_expr() {
-                complexity += 1 + count_different_childs_type(*u.operand, expr.clone());
+                complexity += count_different_childs_type(*u.operand, expr.clone());
             }
         }
         ast::Expr::Compare(c) => {

@@ -20,10 +20,6 @@ from complexipy.types import (
 )
 
 
-def calculate_total_complexity(files: List[FileComplexity]) -> int:
-    return sum(file.complexity for file in files)
-
-
 def output_summary(
     console: Console,
     files: List[FileComplexity],
@@ -57,6 +53,7 @@ def output_summary(
             failing_functions,
             ignore_complexity,
             previous_functions,
+            max_complexity,
         )
     return has_success
 
@@ -69,6 +66,7 @@ def output_file_entries(
     failing_functions: dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    max_complexity: int,
 ) -> None:
     for entry in file_entries:
         console.print(f"[bold]{entry['path']}[/bold]")
@@ -81,7 +79,9 @@ def output_file_entries(
                 if function["passed"]
                 else "[red]FAILED[/red]"
             )
-            delta_text = output_delta_text(previous_functions, function)
+            delta_text = output_delta_text(
+                previous_functions, function, max_complexity
+            )
             console.print(
                 f"    {function['name']} {function['complexity']}{delta_text} {status_text}"
             )
@@ -104,7 +104,8 @@ def output_file_entries(
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     function: dict[str, str | int | bool | Tuple[str, str]],
-):
+    max_complexity: int,
+) -> str:
     delta_text = ""
     if (
         previous_functions is not None
@@ -118,11 +119,16 @@ def output_delta_text(
             function["file_name"],
             function["name"],
         )
+        current_complexity = function["complexity"]
+        if current_complexity <= max_complexity:
+            return ""
+
         previous = previous_functions.get(key)
-        if previous is not None:
-            delta = function["complexity"] - previous
-            if delta > 0:
-                delta_text = f" (last: {previous}, \u0394 = {delta:+d})"
+        if previous is None:
+            delta_text = f" (new, \u0394 = +{current_complexity})"
+        elif previous != current_complexity:
+            delta = current_complexity - previous
+            delta_text = f" (last: {previous}, \u0394 = {delta:+d})"
 
     return delta_text
 

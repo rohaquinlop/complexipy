@@ -7,7 +7,6 @@ from importlib.metadata import (
 from importlib.metadata import (
     version as pkg_version,
 )
-from time import perf_counter
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
@@ -32,7 +31,6 @@ from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
 from .utils.json import store_json
 from .utils.output import (
-    calculate_total_complexity,
     has_success_functions,
     output_summary,
     print_invalid_paths,
@@ -172,23 +170,13 @@ def main(
         output_json,
         exclude,
     )
-    if color == ColorTypes.no:
-        console = Console(color_system=None)
-    elif color == ColorTypes.yes:
-        console = Console(color_system="standard")
 
-    if not quiet:
-        if platform.system() == "Windows":
-            console.rule("complexipy")
-        else:
-            console.rule(":octopus: complexipy")
-    analysis_start = perf_counter()
+    handle_console_settings(color, quiet)
+
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         paths, quiet, exclude
     )
-    analysis_duration = perf_counter() - analysis_start
     files_complexities, failed_paths = result
-    total_complexity = calculate_total_complexity(files_complexities)
     current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
     output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
     output_json_path = (
@@ -226,7 +214,6 @@ def main(
         max_complexity_allowed,
     )
 
-    previous_total = None
     if files_complexities:
         previous_functions = remember_previous_functions(
             INVOCATION_PATH, paths, files_complexities
@@ -269,6 +256,20 @@ def main(
     )
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def handle_console_settings(color: ColorTypes, quiet: bool):
+    global console
+    if color == ColorTypes.no:
+        console = Console(color_system=None)
+    elif color == ColorTypes.yes:
+        console = Console(color_system="standard")
+
+    if not quiet:
+        if platform.system() == "Windows":
+            console.rule("complexipy")
+        else:
+            console.rule(":octopus: complexipy")
 
 
 def handle_results_storage(
