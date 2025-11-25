@@ -42,16 +42,17 @@ pub fn main(
     exclude: Vec<&str>,
 ) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .unwrap();
+        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
 
     let all_files_paths: Vec<(&str, bool, bool, bool, Vec<&str>)> = paths
         .iter()
         .map(|&path| {
             let is_url = re.is_match(path);
+            let is_dir = metadata(path).map(|m| m.is_dir()).unwrap_or(false);
 
             if is_url {
                 (path, false, true, quiet, exclude.clone())
-            } else if metadata(path).unwrap().is_dir() {
+            } else if is_dir {
                 (path, true, false, quiet, exclude.clone())
             } else {
                 (path, false, false, quiet, exclude.clone())
@@ -92,7 +93,7 @@ pub fn process_path(
 
     if is_url {
         let dir = tempdir()?;
-        let repo_name = get_repo_name(path);
+        let repo_name = get_repo_name(path)?;
 
         env::set_current_dir(&dir)?;
 
@@ -101,29 +102,47 @@ pub fn process_path(
         let path_clone = path.to_owned();
 
         thread::spawn(move || {
-            let _output = process::Command::new("git")
+            let _ = process::Command::new("git")
                 .args(["clone", &path_clone])
-                .output()
-                .expect("failed to execute process");
+                .output();
 
-            let mut done = cloning_done_clone.lock().unwrap();
-            *done = true;
+            if let Ok(mut done) = cloning_done_clone.lock() {
+                *done = true;
+            }
         });
 
-        if !quiet {
+        let mut progress_bar = if quiet {
+            None
+        } else {
             let pb = ProgressBar::new_spinner();
             pb.set_style(ProgressStyle::default_spinner());
             pb.set_message("Cloning repository...");
+            Some(pb)
+        };
 
-            while !*cloning_done.lock().unwrap() {
-                pb.tick();
-                thread::sleep(std::time::Duration::from_millis(100));
+        loop {
+            match cloning_done.lock() {
+                Ok(done) if *done => break,
+                Ok(_) => {
+                    if let Some(pb) = progress_bar.as_ref() {
+                        pb.tick();
+                    }
+                    thread::sleep(std::time::Duration::from_millis(100));
+                }
+                Err(_) => {
+                    if let Some(pb) = progress_bar.take() {
+                        pb.finish_and_clear();
+                    }
+                    return Err(PyValueError::new_err("Failed to track cloning progress"));
+                }
             }
+        }
 
+        if let Some(pb) = progress_bar {
             pb.finish_and_clear();
         }
 
-        let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
+        let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
         let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone());
         dir.close()?;
 
@@ -134,7 +153,10 @@ pub fn process_path(
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
-        let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
+        let parent_dir = path::Path::new(path)
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
         if let Ok(complexity) = file_complexity(path, parent_dir) {
             file_complexities.push(complexity);
         } else {
@@ -155,7 +177,10 @@ pub fn process_path(
 fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
-    let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
+    let parent_dir = path::Path::new(path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or(".");
 
     // Build path-aware exclude specs, relative to the provided root `path`.
     // Only exclude if the exclude entry resolves to an existing directory (prefix match)
@@ -204,7 +229,10 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
     // Get all the python files in the directory
     for entry in Walk::new(path) {
-        let entry = entry.unwrap();
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
         let entry_path = entry.path();
 
         if entry_path.extension().and_then(|s| s.to_str()) != Some("py") {
@@ -257,14 +285,11 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
     }
 
     let pb = ProgressBar::new(files_paths.len() as u64);
-    pb.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template(
-                "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-            )
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    let bar_style = indicatif::ProgressStyle::default_bar()
+        .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
+        .progress_chars("##-");
+    pb.set_style(bar_style);
 
     let results: Vec<_> = files_paths
         .iter()
@@ -298,8 +323,15 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 #[pyfunction]
 pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
-    let file_name = path.file_name().unwrap().to_str().unwrap();
-    let relative_path = path.strip_prefix(base_path).unwrap().to_str().unwrap();
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| PyValueError::new_err(format!("Invalid file name: {}", file_path)))?;
+    let relative_path = path
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path);
 
     let code = std::fs::read_to_string(file_path)?;
 
