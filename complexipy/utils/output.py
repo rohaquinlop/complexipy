@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import platform
 from typing import (
+    Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
+    Optional,
+    Tuple,
 )
 
 from rich.align import Align
@@ -18,14 +20,6 @@ from complexipy.types import (
 )
 
 
-def get_brain_icon():
-    """Get platform-appropriate brain icon."""
-    if platform.system() == "Windows":
-        return "Brain"
-    else:
-        return ":brain:"
-
-
 def output_summary(
     console: Console,
     files: List[FileComplexity],
@@ -33,6 +27,7 @@ def output_summary(
     sort: Sort,
     ignore_complexity: bool,
     max_complexity: int,
+    previous_functions: Optional[Dict[Tuple[str, str, str], int]],
 ) -> bool:
     (
         file_entries,
@@ -53,16 +48,25 @@ def output_summary(
         )
     else:
         output_file_entries(
-            console, file_entries, failing_functions, ignore_complexity
+            console,
+            file_entries,
+            failing_functions,
+            ignore_complexity,
+            previous_functions,
+            max_complexity,
         )
     return has_success
 
 
 def output_file_entries(
     console: Console,
-    file_entries: List[dict[str, str | List[dict[str, str | int | bool]]]],
+    file_entries: List[
+        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
     failing_functions: dict[str, List[str]],
     ignore_complexity: bool,
+    previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    max_complexity: int,
 ) -> None:
     for entry in file_entries:
         console.print(f"[bold]{entry['path']}[/bold]")
@@ -75,8 +79,11 @@ def output_file_entries(
                 if function["passed"]
                 else "[red]FAILED[/red]"
             )
+            delta_text = output_delta_text(
+                previous_functions, function, max_complexity
+            )
             console.print(
-                f"    {function['name']} {function['complexity']} {status_text}"
+                f"    {function['name']} {function['complexity']}{delta_text} {status_text}"
             )
         console.print()
 
@@ -94,17 +101,51 @@ def output_file_entries(
         )
 
 
+def output_delta_text(
+    previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    function: dict[str, str | int | bool | Tuple[str, str]],
+    max_complexity: int,
+) -> str:
+    delta_text = ""
+    if (
+        previous_functions is not None
+        and isinstance(function["path"], str)
+        and isinstance(function["file_name"], str)
+        and isinstance(function["name"], str)
+        and isinstance(function["complexity"], int)
+    ):
+        key: Tuple[str, str, str] = (
+            function["path"],
+            function["file_name"],
+            function["name"],
+        )
+        current_complexity = function["complexity"]
+        if current_complexity <= max_complexity:
+            return ""
+
+        previous = previous_functions.get(key)
+        if previous is None:
+            delta_text = f" (new, \u0394 = +{current_complexity})"
+        elif previous != current_complexity:
+            delta = current_complexity - previous
+            delta_text = f" (last: {previous}, \u0394 = {delta:+d})"
+
+    return delta_text
+
+
 def build_output_rows(
     files: List[FileComplexity],
     failed_only: bool,
     sort: Sort,
     max_complexity: int,
 ) -> tuple[
-    List[dict[str, str | List[dict[str, str | int | bool]]]],
+    List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
     dict[str, List[str]],
     int,
 ]:
-    file_entries: List[dict[str, str | List[dict[str, str | int | bool]]]] = []
+    file_entries: List[
+        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+    ] = []
     failing_functions: dict[str, List[str]] = {}
     total_functions = 0
 
@@ -130,6 +171,8 @@ def build_output_rows(
                     "name": function.name,
                     "complexity": function.complexity,
                     "passed": passed,
+                    "path": file.path,
+                    "file_name": file.file_name,
                 }
             )
 

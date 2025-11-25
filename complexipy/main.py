@@ -27,6 +27,7 @@ from .types import (
     ColorTypes,
     Sort,
 )
+from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
 from .utils.json import store_json
 from .utils.output import (
@@ -169,16 +170,9 @@ def main(
         output_json,
         exclude,
     )
-    if color == ColorTypes.no:
-        console = Console(color_system=None)
-    elif color == ColorTypes.yes:
-        console = Console(color_system="standard")
 
-    if not quiet:
-        if platform.system() == "Windows":
-            console.rule("complexipy")
-        else:
-            console.rule(":octopus: complexipy")
+    handle_console_settings(color, quiet)
+
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         paths, quiet, exclude
     )
@@ -220,6 +214,13 @@ def main(
         max_complexity_allowed,
     )
 
+    if files_complexities:
+        previous_functions = remember_previous_functions(
+            INVOCATION_PATH, paths, files_complexities
+        )
+    else:
+        previous_functions = None
+
     if quiet:
         has_success = has_success_functions(
             files_complexities, max_complexity_allowed
@@ -232,6 +233,7 @@ def main(
             sort,
             ignore_complexity,
             max_complexity_allowed,
+            previous_functions,
         )
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
@@ -254,6 +256,20 @@ def main(
     )
     if not has_success:
         raise typer.Exit(code=1)
+
+
+def handle_console_settings(color: ColorTypes, quiet: bool):
+    global console
+    if color == ColorTypes.no:
+        console = Console(color_system=None)
+    elif color == ColorTypes.yes:
+        console = Console(color_system="standard")
+
+    if not quiet:
+        if platform.system() == "Windows":
+            console.rule("complexipy")
+        else:
+            console.rule(":octopus: complexipy")
 
 
 def handle_results_storage(
