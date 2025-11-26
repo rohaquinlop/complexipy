@@ -253,6 +253,26 @@ jobs:
           path: dist
           pattern: wheels-*
           merge-multiple: true
+      - name: Repack wheels to strip artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          unpack_dir="$(mktemp -d)"
+          repack_dir="$(mktemp -d)"
+
+          shopt -s nullglob
+          for whl in dist/*.whl; do
+            base="$(basename "$whl" .whl)"
+            python -m wheel unpack "$whl" -d "$unpack_dir"
+            python -m wheel pack "$unpack_dir/$base" -d "$repack_dir"
+          done
+
+          # Preserve the sdist alongside the freshly repacked wheels
+          mkdir -p dist
+          mv dist/*.tar.gz "$repack_dir"/ 2>/dev/null || true
+          rm -rf dist/*.whl
+          mv "$repack_dir"/* dist/
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1.49.4
         with:
