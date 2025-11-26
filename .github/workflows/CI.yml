@@ -262,7 +262,8 @@ jobs:
           import pathlib
           import shutil
           import tempfile
-          from wheel.cli import pack, unpack
+          import subprocess
+          import sys
 
           dist = pathlib.Path("dist")
           repacked = pathlib.Path("repacked")
@@ -270,11 +271,17 @@ jobs:
 
           for whl in dist.glob("*.whl"):
             tmpdir = pathlib.Path(tempfile.mkdtemp())
-            unpack(str(whl), dest=str(tmpdir))
+            subprocess.run(
+              [sys.executable, "-m", "wheel", "unpack", str(whl), "-d", str(tmpdir)],
+              check=True,
+            )
             subdirs = [p for p in tmpdir.iterdir() if p.is_dir()]
             if len(subdirs) != 1:
               raise SystemExit(f"Unexpected unpack contents for {whl}: {subdirs}")
-            pack(str(subdirs[0]), dest_dir=str(repacked))
+            subprocess.run(
+              [sys.executable, "-m", "wheel", "pack", str(subdirs[0]), "-d", str(repacked)],
+              check=True,
+            )
 
           for sd in dist.glob("*.tar.gz"):
             shutil.copy2(sd, repacked / sd.name)
