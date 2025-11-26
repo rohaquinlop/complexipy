@@ -258,21 +258,36 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip wheel
-          unpack_dir="$(mktemp -d)"
-          repack_dir="$(mktemp -d)"
+          python - <<'PY'
+          import pathlib
+          import shutil
+          import tempfile
+          from wheel.cli import pack, unpack
 
-          shopt -s nullglob
-          for whl in dist/*.whl; do
-            base="$(basename "$whl" .whl)"
-            python -m wheel unpack "$whl" -d "$unpack_dir"
-            python -m wheel pack "$unpack_dir/$base" -d "$repack_dir"
-          done
+          dist = pathlib.Path("dist")
+          repacked = pathlib.Path("repacked")
+          repacked.mkdir(exist_ok=True)
 
-          # Preserve the sdist alongside the freshly repacked wheels
-          mkdir -p dist
-          mv dist/*.tar.gz "$repack_dir"/ 2>/dev/null || true
-          rm -rf dist/*.whl
-          mv "$repack_dir"/* dist/
+          for whl in dist.glob("*.whl"):
+            tmpdir = pathlib.Path(tempfile.mkdtemp())
+            unpack(str(whl), dest=str(tmpdir))
+            subdirs = [p for p in tmpdir.iterdir() if p.is_dir()]
+            if len(subdirs) != 1:
+              raise SystemExit(f"Unexpected unpack contents for {whl}: {subdirs}")
+            pack(str(subdirs[0]), dest_dir=str(repacked))
+
+          for sd in dist.glob("*.tar.gz"):
+            shutil.copy2(sd, repacked / sd.name)
+
+          for whl in dist.glob("*.whl"):
+            whl.unlink()
+
+          for item in repacked.iterdir():
+            target = dist / item.name
+            if target.exists():
+              target.unlink()
+            item.replace(target)
+          PY
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1.49.4
         with:
