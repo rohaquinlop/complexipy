@@ -177,7 +177,7 @@ def main(
         paths, quiet, exclude
     )
     files_complexities, failed_paths = result
-    current_time = datetime.today().strftime("%Y_%m_%d__%H:%M:%S")
+    current_time = datetime.today().strftime("%Y_%m_%d__%H-%M-%S")
     output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
     output_json_path = (
         f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
