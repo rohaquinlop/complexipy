@@ -39,22 +39,22 @@ jobs:
             target: ppc64le
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: ${{ matrix.python-version }}
       - name: Build wheels
-        uses: PyO3/maturin-action@v1.49.4
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
@@ -70,22 +70,22 @@ jobs:
             target: x86
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
-        uses: PyO3/maturin-action@v1.49.4
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
@@ -101,21 +101,21 @@ jobs:
             target: aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: ${{ matrix.python-version }}
       - name: Build wheels
-        uses: PyO3/maturin-action@v1.49.4
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
@@ -123,16 +123,16 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
       - name: Build sdist
-        uses: PyO3/maturin-action@v1.49.4
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-sdist
           path: dist
@@ -148,12 +148,12 @@ jobs:
             target: x86_64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Install uv
-        uses: astral-sh/setup-uv@v7.1.0
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           path: dist
           pattern: wheels-*
@@ -182,12 +182,12 @@ jobs:
             target: x86
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Install uv
-        uses: astral-sh/setup-uv@v7.1.0
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           path: dist
           pattern: wheels-*
@@ -216,12 +216,12 @@ jobs:
             target: aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Install uv
-        uses: astral-sh/setup-uv@v7.1.0
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           path: dist
           pattern: wheels-*
@@ -245,10 +245,10 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           submodules: recursive
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           path: dist
           pattern: wheels-*
@@ -296,7 +296,7 @@ jobs:
             item.replace(target)
           PY
       - name: Publish to PyPI
-        uses: PyO3/maturin-action@v1.49.4
+        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
         with:
           command: upload
           args: --non-interactive --skip-existing dist/*
