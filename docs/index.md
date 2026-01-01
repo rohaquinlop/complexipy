@@ -105,7 +105,7 @@ print(f"Complexity: {result.complexity}")
 ```yaml
 repos:
 - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v3.0.0
+  rev: v4.2.0
   hooks:
     - id: complexipy
 ```
