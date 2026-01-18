@@ -353,7 +353,6 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         lower.contains("noqa: complexipy")
     };
 
-    // Check the line at line_number and the line before it
     if idx < lines.len() && contains_marker(lines[idx]) {
         return true;
     }
@@ -363,16 +362,12 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
     }
 
 
-    // If the line at line_number is a decorator (starts with @), scan forward
-    // to find the def keyword line and check that line for noqa
+    // handle decorated functions
     if idx < lines.len() && lines[idx].trim_start().starts_with('@') {
-        // Scan forward up to 10 lines to find the def keyword
         let max_scan = (idx + 10).min(lines.len());
         for i in (idx + 1)..max_scan {
             let line = lines[i].trim();
-            // Check if this line starts with 'def' (function definition)
             if line.starts_with("def ") {
-                // Check this line and the line before it for noqa
                 if contains_marker(lines[i]) {
                     return true;
                 }
@@ -381,8 +376,6 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
                 }
                 break;
             }
-            // If we hit a non-empty line that's not a decorator and not a def,
-            // we've gone too far
             if !line.is_empty() && !line.trim_start().starts_with('@') {
                 break;
             }
