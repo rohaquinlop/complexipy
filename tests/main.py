@@ -161,6 +161,12 @@ def hello_world(s: str) -> str:
         # The only function has a noqa: complexipy, so it is ignored.
         assert 0 == total_complexity
 
+    def test_noqa_complexipy_ignore_with_decorator(self):
+        path = self.local_path / "src/test_noqa_decorator.py"
+        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        total_complexity = sum([file.complexity for file in files])
+        assert 0 == total_complexity
+
     def test_exclude(self):
         path = self.local_path / "src"
         files, _ = _complexipy.main(
