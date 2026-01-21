@@ -361,5 +361,26 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         return true;
     }
 
+
+    // handle decorated functions
+    if idx < lines.len() && lines[idx].trim_start().starts_with('@') {
+        let max_scan = (idx + 10).min(lines.len());
+        for i in (idx + 1)..max_scan {
+            let line = lines[i].trim();
+            if line.starts_with("def ") {
+                if contains_marker(lines[i]) {
+                    return true;
+                }
+                if i > 0 && contains_marker(lines[i - 1]) {
+                    return true;
+                }
+                break;
+            }
+            if !line.is_empty() && !line.trim_start().starts_with('@') {
+                break;
+            }
+        }
+    }
+
     false
 }
