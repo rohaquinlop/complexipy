@@ -23,12 +23,23 @@
 
 > Cognitive complexity measures how hard code is to understand by humans, not machines.
 
-Unlike traditional metrics, cognitive complexity considers the mental effort required to read and comprehend code. It identifies truly complex code that needs refactoring, making it perfect for code reviews and maintaining clean codebases.
+Unlike traditional metrics like cyclomatic complexity, cognitive complexity accounts for nesting depth and control flow patterns that affect human comprehension. Inspired by [G. Ann Campbell's research](https://www.sonarsource.com/resources/cognitive-complexity/) at SonarSource, complexipy provides a fast, accurate implementation for Python.
 
 **Key benefits:**
-- **Human-focused** — Aligns with developer intuition
-- **Actionable insights** — Pinpoints hard-to-understand code
-- **Better maintenance** — Improves long-term code quality
+- **Human-focused** - Weights nested code higher than sequential decisions
+- **Actionable insights** - Identifies genuinely hard-to-maintain code
+- **Better than cyclomatic** - Aligns with how developers actually read code
+
+## Common Questions
+
+**[How is complexity calculated?](understanding-scores.md)**
+Learn about the scoring algorithm, what each control structure contributes, and how nesting affects the final score.
+
+**[How does this compare to Ruff's PLR0912?](comparison-with-ruff.md)**
+Understand the key differences between cyclomatic complexity (Ruff) and cognitive complexity (complexipy), and why you might want to use both.
+
+**[Is this a SonarSource/Sonar product?](about.md)**
+No. complexipy is an independent project inspired by G. Ann Campbell's research, but it's not affiliated with or endorsed by SonarSource.
 
 ## Installation
 
@@ -250,7 +261,8 @@ FunctionComplexity:
 
 <div align="center">
 
-<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource, G. Ann Campbell</sub>
+<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by G. Ann Campbell</sub><br>
+<sub>complexipy is an independent project and is not affiliated with or endorsed by SonarSource</sub>
 
 **[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
 
