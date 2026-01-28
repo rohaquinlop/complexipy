@@ -314,11 +314,27 @@ jobs:
                       if result.returncode != 0:
                         # If wheel unpack fails, manually unpack using zipfile (no RECORD validation)
                         print(f"Standard unpack failed for {whl.name}, using zipfile method...")
+
+                        # Clear tmpdir in case partial extraction occurred
+                        for item in tmpdir.iterdir():
+                          if item.is_dir():
+                            shutil.rmtree(item)
+                          else:
+                            item.unlink()
+
+                        # Parse distribution-version from wheel filename
+                        # Format: {distribution}-{version}(-{build})?-{python}-{abi}-{platform}.whl
                         import zipfile
+                        match = re.match(r'^(.+?)-(\d+(?:\.\d+)*(?:[a-zA-Z0-9._+-]*)?)-(?:cp|pp)\d+', whl.stem)
+                        if not match:
+                          raise SystemExit(f"Could not parse wheel name: {whl.name}")
+
+                        distribution = match.group(1)
+                        version = match.group(2)
+                        extract_path = tmpdir / f"{distribution}-{version}"
+                        extract_path.mkdir(parents=True, exist_ok=True)
+
                         with zipfile.ZipFile(whl, 'r') as zip_ref:
-                          # Extract to tmpdir
-                          extract_path = tmpdir / whl.stem
-                          extract_path.mkdir(parents=True, exist_ok=True)
                           zip_ref.extractall(extract_path)
 
                           # Remove the old RECORD file since it's malformed
