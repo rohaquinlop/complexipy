@@ -6,297 +6,378 @@
 name: CI
 
 on:
-  push:
-    tags:
-      - "*"
-  pull_request:
-  workflow_dispatch:
+    push:
+        tags:
+            - "*"
+    pull_request:
+    workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  linux-build:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      matrix:
-        platform:
-          - runner: ubuntu-latest
-            target: x86_64
-          - runner: ubuntu-latest
-            target: x86
-          - runner: ubuntu-latest
-            target: aarch64
-          - runner: ubuntu-latest
-            target: armv7
-          - runner: ubuntu-latest
-            target: s390x
-          - runner: ubuntu-latest
-            target: ppc64le
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
-          sccache: "true"
-          manylinux: auto
-      - name: Upload wheels
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+    linux-build:
+        runs-on: ${{ matrix.platform.runner }}
+        strategy:
+            matrix:
+                platform:
+                    - runner: ubuntu-latest
+                      target: x86_64
+                    - runner: ubuntu-latest
+                      target: x86
+                    - runner: ubuntu-latest
+                      target: aarch64
+                    - runner: ubuntu-latest
+                      target: armv7
+                    - runner: ubuntu-latest
+                      target: s390x
+                    - runner: ubuntu-latest
+                      target: ppc64le
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+              with:
+                  submodules: recursive
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - name: Build wheels
+              uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+              with:
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out dist --find-interpreter
+                  sccache: "true"
+                  manylinux: auto
+            - name: Upload wheels
+              uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+              with:
+                  name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
+                  path: dist
 
-  windows-build:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      matrix:
-        platform:
-          - runner: windows-latest
-            target: x64
-          - runner: windows-latest
-            target: x86
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
-        with:
-          python-version: ${{ matrix.python-version }}
-          architecture: ${{ matrix.platform.target }}
-      - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
-          sccache: "true"
-      - name: Upload wheels
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+    windows-build:
+        runs-on: ${{ matrix.platform.runner }}
+        strategy:
+            matrix:
+                platform:
+                    - runner: windows-latest
+                      target: x64
+                    - runner: windows-latest
+                      target: x86
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+              with:
+                  submodules: recursive
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+              with:
+                  python-version: ${{ matrix.python-version }}
+                  architecture: ${{ matrix.platform.target }}
+            - name: Build wheels
+              uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+              with:
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out dist --find-interpreter
+                  sccache: "true"
+            - name: Upload wheels
+              uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+              with:
+                  name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
+                  path: dist
 
-  macos-build:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      matrix:
-        platform:
-          - runner: macos-latest
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Build wheels
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
-          sccache: "true"
-      - name: Upload wheels
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+    macos-build:
+        runs-on: ${{ matrix.platform.runner }}
+        strategy:
+            matrix:
+                platform:
+                    - runner: macos-latest
+                      target: x86_64
+                    - runner: macos-14
+                      target: aarch64
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+              with:
+                  submodules: recursive
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - name: Build wheels
+              uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+              with:
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out dist --find-interpreter
+                  sccache: "true"
+            - name: Upload wheels
+              uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+              with:
+                  name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
+                  path: dist
 
-  sdist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          submodules: recursive
-      - name: Build sdist
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
-        with:
-          command: sdist
-          args: --out dist
-      - name: Upload sdist
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-        with:
-          name: wheels-sdist
-          path: dist
+    sdist:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+              with:
+                  submodules: recursive
+            - name: Build sdist
+              uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+              with:
+                  command: sdist
+                  args: --out dist
+            - name: Upload sdist
+              uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+              with:
+                  name: wheels-sdist
+                  path: dist
 
-  unit-tests-linux:
-    name: Unit Tests
-    runs-on: ${{ matrix.platform.runner }}
-    needs: [linux-build, sdist]
-    strategy:
-      matrix:
-        platform:
-          - runner: ubuntu-latest
-            target: x86_64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-        with:
-          path: dist
-          pattern: wheels-*
-          merge-multiple: true
-      - name: pytest
-        shell: bash
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest tests/main.py
-      - name: complexipy execution
-        shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+    unit-tests-linux:
+        name: Unit Tests
+        runs-on: ${{ matrix.platform.runner }}
+        needs: [linux-build, sdist]
+        strategy:
+            matrix:
+                platform:
+                    - runner: ubuntu-latest
+                      target: x86_64
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+            - name: Install uv
+              uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+              with:
+                  path: dist
+                  pattern: wheels-*
+                  merge-multiple: true
+            - name: pytest
+              shell: bash
+              run: |
+                  uv sync --all-extras --frozen
+                  uv run -p ${{ matrix.python-version }} maturin develop
+                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+            - name: complexipy execution
+              shell: bash
+              run: |
+                  uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
-  unit-tests-windows:
-    name: Unit Tests
-    runs-on: ${{ matrix.platform.runner }}
-    needs: [windows-build, sdist]
-    strategy:
-      matrix:
-        platform:
-          - runner: windows-latest
-            target: x64
-          - runner: windows-latest
-            target: x86
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-        with:
-          path: dist
-          pattern: wheels-*
-          merge-multiple: true
-      - name: pytest
-        shell: bash
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest tests/main.py
-      - name: complexipy execution
-        shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+    unit-tests-windows:
+        name: Unit Tests
+        runs-on: ${{ matrix.platform.runner }}
+        needs: [windows-build, sdist]
+        strategy:
+            matrix:
+                platform:
+                    - runner: windows-latest
+                      target: x64
+                    - runner: windows-latest
+                      target: x86
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+            - name: Install uv
+              uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+              with:
+                  path: dist
+                  pattern: wheels-*
+                  merge-multiple: true
+            - name: pytest
+              shell: bash
+              run: |
+                  uv sync --all-extras --frozen
+                  uv run -p ${{ matrix.python-version }} maturin develop
+                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+            - name: complexipy execution
+              shell: bash
+              run: |
+                  uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
-  unit-tests-macos:
-    name: Unit Tests
-    runs-on: ${{ matrix.platform.runner }}
-    needs: [macos-build, sdist]
-    strategy:
-      matrix:
-        platform:
-          - runner: macos-latest
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-        with:
-          path: dist
-          pattern: wheels-*
-          merge-multiple: true
-      - name: pytest
-        shell: bash
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest tests/main.py
-      - name: complexipy execution
-        shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+    unit-tests-macos:
+        name: Unit Tests
+        runs-on: ${{ matrix.platform.runner }}
+        needs: [macos-build, sdist]
+        strategy:
+            matrix:
+                platform:
+                    - runner: macos-latest
+                      target: x86_64
+                    - runner: macos-14
+                      target: aarch64
+                python-version:
+                    ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+            - name: Install uv
+              uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+              with:
+                  python-version: ${{ matrix.python-version }}
+            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+              with:
+                  path: dist
+                  pattern: wheels-*
+                  merge-multiple: true
+            - name: pytest
+              shell: bash
+              run: |
+                  uv sync --all-extras --frozen
+                  uv run -p ${{ matrix.python-version }} maturin develop
+                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+            - name: complexipy execution
+              shell: bash
+              run: |
+                  uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
 
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [unit-tests-windows, unit-tests-linux, unit-tests-macos]
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          submodules: recursive
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-        with:
-          path: dist
-          pattern: wheels-*
-          merge-multiple: true
-      - name: Repack wheels to strip artifact metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip wheel
-          python - <<'PY'
-          import pathlib
-          import shutil
-          import tempfile
-          import subprocess
-          import sys
+    release:
+        name: Release
+        runs-on: ubuntu-latest
+        if: startsWith(github.ref, 'refs/tags/')
+        needs: [unit-tests-windows, unit-tests-linux, unit-tests-macos]
+        permissions:
+            id-token: write
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+              with:
+                  submodules: recursive
+            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+              with:
+                  path: dist
+                  pattern: wheels-*
+                  merge-multiple: true
+            - name: Repack wheels to strip artifact metadata
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  python -m pip install --upgrade pip wheel
+                  python - <<'PY'
+                  import pathlib
+                  import shutil
+                  import tempfile
+                  import subprocess
+                  import sys
+                  import re
 
-          dist = pathlib.Path("dist")
-          repacked = pathlib.Path("repacked")
-          repacked.mkdir(exist_ok=True)
+                  # Define expected Python versions from the build matrix
+                  PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
-          for whl in dist.glob("*.whl"):
-            tmpdir = pathlib.Path(tempfile.mkdtemp())
-            subprocess.run(
-              [sys.executable, "-m", "wheel", "unpack", str(whl), "-d", str(tmpdir)],
-              check=True,
-            )
-            subdirs = [p for p in tmpdir.iterdir() if p.is_dir()]
-            if len(subdirs) != 1:
-              raise SystemExit(f"Unexpected unpack contents for {whl}: {subdirs}")
-            subprocess.run(
-              [sys.executable, "-m", "wheel", "pack", str(subdirs[0]), "-d", str(repacked)],
-              check=True,
-            )
+                  dist = pathlib.Path("dist")
+                  repacked = pathlib.Path("repacked")
+                  repacked.mkdir(exist_ok=True)
+                  failed_wheels = []
 
-          for sd in dist.glob("*.tar.gz"):
-            shutil.copy2(sd, repacked / sd.name)
+                  # Get all wheels before repacking
+                  all_wheels = list(dist.glob("*.whl"))
+                  print(f"Found {len(all_wheels)} wheels to process")
 
-          for whl in dist.glob("*.whl"):
-            whl.unlink()
+                  # Validate we have wheels for all Python versions
+                  found_versions = set()
+                  for whl in all_wheels:
+                    # Extract Python version from wheel name (e.g., cp38, cp39, pp39, etc.)
+                    match = re.search(r'(cp|pp)(\d)(\d+)', whl.name)
+                    if match:
+                      major = match.group(2)
+                      minor = match.group(3)
+                      if len(minor) == 1:
+                        version = f"{major}.{minor}"
+                      else:
+                        version = f"{major}.{minor[0]}"
+                      found_versions.add(version)
 
-          for item in repacked.iterdir():
-            target = dist / item.name
-            if target.exists():
-              target.unlink()
-            item.replace(target)
-          PY
-      - name: Publish to PyPI
-        uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
-        with:
-          command: upload
-          args: --non-interactive --skip-existing dist/*
+                  print(f"Found wheels for Python versions: {sorted(found_versions)}")
+                  missing_versions = set(PYTHON_VERSIONS) - found_versions
+                  if missing_versions:
+                    print(f"ERROR: Missing wheels for Python versions: {sorted(missing_versions)}")
+                    raise SystemExit(f"Missing wheels for Python versions: {sorted(missing_versions)}")
+
+                  for whl in all_wheels:
+                    tmpdir = pathlib.Path(tempfile.mkdtemp())
+                    try:
+                      # Try to unpack with wheel - it may fail due to RECORD validation
+                      result = subprocess.run(
+                        [sys.executable, "-m", "wheel", "unpack", str(whl), "-d", str(tmpdir)],
+                        capture_output=True,
+                        text=True,
+                      )
+
+                      if result.returncode != 0:
+                        # If wheel unpack fails, manually unpack using zipfile (no RECORD validation)
+                        print(f"Standard unpack failed for {whl.name}, using zipfile method...")
+                        import zipfile
+                        with zipfile.ZipFile(whl, 'r') as zip_ref:
+                          # Extract to tmpdir
+                          extract_path = tmpdir / whl.stem
+                          extract_path.mkdir(parents=True, exist_ok=True)
+                          zip_ref.extractall(extract_path)
+
+                          # Remove the old RECORD file since it's malformed
+                          for record_file in extract_path.rglob("RECORD"):
+                            print(f"  Removing malformed RECORD: {record_file}")
+                            record_file.unlink()
+
+                      subdirs = [p for p in tmpdir.iterdir() if p.is_dir()]
+                      if len(subdirs) != 1:
+                        raise SystemExit(f"Unexpected unpack contents for {whl}: {subdirs}")
+
+                      # wheel pack will regenerate a valid RECORD file
+                      pack_result = subprocess.run(
+                        [sys.executable, "-m", "wheel", "pack", str(subdirs[0]), "-d", str(repacked)],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                      )
+                      print(f"Successfully repacked {whl.name}")
+
+                    except Exception as e:
+                      print(f"ERROR: Failed to repack {whl.name}: {e}")
+                      print(f"  This wheel will be skipped!")
+                      failed_wheels.append(whl.name)
+                    finally:
+                      shutil.rmtree(tmpdir, ignore_errors=True)
+
+                  for sd in dist.glob("*.tar.gz"):
+                    shutil.copy2(sd, repacked / sd.name)
+
+                  for whl in dist.glob("*.whl"):
+                    whl.unlink()
+
+                  for item in repacked.iterdir():
+                    target = dist / item.name
+                    if target.exists():
+                      target.unlink()
+                    item.replace(target)
+
+                  # Final validation
+                  final_wheels = list(dist.glob("*.whl"))
+                  print(f"\nFinal wheel count: {len(final_wheels)}")
+
+                  if failed_wheels:
+                    print(f"\nERROR: Failed to repack {len(failed_wheels)} wheel(s):")
+                    for fw in failed_wheels:
+                      print(f"  - {fw}")
+                    raise SystemExit(f"Failed to repack {len(failed_wheels)} wheel(s). See errors above.")
+
+                  if len(final_wheels) != len(all_wheels):
+                    raise SystemExit(f"ERROR: Started with {len(all_wheels)} wheels but ended with {len(final_wheels)}")
+
+                  print("\nAll wheels repacked successfully with valid RECORD files!")
+                  PY
+            - name: Publish to PyPI
+              uses: PyO3/maturin-action@86b9d133d34bc1b40018696f782949dac11bd380
+              with:
+                  command: upload
+                  args: --non-interactive --skip-existing dist/*
