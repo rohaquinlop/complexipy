@@ -9,9 +9,9 @@ complexipy is inspired by the [Cognitive Complexity](https://www.sonarsource.com
 
 ## Why Cognitive Complexity?
 
-Traditional metrics like cyclomatic complexity treat all control flow decisions equally, regardless of context. However, human comprehension doesn't work that way. Deeply nested code is significantly harder to understand than the same number of sequential decisions.
+Cyclomatic complexity measures code structural, testing, and branch density (number of paths) by counting decision points. However, this doesn't reflect how humans actually understand code. Cognitive complexity measures how difficult code is for humans to understand and maintain by penalizing nesting, flow breaks, and human-unfriendly logic.
 
-### The Problem with Cyclomatic Complexity
+### Different Approaches to Measuring Complexity
 
 Cyclomatic complexity (McCabe, 1976) counts every decision point:
 

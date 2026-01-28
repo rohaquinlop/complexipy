@@ -2,7 +2,7 @@
 
 ## Overview
 
-Both [Ruff](https://docs.astral.sh/ruff/) and complexipy help improve Python code quality, but they measure different aspects of complexity and serve complementary purposes.
+Both [Ruff](https://docs.astral.sh/ruff/) and complexipy help improve Python code quality, but they measure different aspects of complexity and serve complementary purposes. Ruff's PLR0912 measures structural complexity, testing, and branch density, while complexipy measures how difficult code is for humans to understand and maintain.
 
 ## Ruff's PLR0912: Too Many Branches
 
@@ -190,16 +190,16 @@ In this example:
 ## Which Should You Use?
 
 ### Use Ruff (PLR0912) When:
+- You need to measure structural complexity and branch density
+- You're designing test coverage strategies
 - You want to limit the absolute number of decision points
-- You're enforcing a strict "small function" policy
-- You want simple, objective counts
 - You're already using Ruff for other linting
 
 ### Use complexipy When:
-- You want to identify truly hard-to-understand code
-- Nesting is a concern in your codebase
-- You want to align with human comprehension
-- You're conducting code reviews focused on maintainability
+- You want to identify code that's hard for humans to understand
+- You're focused on code readability and maintainability
+- Nesting and flow complexity are concerns in your codebase
+- You're conducting code reviews focused on comprehension
 
 ### Use Both! (Recommended)
 
@@ -263,11 +263,11 @@ If you're already using Ruff and want to add complexipy:
 | **else penalty** | ✅ Yes | ❌ No (only nesting) |
 | **Boolean operators** | ✅ Yes | ✅ Yes |
 | **match statements** | ✅ Yes | Partial (content only) |
-| **Best for** | Total decision count | Human comprehension |
+| **Best for** | Structural, testing, branch density | How difficult code is to understand |
 | **Threshold** | ~12 branches | ~15 points |
 | **Performance** | Fast (Rust) | Very fast (Rust) |
 
-**The Bottom Line**: Ruff's PLR0912 enforces a limit on decision points, while complexipy measures how hard code is to understand. Both are valuable, and using them together provides the best coverage for code quality.
+**The Bottom Line**: Ruff's PLR0912 measures structural complexity and branch density (useful for testing and analysis), while complexipy measures how difficult code is for humans to understand and maintain by penalizing nesting and flow breaks. Both are valuable, and using them together provides the best coverage for code quality.
 
 ## Further Reading
 

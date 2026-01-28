@@ -26,9 +26,9 @@
 Unlike traditional metrics like cyclomatic complexity, cognitive complexity accounts for nesting depth and control flow patterns that affect human comprehension. Inspired by [G. Ann Campbell's research](https://www.sonarsource.com/resources/cognitive-complexity/) at SonarSource, complexipy provides a fast, accurate implementation for Python.
 
 **Key benefits:**
-- **Human-focused** - Weights nested code higher than sequential decisions
+- **Human-focused** - Penalizes nesting, flow breaks, and human-unfriendly logic
 - **Actionable insights** - Identifies genuinely hard-to-maintain code
-- **Better than cyclomatic** - Aligns with how developers actually read code
+- **Different from cyclomatic** - Measures readability while cyclomatic measures structural, testing, and branch density
 
 ## Common Questions
 
