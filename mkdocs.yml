@@ -8,6 +8,13 @@ edit_uri: edit/main/docs/
 # Navigation structure
 nav:
   - Home: index.md
+  - Getting Started:
+    - Usage Guide: usage-guide.md
+  - Understanding Complexity:
+    - What Scores Mean: understanding-scores.md
+    - Comparison with Ruff: comparison-with-ruff.md
+  - About:
+    - About complexipy: about.md
 
 theme:
   name: material
