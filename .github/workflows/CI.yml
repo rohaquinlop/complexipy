@@ -292,10 +292,7 @@ jobs:
                     if match:
                       major = match.group(2)
                       minor = match.group(3)
-                      if len(minor) == 1:
-                        version = f"{major}.{minor}"
-                      else:
-                        version = f"{major}.{minor[0]}"
+                      version = f"{major}.{minor}"
                       found_versions.add(version)
 
                   print(f"Found wheels for Python versions: {sorted(found_versions)}")
