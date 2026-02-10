@@ -32,6 +32,7 @@ def remember_previous_functions(
     cache_dir = Path(invocation_path) / CACHE_DIR_NAME
     try:
         cache_dir.mkdir(exist_ok=True)
+        _ensure_gitignore(cache_dir)
     except OSError:
         return None
 
@@ -166,3 +167,14 @@ def _persist_cache(cache_file: Path, payload: dict) -> None:
     except OSError:
         # Failing to persist the cache should not break the main command.
         pass
+
+
+def _ensure_gitignore(cache_dir: Path) -> None:
+    """Create a .gitignore file in the cache directory to prevent accidental commits."""
+    gitignore_file = cache_dir / ".gitignore"
+    if not gitignore_file.exists():
+        try:
+            gitignore_file.write_text("*\n", encoding="utf-8")
+        except OSError:
+            # Failing to create .gitignore should not break the main command.
+            pass
