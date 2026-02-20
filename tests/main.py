@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import List, Tuple
 
+import pytest
+from typer.testing import CliRunner
+
 from complexipy import (
     _complexipy,
     code_complexity,
@@ -355,3 +358,64 @@ def hello_world(s: str) -> str:
 
         assert ok
         assert messages == []
+
+    def test_snapshot_watermark_passes_exits_with_code_0(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Regression test for issue #136.
+
+        When a snapshot exists and the watermark passes (functions exceed the
+        threshold but haven't gotten worse since the snapshot was taken), the
+        CLI should exit with code 0 rather than 1.
+        """
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+
+        # Create a file with a function whose complexity exceeds the default
+        # threshold of 15.  Six nested if-statements produces a cognitive
+        # complexity of 21 (1+2+3+4+5+6).
+        source_file = tmp_path / "complex.py"
+        source_file.write_text(
+            "def high_complexity(a, b, c, d, e, f):\n"
+            "    if a:\n"
+            "        if b:\n"
+            "            if c:\n"
+            "                if d:\n"
+            "                    if e:\n"
+            "                        if f:\n"
+            "                            return True\n"
+            "    return False\n",
+            encoding="utf-8",
+        )
+
+        # Point the module's snapshot output to tmp_path so we don't pollute
+        # the project directory and tests remain isolated.
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        # Step 1: create the snapshot – should exit 0 (watermark is satisfied
+        # because we just created the baseline).
+        result_create = runner.invoke(
+            main_module.app,
+            ["--snapshot-create", str(source_file)],
+        )
+        assert (tmp_path / "complexipy-snapshot.json").exists(), (
+            "Snapshot file was not created"
+        )
+        assert result_create.exit_code == 0, (
+            f"--snapshot-create exited with {result_create.exit_code}.\n"
+            f"Output:\n{result_create.output}"
+        )
+
+        # Step 2: re-run without --snapshot-create.  The function still
+        # exceeds the threshold, but it hasn't regressed since the snapshot,
+        # so the watermark passes and the exit code must be 0.
+        result_check = runner.invoke(
+            main_module.app,
+            [str(source_file)],
+        )
+        assert result_check.exit_code == 0, (
+            f"Expected exit code 0 when snapshot watermark passes, "
+            f"got {result_check.exit_code}.\n"
+            f"Output:\n{result_check.output}"
+        )

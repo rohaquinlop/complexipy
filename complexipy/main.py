@@ -240,16 +240,20 @@ def main(
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
-    has_success = (
-        handle_snapshot(
-            should_run_snapshot_watermark,
-            quiet,
-            watermark_messages,
-            output_snapshot_path,
-            watermark_success,
-        )
-        and has_success
+    snapshot_result = handle_snapshot(
+        should_run_snapshot_watermark,
+        quiet,
+        watermark_messages,
+        output_snapshot_path,
+        watermark_success,
     )
+    if should_run_snapshot_watermark:
+        # When the snapshot watermark is active, it is the authoritative
+        # success check. Functions exceeding the threshold that are already
+        # in the snapshot (and haven't regressed) should not cause a failure.
+        has_success = snapshot_result
+    else:
+        has_success = has_success and snapshot_result
 
     has_success = (
         print_invalid_paths(console, quiet, failed_paths) and has_success
