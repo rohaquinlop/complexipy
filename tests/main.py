@@ -43,7 +43,7 @@ class TestFiles:
         path = self.local_path / "src"
         files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
         total_complexity = sum([file.complexity for file in files])
-        assert 47 == total_complexity
+        assert 63 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -123,6 +123,12 @@ class TestFiles:
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
+    def test_comprehension(self):
+        path = self.local_path / "src/test_comprehension.py"
+        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        total_complexity = sum([file.complexity for file in files])
+        assert 16 == total_complexity
+
     def test_try(self):
         path = self.local_path / "src/test_try.py"
         files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
@@ -180,7 +186,7 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        assert 47 == total_complexity
+        assert 63 == total_complexity
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -190,7 +196,7 @@ def hello_world(s: str) -> str:
             ["exclude_dir/test_exclude1.py"],
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 44 == total_complexity
+        assert 60 == total_complexity
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
@@ -200,7 +206,7 @@ def hello_world(s: str) -> str:
             ["exclude_dir"],
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 41 == total_complexity
+        assert 57 == total_complexity
 
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
@@ -427,3 +433,77 @@ def hello_world(s: str) -> str:
         assert "FAILED" not in result_check.output, (
             f"Expected no 'FAILED' in output.\nOutput:\n{result_check.output}"
         )
+
+
+class TestComprehension:
+    """Unit tests for comprehension cognitive complexity scoring."""
+
+    def _complexity(self, snippet: str) -> int:
+        return code_complexity(snippet).complexity
+
+    def test_simple_listcomp(self):
+        # [x for x in items] at depth 0: +1 (comprehension base)
+        snippet = "def f(items):\n    return [x for x in items]\n"
+        assert 1 == self._complexity(snippet)
+
+    def test_listcomp_with_if_filter(self):
+        # +1 (comprehension) +1 (if clause) = 2
+        snippet = "def f(items):\n    return [x for x in items if x > 0]\n"
+        assert 2 == self._complexity(snippet)
+
+    def test_listcomp_two_for_clauses(self):
+        # +1 (comprehension) +1 (second for) = 2
+        snippet = (
+            "def f(matrix):\n"
+            "    return [x for row in matrix for x in row]\n"
+        )
+        assert 2 == self._complexity(snippet)
+
+    def test_listcomp_two_for_clauses_with_if(self):
+        # +1 (comprehension) +1 (second for) +1 (if) = 3
+        snippet = (
+            "def f(matrix):\n"
+            "    return [x for row in matrix for x in row if x > 0]\n"
+        )
+        assert 3 == self._complexity(snippet)
+
+    def test_nested_listcomp(self):
+        # outer at depth 0: +1; inner at depth 1: +1+1=2; total = 3
+        snippet = (
+            "def f(matrix):\n"
+            "    return [[x for x in row] for row in matrix]\n"
+        )
+        assert 3 == self._complexity(snippet)
+
+    def test_generator_in_call(self):
+        # generator expression inside sum(): +1
+        snippet = "def f(items):\n    return sum(x * 2 for x in items)\n"
+        assert 1 == self._complexity(snippet)
+
+    def test_setcomp(self):
+        # +1 = 1
+        snippet = "def f(items):\n    return {x for x in items}\n"
+        assert 1 == self._complexity(snippet)
+
+    def test_dictcomp_simple(self):
+        # +1 = 1
+        snippet = "def f(keys):\n    return {k: k * 2 for k in keys}\n"
+        assert 1 == self._complexity(snippet)
+
+    def test_dictcomp_with_if_filter(self):
+        # +1 (comprehension) +1 (if) = 2
+        snippet = (
+            "def f(keys):\n"
+            "    return {k: k * 2 for k in keys if k > 0}\n"
+        )
+        assert 2 == self._complexity(snippet)
+
+    def test_comprehension_inside_if_block(self):
+        # if (nesting 0→1): +1; listcomp inside if body at nesting_level=1: +1+1=2
+        # total = 3
+        snippet = (
+            "def f(data, items):\n"
+            "    if data:\n"
+            "        return [x for x in items]\n"
+        )
+        assert 3 == self._complexity(snippet)
