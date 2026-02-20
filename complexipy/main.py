@@ -29,6 +29,7 @@ from .types import (
 )
 from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
+from .utils.diff import compute_diff, format_diff
 from .utils.json import store_json
 from .utils.output import (
     has_success_functions,
@@ -132,6 +133,16 @@ def main(
         "--output-json",
         "-j",
         help="Output the results to a JSON file.",
+    ),
+    diff: Optional[str] = typer.Option(
+        None,
+        "--diff",
+        "-d",
+        help=(
+            "Show a complexity diff against a git reference (e.g. HEAD~1, main, "
+            "a commit SHA).  Requires git to be available and the paths to be "
+            "inside a git repository."
+        ),
     ),
     version: bool = typer.Option(  # type: ignore[assignment]
         False,
@@ -263,6 +274,13 @@ def main(
     has_success = (
         print_invalid_paths(console, quiet, failed_paths) and has_success
     )
+
+    if diff and files_complexities:
+        diff_entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
+        diff_output = format_diff(diff_entries, diff)
+        if not quiet:
+            console.print(diff_output)
+
     if not has_success:
         raise typer.Exit(code=1)
 
