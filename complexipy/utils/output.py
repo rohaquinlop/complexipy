@@ -28,12 +28,13 @@ def output_summary(
     ignore_complexity: bool,
     max_complexity: int,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
 ) -> bool:
     (
         file_entries,
         failing_functions,
         total_functions,
-    ) = build_output_rows(files, failed_only, sort, max_complexity)
+    ) = build_output_rows(files, failed_only, sort, max_complexity, snapshot_map)
     has_success = not failing_functions or ignore_complexity
 
     if failed_only and not file_entries:
@@ -133,11 +134,27 @@ def output_delta_text(
     return delta_text
 
 
+def _is_function_passing(
+    function: FunctionComplexity,
+    file_path: str,
+    file_name: str,
+    max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]],
+) -> bool:
+    if function.complexity <= max_complexity:
+        return True
+    if snapshot_map is None:
+        return False
+    prev = snapshot_map.get((file_path, file_name, function.name))
+    return prev is not None and function.complexity <= prev
+
+
 def build_output_rows(
     files: List[FileComplexity],
     failed_only: bool,
     sort: Sort,
     max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
 ) -> tuple[
     List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
     dict[str, List[str]],
@@ -155,7 +172,9 @@ def build_output_rows(
 
         for function in sorted_functions:
             total_functions += 1
-            passed = function.complexity <= max_complexity
+            passed = _is_function_passing(
+                function, file.path, file.file_name, max_complexity, snapshot_map
+            )
 
             if failed_only and passed:
                 continue

@@ -36,6 +36,7 @@ from .utils.output import (
     print_invalid_paths,
 )
 from .utils.snapshot import (
+    build_snapshot_map,
     handle_snapshot_file_creation,
     handle_snapshot_functions_load,
     handle_snapshot_watermark,
@@ -194,6 +195,9 @@ def main(
     snapshot_file_exists = os.path.exists(output_snapshot_path)
     snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
     should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
+    active_snapshot_map = (
+        build_snapshot_map(snapshot_files) if should_run_snapshot_watermark else None
+    )
     watermark_success, watermark_messages = handle_snapshot_watermark(
         should_run_snapshot_watermark,
         snapshot_file_exists,
@@ -234,22 +238,27 @@ def main(
             ignore_complexity,
             max_complexity_allowed,
             previous_functions,
+            active_snapshot_map,
         )
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
         else:
             console.rule(":tada: Analysis completed! :tada:")
 
-    has_success = (
-        handle_snapshot(
-            should_run_snapshot_watermark,
-            quiet,
-            watermark_messages,
-            output_snapshot_path,
-            watermark_success,
-        )
-        and has_success
+    snapshot_result = handle_snapshot(
+        should_run_snapshot_watermark,
+        quiet,
+        watermark_messages,
+        output_snapshot_path,
+        watermark_success,
     )
+    if should_run_snapshot_watermark:
+        # When the snapshot watermark is active, it is the authoritative
+        # success check. Functions exceeding the threshold that are already
+        # in the snapshot (and haven't regressed) should not cause a failure.
+        has_success = snapshot_result
+    else:
+        has_success = has_success and snapshot_result
 
     has_success = (
         print_invalid_paths(console, quiet, failed_paths) and has_success

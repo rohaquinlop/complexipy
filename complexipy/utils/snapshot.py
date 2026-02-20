@@ -56,7 +56,7 @@ def handle_snapshot_watermark(
             ],
         )
 
-    snapshot_map = _build_snapshot_map(snapshot_files)
+    snapshot_map = build_snapshot_map(snapshot_files)
     violations: List[str] = []
 
     for file_complexity in files_complexities:
@@ -89,7 +89,7 @@ def handle_snapshot_watermark(
     return True, []
 
 
-def _build_snapshot_map(
+def build_snapshot_map(
     snapshot_files: List[FileComplexity],
 ) -> Dict[Tuple[str, str, str], int]:
     snapshot_map: Dict[Tuple[str, str, str], int] = {}
