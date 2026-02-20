@@ -28,12 +28,13 @@ def output_summary(
     ignore_complexity: bool,
     max_complexity: int,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
 ) -> bool:
     (
         file_entries,
         failing_functions,
         total_functions,
-    ) = build_output_rows(files, failed_only, sort, max_complexity)
+    ) = build_output_rows(files, failed_only, sort, max_complexity, snapshot_map)
     has_success = not failing_functions or ignore_complexity
 
     if failed_only and not file_entries:
@@ -138,6 +139,7 @@ def build_output_rows(
     failed_only: bool,
     sort: Sort,
     max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
 ) -> tuple[
     List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
     dict[str, List[str]],
@@ -156,6 +158,11 @@ def build_output_rows(
         for function in sorted_functions:
             total_functions += 1
             passed = function.complexity <= max_complexity
+            if not passed and snapshot_map is not None:
+                key = (file.path, file.file_name, function.name)
+                prev = snapshot_map.get(key)
+                if prev is not None and function.complexity <= prev:
+                    passed = True
 
             if failed_only and passed:
                 continue

@@ -36,6 +36,7 @@ from .utils.output import (
     print_invalid_paths,
 )
 from .utils.snapshot import (
+    build_snapshot_map,
     handle_snapshot_file_creation,
     handle_snapshot_functions_load,
     handle_snapshot_watermark,
@@ -194,6 +195,9 @@ def main(
     snapshot_file_exists = os.path.exists(output_snapshot_path)
     snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
     should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
+    active_snapshot_map = (
+        build_snapshot_map(snapshot_files) if should_run_snapshot_watermark else None
+    )
     watermark_success, watermark_messages = handle_snapshot_watermark(
         should_run_snapshot_watermark,
         snapshot_file_exists,
@@ -234,6 +238,7 @@ def main(
             ignore_complexity,
             max_complexity_allowed,
             previous_functions,
+            active_snapshot_map,
         )
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
