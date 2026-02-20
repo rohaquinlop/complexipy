@@ -111,6 +111,23 @@ print(f"Complexity: {result.complexity}")
 </details>
 
 <details>
+<summary><strong>🔍 GitHub Code Scanning (SARIF)</strong></summary>
+
+Upload complexity violations as inline PR annotations using SARIF:
+
+```yaml
+- name: Run complexipy
+  run: complexipy . --output-sarif --ignore-complexity
+
+- name: Upload SARIF results
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: complexipy_results_*.sarif
+```
+
+</details>
+
+<details>
 <summary><strong>🪝 Pre-commit Hook</strong></summary>
 
 ```yaml
@@ -156,6 +173,7 @@ sort = "asc"
 exclude = []
 output-csv = false
 output-json = false
+output-sarif = false
 ```
 
 ```toml
@@ -173,6 +191,7 @@ sort = "asc"
 exclude = []
 output-csv = false
 output-json = false
+output-sarif = false
 ```
 
 ### CLI Options
@@ -192,6 +211,7 @@ output-json = false
 | `--output-json` | Save results as JSON | `false` |
 | `--output-csv` | Save results as CSV | `false` |
 | `--diff <ref>` | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`) | — |
+| `--output-sarif` | Save results as SARIF 2.1.0 (for GitHub Code Scanning and other SARIF-aware tools) | `false` |
 
 Example:
 
