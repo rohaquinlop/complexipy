@@ -134,6 +134,21 @@ def output_delta_text(
     return delta_text
 
 
+def _is_function_passing(
+    function: FunctionComplexity,
+    file_path: str,
+    file_name: str,
+    max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]],
+) -> bool:
+    if function.complexity <= max_complexity:
+        return True
+    if snapshot_map is None:
+        return False
+    prev = snapshot_map.get((file_path, file_name, function.name))
+    return prev is not None and function.complexity <= prev
+
+
 def build_output_rows(
     files: List[FileComplexity],
     failed_only: bool,
@@ -157,12 +172,9 @@ def build_output_rows(
 
         for function in sorted_functions:
             total_functions += 1
-            passed = function.complexity <= max_complexity
-            if not passed and snapshot_map is not None:
-                key = (file.path, file.file_name, function.name)
-                prev = snapshot_map.get(key)
-                if prev is not None and function.complexity <= prev:
-                    passed = True
+            passed = _is_function_passing(
+                function, file.path, file.file_name, max_complexity, snapshot_map
+            )
 
             if failed_only and passed:
                 continue
