@@ -182,6 +182,7 @@ def get_arguments_value(
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
+    output_sarif: bool | None,
     exclude: List[str] | None,
 ) -> Tuple[
     List[str],
@@ -193,6 +194,7 @@ def get_arguments_value(
     bool,
     ColorTypes,
     Sort,
+    bool,
     bool,
     bool,
     List[str],
@@ -228,6 +230,9 @@ def get_arguments_value(
     output_json = get_argument_value(
         toml_config, "output-json", output_json, False
     )
+    output_sarif = get_argument_value(
+        toml_config, "output-sarif", output_sarif, False
+    )
     exclude = get_argument_value(toml_config, "exclude", exclude, [])
 
     return (
@@ -242,5 +247,6 @@ def get_arguments_value(
         sort_arg,
         output_csv,
         output_json,
+        output_sarif,
         exclude,
     )
