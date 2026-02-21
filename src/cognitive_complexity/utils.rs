@@ -287,8 +287,76 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
                 }
             }
         }
+        ast::Expr::ListComp(l) => {
+            complexity += count_comprehension_complexity(
+                &l.generators,
+                *l.elt.clone(),
+                nesting_level,
+            );
+        }
+        ast::Expr::SetComp(s) => {
+            complexity += count_comprehension_complexity(
+                &s.generators,
+                *s.elt.clone(),
+                nesting_level,
+            );
+        }
+        ast::Expr::Generator(g) => {
+            complexity += count_comprehension_complexity(
+                &g.generators,
+                *g.elt.clone(),
+                nesting_level,
+            );
+        }
+        ast::Expr::DictComp(d) => {
+            // Score the generators+key together; then scan the value expression.
+            complexity += count_comprehension_complexity(
+                &d.generators,
+                *d.key.clone(),
+                nesting_level,
+            );
+            complexity += count_bool_ops(*d.value.clone(), nesting_level + 1);
+        }
         _ => {}
     }
+
+    complexity
+}
+
+/// Score a comprehension (list / set / generator / dict) expression.
+///
+/// Rules applied:
+/// - The comprehension itself: `+1 + nesting_level` (consistent with how
+///   other control-flow constructs are penalised for depth).
+/// - Each additional `for` clause beyond the first: `+1`.
+/// - Each `if` filter inside any generator: `+1`, plus any boolean-operator
+///   complexity within that condition.
+/// - The element expression (`elt`) and each iterator expression are
+///   recursed into at `nesting_level + 1` so that nested comprehensions
+///   receive an appropriate depth penalty.
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn count_comprehension_complexity(
+    generators: &[ast::Comprehension],
+    elt: ast::Expr,
+    nesting_level: u64,
+) -> u64 {
+    let mut complexity: u64 = 1 + nesting_level;
+
+    for (i, clause) in generators.iter().enumerate() {
+        if i > 0 {
+            // Each additional `for` clause makes the comprehension harder to read.
+            complexity += 1;
+        }
+        for if_expr in clause.ifs.iter() {
+            // The `if` filter itself costs 1, plus any boolean operators inside.
+            complexity += 1 + count_bool_ops(if_expr.clone(), nesting_level + 1);
+        }
+        // Check the iterator expression for nested comprehensions or bool ops.
+        complexity += count_bool_ops(clause.iter.clone(), nesting_level + 1);
+    }
+
+    // Recurse into the element expression to catch nested comprehensions.
+    complexity += count_bool_ops(elt, nesting_level + 1);
 
     complexity
 }
