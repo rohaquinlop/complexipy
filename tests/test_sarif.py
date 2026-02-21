@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 
-from complexipy import code_complexity
+from complexipy._complexipy import main as _main
 from complexipy.utils.sarif import store_sarif, _RULE_ID
 
 # Minimal snippet with one complex and one simple function.
@@ -26,20 +26,16 @@ def complex_func(data):
 
 class TestSarif:
     def _build_file_complexity(self, max_complexity: int = 5):
-        result = code_complexity(_SNIPPET)
-        # Wrap the CodeComplexity in a lightweight stand-in so we can pass it
-        # to store_sarif, which expects List[FileComplexity].  We import the
-        # real FileComplexity class from the Rust extension.
-        from complexipy._complexipy import FileComplexity
-
-        return [
-            FileComplexity(
-                path="src/example.py",
-                file_name="example.py",
-                complexity=result.complexity,
-                functions=result.functions,
-            )
-        ], max_complexity
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False
+        ) as f:
+            f.write(_SNIPPET)
+            tmp_path = f.name
+        try:
+            files, _ = _main([tmp_path], False, [])
+        finally:
+            os.unlink(tmp_path)
+        return files, max_complexity
 
     def test_sarif_file_created(self):
         files, max_complexity = self._build_file_complexity(5)
