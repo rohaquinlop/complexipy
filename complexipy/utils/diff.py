@@ -136,58 +136,59 @@ def compute_diff(
     return entries
 
 
+def _format_entry(e: DiffEntry) -> str:
+    label = e.status.ljust(10)
+    location = f"{e.file_path}::{e.func_name}"
+
+    if e.status == _STATUS_NEW:
+        return f"  {label}  {location:<55}  {e.new_complexity}  (new)"
+    if e.status == _STATUS_REMOVED:
+        return f"  {label}  {location:<55}  {e.old_complexity}  (removed)"
+
+    delta = e.delta
+    sign = "+" if delta and delta > 0 else ""
+    score = f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
+    return f"  {label}  {location:<55}  {score}  "
+
+
+def _build_diff_summary(changed: List[DiffEntry]) -> str:
+    counts = {
+        _STATUS_REGRESSED: 0,
+        _STATUS_IMPROVED: 0,
+        _STATUS_NEW: 0,
+        _STATUS_REMOVED: 0,
+    }
+    for e in changed:
+        if e.status in counts:
+            counts[e.status] += 1
+
+    labels = [
+        (_STATUS_REGRESSED, "regressed"),
+        (_STATUS_IMPROVED, "improved"),
+        (_STATUS_NEW, "new"),
+        (_STATUS_REMOVED, "removed"),
+    ]
+    parts = [f"{counts[s]} {label}" for s, label in labels if counts[s]]
+    return ", ".join(parts) if parts else "no changes"
+
+
 def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
     """Return a human-readable diff table as a string."""
     if not entries:
         return f"No functions changed relative to {git_ref}.\n"
 
-    # Filter to only entries with changes (or new/removed).
     changed = [
         e for e in entries
         if e.status in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
     ]
 
-    lines: List[str] = []
     sep = "─" * 72
-    lines.append(f"Complexity diff  (vs {git_ref})")
-    lines.append(sep)
-
-    for e in changed:
-        label = e.status.ljust(10)
-        location = f"{e.file_path}::{e.func_name}"
-
-        if e.status == _STATUS_NEW:
-            score = f"{e.new_complexity}"
-            note = "(new)"
-        elif e.status == _STATUS_REMOVED:
-            score = f"{e.old_complexity}"
-            note = "(removed)"
-        else:
-            delta = e.delta
-            sign = "+" if delta and delta > 0 else ""
-            score = f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
-            note = ""
-
-        lines.append(f"  {label}  {location:<55}  {score}  {note}")
-
-    lines.append(sep)
-
-    regressed = sum(1 for e in changed if e.status == _STATUS_REGRESSED)
-    improved = sum(1 for e in changed if e.status == _STATUS_IMPROVED)
-    new = sum(1 for e in changed if e.status == _STATUS_NEW)
-    removed = sum(1 for e in changed if e.status == _STATUS_REMOVED)
-
-    parts = []
-    if regressed:
-        parts.append(f"{regressed} regressed")
-    if improved:
-        parts.append(f"{improved} improved")
-    if new:
-        parts.append(f"{new} new")
-    if removed:
-        parts.append(f"{removed} removed")
-
-    summary = ", ".join(parts) if parts else "no changes"
-    lines.append(f"Net: {summary}")
+    lines: List[str] = [
+        f"Complexity diff  (vs {git_ref})",
+        sep,
+        *[_format_entry(e) for e in changed],
+        sep,
+        f"Net: {_build_diff_summary(changed)}",
+    ]
 
     return "\n".join(lines) + "\n"

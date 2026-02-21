@@ -275,11 +275,7 @@ def main(
         print_invalid_paths(console, quiet, failed_paths) and has_success
     )
 
-    if diff and files_complexities:
-        diff_entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
-        diff_output = format_diff(diff_entries, diff)
-        if not quiet:
-            console.print(diff_output)
+    handle_diff_output(diff, files_complexities, quiet)
 
     if not has_success:
         raise typer.Exit(code=1)
@@ -353,6 +349,18 @@ def handle_snapshot(
                 )
         return watermark_success
     return True
+
+
+def handle_diff_output(
+    diff: Optional[str],
+    files_complexities: List[FileComplexity],
+    quiet: bool,
+) -> None:
+    global console
+    if diff and files_complexities:
+        diff_output = format_diff(compute_diff(files_complexities, diff, INVOCATION_PATH), diff)
+        if not quiet:
+            console.print(diff_output)
 
 
 if __name__ == "__main__":
