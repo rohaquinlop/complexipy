@@ -43,7 +43,7 @@ class TestFiles:
         path = self.local_path / "src"
         files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
         total_complexity = sum([file.complexity for file in files])
-        assert 63 == total_complexity
+        assert 64 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -79,7 +79,7 @@ class TestFiles:
         path = self.local_path / "src/test_for_assign.py"
         files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
         total_complexity = sum([file.complexity for file in files])
-        assert 1 == total_complexity
+        assert 2 == total_complexity
 
     def test_if(self):
         path = self.local_path / "src/test_if.py"
@@ -186,7 +186,7 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        assert 63 == total_complexity
+        assert 64 == total_complexity
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -196,7 +196,7 @@ def hello_world(s: str) -> str:
             ["exclude_dir/test_exclude1.py"],
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 60 == total_complexity
+        assert 61 == total_complexity
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
@@ -206,7 +206,7 @@ def hello_world(s: str) -> str:
             ["exclude_dir"],
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 57 == total_complexity
+        assert 58 == total_complexity
 
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
