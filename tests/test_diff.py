@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from typing import List
 from unittest.mock import patch
 
 import pytest
 
-from complexipy import code_complexity
+from complexipy._complexipy import main as _main
 from complexipy.utils.diff import (
     DiffEntry,
     _STATUS_IMPROVED,
@@ -44,16 +46,22 @@ def complex_func(data):
 
 
 def _make_file_complexity(code: str, path: str = "src/example.py"):
-    """Return a FileComplexity built from the given code snippet."""
-    from complexipy._complexipy import FileComplexity
+    """Return a FileComplexity built from the given code snippet.
 
-    result = code_complexity(code)
-    return FileComplexity(
-        path=path,
-        file_name=path.split("/")[-1],
-        complexity=result.complexity,
-        functions=result.functions,
-    )
+    The temp file is named after the basename of *path* so that
+    ``FileComplexity.file_name`` reflects the desired name.
+    """
+    basename = os.path.basename(path)
+    tmp_dir = tempfile.mkdtemp()
+    tmp_path = os.path.join(tmp_dir, basename)
+    try:
+        with open(tmp_path, "w") as f:
+            f.write(code)
+        files, _ = _main([tmp_path], False, [])
+    finally:
+        os.unlink(tmp_path)
+        os.rmdir(tmp_dir)
+    return files[0]
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +190,9 @@ class TestComputeDiff:
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff([f1, f2], "HEAD~1", "/repo")
 
-        file_paths = {e.file_path for e in entries}
-        assert "a.py" in file_paths
-        assert "b.py" in file_paths
+        file_names = {os.path.basename(e.file_path) for e in entries}
+        assert "a.py" in file_names
+        assert "b.py" in file_names
 
     def test_git_error_skips_file(self):
         current = [self._file(_SIMPLE)]
