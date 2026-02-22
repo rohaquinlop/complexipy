@@ -168,7 +168,7 @@ def build_output_rows(
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[dict[str, str | int | bool]] = []
+        displayable_functions: List[dict[str, str | int | bool | Tuple[str, str]]] = []
 
         for function in sorted_functions:
             total_functions += 1
