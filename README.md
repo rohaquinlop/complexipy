@@ -191,6 +191,7 @@ output-json = false
 | `--version` | Show installed complexipy version and exit | - |
 | `--output-json` | Save results as JSON | `false` |
 | `--output-csv` | Save results as CSV | `false` |
+| `--diff <ref>` | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`) | — |
 
 Example:
 
@@ -223,6 +224,35 @@ The snapshot file only stores functions whose complexity exceeds the configured 
 - pass (and update the snapshot) when everything is stable or improved, automatically removing entries that now meet the standard.
 
 Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for example during a refactor or while regenerating the baseline).
+
+### Complexity Diff
+
+Compare complexity against any git reference to see at a glance whether a branch or commit made things better or worse:
+
+```bash
+# Compare the working tree against the previous commit
+complexipy . --diff HEAD~1
+
+# Compare against a named branch
+complexipy . --diff main
+
+# Combine with other flags
+complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
+```
+
+Sample output:
+
+```
+Complexity diff  (vs HEAD~1)
+────────────────────────────────────────────────────────────────────────
+  REGRESSED   src/api.py::handle_request                        12 → 19  (+7)
+  IMPROVED    src/utils.py::flatten_tree                        22 → 14  (-8)
+  NEW         src/auth.py::validate_token                       17        (new)
+────────────────────────────────────────────────────────────────────────
+Net: 1 regressed, 1 improved, 1 new
+```
+
+The diff is appended after the normal analysis output and does not affect the exit code.  Requires `git` to be available and the analysed paths to be inside a git repository.
 
 ### Inline Ignores
 

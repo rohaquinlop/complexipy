@@ -17,7 +17,6 @@ keywords = [
     "testing",
     "libraries",
     "performance",
-    "sonar",
 ]
 requires-python = ">=3.8"
 classifiers = [
