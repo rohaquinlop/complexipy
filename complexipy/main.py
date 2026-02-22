@@ -151,7 +151,7 @@ def main(
         "-sr",
         help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
-    version: bool = typer.Option(  # type: ignore[assignment]
+    version: bool = typer.Option(
         False,
         "--version",
         help="Show the complexipy version and exit.",

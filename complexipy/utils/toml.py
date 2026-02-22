@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
     Tuple,
+    cast,
     overload,
 )
 
@@ -19,10 +21,10 @@ from complexipy.types import (
     TOMLTypes,
 )
 
-try:
-    import tomli as toml_library
-except ImportError:
+if sys.version_info >= (3, 11):
     import tomllib as toml_library
+else:
+    import tomli as toml_library
 
 
 @overload
@@ -203,15 +205,18 @@ def get_arguments_value(
     max_complexity_allowed = get_argument_value(
         toml_config, "max-complexity-allowed", max_complexity_allowed, 15
     )
-    snapshot_create = get_argument_value(
-        toml_config, "snapshot-create", snapshot_create, False
+    snapshot_create = cast(
+        bool,
+        get_argument_value(toml_config, "snapshot-create", snapshot_create, False),
     )
-    snapshot_ignore = get_argument_value(
-        toml_config, "snapshot-ignore", snapshot_ignore, False
+    snapshot_ignore = cast(
+        bool,
+        get_argument_value(toml_config, "snapshot-ignore", snapshot_ignore, False),
     )
-    quiet = get_argument_value(toml_config, "quiet", quiet, False)
-    ignore_complexity = get_argument_value(
-        toml_config, "ignore-complexity", ignore_complexity, False
+    quiet = cast(bool, get_argument_value(toml_config, "quiet", quiet, False))
+    ignore_complexity = cast(
+        bool,
+        get_argument_value(toml_config, "ignore-complexity", ignore_complexity, False),
     )
     if (
         failed is None
@@ -221,17 +226,20 @@ def get_arguments_value(
         legacy_details = toml_config.get("details")
         if legacy_details is not None:
             failed = str(legacy_details).lower() == "low"
-    failed = get_argument_value(toml_config, "failed", failed, False)
+    failed = cast(bool, get_argument_value(toml_config, "failed", failed, False))
     color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
-    output_csv = get_argument_value(
-        toml_config, "output-csv", output_csv, False
+    output_csv = cast(
+        bool,
+        get_argument_value(toml_config, "output-csv", output_csv, False),
     )
-    output_json = get_argument_value(
-        toml_config, "output-json", output_json, False
+    output_json = cast(
+        bool,
+        get_argument_value(toml_config, "output-json", output_json, False),
     )
-    output_sarif = get_argument_value(
-        toml_config, "output-sarif", output_sarif, False
+    output_sarif = cast(
+        bool,
+        get_argument_value(toml_config, "output-sarif", output_sarif, False),
     )
     exclude = get_argument_value(toml_config, "exclude", exclude, [])
 

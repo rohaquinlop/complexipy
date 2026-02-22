@@ -1,9 +1,10 @@
+import sys
 from enum import Enum
-from typing import List, Mapping, TypeVar
+from typing import List, MutableMapping, TypeVar
 
-try:
+if sys.version_info >= (3, 10):
     from typing import TypeAlias
-except ImportError:
+else:
     from typing_extensions import TypeAlias
 
 
@@ -28,6 +29,6 @@ TOMLTypes = TypeVar(
     Sort,
 )
 
-TOMLType: TypeAlias = Mapping[str, TOMLTypes]
-TOMLConfig: TypeAlias = Mapping[str, TOMLTypes]
-TOMLBase = Mapping[str, TOMLConfig]
+TOMLType: TypeAlias = MutableMapping[str, TOMLTypes]
+TOMLConfig: TypeAlias = MutableMapping[str, TOMLTypes]
+TOMLBase = MutableMapping[str, TOMLConfig]

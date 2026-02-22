@@ -140,6 +140,22 @@ jobs:
                   name: wheels-sdist
                   path: dist
 
+    lint:
+        name: Lint and Type Check
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+            - name: Install uv
+              uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+              with:
+                  python-version: "3.13"
+            - name: Install dev dependencies
+              run: uv sync --group dev --no-install-project --frozen
+            - name: Run ruff
+              run: uv run ruff check complexipy
+            - name: Run ty
+              run: uv run ty check complexipy
+
     unit-tests-linux:
         name: Unit Tests
         runs-on: ${{ matrix.platform.runner }}
