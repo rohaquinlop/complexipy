@@ -31,6 +31,7 @@ from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
 from .utils.diff import compute_diff, format_diff
 from .utils.json import store_json
+from .utils.sarif import store_sarif
 from .utils.output import (
     has_success_functions,
     output_summary,
@@ -144,6 +145,12 @@ def main(
             "inside a git repository."
         ),
     ),
+    output_sarif: Optional[bool] = typer.Option(
+        None,
+        "--output-sarif",
+        "-sr",
+        help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
+    ),
     version: bool = typer.Option(  # type: ignore[assignment]
         False,
         "--version",
@@ -166,6 +173,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        output_sarif,
         exclude,
     ) = get_arguments_value(
         TOML_CONFIG,
@@ -180,6 +188,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        output_sarif,
         exclude,
     )
 
@@ -193,6 +202,9 @@ def main(
     output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
     output_json_path = (
         f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
+    )
+    output_sarif_path = (
+        f"{INVOCATION_PATH}/complexipy_results_{current_time}.sarif"
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
@@ -223,6 +235,8 @@ def main(
         output_csv_path,
         output_json,
         output_json_path,
+        output_sarif,
+        output_sarif_path,
         files_complexities,
         sort.value,
         not failed,
@@ -300,6 +314,8 @@ def handle_results_storage(
     output_csv_path: str,
     output_json: bool,
     output_json_path: str,
+    output_sarif: bool,
+    output_sarif_path: str,
     files_complexities: List[FileComplexity],
     sort: str,
     show_details: bool,
@@ -325,6 +341,14 @@ def handle_results_storage(
             max_complexity,
         )
         console.print(f"Results saved at {output_json_path}")
+
+    if output_sarif:
+        store_sarif(
+            output_sarif_path,
+            files_complexities,
+            max_complexity,
+        )
+        console.print(f"Results saved at {output_sarif_path}")
 
 
 def handle_snapshot(
