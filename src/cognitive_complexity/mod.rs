@@ -13,6 +13,7 @@ use shared_deps::*;
 #[cfg(feature = "python")]
 mod python_deps {
     pub use super::utils::get_repo_name;
+    pub use globset::{Glob, GlobMatcher};
     pub use ignore::Walk;
     pub use indicatif::ProgressBar;
     pub use indicatif::ProgressStyle;
@@ -189,9 +190,19 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
         Ok(p) => p,
         Err(_) => path::PathBuf::from(path),
     };
+    let root_canon_str = root_canon.to_string_lossy().replace('\\', "/");
 
     let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
+    let mut glob_matchers: Vec<GlobMatcher> = Vec::new();
     for raw in exclude.iter() {
+        // If the pattern contains glob metacharacters, compile as a glob
+        if raw.contains('*') || raw.contains('?') || raw.contains('[') {
+            if let Ok(glob) = Glob::new(raw) {
+                glob_matchers.push(glob.compile_matcher());
+            }
+            continue;
+        }
+
         let p = path::Path::new(raw);
         let candidate = if p.is_absolute() {
             p.to_path_buf()
@@ -239,6 +250,11 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
         };
         let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
 
+        // Compute path relative to root for glob matching
+        let relative_path = file_abs_str
+            .strip_prefix(&format!("{}/", root_canon_str))
+            .unwrap_or(&file_abs_str);
+
         let is_excluded = exclude_specs.iter().any(|spec| {
             if spec.is_dir {
                 // Directory prefix match
@@ -247,7 +263,9 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
                 // Exact file match
                 file_abs_str == spec.abs
             }
-        });
+        }) || glob_matchers
+            .iter()
+            .any(|m| m.is_match(relative_path) || m.is_match(&file_abs_str));
 
         if !is_excluded && let Some(file_path_str) = entry_path.to_str() {
             files_paths.push(file_path_str.to_string());
