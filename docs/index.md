@@ -226,16 +226,18 @@ Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for
 
 ### Inline Ignores
 
-You can explicitly ignore a known complex function inline, similar to Ruff's `C901` ignores:
+You can explicitly ignore a known complex function inline using `# complexipy: ignore`:
 
 ```python
-def legacy_adapter(x, y):  # noqa: complexipy (safe wrapper)
+def legacy_adapter(x, y):  # complexipy: ignore (safe wrapper)
     if x and y:
         return x + y
     return 0
 ```
 
-Place `# noqa: complexipy` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
+Place `# complexipy: ignore` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses, it’s ignored by the parser.
+
+> **Note:** The `# noqa: complexipy` syntax is deprecated. Tools like [yesqa](https://github.com/asottile/yesqa) strip unrecognized `# noqa` comments, which would silently remove your suppressions. Migrate to `# complexipy: ignore` to avoid this issue.
 
 ## API Reference
 

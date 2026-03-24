@@ -418,7 +418,9 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
 
     let contains_marker = |s: &str| -> bool {
         let lower = s.to_lowercase();
-        lower.contains("noqa: complexipy")
+        // New preferred syntax: # complexipy: ignore
+        // Deprecated syntax: # noqa: complexipy (kept for backwards compatibility)
+        lower.contains("complexipy: ignore") || lower.contains("noqa: complexipy")
     };
 
     if idx < lines.len() && contains_marker(lines[idx]) {
