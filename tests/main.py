@@ -208,6 +208,39 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         assert 58 == total_complexity
 
+    def test_exclude_glob_single_file(self):
+        path = self.local_path / "src"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()],
+            False,
+            ["**/test_exclude1.py"],
+        )
+        total_complexity = sum([file.complexity for file in files])
+        # **/test_exclude1.py should match exclude_dir/test_exclude1.py (complexity 3)
+        assert 61 == total_complexity
+
+    def test_exclude_glob_directory(self):
+        path = self.local_path / "src"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()],
+            False,
+            ["**/exclude_dir/**"],
+        )
+        total_complexity = sum([file.complexity for file in files])
+        # **/exclude_dir/** should match all files under exclude_dir (complexity 6 total)
+        assert 58 == total_complexity
+
+    def test_exclude_glob_wildcard(self):
+        path = self.local_path / "src"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()],
+            False,
+            ["**/test_exclude*.py"],
+        )
+        total_complexity = sum([file.complexity for file in files])
+        # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
+        assert 58 == total_complexity
+
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
     ):
