@@ -402,25 +402,33 @@ Use this when:
 
 ## Inline Ignores
 
-Suppress complexity warnings for specific functions:
+Suppress complexity warnings for specific functions using the `# complexipy: ignore` comment:
 
 ```python
-def complex_legacy_function():  # noqa: complexipy
+def complex_legacy_function():  # complexipy: ignore
     # Complex logic that can't be refactored yet
     pass
 
 # Or with a reason
-def another_complex_function():  # noqa: complexipy (technical debt: issue #123)
+def another_complex_function():  # complexipy: ignore (technical debt: issue #123)
     pass
 ```
 
-The ignore comment can also be on the line above:
+The ignore comment can also be placed on the line above the function definition:
 
 ```python
-# noqa: complexipy
+# complexipy: ignore
 def complex_function():
     pass
 ```
+
+!!! note "Deprecated Syntax"
+    The `# noqa: complexipy` syntax is deprecated and will be removed in a future version.
+    Please migrate to `# complexipy: ignore` instead.
+
+    **Why?** Tools like [yesqa](https://github.com/asottile/yesqa) automatically strip `# noqa`
+    comments that aren't recognized by flake8, which would silently remove your complexipy
+    suppressions. The new syntax avoids this conflict entirely.
 
 !!! warning "Use Sparingly"
     Inline ignores should be temporary. Document why the complexity is necessary and track technical debt.
