@@ -1,0 +1,111 @@
+site_name: complexipy
+site_description: Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.
+site_url: https://rohaquinlop.github.io/complexipy/
+repo_name: rohaquinlop/complexipy
+repo_url: https://github.com/rohaquinlop/complexipy
+edit_uri: edit/main/docs/es/
+docs_dir: docs/es
+site_dir: site-es
+
+# Estructura de navegación
+nav:
+  - Inicio: index.md
+  - Primeros Pasos:
+    - Guía de Uso: usage-guide.md
+  - Entendiendo la Complejidad:
+    - Qué Significan las Puntuaciones: understanding-scores.md
+    - Comparación con Ruff: comparison-with-ruff.md
+  - Acerca de:
+    - Acerca de complexipy: about.md
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+  language: es
+  palette:
+    # Modo claro
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
+    # Modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+  icon:
+    repo: fontawesome/brands/github-alt
+    edit: material/pencil
+    view: material/eye
+  logo: img/complexipy_icon.svg
+  favicon: img/complexipy_icon.svg
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+# Configuración adicional
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/rohaquinlop
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/robin-hafid-quintero-lopez/
+  consent:
+    title: Consentimiento de cookies
+    description: >-
+      Utilizamos cookies para reconocer tus visitas y preferencias repetidas, así
+      como para medir la efectividad de nuestra documentación y si los usuarios
+      encuentran lo que están buscando. Con tu consentimiento, nos ayudas a
+      mejorar nuestra documentación.
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - footnotes
+  - pymdownx.mark
+  - attr_list
+  - pymdownx.extra
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+copyright: Copyright &copy; 2021-2025 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
