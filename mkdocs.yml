@@ -64,6 +64,13 @@ plugins:
 
 # Extra configuration
 extra:
+  alternate:
+    - name: English
+      link: /complexipy/
+      lang: en
+    - name: Español
+      link: /complexipy/es/
+      lang: es
   social:
     - icon: fontawesome/brands/github-alt
       link: https://github.com/rohaquinlop

@@ -1,11 +1,11 @@
 site_name: complexipy
 site_description: Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.
-site_url: https://rohaquinlop.github.io/complexipy/
+site_url: https://rohaquinlop.github.io/complexipy/es/
 repo_name: rohaquinlop/complexipy
 repo_url: https://github.com/rohaquinlop/complexipy
 edit_uri: edit/main/docs/es/
 docs_dir: docs/es
-site_dir: site-es
+site_dir: site/es
 
 # Estructura de navegación
 nav:
@@ -66,6 +66,13 @@ plugins:
 
 # Configuración adicional
 extra:
+  alternate:
+    - name: English
+      link: /complexipy/
+      lang: en
+    - name: Español
+      link: /complexipy/es/
+      lang: es
   social:
     - icon: fontawesome/brands/github-alt
       link: https://github.com/rohaquinlop
