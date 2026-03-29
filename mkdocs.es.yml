@@ -1,20 +1,22 @@
 site_name: complexipy
-site_description: Blazingly fast cognitive complexity analysis for Python, written in Rust.
-site_url: https://rohaquinlop.github.io/complexipy/
+site_description: Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.
+site_url: https://rohaquinlop.github.io/complexipy/es/
 repo_name: rohaquinlop/complexipy
 repo_url: https://github.com/rohaquinlop/complexipy
-edit_uri: edit/main/docs/
+edit_uri: edit/main/docs/es/
+docs_dir: docs/es
+site_dir: site/es
 
-# Navigation structure
+# Estructura de navegación
 nav:
-  - Home: index.md
-  - Getting Started:
-    - Usage Guide: usage-guide.md
-  - Understanding Complexity:
-    - What Scores Mean: understanding-scores.md
-    - Comparison with Ruff: comparison-with-ruff.md
-  - About:
-    - About complexipy: about.md
+  - Inicio: index.md
+  - Primeros Pasos:
+    - Guía de Uso: usage-guide.md
+  - Entendiendo la Complejidad:
+    - Qué Significan las Puntuaciones: understanding-scores.md
+    - Comparación con Ruff: comparison-with-ruff.md
+  - Acerca de:
+    - Acerca de complexipy: about.md
 
 theme:
   name: material
@@ -32,24 +34,24 @@ theme:
     - content.tooltips
     - content.action.edit
     - content.action.view
-  language: en
+  language: es
   palette:
-    # Light mode
+    # Modo claro
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: purple
       accent: indigo
       toggle:
         icon: material/brightness-7
-        name: Switch to dark mode
-    # Dark mode
+        name: Cambiar a modo oscuro
+    # Modo oscuro
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: purple
       accent: indigo
       toggle:
         icon: material/brightness-4
-        name: Switch to light mode
+        name: Cambiar a modo claro
   icon:
     repo: fontawesome/brands/github-alt
     edit: material/pencil
@@ -62,7 +64,7 @@ plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
 
-# Extra configuration
+# Configuración adicional
 extra:
   alternate:
     - name: English
@@ -77,12 +79,12 @@ extra:
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/robin-hafid-quintero-lopez/
   consent:
-    title: Cookie consent
+    title: Consentimiento de cookies
     description: >-
-      We use cookies to recognize your repeated visits and preferences, as well
-      as to measure the effectiveness of our documentation and whether users
-      find what they're searching for. With your consent, you're helping us to
-      make our documentation better.
+      Utilizamos cookies para reconocer tus visitas y preferencias repetidas, así
+      como para medir la efectividad de nuestra documentación y si los usuarios
+      encuentran lo que están buscando. Con tu consentimiento, nos ayudas a
+      mejorar nuestra documentación.
 
 markdown_extensions:
   - pymdownx.highlight:

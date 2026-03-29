@@ -25,4 +25,6 @@ jobs:
           with:
             key: ${{ github.ref }}
             path: .cache
-        - run: uv run mkdocs gh-deploy --force
+        - run: uv run mkdocs build
+        - run: uv run mkdocs build -f mkdocs.es.yml
+        - run: uv run ghp-import -n -p -f site
