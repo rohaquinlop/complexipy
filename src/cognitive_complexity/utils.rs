@@ -132,6 +132,12 @@ pub fn output_json(
             invocation_path, e
         ))
     })?;
+    file.write_all(b"\n").map_err(|e| {
+        PyIOError::new_err(format!(
+            "Failed to write JSON to {}: {}",
+            invocation_path, e
+        ))
+    })?;
 
     Ok(())
 }
