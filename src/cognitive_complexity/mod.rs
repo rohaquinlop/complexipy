@@ -53,7 +53,6 @@ pub fn main(
         let exists = path_obj.exists();
         let is_dir = path_obj.is_dir();
 
-        // Treat missing local paths as a user error without panicking.
         if !exists && !is_url {
             failed_paths.push(path.to_string());
             continue;
@@ -176,12 +175,8 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
         .and_then(|p| p.to_str())
         .unwrap_or(".");
 
-    // Build path-aware exclude specs, relative to the provided root `path`.
-    // Only exclude if the exclude entry resolves to an existing directory (prefix match)
-    // or file (exact match) under the root. Otherwise, ignore the entry.
     #[derive(Clone)]
     struct ExcludeSpec {
-        // canonical, normalized absolute path
         abs: String,
         is_dir: bool,
     }
@@ -195,7 +190,6 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
     let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
     let mut glob_matchers: Vec<GlobMatcher> = Vec::new();
     for raw in exclude.iter() {
-        // If the pattern contains glob metacharacters, compile as a glob
         if raw.contains('*') || raw.contains('?') || raw.contains('[') {
             if let Ok(glob) = Glob::new(raw) {
                 glob_matchers.push(glob.compile_matcher());
@@ -210,7 +204,6 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             root_canon.join(p)
         };
 
-        // Resolve to canonical if possible
         let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
             Ok(canon) => {
                 let is_dir = canon.is_dir();
@@ -227,8 +220,6 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
                 is_dir,
             });
         }
-
-        // If it doesn't exist under the root, ignore the exclude entry
     }
 
     // Get all the python files in the directory
@@ -243,24 +234,20 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             continue;
         }
 
-        // Determine if this file should be excluded using path-aware specs
         let file_abs = match entry_path.canonicalize() {
             Ok(p) => p,
             Err(_) => entry_path.to_path_buf(),
         };
         let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
 
-        // Compute path relative to root for glob matching
         let relative_path = file_abs_str
             .strip_prefix(&format!("{}/", root_canon_str))
             .unwrap_or(&file_abs_str);
 
         let is_excluded = exclude_specs.iter().any(|spec| {
             if spec.is_dir {
-                // Directory prefix match
                 file_abs_str.starts_with(&spec.abs)
             } else {
-                // Exact file match
                 file_abs_str == spec.abs
             }
         }) || glob_matchers
@@ -329,7 +316,6 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
     (complexities, failed_paths)
 }
 
-/// Calculate the cognitive complexity of a python file.
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
@@ -364,7 +350,6 @@ pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplex
     })
 }
 
-/// Calculate the cognitive complexity of a string of python code.
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {

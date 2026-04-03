@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
-// Line complexity struct
 pub struct LineComplexity {
     pub line: u64,
     pub complexity: u64,
@@ -21,7 +20,6 @@ pub struct LineComplexity {
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
-// Basic function complexity structure used by both Python and WASM
 pub struct FunctionComplexity {
     pub name: String,
     pub complexity: u64,
