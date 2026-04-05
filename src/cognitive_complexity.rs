@@ -1,9 +1,7 @@
-pub mod utils;
-
 #[cfg(any(feature = "python", feature = "wasm"))]
 mod shared_deps {
-    pub use super::utils::{count_bool_ops, get_line_number, has_noqa_complexipy, is_decorator};
     pub use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
+    pub use crate::utils::{count_bool_ops, get_line_number, has_noqa_complexipy, is_decorator};
     pub use ruff_python_ast::{self as ast, Stmt};
 }
 
@@ -12,7 +10,7 @@ use shared_deps::*;
 
 #[cfg(feature = "python")]
 mod python_deps {
-    pub use super::utils::get_repo_name;
+    pub use crate::utils::get_repo_name;
     pub use globset::{Glob, GlobMatcher};
     pub use ignore::Walk;
     pub use indicatif::ProgressBar;

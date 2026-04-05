@@ -1,5 +1,6 @@
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+
 #[cfg(any(feature = "python", feature = "wasm"))]
 use serde::{Deserialize, Serialize};
 
