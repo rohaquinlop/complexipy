@@ -207,16 +207,22 @@ def get_arguments_value(
     )
     snapshot_create = cast(
         bool,
-        get_argument_value(toml_config, "snapshot-create", snapshot_create, False),
+        get_argument_value(
+            toml_config, "snapshot-create", snapshot_create, False
+        ),
     )
     snapshot_ignore = cast(
         bool,
-        get_argument_value(toml_config, "snapshot-ignore", snapshot_ignore, False),
+        get_argument_value(
+            toml_config, "snapshot-ignore", snapshot_ignore, False
+        ),
     )
     quiet = cast(bool, get_argument_value(toml_config, "quiet", quiet, False))
     ignore_complexity = cast(
         bool,
-        get_argument_value(toml_config, "ignore-complexity", ignore_complexity, False),
+        get_argument_value(
+            toml_config, "ignore-complexity", ignore_complexity, False
+        ),
     )
     if (
         failed is None
@@ -226,7 +232,9 @@ def get_arguments_value(
         legacy_details = toml_config.get("details")
         if legacy_details is not None:
             failed = str(legacy_details).lower() == "low"
-    failed = cast(bool, get_argument_value(toml_config, "failed", failed, False))
+    failed = cast(
+        bool, get_argument_value(toml_config, "failed", failed, False)
+    )
     color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
     sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
     output_csv = cast(

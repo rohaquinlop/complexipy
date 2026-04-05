@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import List
 from unittest.mock import patch
-
-import pytest
 
 from complexipy._complexipy import main as _main
 from complexipy.utils.diff import (
-    DiffEntry,
     _STATUS_IMPROVED,
     _STATUS_NEW,
     _STATUS_REGRESSED,
     _STATUS_REMOVED,
     _STATUS_UNCHANGED,
+    DiffEntry,
     compute_diff,
     format_diff,
 )
@@ -156,9 +153,7 @@ class TestComputeDiff:
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff(current, "HEAD~1", "/repo")
 
-        simple_entry = next(
-            (e for e in entries if e.func_name == "simple"), None
-        )
+        simple_entry = next((e for e in entries if e.func_name == "simple"), None)
         # simple didn't exist in old (complex) version → appears as new
         assert simple_entry is not None
         assert simple_entry.status == _STATUS_NEW
@@ -172,9 +167,7 @@ class TestComputeDiff:
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff(current, "HEAD~1", "/repo")
 
-        removed = next(
-            (e for e in entries if e.func_name == "with_if"), None
-        )
+        removed = next((e for e in entries if e.func_name == "with_if"), None)
         assert removed is not None
         assert removed.status == _STATUS_REMOVED
 
@@ -186,7 +179,8 @@ class TestComputeDiff:
             return _SIMPLE  # both files look simple in the old version
 
         with patch(
-            "complexipy.utils.diff._file_content_at_ref", side_effect=_mock_content
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=_mock_content,
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff([f1, f2], "HEAD~1", "/repo")
 
@@ -198,7 +192,8 @@ class TestComputeDiff:
         current = [self._file(_SIMPLE)]
         # Simulate unparseable old content
         with patch(
-            "complexipy.utils.diff._file_content_at_ref", return_value="not python!!!"
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value="not python!!!",
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             # Should not raise
             entries = compute_diff(current, "HEAD~1", "/repo")

@@ -1,6 +1,6 @@
 def test_try():
-    a = None
-    b = None
+    a = 0
+    b = 0
     try:
         a += 1
         b += 1

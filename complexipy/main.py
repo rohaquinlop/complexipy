@@ -31,12 +31,12 @@ from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
 from .utils.diff import compute_diff, format_diff
 from .utils.json import store_json
-from .utils.sarif import store_sarif
 from .utils.output import (
     has_success_functions,
     output_summary,
     print_invalid_paths,
 )
+from .utils.sarif import store_sarif
 from .utils.snapshot import (
     build_snapshot_map,
     handle_snapshot_file_creation,
@@ -219,7 +219,9 @@ def main(
     snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
     should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
     active_snapshot_map = (
-        build_snapshot_map(snapshot_files) if should_run_snapshot_watermark else None
+        build_snapshot_map(snapshot_files)
+        if should_run_snapshot_watermark
+        else None
     )
     watermark_success, watermark_messages = handle_snapshot_watermark(
         should_run_snapshot_watermark,
@@ -382,7 +384,9 @@ def handle_diff_output(
 ) -> None:
     global console
     if diff and files_complexities:
-        diff_output = format_diff(compute_diff(files_complexities, diff, INVOCATION_PATH), diff)
+        diff_output = format_diff(
+            compute_diff(files_complexities, diff, INVOCATION_PATH), diff
+        )
         if not quiet:
             console.print(diff_output)
 

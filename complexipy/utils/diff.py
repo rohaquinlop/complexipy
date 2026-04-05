@@ -59,7 +59,9 @@ def _git_root(cwd: str) -> Optional[str]:
     return None
 
 
-def _file_content_at_ref(git_ref: str, path_from_root: str, cwd: str) -> Optional[str]:
+def _file_content_at_ref(
+    git_ref: str, path_from_root: str, cwd: str
+) -> Optional[str]:
     """Return the file content at *git_ref*, or None if unavailable."""
     try:
         result = subprocess.run(
@@ -111,7 +113,9 @@ def compute_diff(
             # relpath fails across drives on Windows – fall back to file.path
             path_from_root = file.path
 
-        old_content = _file_content_at_ref(git_ref, path_from_root, invocation_path)
+        old_content = _file_content_at_ref(
+            git_ref, path_from_root, invocation_path
+        )
         current_map = _build_func_map(file)
 
         if old_content is None:
@@ -125,7 +129,9 @@ def compute_diff(
         except Exception:
             continue
 
-        old_map: Dict[str, int] = {f.name: f.complexity for f in old_result.functions}
+        old_map: Dict[str, int] = {
+            f.name: f.complexity for f in old_result.functions
+        }
         all_names = sorted(set(old_map) | set(current_map))
 
         for name in all_names:
@@ -178,8 +184,10 @@ def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
         return f"No functions changed relative to {git_ref}.\n"
 
     changed = [
-        e for e in entries
-        if e.status in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
+        e
+        for e in entries
+        if e.status
+        in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
     ]
 
     sep = "─" * 72

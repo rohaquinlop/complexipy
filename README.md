@@ -26,6 +26,7 @@
 Unlike traditional metrics like cyclomatic complexity, cognitive complexity accounts for nesting depth and control flow patterns that affect human comprehension. Inspired by [G. Ann Campbell's research](https://www.sonarsource.com/resources/cognitive-complexity/) at SonarSource, complexipy provides a fast, accurate implementation for Python.
 
 **Key benefits:**
+
 - **Human-focused** - Penalizes nesting, flow breaks, and human-unfriendly logic
 - **Actionable insights** - Identifies genuinely hard-to-maintain code
 - **Different from cyclomatic** - Measures readability while cyclomatic measures structural, testing, and branch density
@@ -103,9 +104,9 @@ print(f"Complexity: {result.complexity}")
 ```yaml
 - uses: rohaquinlop/complexipy-action@v2
   with:
-    paths: .
-    max_complexity_allowed: 10
-    output_json: true
+      paths: .
+      max_complexity_allowed: 10
+      output_json: true
 ```
 
 </details>
@@ -122,7 +123,7 @@ Upload complexity violations as inline PR annotations using SARIF:
 - name: Upload SARIF results
   uses: github/codeql-action/upload-sarif@v3
   with:
-    sarif_file: complexipy_results_*.sarif
+      sarif_file: complexipy_results_*.sarif
 ```
 
 </details>
@@ -132,10 +133,10 @@ Upload complexity violations as inline PR annotations using SARIF:
 
 ```yaml
 repos:
-- repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v4.2.0
-  hooks:
-    - id: complexipy
+    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+      rev: v4.2.0
+      hooks:
+          - id: complexipy
 ```
 
 </details>
@@ -196,22 +197,22 @@ output-sarif = false
 
 ### CLI Options
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
-| `--max-complexity-allowed` | Complexity threshold | `15` |
-| `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
-| `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
-| `--failed` | Show only functions above the complexity threshold | `false` |
-| `--color <auto\|yes\|no>` | Use color | `auto` |
-| `--sort <asc\|desc\|name>` | Sort results | `asc` |
-| `--quiet` | Suppress output | `false` |
-| `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
-| `--version` | Show installed complexipy version and exit | - |
-| `--output-json` | Save results as JSON | `false` |
-| `--output-csv` | Save results as CSV | `false` |
-| `--diff <ref>` | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`) | — |
-| `--output-sarif` | Save results as SARIF 2.1.0 (for GitHub Code Scanning and other SARIF-aware tools) | `false` |
+| Flag                       | Description                                                                                                                                                      | Default |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--exclude`                | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--max-complexity-allowed` | Complexity threshold                                                                                                                                             | `15`    |
+| `--snapshot-create`        | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
+| `--snapshot-ignore`        | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
+| `--failed`                 | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--color <auto\|yes\|no>`  | Use color                                                                                                                                                        | `auto`  |
+| `--sort <asc\|desc\|name>` | Sort results                                                                                                                                                     | `asc`   |
+| `--quiet`                  | Suppress output                                                                                                                                                  | `false` |
+| `--ignore-complexity`      | Don't exit with error on threshold breach                                                                                                                        | `false` |
+| `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
+| `--output-json`            | Save results as JSON                                                                                                                                             | `false` |
+| `--output-csv`             | Save results as CSV                                                                                                                                              | `false` |
+| `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--output-sarif`           | Save results as SARIF 2.1.0 (for GitHub Code Scanning and other SARIF-aware tools)                                                                               | `false` |
 
 Example:
 
@@ -272,20 +273,20 @@ Complexity diff  (vs HEAD~1)
 Net: 1 regressed, 1 improved, 1 new
 ```
 
-The diff is appended after the normal analysis output and does not affect the exit code.  Requires `git` to be available and the analysed paths to be inside a git repository.
+The diff is appended after the normal analysis output and does not affect the exit code. Requires `git` to be available and the analysed paths to be inside a git repository.
 
 ### Inline Ignores
 
 You can explicitly ignore a known complex function inline, similar to Ruff's `C901` ignores:
 
 ```python
-def legacy_adapter(x, y):  # noqa: complexipy (safe wrapper)
+def legacy_adapter(x, y):  # complexipy: ignore
     if x and y:
         return x + y
     return 0
 ```
 
-Place `# noqa: complexipy` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
+Place `# complexipy: ignore` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
 
 ## API Reference
 

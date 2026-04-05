@@ -254,9 +254,7 @@ def hello_world(s: str) -> str:
         # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
         assert 58 == total_complexity
 
-    def test_snapshot_watermark_passes_and_updates_snapshot(
-        self, tmp_path: Path
-    ):
+    def test_snapshot_watermark_passes_and_updates_snapshot(self, tmp_path: Path):
         source_file = tmp_path / self.tracked_path
         source_file.write_text(
             *self.tracked_function_body,
@@ -305,10 +303,7 @@ def hello_world(s: str) -> str:
     def test_snapshot_watermark_detects_regressions(self, tmp_path: Path):
         tracked_file = tmp_path / self.tracked_path
         tracked_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        return value\n"
-            "    return 0\n",
+            "def tracked(value):\n    if value:\n        return value\n    return 0\n",
             encoding="utf-8",
         )
 
@@ -339,18 +334,12 @@ def hello_world(s: str) -> str:
         assert any("tracked.py:tracked" in message for message in messages)
 
         tracked_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        return value\n"
-            "    return 0\n",
+            "def tracked(value):\n    if value:\n        return value\n    return 0\n",
             encoding="utf-8",
         )
         new_file = tmp_path / "new_file.py"
         new_file.write_text(
-            "def newcomer(value):\n"
-            "    if value:\n"
-            "        return value\n"
-            "    return 0\n",
+            "def newcomer(value):\n    if value:\n        return value\n    return 0\n",
             encoding="utf-8",
         )
         files_with_new, _ = self._analyze_paths([tracked_file, new_file])
@@ -471,13 +460,13 @@ def hello_world(s: str) -> str:
             f"got {result_check.exit_code}.\n"
             f"Output:\n{result_check.output}"
         )
-        # The function should be displayed as PASSED (not FAILED) since it is
-        # grandfathered by the snapshot.
-        assert "PASSED" in result_check.output, (
-            f"Expected 'PASSED' in output.\nOutput:\n{result_check.output}"
+        # The function should be displayed as PASS/PASSED (not FAIL/FAILED)
+        # since it is grandfathered by the snapshot.
+        assert "[PASS] PASSED" in result_check.output, (
+            f"Expected '[PASS] PASSED' in output.\nOutput:\n{result_check.output}"
         )
-        assert "FAILED" not in result_check.output, (
-            f"Expected no 'FAILED' in output.\nOutput:\n{result_check.output}"
+        assert "[FAIL] FAILED" not in result_check.output, (
+            f"Expected no '[FAIL] FAILED' in output.\nOutput:\n{result_check.output}"
         )
 
 
@@ -499,26 +488,19 @@ class TestComprehension:
 
     def test_listcomp_two_for_clauses(self):
         # +1 (comprehension) +1 (second for) = 2
-        snippet = (
-            "def f(matrix):\n"
-            "    return [x for row in matrix for x in row]\n"
-        )
+        snippet = "def f(matrix):\n    return [x for row in matrix for x in row]\n"
         assert 2 == self._complexity(snippet)
 
     def test_listcomp_two_for_clauses_with_if(self):
         # +1 (comprehension) +1 (second for) +1 (if) = 3
         snippet = (
-            "def f(matrix):\n"
-            "    return [x for row in matrix for x in row if x > 0]\n"
+            "def f(matrix):\n    return [x for row in matrix for x in row if x > 0]\n"
         )
         assert 3 == self._complexity(snippet)
 
     def test_nested_listcomp(self):
         # outer at depth 0: +1; inner at depth 1: +1+1=2; total = 3
-        snippet = (
-            "def f(matrix):\n"
-            "    return [[x for x in row] for row in matrix]\n"
-        )
+        snippet = "def f(matrix):\n    return [[x for x in row] for row in matrix]\n"
         assert 3 == self._complexity(snippet)
 
     def test_generator_in_call(self):
@@ -538,18 +520,13 @@ class TestComprehension:
 
     def test_dictcomp_with_if_filter(self):
         # +1 (comprehension) +1 (if) = 2
-        snippet = (
-            "def f(keys):\n"
-            "    return {k: k * 2 for k in keys if k > 0}\n"
-        )
+        snippet = "def f(keys):\n    return {k: k * 2 for k in keys if k > 0}\n"
         assert 2 == self._complexity(snippet)
 
     def test_comprehension_inside_if_block(self):
         # if (nesting 0→1): +1; listcomp inside if body at nesting_level=1: +1+1=2
         # total = 3
         snippet = (
-            "def f(data, items):\n"
-            "    if data:\n"
-            "        return [x for x in items]\n"
+            "def f(data, items):\n    if data:\n        return [x for x in items]\n"
         )
         assert 3 == self._complexity(snippet)

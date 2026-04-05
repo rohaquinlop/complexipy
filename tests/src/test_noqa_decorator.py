@@ -1,5 +1,5 @@
 @staticmethod
-def ignored_decorated_function(a, b):  # noqa: complexipy
+def ignored_decorated_function(a, b):  # complexipy: ignore
     if a and b:
         return a + b
     elif a or b:
