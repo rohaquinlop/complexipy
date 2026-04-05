@@ -1,5 +1,6 @@
 mod classes;
 mod cognitive_complexity;
+mod utils;
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -10,12 +11,8 @@ mod wasm;
 
 #[cfg(feature = "python")]
 use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
-#[cfg(feature = "python")]
-use cognitive_complexity::utils::{
-    create_snapshot_file, load_snapshot_file, output_csv, output_json,
-};
-#[cfg(feature = "python")]
 use cognitive_complexity::{code_complexity, file_complexity, main};
+use utils::{create_snapshot_file, load_snapshot_file, output_csv, output_json};
 
 /// A Python module implemented in Rust.
 #[cfg(feature = "python")]
