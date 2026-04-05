@@ -5,7 +5,7 @@ import os
 import tempfile
 
 from complexipy._complexipy import main as _main
-from complexipy.utils.sarif import store_sarif, _RULE_ID
+from complexipy.utils.sarif import _RULE_ID, store_sarif
 
 # Minimal snippet with one complex and one simple function.
 _SNIPPET = """\
@@ -26,9 +26,7 @@ def complex_func(data):
 
 class TestSarif:
     def _build_file_complexity(self, max_complexity: int = 5):
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
             f.write(_SNIPPET)
             tmp_path = f.name
         try:

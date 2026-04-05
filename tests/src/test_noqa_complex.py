@@ -1,4 +1,6 @@
-def ignored_complex_function(a, b):  # noqa: complexipy (legacy API wrapper; safe to skip)
+def ignored_complex_function(
+    a, b
+):  # complexipy: ignore (legacy API wrapper; safe to skip)
     if a and b:
         return a + b
     elif a or b:

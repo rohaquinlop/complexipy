@@ -1,6 +1,7 @@
 target/
 
 .complexipy_cache
+libcomplexipy.dylib*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

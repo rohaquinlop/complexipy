@@ -65,6 +65,14 @@ sort = "asc"
 output-csv = false
 output-json = false
 
+[tool.ruff]
+exclude = ["tests"]
+line-length = 80
+indent-width = 4
+
+[tool.ty.src]
+exclude = ["tests"]
+
 [project.optional-dependencies]
 dev = [
     "ruff>=0.9.0",

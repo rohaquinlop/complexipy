@@ -34,7 +34,9 @@ def output_summary(
         file_entries,
         failing_functions,
         total_functions,
-    ) = build_output_rows(files, failed_only, sort, max_complexity, snapshot_map)
+    ) = build_output_rows(
+        files, failed_only, sort, max_complexity, snapshot_map
+    )
     has_success = not failing_functions or ignore_complexity
 
     if failed_only and not file_entries:
@@ -75,11 +77,7 @@ def output_file_entries(
             if isinstance(function, str):
                 continue
 
-            status_text = (
-                "[green]PASSED[/green]"
-                if function["passed"]
-                else "[red]FAILED[/red]"
-            )
+            status_text = format_status_text(bool(function["passed"]))
             delta_text = output_delta_text(
                 previous_functions, function, max_complexity
             )
@@ -100,6 +98,12 @@ def output_file_entries(
         console.print(
             "[bold green]All functions are within the allowed complexity.[/bold green]"
         )
+
+
+def format_status_text(passed: bool) -> str:
+    if passed:
+        return "[bold black on green] :white_heavy_check_mark: PASSED [/bold black on green]"
+    return "[bold white on red] :cross_mark: FAILED [/bold white on red]"
 
 
 def output_delta_text(
@@ -168,12 +172,18 @@ def build_output_rows(
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[dict[str, str | int | bool | Tuple[str, str]]] = []
+        displayable_functions: List[
+            dict[str, str | int | bool | Tuple[str, str]]
+        ] = []
 
         for function in sorted_functions:
             total_functions += 1
             passed = _is_function_passing(
-                function, file.path, file.file_name, max_complexity, snapshot_map
+                function,
+                file.path,
+                file.file_name,
+                max_complexity,
+                snapshot_map,
             )
 
             if failed_only and passed:

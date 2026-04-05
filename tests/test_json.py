@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 from complexipy._complexipy import main as _main
 from complexipy.utils.json import store_json
 
-
 _SNIPPET = """\
 def simple(value):
     if value:
@@ -41,9 +40,7 @@ class TestJsonOutput:
         assert not content.endswith(b"\n\n")
         assert json.loads(content.decode("utf-8"))[0]["function_name"] == "simple"
 
-    def test_cli_json_output_has_final_newline(
-        self, tmp_path: Path, monkeypatch
-    ):
+    def test_cli_json_output_has_final_newline(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
