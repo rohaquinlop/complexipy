@@ -460,13 +460,13 @@ def hello_world(s: str) -> str:
             f"got {result_check.exit_code}.\n"
             f"Output:\n{result_check.output}"
         )
-        # The function should be displayed as PASS/PASSED (not FAIL/FAILED)
-        # since it is grandfathered by the snapshot.
-        assert "[PASS] PASSED" in result_check.output, (
-            f"Expected '[PASS] PASSED' in output.\nOutput:\n{result_check.output}"
+        # The function should be displayed as passed (not failed) since it is
+        # grandfathered by the snapshot.
+        assert "PASSED" in result_check.output, (
+            f"Expected 'PASSED' in output.\nOutput:\n{result_check.output}"
         )
-        assert "[FAIL] FAILED" not in result_check.output, (
-            f"Expected no '[FAIL] FAILED' in output.\nOutput:\n{result_check.output}"
+        assert "FAILED" not in result_check.output, (
+            f"Expected no 'FAILED' in output.\nOutput:\n{result_check.output}"
         )
 
 

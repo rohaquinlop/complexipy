@@ -399,6 +399,21 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         lower.contains("complexipy: ignore") || lower.contains("noqa: complexipy")
     };
 
+    let signature_has_marker = |def_idx: usize| -> bool {
+        let max_scan = (def_idx + 20).min(lines.len());
+        for line in lines.iter().skip(def_idx).take(max_scan - def_idx) {
+            if contains_marker(line) {
+                return true;
+            }
+
+            if line.contains(':') {
+                break;
+            }
+        }
+
+        false
+    };
+
     if idx < lines.len() && contains_marker(lines[idx]) {
         return true;
     }
@@ -407,12 +422,16 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         return true;
     }
 
+    if idx < lines.len() && lines[idx].trim_start().starts_with("def ") {
+        return signature_has_marker(idx);
+    }
+
     if idx < lines.len() && lines[idx].trim_start().starts_with('@') {
         let max_scan = (idx + 10).min(lines.len());
         for i in (idx + 1)..max_scan {
             let line = lines[i].trim();
             if line.starts_with("def ") {
-                if contains_marker(lines[i]) {
+                if signature_has_marker(i) {
                     return true;
                 }
                 if i > 0 && contains_marker(lines[i - 1]) {
