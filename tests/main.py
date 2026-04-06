@@ -674,3 +674,25 @@ class TestScriptComplexity:
         path = str(self.local_path / "src/test_script_complex.py")
         result = runner.invoke(app, [path])
         assert "<module>" not in result.output
+
+    def test_cli_script_strict_fails(self):
+        """CLI: --script-strict exits 1 when module complexity exceeds threshold."""
+        from complexipy.main import app
+
+        runner = CliRunner()
+        path = str(self.local_path / "src/test_script_complex.py")
+        result = runner.invoke(
+            app, [path, "--check-script", "--script-strict", "-mx", "1"]
+        )
+        assert result.exit_code == 1
+
+    def test_cli_script_strict_passes(self):
+        """CLI: --script-strict exits 0 when module complexity is within threshold."""
+        from complexipy.main import app
+
+        runner = CliRunner()
+        path = str(self.local_path / "src/test_script_simple.py")
+        result = runner.invoke(
+            app, [path, "--check-script", "--script-strict", "-mx", "15"]
+        )
+        assert result.exit_code == 0
