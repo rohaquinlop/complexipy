@@ -91,7 +91,7 @@ complexipy . --exclude src/legacy/old_code.py
 
 ### Output Formats
 
-Save results to JSON or CSV:
+Save results to JSON, CSV, GitLab Code Quality, or SARIF:
 
 ```bash
 # JSON output (saved to complexipy-results.json)
@@ -102,6 +102,12 @@ complexipy . --output-csv
 
 # Both
 complexipy . --output-json --output-csv
+
+# GitLab Code Quality report
+complexipy . --output-gitlab
+
+# SARIF output
+complexipy . --output-sarif
 ```
 
 **JSON Output Structure:**
@@ -472,14 +478,45 @@ repos:
 ### GitLab CI
 
 ```yaml
+.complexipy_code_quality:
+  image: python:3.11
+  script:
+    - pip install complexipy
+    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
+    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+  artifacts:
+    when: always
+    reports:
+      codequality: complexipy-code-quality.json
+
 complexity:
+  extends: .complexipy_code_quality
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+Use `--ignore-complexity` when your main goal is to upload the report even if violations exist. GitLab will still display the findings in the merge request widget and pipeline UI.
+
+If you also want the job to fail when the threshold is exceeded, split the workflow into two jobs:
+
+```yaml
+complexity_check:
   image: python:3.11
   script:
     - pip install complexipy
     - complexipy . --max-complexity-allowed 15
-  only:
-    - merge_requests
-    - main
+
+complexity_report:
+  image: python:3.11
+  script:
+    - pip install complexipy
+    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
+    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+  artifacts:
+    when: always
+    reports:
+      codequality: complexipy-code-quality.json
 ```
 
 ## VS Code Integration

@@ -184,6 +184,7 @@ def get_arguments_value(
     sort_arg: Sort | None,
     output_csv: bool | None,
     output_json: bool | None,
+    output_gitlab: bool | None,
     output_sarif: bool | None,
     exclude: List[str] | None,
 ) -> Tuple[
@@ -196,6 +197,7 @@ def get_arguments_value(
     bool,
     ColorTypes,
     Sort,
+    bool,
     bool,
     bool,
     bool,
@@ -245,6 +247,10 @@ def get_arguments_value(
         bool,
         get_argument_value(toml_config, "output-json", output_json, False),
     )
+    output_gitlab = cast(
+        bool,
+        get_argument_value(toml_config, "output-gitlab", output_gitlab, False),
+    )
     output_sarif = cast(
         bool,
         get_argument_value(toml_config, "output-sarif", output_sarif, False),
@@ -263,6 +269,7 @@ def get_arguments_value(
         sort_arg,
         output_csv,
         output_json,
+        output_gitlab,
         output_sarif,
         exclude,
     )

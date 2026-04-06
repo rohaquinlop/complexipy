@@ -129,6 +129,26 @@ Upload complexity violations as inline PR annotations using SARIF:
 </details>
 
 <details>
+<summary><strong>🦊 GitLab Code Quality</strong></summary>
+
+Publish complexity violations as a GitLab Code Quality artifact:
+
+```yaml
+complexity:
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --output-gitlab --ignore-complexity
+        - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+    artifacts:
+        when: always
+        reports:
+            codequality: complexipy-code-quality.json
+```
+
+</details>
+
+<details>
 <summary><strong>🪝 Pre-commit Hook</strong></summary>
 
 ```yaml
@@ -174,6 +194,7 @@ sort = "asc"
 exclude = []
 output-csv = false
 output-json = false
+output-gitlab = false
 output-sarif = false
 ```
 
@@ -211,6 +232,7 @@ output-sarif = false
 | `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
 | `--output-json`            | Save results as JSON                                                                                                                                             | `false` |
 | `--output-csv`             | Save results as CSV                                                                                                                                              | `false` |
+| `--output-gitlab`          | Save results as a GitLab Code Quality JSON report                                                                                                                | `false` |
 | `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
 | `--output-sarif`           | Save results as SARIF 2.1.0 (for GitHub Code Scanning and other SARIF-aware tools)                                                                               | `false` |
 

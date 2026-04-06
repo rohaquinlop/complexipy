@@ -156,6 +156,7 @@ sort = "asc"
 exclude = []
 output-csv = false
 output-json = false
+output-gitlab = false
 ```
 
 ```toml
@@ -173,6 +174,7 @@ sort = "asc"
 exclude = []
 output-csv = false
 output-json = false
+output-gitlab = false
 ```
 
 ### CLI Options
@@ -191,6 +193,7 @@ output-json = false
 | `--version` | Show installed complexipy version and exit | - |
 | `--output-json` | Save results as JSON | `false` |
 | `--output-csv` | Save results as CSV | `false` |
+| `--output-gitlab` | Save results as a GitLab Code Quality JSON report | `false` |
 
 Example:
 
