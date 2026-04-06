@@ -64,6 +64,7 @@ failed = true
 sort = "asc"
 output-csv = false
 output-json = false
+output-gitlab = false
 
 [tool.ruff]
 exclude = ["tests"]
