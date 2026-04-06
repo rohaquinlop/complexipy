@@ -38,6 +38,7 @@ pub fn main(
     paths: Vec<&str>,
     quiet: bool,
     exclude: Vec<&str>,
+    check_script: bool,
 ) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
@@ -56,7 +57,7 @@ pub fn main(
             continue;
         }
 
-        match process_path(path, is_dir, is_url, quiet, exclude.clone()) {
+        match process_path(path, is_dir, is_url, quiet, exclude.clone(), check_script) {
             Ok((mut complexities, mut f_paths)) => {
                 successful.append(&mut complexities);
                 failed_paths.append(&mut f_paths);
@@ -78,6 +79,7 @@ pub fn process_path(
     is_url: bool,
     quiet: bool,
     exclude: Vec<&str>,
+    check_script: bool,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -134,13 +136,13 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone());
+        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone(), check_script);
         dir.close()?;
 
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, quiet, exclude.clone());
+        let (complexities, f_paths) = evaluate_dir(path, quiet, exclude.clone(), check_script);
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
@@ -148,7 +150,7 @@ pub fn process_path(
             .parent()
             .and_then(|p| p.to_str())
             .unwrap_or(".");
-        if let Ok(complexity) = file_complexity(path, parent_dir) {
+        if let Ok(complexity) = file_complexity(path, parent_dir, check_script) {
             file_complexities.push(complexity);
         } else {
             failed_paths.push(path.to_string());
@@ -165,7 +167,7 @@ pub fn process_path(
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndFailedPaths {
+fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path)
@@ -260,7 +262,7 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
     if quiet {
         let results: Vec<_> = files_paths
             .iter()
-            .map(|file_path| match file_complexity(file_path, parent_dir) {
+            .map(|file_path| match file_complexity(file_path, parent_dir, check_script) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
             })
@@ -291,7 +293,7 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
         .iter()
         .map(|file_path| {
             pb.inc(1);
-            match file_complexity(file_path, parent_dir) {
+            match file_complexity(file_path, parent_dir, check_script) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
             }
@@ -316,7 +318,7 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
+pub fn file_complexity(file_path: &str, base_path: &str, check_script: bool) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
     let file_name = path
         .file_name()
@@ -330,7 +332,7 @@ pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplex
 
     let code = std::fs::read_to_string(file_path)?;
 
-    let code_complexity = match code_complexity(&code) {
+    let code_complexity = match code_complexity(&code, check_script) {
         Ok(v) => v,
         Err(e) => {
             return Err(PyValueError::new_err(format!(
@@ -350,7 +352,7 @@ pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplex
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
+pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexity> {
     let parsed = match parse_module(code) {
         Ok(parsed) => parsed,
         Err(e) => {
@@ -365,7 +367,7 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
 
     // println!("{:#?}", ast_body);
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code, check_script);
 
     Ok(CodeComplexity {
         functions,
@@ -377,9 +379,12 @@ pub fn code_complexity(code: &str) -> PyResult<CodeComplexity> {
 pub fn function_level_cognitive_complexity_shared(
     ast_body: &ast::Suite,
     code: &str,
+    check_script: bool,
 ) -> (Vec<FunctionComplexity>, u64) {
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
+    let mut module_complexity: u64 = 0;
+    let mut module_line_complexities: Vec<LineComplexity> = Vec::new();
 
     for node in ast_body.iter() {
         match node {
@@ -422,10 +427,28 @@ pub fn function_level_cognitive_complexity_shared(
                 }
             }
             _ => {
-                let (stmt_complexity, _) = statement_cognitive_complexity_shared(node, 0, code);
-                complexity += stmt_complexity;
+                let (stmt_complexity, stmt_line_complexities) =
+                    statement_cognitive_complexity_shared(node, 0, code);
+                if check_script {
+                    module_complexity += stmt_complexity;
+                    module_line_complexities.extend(stmt_line_complexities);
+                } else {
+                    complexity += stmt_complexity;
+                }
             }
         }
+    }
+
+    if check_script && module_complexity > 0 {
+        let total_lines = code.lines().count() as u64;
+        let module_func = FunctionComplexity {
+            name: "<module>".to_string(),
+            complexity: module_complexity,
+            line_start: 1,
+            line_end: total_lines,
+            line_complexities: module_line_complexities,
+        };
+        functions.push(module_func);
     }
 
     for function in functions.iter() {
