@@ -34,6 +34,7 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (paths, quiet, exclude, check_script=false))]
 pub fn main(
     paths: Vec<&str>,
     quiet: bool,
@@ -318,6 +319,7 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool)
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (file_path, base_path, check_script=false))]
 pub fn file_complexity(file_path: &str, base_path: &str, check_script: bool) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
     let file_name = path
@@ -352,6 +354,7 @@ pub fn file_complexity(file_path: &str, base_path: &str, check_script: bool) -> 
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (code, check_script=false))]
 pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexity> {
     let parsed = match parse_module(code) {
         Ok(parsed) => parsed,

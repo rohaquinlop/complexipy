@@ -257,6 +257,11 @@ def main(
         script_strict,
     )
 
+    if script_strict and not check_script:
+        raise typer.BadParameter(
+            "--script-strict requires --check-script to be enabled."
+        )
+
     handle_console_settings(color, quiet)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
@@ -354,6 +359,15 @@ def main(
     )
 
     handle_diff_output(diff, files_complexities, quiet)
+
+    if script_strict and check_script:
+        for file_complexity in files_complexities:
+            for function in file_complexity.functions:
+                if (
+                    function.name == "<module>"
+                    and function.complexity > max_complexity_allowed
+                ):
+                    has_success = False
 
     if not has_success:
         raise typer.Exit(code=1)

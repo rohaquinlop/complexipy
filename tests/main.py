@@ -696,3 +696,13 @@ class TestScriptComplexity:
             app, [path, "--check-script", "--script-strict", "-mx", "15"]
         )
         assert result.exit_code == 0
+
+    def test_cli_script_strict_without_check_script_fails(self):
+        """CLI: --script-strict without --check-script raises error."""
+        from complexipy.main import app
+
+        runner = CliRunner()
+        path = str(self.local_path / "src/test_script_simple.py")
+        result = runner.invoke(app, [path, "--script-strict"])
+        assert result.exit_code != 0
+        assert "--script-strict requires --check-script" in result.output
