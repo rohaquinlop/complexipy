@@ -95,14 +95,24 @@ Guarda los resultados en JSON o CSV:
 
 ```bash
 # Salida JSON (guardada en complexipy-results.json)
-complexipy . --output-json
+complexipy . --output-format json
 
 # Salida CSV (guardada en complexipy-results.csv)
-complexipy . --output-csv
+complexipy . --output-format csv
 
 # Ambos
-complexipy . --output-json --output-csv
+complexipy . --output-format json --output-format csv
+
+# Destino explícito para un solo formato
+complexipy . --output-format gitlab --output complexipy-code-quality.json
+
+# Varios formatos escritos en un directorio
+complexipy . --output-format json --output-format sarif --output reports/
 ```
+
+Las flags heredadas como `--output-json` y las claves TOML como
+`output-json = true` siguen funcionando como alias deprecados por un ciclo de
+release.
 
 **Estructura de Salida JSON:**
 ```json
@@ -160,8 +170,8 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     failed = false
     color = "auto"
     sort = "asc"
-    output-csv = false
-    output-json = false
+    output-format = ["json", "gitlab"]
+    output = "reports/"
     ```
 
 === "pyproject.toml"
@@ -476,8 +486,7 @@ repos:
   image: python:3.11
   script:
     - pip install complexipy
-    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
-    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
   artifacts:
     when: always
     reports:
@@ -505,8 +514,7 @@ complexity_report:
   image: python:3.11
   script:
     - pip install complexipy
-    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
-    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
   artifacts:
     when: always
     reports:
@@ -568,7 +576,7 @@ complexipy src/ --failed
 
 ```bash
 # Generar datos históricos
-complexipy . --output-json
+complexipy . --output-format json
 # Hacer commit de complexipy-results.json para rastrear cambios a lo largo del tiempo
 ```
 

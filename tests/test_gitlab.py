@@ -98,8 +98,8 @@ class TestGitlabOutput:
 
         assert result.exit_code == 1, result.output
 
-        output_files = list(tmp_path.glob("complexipy_results_*.gitlab.json"))
-        assert len(output_files) == 1
+        output_file = tmp_path / "complexipy-results.gitlab.json"
+        assert output_file.exists()
 
-        report = json.loads(output_files[0].read_text(encoding="utf-8"))
+        report = json.loads(output_file.read_text(encoding="utf-8"))
         assert len(report) == 1

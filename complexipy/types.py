@@ -20,12 +20,21 @@ class Sort(str, Enum):
     file_name = "file_name"
 
 
+class OutputFormat(str, Enum):
+    csv = "csv"
+    json = "json"
+    gitlab = "gitlab"
+    sarif = "sarif"
+
+
 TOMLTypes = TypeVar(
     "TOMLTypes",
     int,
     bool,
+    str,
     List[str],
     ColorTypes,
+    OutputFormat,
     Sort,
 )
 

@@ -65,7 +65,10 @@ complexipy path/to/code.py
 complexipy . --max-complexity-allowed 10
 
 # Save results to JSON/CSV
-complexipy . --output-json --output-csv
+complexipy . --output-format json --output-format csv
+
+# Write a GitLab report to a deterministic path
+complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Analyze current directory while excluding specific files
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
@@ -106,7 +109,7 @@ print(f"Complexity: {result.complexity}")
   with:
       paths: .
       max_complexity_allowed: 10
-      output_json: true
+      output_format: json
 ```
 
 </details>
@@ -118,12 +121,12 @@ Upload complexity violations as inline PR annotations using SARIF:
 
 ```yaml
 - name: Run complexipy
-  run: complexipy . --output-sarif --ignore-complexity
+  run: complexipy . --output-format sarif --output complexipy-results.sarif --ignore-complexity
 
 - name: Upload SARIF results
   uses: github/codeql-action/upload-sarif@v3
   with:
-      sarif_file: complexipy_results_*.sarif
+      sarif_file: complexipy-results.sarif
 ```
 
 </details>
@@ -138,8 +141,7 @@ complexity:
     image: python:3.11
     script:
         - pip install complexipy
-        - complexipy . --output-gitlab --ignore-complexity
-        - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+        - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity
     artifacts:
         when: always
         reports:
@@ -192,10 +194,8 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
-output-gitlab = false
-output-sarif = false
+output-format = ["json", "sarif"]
+output = "reports/"
 ```
 
 ```toml
@@ -211,10 +211,13 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
-output-sarif = false
+output-format = ["json"]
+output = "complexipy-results.json"
 ```
+
+Legacy TOML keys such as `output-json = true` and CLI flags such as
+`--output-json` still work for now, but they are deprecated in favor of
+`output-format` and `--output-format`.
 
 ### CLI Options
 
@@ -230,11 +233,13 @@ output-sarif = false
 | `--quiet`                  | Suppress output                                                                                                                                                  | `false` |
 | `--ignore-complexity`      | Don't exit with error on threshold breach                                                                                                                        | `false` |
 | `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
-| `--output-json`            | Save results as JSON                                                                                                                                             | `false` |
-| `--output-csv`             | Save results as CSV                                                                                                                                              | `false` |
-| `--output-gitlab`          | Save results as a GitLab Code Quality JSON report                                                                                                                | `false` |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                         | —       |
+| `--output <path>`          | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
 | `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
-| `--output-sarif`           | Save results as SARIF 2.1.0 (for GitHub Code Scanning and other SARIF-aware tools)                                                                               | `false` |
+| `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                       | `false` |
+| `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                        | `false` |
+| `--output-gitlab`          | Deprecated alias for `--output-format gitlab`                                                                                                                     | `false` |
+| `--output-sarif`           | Deprecated alias for `--output-format sarif`                                                                                                                      | `false` |
 
 Example:
 

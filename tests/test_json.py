@@ -55,6 +55,6 @@ class TestJsonOutput:
 
         assert result.exit_code == 0, result.output
 
-        output_files = list(tmp_path.glob("complexipy_results_*.json"))
-        assert len(output_files) == 1
-        assert output_files[0].read_bytes().endswith(b"\n")
+        output_file = tmp_path / "complexipy-results.json"
+        assert output_file.exists()
+        assert output_file.read_bytes().endswith(b"\n")

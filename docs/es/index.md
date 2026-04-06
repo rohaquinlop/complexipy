@@ -65,7 +65,10 @@ complexipy path/to/code.py
 complexipy . --max-complexity-allowed 10
 
 # Guarda los resultados en JSON/CSV
-complexipy . --output-json --output-csv
+complexipy . --output-format json --output-format csv
+
+# Guarda un reporte de GitLab en una ruta determinista
+complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Analiza el directorio actual excluyendo ciertos archivos
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
@@ -106,7 +109,7 @@ print(f"Complexity: {result.complexity}")
   with:
     paths: .
     max_complexity_allowed: 10
-    output_json: true
+    output_format: json
 ```
 
 </details>
@@ -155,8 +158,8 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
+output-format = ["json", "gitlab"]
+output = "reports/"
 ```
 
 ```toml
@@ -172,9 +175,13 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
+output-format = ["json"]
+output = "complexipy-results.json"
 ```
+
+Las claves TOML heredadas como `output-json = true` y las flags de CLI como
+`--output-json` todavía funcionan por ahora, pero están deprecadas a favor de
+`output-format` y `--output-format`.
 
 ### Opciones de CLI
 
@@ -190,8 +197,12 @@ output-json = false
 | `--quiet`                  | Suprime la salida                                                                                                                                                                                           | `false`        |
 | `--ignore-complexity`      | No termina con error al superar el umbral                                                                                                                                                                   | `false`        |
 | `--version`                | Muestra la versión instalada de complexipy y sale                                                                                                                                                           | -              |
-| `--output-json`            | Guarda los resultados como JSON                                                                                                                                                                             | `false`        |
-| `--output-csv`             | Guarda los resultados como CSV                                                                                                                                                                              | `false`        |
+| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                              | —              |
+| `--output <path>`          | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                        | —              |
+| `--output-json`            | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
+| `--output-csv`             | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
+| `--output-gitlab`          | Alias deprecado de `--output-format gitlab`                                                                                                                                                                 | `false`        |
+| `--output-sarif`           | Alias deprecado de `--output-format sarif`                                                                                                                                                                  | `false`        |
 
 Ejemplo:
 

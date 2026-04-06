@@ -95,20 +95,29 @@ Save results to JSON, CSV, GitLab Code Quality, or SARIF:
 
 ```bash
 # JSON output (saved to complexipy-results.json)
-complexipy . --output-json
+complexipy . --output-format json
 
 # CSV output (saved to complexipy-results.csv)
-complexipy . --output-csv
+complexipy . --output-format csv
 
 # Both
-complexipy . --output-json --output-csv
+complexipy . --output-format json --output-format csv
+
+# Explicit destination for a single format
+complexipy . --output-format gitlab --output complexipy-code-quality.json
+
+# Multiple formats written into a directory
+complexipy . --output-format json --output-format sarif --output reports/
 
 # GitLab Code Quality report
-complexipy . --output-gitlab
+complexipy . --output-format gitlab
 
 # SARIF output
-complexipy . --output-sarif
+complexipy . --output-format sarif
 ```
+
+Legacy flags such as `--output-json` and TOML keys such as `output-json = true`
+still work as deprecated aliases for one release cycle.
 
 **JSON Output Structure:**
 ```json
@@ -166,8 +175,8 @@ complexipy loads configuration in this order (highest to lowest priority):
     failed = false
     color = "auto"
     sort = "asc"
-    output-csv = false
-    output-json = false
+    output-format = ["json", "gitlab"]
+    output = "reports/"
     ```
 
 === "pyproject.toml"
@@ -482,8 +491,7 @@ repos:
   image: python:3.11
   script:
     - pip install complexipy
-    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
-    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
   artifacts:
     when: always
     reports:
@@ -511,8 +519,7 @@ complexity_report:
   image: python:3.11
   script:
     - pip install complexipy
-    - complexipy . --output-gitlab --ignore-complexity --max-complexity-allowed 15
-    - mv complexipy_results_*.gitlab.json complexipy-code-quality.json
+    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
   artifacts:
     when: always
     reports:
@@ -574,7 +581,7 @@ complexipy src/ --failed
 
 ```bash
 # Generate historical data
-complexipy . --output-json
+complexipy . --output-format json
 # Commit complexipy-results.json to track changes over time
 ```
 

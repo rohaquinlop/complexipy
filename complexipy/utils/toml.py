@@ -5,6 +5,7 @@ import sys
 from typing import (
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
+    Optional,
     Tuple,
     cast,
     overload,
@@ -14,6 +15,7 @@ from typer import Exit
 
 from complexipy.types import (
     ColorTypes,
+    OutputFormat,
     Sort,
     TOMLBase,
     TOMLConfig,
@@ -37,18 +39,35 @@ def load_values_from_toml_key(
 ) -> Sort: ...
 @overload
 def load_values_from_toml_key(
-    key: Literal["paths", "exclude"], value: str | List[str]
+    key: Literal["paths", "exclude", "output-format"],
+    value: str | List[str],
 ) -> List[str]: ...
 @overload
 def load_values_from_toml_key(
     key: str,
-    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
-) -> int | bool | List[str] | ColorTypes | Sort | TOMLType: ...
+    value: int
+    | bool
+    | str
+    | List[str]
+    | Sort
+    | ColorTypes
+    | OutputFormat
+    | TOMLType,
+) -> (
+    int | bool | str | List[str] | ColorTypes | OutputFormat | Sort | TOMLType
+): ...
 
 
 def load_values_from_toml_key(
     key: str,
-    value: int | bool | str | List[str] | Sort | ColorTypes | TOMLType,
+    value: int
+    | bool
+    | str
+    | List[str]
+    | Sort
+    | ColorTypes
+    | OutputFormat
+    | TOMLType,
 ):
     """Normalize TOML values to expected runtime types.
 
@@ -67,7 +86,7 @@ def load_values_from_toml_key(
         elif isinstance(value, str):
             return Sort(value)
         return value
-    elif key in ("paths", "exclude"):
+    elif key in ("paths", "exclude", "output-format"):
         if isinstance(value, str):
             return [value]
         return value
@@ -182,6 +201,8 @@ def get_arguments_value(
     failed: bool | None,
     color: ColorTypes | None,
     sort_arg: Sort | None,
+    output_format: List[str] | None,
+    output: str | None,
     output_csv: bool | None,
     output_json: bool | None,
     output_gitlab: bool | None,
@@ -197,10 +218,8 @@ def get_arguments_value(
     bool,
     ColorTypes,
     Sort,
-    bool,
-    bool,
-    bool,
-    bool,
+    List[str],
+    str | None,
     List[str],
 ]:
     paths = get_argument_value(toml_config, "paths", paths, [])
@@ -237,8 +256,27 @@ def get_arguments_value(
     failed = cast(
         bool, get_argument_value(toml_config, "failed", failed, False)
     )
-    color = get_argument_value(toml_config, "color", color, ColorTypes.auto)
-    sort_arg = get_argument_value(toml_config, "sort", sort_arg, Sort.asc)
+    color = cast(
+        ColorTypes,
+        get_argument_value(toml_config, "color", color, ColorTypes.auto),
+    )
+    sort_arg = cast(
+        Sort,
+        get_argument_value(toml_config, "sort", sort_arg, Sort.asc),
+    )
+    if output_format is None:
+        if toml_config is None:
+            output_format = []
+        else:
+            output_format = cast(
+                List[str],
+                load_values_from_toml_key(
+                    "output-format",
+                    toml_config.get("output-format", []),
+                ),
+            )
+    if output is None and toml_config is not None:
+        output = cast(Optional[str], toml_config.get("output"))
     output_csv = cast(
         bool,
         get_argument_value(toml_config, "output-csv", output_csv, False),
@@ -267,9 +305,7 @@ def get_arguments_value(
         failed,
         color,
         sort_arg,
-        output_csv,
-        output_json,
-        output_gitlab,
-        output_sarif,
+        output_format,
+        output,
         exclude,
     )
