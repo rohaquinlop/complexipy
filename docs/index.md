@@ -64,7 +64,10 @@ complexipy path/to/code.py
 complexipy . --max-complexity-allowed 10
 
 # Save results to JSON/CSV
-complexipy . --output-json --output-csv
+complexipy . --output-format json --output-format csv
+
+# Save a GitLab report to a deterministic path
+complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Analyze current directory while excluding specific files
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
@@ -105,7 +108,7 @@ print(f"Complexity: {result.complexity}")
   with:
     paths: .
     max_complexity_allowed: 10
-    output_json: true
+    output_format: json
 ```
 
 </details>
@@ -154,9 +157,8 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
-output-gitlab = false
+output-format = ["json", "gitlab"]
+output = "reports/"
 ```
 
 ```toml
@@ -172,10 +174,13 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
-output-csv = false
-output-json = false
-output-gitlab = false
+output-format = ["json"]
+output = "complexipy-results.json"
 ```
+
+Legacy TOML keys such as `output-json = true` and CLI flags such as
+`--output-json` still work for now, but they are deprecated in favor of
+`output-format` and `--output-format`.
 
 ### CLI Options
 
@@ -191,9 +196,12 @@ output-gitlab = false
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
-| `--output-json` | Save results as JSON | `false` |
-| `--output-csv` | Save results as CSV | `false` |
-| `--output-gitlab` | Save results as a GitLab Code Quality JSON report | `false` |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag for multiple formats (`json`, `csv`, `gitlab`, `sarif`) | — |
+| `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | — |
+| `--output-json` | Deprecated alias for `--output-format json` | `false` |
+| `--output-csv` | Deprecated alias for `--output-format csv` | `false` |
+| `--output-gitlab` | Deprecated alias for `--output-format gitlab` | `false` |
+| `--output-sarif` | Deprecated alias for `--output-format sarif` | `false` |
 
 Example:
 

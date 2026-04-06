@@ -1,6 +1,5 @@
 import os
 import platform
-from datetime import datetime
 from importlib.metadata import (
     PackageNotFoundError,
 )
@@ -8,6 +7,7 @@ from importlib.metadata import (
     version as pkg_version,
 )
 from typing import (
+    Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Optional,
     Tuple,
@@ -25,6 +25,7 @@ from complexipy._complexipy import FileComplexity
 
 from .types import (
     ColorTypes,
+    OutputFormat,
     Sort,
 )
 from .utils.cache import remember_previous_functions
@@ -53,6 +54,24 @@ app = typer.Typer(name="complexipy")
 console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
+DEFAULT_OUTPUT_FILENAMES = {
+    OutputFormat.csv: "complexipy-results.csv",
+    OutputFormat.json: "complexipy-results.json",
+    OutputFormat.gitlab: "complexipy-results.gitlab.json",
+    OutputFormat.sarif: "complexipy-results.sarif",
+}
+LEGACY_OUTPUT_FLAGS = {
+    OutputFormat.csv: "--output-csv",
+    OutputFormat.json: "--output-json",
+    OutputFormat.gitlab: "--output-gitlab",
+    OutputFormat.sarif: "--output-sarif",
+}
+LEGACY_OUTPUT_CONFIG_KEYS = {
+    OutputFormat.csv: "output-csv",
+    OutputFormat.json: "output-json",
+    OutputFormat.gitlab: "output-gitlab",
+    OutputFormat.sarif: "output-sarif",
+}
 
 
 def _version_callback(value: bool):
@@ -124,6 +143,22 @@ def main(
         "-s",
         help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
     ),
+    output_format: Optional[List[str]] = typer.Option(
+        None,
+        "--output-format",
+        help=(
+            "Output format to emit. Repeat the flag to request multiple formats: "
+            "csv, json, gitlab, sarif."
+        ),
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        help=(
+            "Destination file or directory for machine-readable output. "
+            "Use a directory when emitting multiple formats."
+        ),
+    ),
     output_csv: Optional[bool] = typer.Option(
         None,
         "--output-csv",
@@ -167,6 +202,13 @@ def main(
 ):
     global console
 
+    legacy_cli_output_flags = {
+        OutputFormat.csv: output_csv,
+        OutputFormat.json: output_json,
+        OutputFormat.gitlab: output_gitlab,
+        OutputFormat.sarif: output_sarif,
+    }
+
     (
         paths,
         max_complexity_allowed,
@@ -177,10 +219,8 @@ def main(
         failed,
         color,
         sort,
-        output_csv,
-        output_json,
-        output_gitlab,
-        output_sarif,
+        output_format,
+        output,
         exclude,
     ) = get_arguments_value(
         TOML_CONFIG,
@@ -193,6 +233,8 @@ def main(
         failed,
         color,
         sort,
+        output_format,
+        output,
         output_csv,
         output_json,
         output_gitlab,
@@ -206,16 +248,14 @@ def main(
         paths, quiet, exclude
     )
     files_complexities, failed_paths = result
-    current_time = datetime.today().strftime("%Y_%m_%d__%H-%M-%S")
-    output_csv_path = f"{INVOCATION_PATH}/complexipy_results_{current_time}.csv"
-    output_json_path = (
-        f"{INVOCATION_PATH}/complexipy_results_{current_time}.json"
+    emit_deprecated_output_warnings(
+        legacy_cli_output_flags,
+        TOML_CONFIG,
     )
-    output_gitlab_path = (
-        f"{INVOCATION_PATH}/complexipy_results_{current_time}.gitlab.json"
-    )
-    output_sarif_path = (
-        f"{INVOCATION_PATH}/complexipy_results_{current_time}.sarif"
+    output_formats = resolve_output_formats(
+        output_format,
+        legacy_cli_output_flags,
+        TOML_CONFIG,
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
@@ -244,14 +284,8 @@ def main(
     )
 
     handle_results_storage(
-        output_csv,
-        output_csv_path,
-        output_json,
-        output_json_path,
-        output_gitlab,
-        output_gitlab_path,
-        output_sarif,
-        output_sarif_path,
+        output_formats,
+        output,
         files_complexities,
         sort.value,
         not failed,
@@ -325,14 +359,8 @@ def handle_console_settings(color: ColorTypes, quiet: bool):
 
 
 def handle_results_storage(
-    output_csv: bool,
-    output_csv_path: str,
-    output_json: bool,
-    output_json_path: str,
-    output_gitlab: bool,
-    output_gitlab_path: str,
-    output_sarif: bool,
-    output_sarif_path: str,
+    output_formats: List[OutputFormat],
+    output: Optional[str],
     files_complexities: List[FileComplexity],
     sort: str,
     show_details: bool,
@@ -340,40 +368,170 @@ def handle_results_storage(
 ) -> None:
     global console
 
-    if output_csv:
-        store_csv(
-            output_csv_path,
-            files_complexities,
-            sort,
-            show_details,
-            max_complexity,
-        )
-        console.print(f"Results saved at {output_csv_path}")
+    output_paths = resolve_output_paths(output_formats, output)
 
-    if output_json:
-        store_json(
-            output_json_path,
-            files_complexities,
-            show_details,
-            max_complexity,
-        )
-        console.print(f"Results saved at {output_json_path}")
+    for output_format in output_formats:
+        output_path = output_paths[output_format]
 
-    if output_gitlab:
-        store_gitlab(
-            output_gitlab_path,
-            files_complexities,
-            max_complexity,
-        )
-        console.print(f"Results saved at {output_gitlab_path}")
+        if output_format == OutputFormat.csv:
+            store_csv(
+                output_path,
+                files_complexities,
+                sort,
+                show_details,
+                max_complexity,
+            )
+        elif output_format == OutputFormat.json:
+            store_json(
+                output_path,
+                files_complexities,
+                show_details,
+                max_complexity,
+            )
+        elif output_format == OutputFormat.gitlab:
+            store_gitlab(
+                output_path,
+                files_complexities,
+                max_complexity,
+            )
+        elif output_format == OutputFormat.sarif:
+            store_sarif(
+                output_path,
+                files_complexities,
+                max_complexity,
+            )
 
-    if output_sarif:
-        store_sarif(
-            output_sarif_path,
-            files_complexities,
-            max_complexity,
+        console.print(f"Results saved at {output_path}")
+
+
+def emit_deprecated_output_warnings(
+    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
+    toml_config,
+) -> None:
+    global console
+
+    for output_format, flag_name in LEGACY_OUTPUT_FLAGS.items():
+        if legacy_cli_output_flags[output_format]:
+            console.print(
+                f"[yellow]Deprecated:[/yellow] {flag_name} will be removed "
+                f"in a future release. Use --output-format "
+                f"{output_format.value} instead."
+            )
+
+    if toml_config is None:
+        return
+
+    for output_format, config_key in LEGACY_OUTPUT_CONFIG_KEYS.items():
+        if bool(toml_config.get(config_key, False)):
+            console.print(
+                f"[yellow]Deprecated:[/yellow] `{config_key}` in TOML will "
+                f"be removed in a future release. Use `output-format = "
+                f'["{output_format.value}"]` instead.'
+            )
+
+
+def resolve_output_formats(
+    output_format_values: List[str],
+    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
+    toml_config,
+) -> List[OutputFormat]:
+    output_formats = []
+
+    for value in output_format_values:
+        try:
+            normalized = OutputFormat(value)
+        except ValueError as exc:
+            valid_values = ", ".join(
+                available.value for available in OutputFormat
+            )
+            raise typer.BadParameter(
+                f"Invalid output format '{value}'. Expected one of: "
+                f"{valid_values}."
+            ) from exc
+
+        if normalized not in output_formats:
+            output_formats.append(normalized)
+
+    for output_format in OutputFormat:
+        if legacy_cli_output_flags[output_format]:
+            output_formats.append(output_format)
+            continue
+
+        config_key = LEGACY_OUTPUT_CONFIG_KEYS[output_format]
+        if toml_config is not None and bool(toml_config.get(config_key, False)):
+            output_formats.append(output_format)
+
+    return list(dict.fromkeys(output_formats))
+
+
+def resolve_output_paths(
+    output_formats: List[OutputFormat],
+    output: Optional[str],
+) -> Dict[OutputFormat, str]:
+    if not output_formats:
+        return {}
+
+    if output is None:
+        return build_output_paths(INVOCATION_PATH, output_formats)
+
+    if output == "-":
+        raise typer.BadParameter(
+            "Writing machine-readable output to stdout is not supported."
         )
-        console.print(f"Results saved at {output_sarif_path}")
+
+    destination = os.path.abspath(output)
+    is_directory_hint = is_directory_output_hint(output)
+
+    if len(output_formats) > 1:
+        ensure_directory_destination(destination, is_directory_hint)
+        return build_output_paths(destination, output_formats)
+
+    output_format = output_formats[0]
+    if os.path.isdir(destination) or is_directory_hint:
+        os.makedirs(destination, exist_ok=True)
+        return build_output_paths(destination, [output_format])
+
+    parent_dir = os.path.dirname(destination)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    return {output_format: destination}
+
+
+def build_output_paths(
+    destination: str, output_formats: List[OutputFormat]
+) -> Dict[OutputFormat, str]:
+    return {
+        output_format: os.path.join(
+            destination,
+            DEFAULT_OUTPUT_FILENAMES[output_format],
+        )
+        for output_format in output_formats
+    }
+
+
+def is_directory_output_hint(output: str) -> bool:
+    return output.endswith(os.sep) or (
+        os.altsep is not None and output.endswith(os.altsep)
+    )
+
+
+def ensure_directory_destination(
+    destination: str, is_directory_hint: bool
+) -> None:
+    if os.path.exists(destination):
+        if not os.path.isdir(destination):
+            raise typer.BadParameter(
+                "When multiple output formats are selected, --output "
+                "must point to a directory."
+            )
+    elif not is_directory_hint:
+        raise typer.BadParameter(
+            "When multiple output formats are selected, --output must "
+            "point to a directory or end with a path separator."
+        )
+
+    os.makedirs(destination, exist_ok=True)
 
 
 def handle_snapshot(
