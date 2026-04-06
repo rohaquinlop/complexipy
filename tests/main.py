@@ -29,115 +29,149 @@ class TestFiles:
         self, paths: List[Path]
     ) -> Tuple[List[FileComplexity], List[str]]:
         string_paths = [str(path) for path in paths]
-        return _complexipy.main(string_paths, False, [])
+        return _complexipy.main(string_paths, False, [], False)
 
     def test_missing_path_is_reported(self):
         missing = self.local_path / "this_file_does_not_exist.py"
 
-        files, failed = _complexipy.main([missing.as_posix()], False, [])
+        files, failed = _complexipy.main([missing.as_posix()], False, [], False)
 
         assert files == []
         assert failed == [missing.as_posix()]
 
     def test_path(self):
         path = self.local_path / "src"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
-        assert 64 == total_complexity
+        assert 75 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 9 == total_complexity
 
     def test_break_continue(self):
         path = self.local_path / "src/test_break_continue.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_class(self):
         path = self.local_path / "src/test_class.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_decorator(self):
         path = self.local_path / "src/test_decorator.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_for(self):
         path = self.local_path / "src/test_for.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 5 == total_complexity
 
     def test_for_assign(self):
         path = self.local_path / "src/test_for_assign.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 2 == total_complexity
 
     def test_if(self):
         path = self.local_path / "src/test_if.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_main(self):
         path = self.local_path / "src/test_main.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_match(self):
         path = self.local_path / "src/test_match.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_multiple_func(self):
         path = self.local_path / "src/test_multiple_func.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_nested_func(self):
         path = self.local_path / "src/test_nested_func.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 2 == total_complexity
 
     def test_recursive(self):
         path = self.local_path / "src/test_recursive.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_ternary_op(self):
         path = self.local_path / "src/test_ternary_op.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_comprehension(self):
         path = self.local_path / "src/test_comprehension.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 16 == total_complexity
 
     def test_try(self):
         path = self.local_path / "src/test_try.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_try_nested(self):
         path = self.local_path / "src/test_try_nested.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 12 == total_complexity
 
@@ -165,27 +199,35 @@ def hello_world(s: str) -> str:
 
     def test_noqa_complexipy_ignore(self):
         path = self.local_path / "src/test_noqa_complex.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         # The only function has a noqa: complexipy, so it is ignored.
         assert 0 == total_complexity
 
     def test_noqa_complexipy_ignore_with_decorator(self):
         path = self.local_path / "src/test_noqa_decorator.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_complexipy_ignore(self):
         path = self.local_path / "src/test_complexipy_ignore.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         # The only complex function has a complexipy: ignore, so it is ignored.
         assert 0 == total_complexity
 
     def test_complexipy_ignore_with_decorator(self):
         path = self.local_path / "src/test_complexipy_ignore_decorator.py"
-        files, _ = _complexipy.main([path.resolve().as_posix()], False, [])
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
@@ -195,11 +237,12 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["test_exclude1.py"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        assert 64 == total_complexity
+        assert 75 == total_complexity
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -207,9 +250,10 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["exclude_dir/test_exclude1.py"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 61 == total_complexity
+        assert 72 == total_complexity
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
@@ -217,9 +261,10 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["exclude_dir"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 58 == total_complexity
+        assert 69 == total_complexity
 
     def test_exclude_glob_single_file(self):
         path = self.local_path / "src"
@@ -227,10 +272,11 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["**/test_exclude1.py"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude1.py should match exclude_dir/test_exclude1.py (complexity 3)
-        assert 61 == total_complexity
+        assert 72 == total_complexity
 
     def test_exclude_glob_directory(self):
         path = self.local_path / "src"
@@ -238,10 +284,11 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["**/exclude_dir/**"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
         # **/exclude_dir/** should match all files under exclude_dir (complexity 6 total)
-        assert 58 == total_complexity
+        assert 69 == total_complexity
 
     def test_exclude_glob_wildcard(self):
         path = self.local_path / "src"
@@ -249,12 +296,15 @@ def hello_world(s: str) -> str:
             [path.resolve().as_posix()],
             False,
             ["**/test_exclude*.py"],
+            False,
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
-        assert 58 == total_complexity
+        assert 69 == total_complexity
 
-    def test_snapshot_watermark_passes_and_updates_snapshot(self, tmp_path: Path):
+    def test_snapshot_watermark_passes_and_updates_snapshot(
+        self, tmp_path: Path
+    ):
         source_file = tmp_path / self.tracked_path
         source_file.write_text(
             *self.tracked_function_body,
@@ -488,19 +538,21 @@ class TestComprehension:
 
     def test_listcomp_two_for_clauses(self):
         # +1 (comprehension) +1 (second for) = 2
-        snippet = "def f(matrix):\n    return [x for row in matrix for x in row]\n"
+        snippet = (
+            "def f(matrix):\n    return [x for row in matrix for x in row]\n"
+        )
         assert 2 == self._complexity(snippet)
 
     def test_listcomp_two_for_clauses_with_if(self):
         # +1 (comprehension) +1 (second for) +1 (if) = 3
-        snippet = (
-            "def f(matrix):\n    return [x for row in matrix for x in row if x > 0]\n"
-        )
+        snippet = "def f(matrix):\n    return [x for row in matrix for x in row if x > 0]\n"
         assert 3 == self._complexity(snippet)
 
     def test_nested_listcomp(self):
         # outer at depth 0: +1; inner at depth 1: +1+1=2; total = 3
-        snippet = "def f(matrix):\n    return [[x for x in row] for row in matrix]\n"
+        snippet = (
+            "def f(matrix):\n    return [[x for x in row] for row in matrix]\n"
+        )
         assert 3 == self._complexity(snippet)
 
     def test_generator_in_call(self):
@@ -526,7 +578,99 @@ class TestComprehension:
     def test_comprehension_inside_if_block(self):
         # if (nesting 0→1): +1; listcomp inside if body at nesting_level=1: +1+1=2
         # total = 3
-        snippet = (
-            "def f(data, items):\n    if data:\n        return [x for x in items]\n"
-        )
+        snippet = "def f(data, items):\n    if data:\n        return [x for x in items]\n"
         assert 3 == self._complexity(snippet)
+
+
+class TestScriptComplexity:
+    """Tests for module-level (script) complexity analysis."""
+
+    local_path = Path(__file__).resolve().parent
+
+    def test_script_simple_default(self):
+        """Default behavior: module-level code not reported as <module>."""
+        path = self.local_path / "src/test_script_simple.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
+        assert len(files) == 1
+        assert len(files[0].functions) == 0
+
+    def test_script_simple_check_script(self):
+        """Simple assignments have 0 complexity, no <module> emitted."""
+        path = self.local_path / "src/test_script_simple.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], True
+        )
+        assert len(files) == 1
+        module_funcs = [f for f in files[0].functions if f.name == "<module>"]
+        assert len(module_funcs) == 0
+
+    def test_script_complex_default(self):
+        """Default: complex script still reports 0 functions."""
+        path = self.local_path / "src/test_script_complex.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
+        assert len(files) == 1
+        assert len(files[0].functions) == 0
+
+    def test_script_complex_check_script(self):
+        """With check_script: complex script reports <module>."""
+        path = self.local_path / "src/test_script_complex.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], True
+        )
+        assert len(files) == 1
+        module_funcs = [f for f in files[0].functions if f.name == "<module>"]
+        assert len(module_funcs) == 1
+        assert module_funcs[0].complexity == 7
+
+    def test_script_mixed_check_script(self):
+        """Mixed file: both function and <module> reported."""
+        path = self.local_path / "src/test_script_mixed.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], True
+        )
+        assert len(files) == 1
+        func_names = {f.name for f in files[0].functions}
+        assert "simple_func" in func_names
+        assert "<module>" in func_names
+        simple = next(f for f in files[0].functions if f.name == "simple_func")
+        module = next(f for f in files[0].functions if f.name == "<module>")
+        assert simple.complexity == 1
+        assert module.complexity == 3
+
+    def test_code_complexity_check_script(self):
+        """Python API: code_complexity with check_script."""
+        code = "for i in range(10):\n    if i > 5:\n        print(i)\n"
+        result = code_complexity(code, check_script=True)
+        module_funcs = [f for f in result.functions if f.name == "<module>"]
+        assert len(module_funcs) == 1
+        assert module_funcs[0].complexity == 3
+
+    def test_code_complexity_default_no_module(self):
+        """Python API: code_complexity default does not emit <module>."""
+        code = "for i in range(10):\n    if i > 5:\n        print(i)\n"
+        result = code_complexity(code)
+        module_funcs = [f for f in result.functions if f.name == "<module>"]
+        assert len(module_funcs) == 0
+
+    def test_cli_check_script(self):
+        """CLI: --check-script flag works end-to-end."""
+        from complexipy.main import app
+
+        runner = CliRunner()
+        path = str(self.local_path / "src/test_script_complex.py")
+        result = runner.invoke(app, [path, "--check-script"])
+        assert result.exit_code == 0
+        assert "<module>" in result.output
+
+    def test_cli_no_check_script(self):
+        """CLI: without --check-script, no <module> in output."""
+        from complexipy.main import app
+
+        runner = CliRunner()
+        path = str(self.local_path / "src/test_script_complex.py")
+        result = runner.invoke(app, [path])
+        assert "<module>" not in result.output
