@@ -6,6 +6,7 @@ from complexipy._complexipy import CodeComplexity, FileComplexity
 
 def code_complexity(
     code: str,
+    check_script: bool = False,
 ) -> CodeComplexity:
     """
     Analyze cognitive complexity of Python code provided as a string.
@@ -18,6 +19,8 @@ def code_complexity(
     Args:
         code: A string containing valid Python source code. Must be
               syntactically correct Python code.
+        check_script: If True, also report cognitive complexity of
+                      module-level (script) code as a '<module>' entry.
 
     Returns:
         CodeComplexity object containing the analysis results, including
@@ -37,10 +40,12 @@ def code_complexity(
         >>> result = code_complexity(code)
         >>> print(f"Total complexity: {result.complexity}")
     """
-    return _complexipy.code_complexity(code)
+    return _complexipy.code_complexity(code, check_script)
 
 
-def file_complexity(file_path: str) -> FileComplexity:
+def file_complexity(
+    file_path: str, check_script: bool = False
+) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
 
@@ -52,6 +57,8 @@ def file_complexity(file_path: str) -> FileComplexity:
     Args:
         file_path: Path to the Python file to analyze. Can be relative or
                    absolute. The file must exist and be readable.
+        check_script: If True, also report cognitive complexity of
+                      module-level (script) code as a '<module>' entry.
 
     Returns:
         FileComplexity object containing complete analysis results for the
@@ -75,4 +82,5 @@ def file_complexity(file_path: str) -> FileComplexity:
     return _complexipy.file_complexity(
         path.resolve().as_posix(),
         base_path.resolve().as_posix(),
+        check_script,
     )

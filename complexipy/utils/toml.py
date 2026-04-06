@@ -208,6 +208,8 @@ def get_arguments_value(
     output_gitlab: bool | None,
     output_sarif: bool | None,
     exclude: List[str] | None,
+    check_script: bool | None,
+    script_strict: bool | None,
 ) -> Tuple[
     List[str],
     int,
@@ -221,6 +223,8 @@ def get_arguments_value(
     List[str],
     str | None,
     List[str],
+    bool,
+    bool,
 ]:
     paths = get_argument_value(toml_config, "paths", paths, [])
     max_complexity_allowed = get_argument_value(
@@ -294,6 +298,14 @@ def get_arguments_value(
         get_argument_value(toml_config, "output-sarif", output_sarif, False),
     )
     exclude = get_argument_value(toml_config, "exclude", exclude, [])
+    check_script = cast(
+        bool,
+        get_argument_value(toml_config, "check-script", check_script, False),
+    )
+    script_strict = cast(
+        bool,
+        get_argument_value(toml_config, "script-strict", script_strict, False),
+    )
 
     return (
         paths,
@@ -308,4 +320,6 @@ def get_arguments_value(
         output_format,
         output,
         exclude,
+        check_script,
+        script_strict,
     )
