@@ -192,6 +192,12 @@ def main(
         "-sr",
         help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
+    check_script: Optional[bool] = typer.Option(
+        None,
+        "--check-script",
+        "-cs",
+        help="Report cognitive complexity of module-level (script) code as '<module>'.",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -222,6 +228,7 @@ def main(
         output_format,
         output,
         exclude,
+        check_script,
     ) = get_arguments_value(
         TOML_CONFIG,
         paths,
@@ -240,12 +247,13 @@ def main(
         output_gitlab,
         output_sarif,
         exclude,
+        check_script,
     )
 
     handle_console_settings(color, quiet)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude
+        paths, quiet, exclude, check_script
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
