@@ -442,7 +442,7 @@ pub fn function_level_cognitive_complexity_shared(
         }
     }
 
-    if check_script && module_complexity > 0 {
+    if check_script {
         let total_lines = code.lines().count() as u64;
         let module_func = FunctionComplexity {
             name: "<module>".to_string(),

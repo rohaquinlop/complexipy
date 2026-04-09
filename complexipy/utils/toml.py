@@ -209,7 +209,6 @@ def get_arguments_value(
     output_sarif: bool | None,
     exclude: List[str] | None,
     check_script: bool | None,
-    script_strict: bool | None,
 ) -> Tuple[
     List[str],
     int,
@@ -223,7 +222,6 @@ def get_arguments_value(
     List[str],
     str | None,
     List[str],
-    bool,
     bool,
 ]:
     paths = get_argument_value(toml_config, "paths", paths, [])
@@ -302,11 +300,6 @@ def get_arguments_value(
         bool,
         get_argument_value(toml_config, "check-script", check_script, False),
     )
-    script_strict = cast(
-        bool,
-        get_argument_value(toml_config, "script-strict", script_strict, False),
-    )
-
     return (
         paths,
         max_complexity_allowed,
@@ -321,5 +314,4 @@ def get_arguments_value(
         output,
         exclude,
         check_script,
-        script_strict,
     )
