@@ -273,6 +273,9 @@ def main(
     if plain and quiet:
         raise typer.BadParameter("--plain and --quiet cannot be used together.")
 
+    if top is not None and top < 1:
+        raise typer.BadParameter("--top must be a positive integer.")
+
     handle_console_settings(color, quiet, plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(

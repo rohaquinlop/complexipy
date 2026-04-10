@@ -100,6 +100,7 @@ def truncate_top_n(
             if not isinstance(function, str):
                 all_functions.append((str(entry["path"]), function))
 
+    all_functions.sort(key=lambda x: int(x[1]["complexity"]), reverse=True)
     top_functions = all_functions[:n]
 
     grouped: Dict[str, List[Dict[str, str | int | bool | Tuple[str, str]]]] = {}

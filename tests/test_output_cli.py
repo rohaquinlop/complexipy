@@ -172,6 +172,20 @@ class TestTopOutput:
         assert "complex_fn" in result.output
         assert "simple" not in result.output
 
+    def test_top_zero_errors(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "0", str(source_file)],
+        )
+
+        assert result.exit_code == 2
+
 
 class TestPlainOutput:
     def test_plain_outputs_one_line_per_function(self, tmp_path: Path):
