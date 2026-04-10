@@ -16,7 +16,9 @@ def simple(value):
 
 
 class TestOutputCli:
-    def test_output_format_writes_explicit_file(self, tmp_path: Path, monkeypatch):
+    def test_output_format_writes_explicit_file(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
@@ -38,9 +40,12 @@ class TestOutputCli:
 
         assert result.exit_code == 0, result.output
         assert output_file.exists()
-        assert json.loads(output_file.read_text(encoding="utf-8"))[0][
-            "function_name"
-        ] == "simple"
+        assert (
+            json.loads(output_file.read_text(encoding="utf-8"))[0][
+                "function_name"
+            ]
+            == "simple"
+        )
 
     def test_multiple_output_formats_require_directory(self, tmp_path: Path):
         import complexipy.main as main_module
@@ -92,6 +97,99 @@ class TestOutputCli:
         assert result.exit_code == 0, result.output
         assert (output_dir / "complexipy-results.json").exists()
         assert (output_dir / "complexipy-results.csv").exists()
+
+
+class TestPlainOutput:
+    def test_plain_outputs_one_line_per_function(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--plain", str(source_file)],
+        )
+
+        assert result.exit_code == 0
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 1
+        parts = lines[0].split()
+        assert parts[0] == "sample.py"
+        assert parts[1] == "simple"
+        assert parts[2] == "1"
+
+    def test_plain_with_failed_shows_only_failures(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--plain", "--failed", "-mx", "0", str(source_file)],
+        )
+
+        assert result.exit_code == 1
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 1
+        assert "simple" in lines[0]
+
+    def test_plain_with_failed_no_failures_is_silent(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--plain", "--failed", str(source_file)],
+        )
+
+        assert result.exit_code == 0
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 0
+
+    def test_plain_and_quiet_errors(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--plain", "--quiet", str(source_file)],
+        )
+
+        assert result.exit_code == 2
+
+    def test_plain_no_rich_decorations(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--plain", str(source_file)],
+        )
+
+        assert "──" not in result.output
+        assert "complexipy" not in result.output.lower().replace(
+            "sample.py", ""
+        )
+        assert "Analysis completed" not in result.output
 
 
 class TestOutputToml:

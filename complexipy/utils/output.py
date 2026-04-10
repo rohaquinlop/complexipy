@@ -29,6 +29,7 @@ def output_summary(
     max_complexity: int,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
+    plain: bool = False,
 ) -> bool:
     (
         file_entries,
@@ -38,6 +39,10 @@ def output_summary(
         files, failed_only, sort, max_complexity, snapshot_map
     )
     has_success = not failing_functions or ignore_complexity
+
+    if plain:
+        output_plain(console, file_entries)
+        return has_success
 
     if failed_only and not file_entries:
         console.print(
@@ -59,6 +64,22 @@ def output_summary(
             max_complexity,
         )
     return has_success
+
+
+def output_plain(
+    console: Console,
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+) -> None:
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if isinstance(function, str):
+                continue
+            path = normalize_path(
+                str(function["path"]), str(function["file_name"])
+            )
+            console.print(f"{path} {function['name']} {function['complexity']}")
 
 
 def output_file_entries(
