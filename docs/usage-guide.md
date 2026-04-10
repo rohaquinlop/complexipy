@@ -84,10 +84,7 @@ complexipy . --exclude tests --exclude migrations --exclude build
 complexipy . --exclude src/legacy/old_code.py
 ```
 
-!!! note "How exclusion works"
-    - Entries resolve to existing directories (prefix match) or files (exact match)
-    - Non-existent entries are silently ignored
-    - Paths are relative to each provided root path
+!!! note "How exclusion works" - Entries resolve to existing directories (prefix match) or files (exact match) - Non-existent entries are silently ignored - Paths are relative to each provided root path
 
 ### Output Formats
 
@@ -141,23 +138,24 @@ complexipy . --check-script --failed
 ```
 
 **JSON Output Structure:**
+
 ```json
 {
-  "files": [
-    {
-      "path": "src/main.py",
-      "complexity": 42,
-      "functions": [
+    "files": [
         {
-          "name": "process_data",
-          "complexity": 18,
-          "line_start": 10,
-          "line_end": 45
+            "path": "src/main.py",
+            "complexity": 42,
+            "functions": [
+                {
+                    "name": "process_data",
+                    "complexity": 18,
+                    "line_start": 10,
+                    "line_end": 45
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "total_complexity": 42
+    ],
+    "total_complexity": 42
 }
 ```
 
@@ -394,16 +392,16 @@ name: Complexity Check
 on: [push, pull_request]
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install complexipy
-        run: pip install complexipy
+            - name: Install complexipy
+              run: pip install complexipy
 
-      - name: Check complexity
-        run: complexipy . --max-complexity-allowed 15
+            - name: Check complexity
+              run: complexipy . --max-complexity-allowed 15
 ```
 
 The snapshot file (`complexipy-snapshot.json`) should be committed to version control.
@@ -417,6 +415,7 @@ complexipy . --snapshot-ignore
 ```
 
 Use this when:
+
 - Refactoring multiple files at once
 - Regenerating the baseline
 - Testing different thresholds
@@ -425,15 +424,15 @@ Use this when:
 
 ```json
 {
-  "version": "1.0",
-  "threshold": 15,
-  "functions": {
-    "src/legacy.py::old_function": {
-      "complexity": 23,
-      "line_start": 10,
-      "line_end": 50
+    "version": "1.0",
+    "threshold": 15,
+    "functions": {
+        "src/legacy.py::old_function": {
+            "complexity": 23,
+            "line_start": 10,
+            "line_end": 50
+        }
     }
-  }
 }
 ```
 
@@ -479,9 +478,9 @@ Use the official action:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v2
   with:
-    paths: src tests
-    max_complexity_allowed: 15
-    output_json: true
+      paths: src tests
+      max_complexity_allowed: 15
+      output_json: true
 ```
 
 Or run directly:
@@ -489,8 +488,8 @@ Or run directly:
 ```yaml
 - name: Check complexity
   run: |
-    pip install complexipy
-    complexipy . --max-complexity-allowed 15
+      pip install complexipy
+      complexipy . --max-complexity-allowed 15
 ```
 
 ### Pre-commit Hook
@@ -499,31 +498,31 @@ Add to `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-    rev: v4.2.0
-    hooks:
-      - id: complexipy
-        args: [--max-complexity-allowed=15]
+    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+      rev: v4.2.0
+      hooks:
+          - id: complexipy
+            args: [--max-complexity-allowed=15]
 ```
 
 ### GitLab CI
 
 ```yaml
 .complexipy_code_quality:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
-  artifacts:
-    when: always
-    reports:
-      codequality: complexipy-code-quality.json
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
+    artifacts:
+        when: always
+        reports:
+            codequality: complexipy-code-quality.json
 
 complexity:
-  extends: .complexipy_code_quality
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    extends: .complexipy_code_quality
+    rules:
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
 
 Use `--ignore-complexity` when your main goal is to upload the report even if violations exist. GitLab will still display the findings in the merge request widget and pipeline UI.
@@ -532,20 +531,20 @@ If you also want the job to fail when the threshold is exceeded, split the workf
 
 ```yaml
 complexity_check:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --max-complexity-allowed 15
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --max-complexity-allowed 15
 
 complexity_report:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
-  artifacts:
-    when: always
-    reports:
-      codequality: complexipy-code-quality.json
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
+    artifacts:
+        when: always
+        reports:
+            codequality: complexipy-code-quality.json
 ```
 
 ## VS Code Integration
