@@ -192,6 +192,12 @@ def main(
         "-sr",
         help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
+    top: Optional[int] = typer.Option(
+        None,
+        "--top",
+        "-t",
+        help="Show only the N most complex functions, sorted by complexity descending.",
+    ),
     plain: Optional[bool] = typer.Option(
         None,
         "--plain",
@@ -328,6 +334,7 @@ def main(
         active_snapshot_map,
         quiet,
         plain,
+        top,
     )
 
     snapshot_result = handle_snapshot(
@@ -385,6 +392,7 @@ def handle_display(
     active_snapshot_map: Optional[Dict],
     quiet: bool,
     plain: bool,
+    top: Optional[int] = None,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
@@ -396,16 +404,18 @@ def handle_display(
     if quiet:
         return has_success_functions(files_complexities, max_complexity_allowed)
 
+    effective_sort = Sort.desc if top is not None else sort
     has_success = output_summary(
         console,
         files_complexities,
         failed,
-        sort,
+        effective_sort,
         ignore_complexity,
         max_complexity_allowed,
         previous_functions,
         active_snapshot_map,
         plain,
+        top,
     )
     if not plain:
         if platform.system() == "Windows":

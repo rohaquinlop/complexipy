@@ -30,6 +30,7 @@ def output_summary(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
     plain: bool = False,
+    top: Optional[int] = None,
 ) -> bool:
     (
         file_entries,
@@ -39,6 +40,9 @@ def output_summary(
         files, failed_only, sort, max_complexity, snapshot_map
     )
     has_success = not failing_functions or ignore_complexity
+
+    if top is not None:
+        file_entries = truncate_top_n(file_entries, top)
 
     if plain:
         output_plain(console, file_entries)
@@ -80,6 +84,32 @@ def output_plain(
                 str(function["path"]), str(function["file_name"])
             )
             console.print(f"{path} {function['name']} {function['complexity']}")
+
+
+def truncate_top_n(
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+    n: int,
+) -> List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]]:
+    all_functions: List[
+        Tuple[str, Dict[str, str | int | bool | Tuple[str, str]]]
+    ] = []
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if not isinstance(function, str):
+                all_functions.append((str(entry["path"]), function))
+
+    top_functions = all_functions[:n]
+
+    grouped: Dict[str, List[Dict[str, str | int | bool | Tuple[str, str]]]] = {}
+    for path, function in top_functions:
+        grouped.setdefault(path, []).append(function)
+
+    return [
+        {"path": path, "functions": functions}
+        for path, functions in grouped.items()
+    ]
 
 
 def output_file_entries(

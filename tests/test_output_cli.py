@@ -99,6 +99,80 @@ class TestOutputCli:
         assert (output_dir / "complexipy-results.csv").exists()
 
 
+_MULTI_SNIPPET = """\
+def simple(x):
+    return x
+
+def medium(x):
+    if x:
+        if x > 1:
+            return x
+    return 0
+
+def complex_fn(x):
+    if x:
+        for i in range(x):
+            if i > 0:
+                if i % 2:
+                    return i
+    return 0
+"""
+
+
+class TestTopOutput:
+    def test_top_limits_to_n_functions(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "2", "--plain", str(source_file)],
+        )
+
+        assert result.exit_code == 0
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 2
+
+    def test_top_sorts_descending(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "3", "--plain", str(source_file)],
+        )
+
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        complexities = [int(line.split()[-1]) for line in lines]
+        assert complexities == sorted(complexities, reverse=True)
+
+    def test_top_works_with_rich_output(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "1", str(source_file)],
+        )
+
+        assert result.exit_code == 0
+        assert "complex_fn" in result.output
+        assert "simple" not in result.output
+
+
 class TestPlainOutput:
     def test_plain_outputs_one_line_per_function(self, tmp_path: Path):
         import complexipy.main as main_module
