@@ -229,26 +229,26 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 
 ### CLI Options
 
-| Flag                       | Description                                                                                                                                                      | Default |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--exclude`                | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
-| `--max-complexity-allowed` | Complexity threshold                                                                                                                                             | `15`    |
-| `--snapshot-create`        | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
-| `--snapshot-ignore`        | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
-| `--failed`                 | Show only functions above the complexity threshold                                                                                                               | `false` |
-| `--color <auto\|yes\|no>`  | Use color                                                                                                                                                        | `auto`  |
-| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                               | `asc`   |
-| `--quiet`                  | Suppress output                                                                                                                                                  | `false` |
-| `--ignore-complexity`      | Don't exit with error on threshold breach                                                                                                                        | `false` |
-| `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
-| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                         | —       |
-| `--output <path>`          | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
-| `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
-| `--check-script`           | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
-| `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                       | `false` |
-| `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                        | `false` |
-| `--output-gitlab`          | Deprecated alias for `--output-format gitlab`                                                                                                                     | `false` |
-| `--output-sarif`           | Deprecated alias for `--output-format sarif`                                                                                                                      | `false` |
+| Flag                            | Description                                                                                                                                                      | Default |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--exclude`                     | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--max-complexity-allowed`      | Complexity threshold                                                                                                                                             | `15`    |
+| `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
+| `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
+| `--failed`                      | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--color <auto\|yes\|no>`       | Use color                                                                                                                                                        | `auto`  |
+| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                     | `asc`   |
+| `--quiet`                       | Suppress output                                                                                                                                                  | `false` |
+| `--ignore-complexity`           | Don't exit with error on threshold breach                                                                                                                        | `false` |
+| `--version`                     | Show installed complexipy version and exit                                                                                                                       | -       |
+| `--output-format <format>`      | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                          | —       |
+| `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
+| `--diff <ref>`                  | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
+| `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
+| `--output-csv`                  | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
+| `--output-gitlab`               | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
+| `--output-sarif`                | Deprecated alias for `--output-format sarif`                                                                                                                     | `false` |
 
 Example:
 
