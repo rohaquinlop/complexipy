@@ -116,9 +116,9 @@ def truncate_top_n(
 def output_file_entries(
     console: Console,
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ],
-    failing_functions: dict[str, List[str]],
+    failing_functions: Dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
@@ -160,7 +160,7 @@ def format_status_text(passed: bool) -> str:
 
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: dict[str, str | int | bool | Tuple[str, str]],
+    function: Dict[str, str | int | bool | Tuple[str, str]],
     max_complexity: int,
 ) -> str:
     delta_text = ""
@@ -211,21 +211,21 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
-) -> tuple[
-    List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
-    dict[str, List[str]],
+) -> Tuple[
+    List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]],
+    Dict[str, List[str]],
     int,
 ]:
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ] = []
-    failing_functions: dict[str, List[str]] = {}
+    failing_functions: Dict[str, List[str]] = {}
     total_functions = 0
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
         displayable_functions: List[
-            dict[str, str | int | bool | Tuple[str, str]]
+            Dict[str, str | int | bool | Tuple[str, str]]
         ] = []
 
         for function in sorted_functions:

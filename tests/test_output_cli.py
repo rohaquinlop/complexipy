@@ -172,6 +172,25 @@ class TestTopOutput:
         assert "complex_fn" in result.output
         assert "simple" not in result.output
 
+    def test_top_with_failed_filters_both(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "1", "--plain", "--failed", "-mx", "0", str(source_file)],
+        )
+
+        assert result.exit_code == 1
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 1
+        assert "complex_fn" in lines[0]
+
     def test_top_zero_errors(self, tmp_path: Path):
         import complexipy.main as main_module
 
