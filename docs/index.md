@@ -69,6 +69,12 @@ complexipy . --output-format json --output-format csv
 # Save a GitLab report to a deterministic path
 complexipy . --output-format gitlab --output complexipy-code-quality.json
 
+# Compare complexity against a git reference
+complexipy . --diff HEAD~1
+
+# Include module-level script complexity as <module>
+complexipy . --check-script
+
 # Analyze current directory while excluding specific files
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
@@ -79,7 +85,7 @@ complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 from complexipy import file_complexity, code_complexity
 
 # Analyze a file
-result = file_complexity("app.py")
+result = file_complexity("app.py", check_script=True)
 print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
@@ -94,7 +100,7 @@ def complex_function(data):
                 process(item)
 """
 
-result = code_complexity(snippet)
+result = code_complexity(snippet, check_script=True)
 print(f"Complexity: {result.complexity}")
 ```
 
@@ -159,6 +165,7 @@ sort = "asc"
 exclude = []
 output-format = ["json", "gitlab"]
 output = "reports/"
+check-script = false
 ```
 
 ```toml
@@ -176,6 +183,7 @@ sort = "asc"
 exclude = []
 output-format = ["json"]
 output = "complexipy-results.json"
+check-script = false
 ```
 
 Legacy TOML keys such as `output-json = true` and CLI flags such as
@@ -192,12 +200,14 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
 | `--failed` | Show only functions above the complexity threshold | `false` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
-| `--sort <asc\|desc\|name>` | Sort results | `asc` |
+| `--sort <asc\|desc\|file_name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
 | `--output-format <format>` | Select a machine-readable output format. Repeat the flag for multiple formats (`json`, `csv`, `gitlab`, `sarif`) | — |
 | `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | — |
+| `--diff <ref>` | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`) | — |
+| `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--output-json` | Deprecated alias for `--output-format json` | `false` |
 | `--output-csv` | Deprecated alias for `--output-format csv` | `false` |
 | `--output-gitlab` | Deprecated alias for `--output-format gitlab` | `false` |
@@ -235,6 +245,30 @@ The snapshot file only stores functions whose complexity exceeds the configured 
 
 Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for example during a refactor or while regenerating the baseline).
 
+### Complexity Diff
+
+Compare complexity against any git reference to see whether a branch or commit made things better or worse:
+
+```bash
+# Compare the working tree against the previous commit
+complexipy . --diff HEAD~1
+
+# Compare against a named branch
+complexipy . --diff main
+```
+
+The diff is appended after the normal analysis output and does not affect the exit code. Requires `git` to be available and the analysed paths to be inside a git repository.
+
+### Script Complexity
+
+Use `--check-script` when you also want to score module-level control flow, not just functions:
+
+```bash
+complexipy scripts/bootstrap.py --check-script
+```
+
+The same capability is available in the Python API via `check_script=True` on both `file_complexity()` and `code_complexity()`.
+
 ### Inline Ignores
 
 You can explicitly ignore a known complex function inline using `# complexipy: ignore`:
@@ -254,8 +288,8 @@ Place `# complexipy: ignore` on the function definition line (or the line immedi
 
 ```python
 # Core functions
-file_complexity(path: str) -> FileComplexity
-code_complexity(source: str) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False) -> FileComplexity
+code_complexity(source: str, check_script: bool = False) -> CodeComplexity
 
 # Return types
 FileComplexity:
