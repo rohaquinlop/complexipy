@@ -317,34 +317,18 @@ def main(
         max_complexity_allowed,
     )
 
-    if files_complexities:
-        previous_functions = remember_previous_functions(
-            INVOCATION_PATH, paths, files_complexities
-        )
-    else:
-        previous_functions = None
-
-    if quiet:
-        has_success = has_success_functions(
-            files_complexities, max_complexity_allowed
-        )
-    else:
-        has_success = output_summary(
-            console,
-            files_complexities,
-            failed,
-            sort,
-            ignore_complexity,
-            max_complexity_allowed,
-            previous_functions,
-            active_snapshot_map,
-            plain,
-        )
-        if not plain:
-            if platform.system() == "Windows":
-                console.rule("Analysis completed!")
-            else:
-                console.rule(":tada: Analysis completed! :tada:")
+    has_success = handle_display(
+        console,
+        files_complexities,
+        paths,
+        failed,
+        sort,
+        ignore_complexity,
+        max_complexity_allowed,
+        active_snapshot_map,
+        quiet,
+        plain,
+    )
 
     snapshot_result = handle_snapshot(
         should_run_snapshot_watermark,
@@ -388,6 +372,47 @@ def handle_console_settings(
             console.rule("complexipy")
         else:
             console.rule(":octopus: complexipy")
+
+
+def handle_display(
+    console: Console,
+    files_complexities: List[FileComplexity],
+    paths: List[str],
+    failed: bool,
+    sort: Sort,
+    ignore_complexity: bool,
+    max_complexity_allowed: int,
+    active_snapshot_map: Optional[Dict],
+    quiet: bool,
+    plain: bool,
+) -> bool:
+    if files_complexities:
+        previous_functions = remember_previous_functions(
+            INVOCATION_PATH, paths, files_complexities
+        )
+    else:
+        previous_functions = None
+
+    if quiet:
+        return has_success_functions(files_complexities, max_complexity_allowed)
+
+    has_success = output_summary(
+        console,
+        files_complexities,
+        failed,
+        sort,
+        ignore_complexity,
+        max_complexity_allowed,
+        previous_functions,
+        active_snapshot_map,
+        plain,
+    )
+    if not plain:
+        if platform.system() == "Windows":
+            console.rule("Analysis completed!")
+        else:
+            console.rule(":tada: Analysis completed! :tada:")
+    return has_success
 
 
 def handle_results_storage(
