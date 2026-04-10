@@ -66,7 +66,7 @@ Sort by complexity score:
 ```bash
 complexipy . --sort asc   # Ascending (default)
 complexipy . --sort desc  # Descending
-complexipy . --sort name  # Alphabetically by function name
+complexipy . --sort file_name  # Alphabetically by file name
 ```
 
 ### Excluding Files and Directories
@@ -118,6 +118,27 @@ complexipy . --output-format sarif
 
 Legacy flags such as `--output-json` and TOML keys such as `output-json = true`
 still work as deprecated aliases for one release cycle.
+
+### Complexity Diff
+
+Compare current results against any git reference:
+
+```bash
+complexipy . --diff HEAD~1
+complexipy . --diff main
+complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
+```
+
+The diff is appended after the regular analysis output and does not affect the exit code. This requires `git` and a repository-backed path.
+
+### Script Complexity
+
+Report module-level control flow as a synthetic `<module>` entry:
+
+```bash
+complexipy scripts/bootstrap.py --check-script
+complexipy . --check-script --failed
+```
 
 **JSON Output Structure:**
 ```json
@@ -177,6 +198,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     sort = "asc"
     output-format = ["json", "gitlab"]
     output = "reports/"
+    check-script = false
     ```
 
 === "pyproject.toml"
@@ -204,7 +226,7 @@ complexipy loads configuration in this order (highest to lowest priority):
 from complexipy import file_complexity
 
 # Analyze a file
-result = file_complexity("src/main.py")
+result = file_complexity("src/main.py", check_script=True)
 
 print(f"Total complexity: {result.complexity}")
 print(f"File path: {result.path}")
@@ -232,7 +254,7 @@ def calculate_discount(price, customer):
     return price
 """
 
-result = code_complexity(code)
+result = code_complexity(code, check_script=True)
 print(f"Complexity: {result.complexity}")
 
 for func in result.functions:

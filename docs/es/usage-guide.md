@@ -66,7 +66,7 @@ Ordenar por puntuación de complejidad:
 ```bash
 complexipy . --sort asc   # Ascendente (predeterminado)
 complexipy . --sort desc  # Descendente
-complexipy . --sort name  # Alfabéticamente por nombre de función
+complexipy . --sort file_name  # Alfabéticamente por nombre de archivo
 ```
 
 ### Excluir Archivos y Directorios
@@ -113,6 +113,27 @@ complexipy . --output-format json --output-format sarif --output reports/
 Las flags heredadas como `--output-json` y las claves TOML como
 `output-json = true` siguen funcionando como alias deprecados por un ciclo de
 release.
+
+### Diff de Complejidad
+
+Compara los resultados actuales contra cualquier referencia de git:
+
+```bash
+complexipy . --diff HEAD~1
+complexipy . --diff main
+complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
+```
+
+El diff se añade después de la salida normal del análisis y no afecta el código de salida. Esto requiere `git` y una ruta dentro de un repositorio.
+
+### Complejidad de Script
+
+Reporta el flujo de control a nivel módulo como una entrada sintética `<module>`:
+
+```bash
+complexipy scripts/bootstrap.py --check-script
+complexipy . --check-script --failed
+```
 
 **Estructura de Salida JSON:**
 ```json
@@ -172,6 +193,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     sort = "asc"
     output-format = ["json", "gitlab"]
     output = "reports/"
+    check-script = false
     ```
 
 === "pyproject.toml"
@@ -199,7 +221,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 from complexipy import file_complexity
 
 # Analizar un archivo
-result = file_complexity("src/main.py")
+result = file_complexity("src/main.py", check_script=True)
 
 print(f"Total complexity: {result.complexity}")
 print(f"File path: {result.path}")
@@ -227,7 +249,7 @@ def calculate_discount(price, customer):
     return price
 """
 
-result = code_complexity(code)
+result = code_complexity(code, check_script=True)
 print(f"Complexity: {result.complexity}")
 
 for func in result.functions:

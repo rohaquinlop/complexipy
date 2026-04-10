@@ -70,6 +70,12 @@ complexipy . --output-format json --output-format csv
 # Guarda un reporte de GitLab en una ruta determinista
 complexipy . --output-format gitlab --output complexipy-code-quality.json
 
+# Compara la complejidad contra una referencia de git
+complexipy . --diff HEAD~1
+
+# Incluye la complejidad del script a nivel módulo como <module>
+complexipy . --check-script
+
 # Analiza el directorio actual excluyendo ciertos archivos
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
@@ -80,7 +86,7 @@ complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 from complexipy import file_complexity, code_complexity
 
 # Analiza un archivo
-result = file_complexity("app.py")
+result = file_complexity("app.py", check_script=True)
 print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
@@ -95,7 +101,7 @@ def complex_function(data):
                 process(item)
 """
 
-result = code_complexity(snippet)
+result = code_complexity(snippet, check_script=True)
 print(f"Complexity: {result.complexity}")
 ```
 
@@ -160,6 +166,7 @@ sort = "asc"
 exclude = []
 output-format = ["json", "gitlab"]
 output = "reports/"
+check-script = false
 ```
 
 ```toml
@@ -177,6 +184,7 @@ sort = "asc"
 exclude = []
 output-format = ["json"]
 output = "complexipy-results.json"
+check-script = false
 ```
 
 Las claves TOML heredadas como `output-json = true` y las flags de CLI como
@@ -193,12 +201,14 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 | `--snapshot-ignore`        | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
 | `--failed`                 | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                             | `false`        |
 | `--color <auto\|yes\|no>`  | Usa color                                                                                                                                                                                                   | `auto`         |
-| `--sort <asc\|desc\|name>` | Ordena los resultados                                                                                                                                                                                       | `asc`          |
+| `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                 | `asc`          |
 | `--quiet`                  | Suprime la salida                                                                                                                                                                                           | `false`        |
 | `--ignore-complexity`      | No termina con error al superar el umbral                                                                                                                                                                   | `false`        |
 | `--version`                | Muestra la versión instalada de complexipy y sale                                                                                                                                                           | -              |
 | `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                              | —              |
 | `--output <path>`          | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                        | —              |
+| `--diff <ref>`             | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                                | —              |
+| `--check-script`           | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                        | `false`        |
 | `--output-json`            | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
 | `--output-csv`             | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
 | `--output-gitlab`          | Alias deprecado de `--output-format gitlab`                                                                                                                                                                 | `false`        |
@@ -236,6 +246,30 @@ El archivo de snapshot solo almacena las funciones cuya complejidad supera el um
 
 Usa `--snapshot-ignore` si necesitas omitir temporalmente el control de snapshot (por ejemplo, durante una refactorización o al regenerar la línea base).
 
+### Diff de Complejidad
+
+Compara la complejidad contra cualquier referencia de git para ver si una rama o commit mejoró o empeoró el código:
+
+```bash
+# Compara el working tree con el commit anterior
+complexipy . --diff HEAD~1
+
+# Compara contra una rama nombrada
+complexipy . --diff main
+```
+
+El diff se añade después de la salida normal del análisis y no afecta el código de salida. Requiere que `git` esté disponible y que las rutas analizadas estén dentro de un repositorio git.
+
+### Complejidad de Script
+
+Usa `--check-script` cuando también quieras medir el flujo de control a nivel de módulo, no solo las funciones:
+
+```bash
+complexipy scripts/bootstrap.py --check-script
+```
+
+La misma capacidad está disponible en la API de Python mediante `check_script=True` tanto en `file_complexity()` como en `code_complexity()`.
+
 ### Ignorar en Línea
 
 Puedes ignorar explícitamente una función compleja conocida en línea usando `# complexipy: ignore`:
@@ -255,8 +289,8 @@ Coloca `# complexipy: ignore` en la línea de definición de la función (o en l
 
 ```python
 # Funciones principales
-file_complexity(path: str) -> FileComplexity
-code_complexity(source: str) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False) -> FileComplexity
+code_complexity(source: str, check_script: bool = False) -> CodeComplexity
 
 # Tipos de retorno
 FileComplexity:
