@@ -192,6 +192,21 @@ def main(
         "-sr",
         help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
+    top: Optional[int] = typer.Option(
+        None,
+        "--top",
+        "-t",
+        help="Show only the N most complex functions, sorted by complexity descending.",
+    ),
+    plain: Optional[bool] = typer.Option(
+        None,
+        "--plain",
+        help=(
+            "Use plain text output instead of rich formatting. "
+            "Each line is: <path> <function> <complexity> (space-separated). "
+            "Useful for AI agents and scripting. CLI-only flag (not supported in TOML)."
+        ),
+    ),
     check_script: Optional[bool] = typer.Option(
         None,
         "--check-script",
@@ -250,7 +265,18 @@ def main(
         check_script,
     )
 
-    handle_console_settings(color, quiet)
+    # --plain is intentionally CLI-only (not resolved via TOML) because it is
+    # a session-level display preference, not a project-wide default.
+    if plain is None:
+        plain = False
+
+    if plain and quiet:
+        raise typer.BadParameter("--plain and --quiet cannot be used together.")
+
+    if top is not None and top < 1:
+        raise typer.BadParameter("--top must be a positive integer.")
+
+    handle_console_settings(color, quiet, plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         paths, quiet, exclude, check_script
@@ -300,32 +326,19 @@ def main(
         max_complexity_allowed,
     )
 
-    if files_complexities:
-        previous_functions = remember_previous_functions(
-            INVOCATION_PATH, paths, files_complexities
-        )
-    else:
-        previous_functions = None
-
-    if quiet:
-        has_success = has_success_functions(
-            files_complexities, max_complexity_allowed
-        )
-    else:
-        has_success = output_summary(
-            console,
-            files_complexities,
-            failed,
-            sort,
-            ignore_complexity,
-            max_complexity_allowed,
-            previous_functions,
-            active_snapshot_map,
-        )
-        if platform.system() == "Windows":
-            console.rule("Analysis completed!")
-        else:
-            console.rule(":tada: Analysis completed! :tada:")
+    has_success = handle_display(
+        console,
+        files_complexities,
+        paths,
+        failed,
+        sort,
+        ignore_complexity,
+        max_complexity_allowed,
+        active_snapshot_map,
+        quiet,
+        plain,
+        top,
+    )
 
     snapshot_result = handle_snapshot(
         should_run_snapshot_watermark,
@@ -352,8 +365,13 @@ def main(
         raise typer.Exit(code=1)
 
 
-def handle_console_settings(color: ColorTypes, quiet: bool):
+def handle_console_settings(
+    color: ColorTypes, quiet: bool, plain: bool = False
+):
     global console
+    if plain:
+        console = Console(color_system=None, highlight=False)
+        return
     if color == ColorTypes.no:
         console = Console(color_system=None)
     elif color == ColorTypes.yes:
@@ -364,6 +382,50 @@ def handle_console_settings(color: ColorTypes, quiet: bool):
             console.rule("complexipy")
         else:
             console.rule(":octopus: complexipy")
+
+
+def handle_display(
+    console: Console,
+    files_complexities: List[FileComplexity],
+    paths: List[str],
+    failed: bool,
+    sort: Sort,
+    ignore_complexity: bool,
+    max_complexity_allowed: int,
+    active_snapshot_map: Optional[Dict],
+    quiet: bool,
+    plain: bool,
+    top: Optional[int] = None,
+) -> bool:
+    if files_complexities:
+        previous_functions = remember_previous_functions(
+            INVOCATION_PATH, paths, files_complexities
+        )
+    else:
+        previous_functions = None
+
+    if quiet:
+        return has_success_functions(files_complexities, max_complexity_allowed)
+
+    effective_sort = Sort.desc if top is not None else sort
+    has_success = output_summary(
+        console,
+        files_complexities,
+        failed,
+        effective_sort,
+        ignore_complexity,
+        max_complexity_allowed,
+        previous_functions,
+        active_snapshot_map,
+        plain,
+        top,
+    )
+    if not plain:
+        if platform.system() == "Windows":
+            console.rule("Analysis completed!")
+        else:
+            console.rule(":tada: Analysis completed! :tada:")
+    return has_success
 
 
 def handle_results_storage(

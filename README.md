@@ -67,15 +67,20 @@ complexipy . --max-complexity-allowed 10
 # Save results to JSON/CSV
 complexipy . --output-format json --output-format csv
 
+# Show the top 5 most complex functions
+complexipy . --top 5
+
+# Emit plain text for scripting/AI agents
+complexipy . --plain
+
+# Include module-level script complexity as <module>
+complexipy . --check-script
+
 # Write a GitLab report to a deterministic path
 complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Compare complexity against a git reference
 complexipy . --diff HEAD~1
-
-# Include module-level script complexity as <module>
-complexipy . --check-script
-
 # Analyze current directory while excluding specific files
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
@@ -200,9 +205,9 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json", "sarif"]
 output = "reports/"
-check-script = false
 ```
 
 ```toml
@@ -218,37 +223,41 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json"]
 output = "complexipy-results.json"
-check-script = false
 ```
 
 Legacy TOML keys such as `output-json = true` and CLI flags such as
 `--output-json` still work for now, but they are deprecated in favor of
 `output-format` and `--output-format`.
 
+`check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
+
 ### CLI Options
 
-| Flag                            | Description                                                                                                                                                      | Default |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--exclude`                     | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
-| `--max-complexity-allowed`      | Complexity threshold                                                                                                                                             | `15`    |
-| `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
-| `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
-| `--failed`                      | Show only functions above the complexity threshold                                                                                                               | `false` |
-| `--color <auto\|yes\|no>`       | Use color                                                                                                                                                        | `auto`  |
-| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                     | `asc`   |
-| `--quiet`                       | Suppress output                                                                                                                                                  | `false` |
-| `--ignore-complexity`           | Don't exit with error on threshold breach                                                                                                                        | `false` |
-| `--version`                     | Show installed complexipy version and exit                                                                                                                       | -       |
-| `--output-format <format>`      | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                          | —       |
-| `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
-| `--diff <ref>`                  | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
-| `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
-| `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
-| `--output-csv`                  | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
-| `--output-gitlab`               | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
-| `--output-sarif`                | Deprecated alias for `--output-format sarif`                                                                                                                     | `false` |
+| Flag                       | Description                                                                                                                                                      | Default |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--exclude`                | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--max-complexity-allowed` | Complexity threshold                                                                                                                                             | `15`    |
+| `--snapshot-create`        | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
+| `--snapshot-ignore`        | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
+| `--failed`                 | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--color <auto\|yes\|no>`  | Use color                                                                                                                                                        | `auto`  |
+| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                               | `asc`   |
+| `--quiet`                  | Suppress output                                                                                                                                                  | `false` |
+| `--ignore-complexity`      | Don't exit with error on threshold breach                                                                                                                        | `false` |
+| `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
+| `--top <n>`                | Show only the `n` most complex functions, globally sorted by complexity descending                                                                               | —       |
+| `--plain`                  | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet`                                                                    | `false` |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                          | —       |
+| `--output <path>`          | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
+| `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--check-script`           | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
+| `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
+| `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
+| `--output-gitlab`          | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
+| `--output-sarif`           | Deprecated alias for `--output-format sarif`                                                                                                                     | `false` |
 
 Example:
 

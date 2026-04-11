@@ -67,15 +67,20 @@ complexipy . --max-complexity-allowed 10
 # Guarda los resultados en JSON/CSV
 complexipy . --output-format json --output-format csv
 
+# Muestra las 5 funciones más complejas
+complexipy . --top 5
+
+# Emite texto plano para scripts o agentes de IA
+complexipy . --plain
+
+# Incluye la complejidad del código a nivel de módulo como <module>
+complexipy . --check-script
+
 # Guarda un reporte de GitLab en una ruta determinista
 complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Compara la complejidad contra una referencia de git
 complexipy . --diff HEAD~1
-
-# Incluye la complejidad del script a nivel módulo como <module>
-complexipy . --check-script
-
 # Analiza el directorio actual excluyendo ciertos archivos
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
@@ -164,9 +169,9 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json", "gitlab"]
 output = "reports/"
-check-script = false
 ```
 
 ```toml
@@ -182,37 +187,41 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json"]
 output = "complexipy-results.json"
-check-script = false
 ```
 
 Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 `--output-json` todavía funcionan por ahora, pero están deprecadas a favor de
 `output-format` y `--output-format`.
 
+`check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
+
 ### Opciones de CLI
 
-| Opción                          | Descripción                                                                                                                                                                                                 | Predeterminado |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `--exclude`                     | Excluye entradas relativas a cada ruta proporcionada. Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta). Las entradas inexistentes se ignoran. |                |
-| `--max-complexity-allowed`      | Umbral de complejidad                                                                                                                                                                                       | `15`           |
-| `--snapshot-create`             | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                         | `false`        |
-| `--snapshot-ignore`             | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
-| `--failed`                      | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                             | `false`        |
-| `--color <auto\|yes\|no>`       | Usa color                                                                                                                                                                                                   | `auto`         |
-| `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                       | `asc`          |
-| `--quiet`                       | Suprime la salida                                                                                                                                                                                           | `false`        |
-| `--ignore-complexity`           | No termina con error al superar el umbral                                                                                                                                                                   | `false`        |
-| `--version`                     | Muestra la versión instalada de complexipy y sale                                                                                                                                                           | -              |
-| `--output-format <format>`      | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                                | —              |
-| `--output <path>`               | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                          | —              |
-| `--diff <ref>`                  | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                                 | —              |
-| `--check-script`                | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                        | `false`        |
-| `--output-json`                 | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
-| `--output-csv`                  | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
-| `--output-gitlab`               | Alias deprecado de `--output-format gitlab`                                                                                                                                                                 | `false`        |
-| `--output-sarif`                | Alias deprecado de `--output-format sarif`                                                                                                                                                                  | `false`        |
+| Opción                     | Descripción                                                                                                                                                                                                 | Predeterminado |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `--exclude`                | Excluye entradas relativas a cada ruta proporcionada. Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta). Las entradas inexistentes se ignoran. |                |
+| `--max-complexity-allowed` | Umbral de complejidad                                                                                                                                                                                       | `15`           |
+| `--snapshot-create`        | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                         | `false`        |
+| `--snapshot-ignore`        | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
+| `--failed`                 | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                             | `false`        |
+| `--color <auto\|yes\|no>`  | Usa color                                                                                                                                                                                                   | `auto`         |
+| `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                   | `asc`          |
+| `--quiet`                  | Suprime la salida                                                                                                                                                                                           | `false`        |
+| `--ignore-complexity`      | No termina con error al superar el umbral                                                                                                                                                                   | `false`        |
+| `--version`                | Muestra la versión instalada de complexipy y sale                                                                                                                                                           | -              |
+| `--top <n>`                | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente                                                                                                             | —              |
+| `--plain`                  | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet`                                                                                                      | `false`        |
+| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                                | —              |
+| `--output <path>`          | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                          | —              |
+| `--diff <ref>`             | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                                 | —              |
+| `--check-script`           | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                        | `false`        |
+| `--output-json`            | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
+| `--output-csv`             | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
+| `--output-gitlab`          | Alias deprecado de `--output-format gitlab`                                                                                                                                                                 | `false`        |
+| `--output-sarif`           | Alias deprecado de `--output-format sarif`                                                                                                                                                                  | `false`        |
 
 Ejemplo:
 
