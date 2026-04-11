@@ -96,7 +96,11 @@ complexipy . --exclude tests --exclude migrations --exclude build
 complexipy . --exclude src/legacy/old_code.py
 ```
 
-!!! note "How exclusion works" - Entries resolve to existing directories (prefix match) or files (exact match) - Non-existent entries are silently ignored - Paths are relative to each provided root path
+<!-- prettier-ignore -->
+!!! note "How exclusion works"
+    - Entries resolve to existing directories (prefix match) or files (exact match)
+    - Non-existent entries are silently ignored
+    - Paths are relative to each provided root path
 
 ### Output Formats
 
