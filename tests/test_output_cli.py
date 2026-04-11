@@ -191,6 +191,62 @@ class TestTopOutput:
         assert len(lines) == 1
         assert "complex_fn" in lines[0]
 
+    def test_top_multi_file_preserves_global_descending_order(
+        self, tmp_path: Path
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        file_a = tmp_path / "a.py"
+        file_b = tmp_path / "b.py"
+        # a.py has the most complex and the least complex function;
+        # b.py has a middle-complexity function. Global order must interleave.
+        file_a.write_text(
+            """\
+def a_high(x):
+    if x:
+        for i in range(x):
+            if i > 0:
+                if i % 2:
+                    if i % 3:
+                        return i
+    return 0
+
+def a_low(x):
+    return x
+""",
+            encoding="utf-8",
+        )
+        file_b.write_text(
+            """\
+def b_mid(x):
+    if x:
+        if x > 1:
+            return x
+    return 0
+""",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--top", "3", "--plain", str(tmp_path)],
+        )
+
+        assert result.exit_code == 0, result.output
+        lines = [
+            line for line in result.output.strip().splitlines() if line.strip()
+        ]
+        assert len(lines) == 3
+        complexities = [int(line.split()[-1]) for line in lines]
+        assert complexities == sorted(complexities, reverse=True)
+        # Ensure the middle entry is from b.py — proves the output is not
+        # regrouped by file (which would cluster both a.py rows together).
+        names = [line.split()[1] for line in lines]
+        assert names[0] == "a_high"
+        assert names[1] == "b_mid"
+        assert names[2] == "a_low"
+
     def test_top_zero_errors(self, tmp_path: Path):
         import complexipy.main as main_module
 

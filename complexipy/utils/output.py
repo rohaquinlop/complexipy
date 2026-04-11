@@ -103,14 +103,20 @@ def truncate_top_n(
     all_functions.sort(key=lambda x: int(x[1]["complexity"]), reverse=True)
     top_functions = all_functions[:n]
 
-    grouped: Dict[str, List[Dict[str, str | int | bool | Tuple[str, str]]]] = {}
+    # Preserve global descending order across files: emit a new entry whenever
+    # the path changes, rather than regrouping (which would collapse runs and
+    # lose the global rank order for multi-file results).
+    result: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ] = []
     for path, function in top_functions:
-        grouped.setdefault(path, []).append(function)
-
-    return [
-        {"path": path, "functions": functions}
-        for path, functions in grouped.items()
-    ]
+        if result and result[-1]["path"] == path:
+            functions_list = result[-1]["functions"]
+            if isinstance(functions_list, list):
+                functions_list.append(function)
+        else:
+            result.append({"path": path, "functions": [function]})
+    return result
 
 
 def output_file_entries(
