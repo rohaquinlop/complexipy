@@ -96,11 +96,7 @@ complexipy . --exclude tests --exclude migrations --exclude build
 complexipy . --exclude src/legacy/old_code.py
 ```
 
-<!-- prettier-ignore -->
-!!! note "Cómo funciona la exclusión"
-    - Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta)
-    - Las entradas inexistentes se ignoran silenciosamente
-    - Las rutas son relativas a cada ruta raíz proporcionada
+!!! note "Cómo funciona la exclusión" - Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta) - Las entradas inexistentes se ignoran silenciosamente - Las rutas son relativas a cada ruta raíz proporcionada
 
 ### Formatos de Salida
 
@@ -218,7 +214,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 
 <!-- prettier-ignore -->
 === "complexipy.toml"
-    ```toml
+`toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
     exclude = ["migrations", "build"]
@@ -232,27 +228,26 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     output-format = ["json", "gitlab"]
     output = "reports/"
     check-script = false
-    ```
+    `
 
 <!-- prettier-ignore -->
 === "pyproject.toml"
-    ```toml
+`toml
     [tool.complexipy]
     paths = ["src", "tests"]
     max-complexity-allowed = 10
     exclude = ["migrations", "build"]
     failed = true
     sort = "desc"
-    check-script = true
-    ```
+    `
 
 <!-- prettier-ignore -->
 === ".complexipy.toml"
-    ```toml
+`toml
     # Archivo de configuración oculto para ajustes específicos del equipo
     max-complexity-allowed = 15
     exclude = ["venv", ".venv", "node_modules"]
-    ```
+    `
 
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
 
