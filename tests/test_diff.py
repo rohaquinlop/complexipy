@@ -14,6 +14,7 @@ from complexipy.utils.diff import (
     DiffEntry,
     compute_diff,
     format_diff,
+    has_regressions,
 )
 
 # ---------------------------------------------------------------------------
@@ -153,7 +154,9 @@ class TestComputeDiff:
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff(current, "HEAD~1", "/repo")
 
-        simple_entry = next((e for e in entries if e.func_name == "simple"), None)
+        simple_entry = next(
+            (e for e in entries if e.func_name == "simple"), None
+        )
         # simple didn't exist in old (complex) version → appears as new
         assert simple_entry is not None
         assert simple_entry.status == _STATUS_NEW
@@ -259,3 +262,57 @@ class TestFormatDiff:
     def test_no_changes_message(self):
         output = format_diff([], "HEAD~1")
         assert "No functions changed" in output
+
+
+# ---------------------------------------------------------------------------
+# has_regressions tests
+# ---------------------------------------------------------------------------
+
+
+class TestHasRegressions:
+    def test_regressed_function_triggers(self):
+        entries = [DiffEntry("f.py", "foo", 5, 10)]
+        assert has_regressions(entries, max_complexity=15) is True
+
+    def test_new_function_above_threshold_triggers(self):
+        entries = [DiffEntry("f.py", "bar", None, 20)]
+        assert has_regressions(entries, max_complexity=15) is True
+
+    def test_new_function_within_threshold_passes(self):
+        entries = [DiffEntry("f.py", "bar", None, 10)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_new_function_at_threshold_passes(self):
+        entries = [DiffEntry("f.py", "bar", None, 15)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_improved_function_passes(self):
+        entries = [DiffEntry("f.py", "foo", 20, 10)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_unchanged_function_passes(self):
+        entries = [DiffEntry("f.py", "foo", 5, 5)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_removed_function_passes(self):
+        entries = [DiffEntry("f.py", "foo", 10, None)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_empty_entries_passes(self):
+        assert has_regressions([], max_complexity=15) is False
+
+    def test_mixed_entries_regressed_triggers(self):
+        entries = [
+            DiffEntry("f.py", "good", 10, 5),  # IMPROVED
+            DiffEntry("f.py", "bad", 5, 12),  # REGRESSED
+            DiffEntry("f.py", "same", 3, 3),  # UNCHANGED
+        ]
+        assert has_regressions(entries, max_complexity=15) is True
+
+    def test_mixed_entries_no_regression_passes(self):
+        entries = [
+            DiffEntry("f.py", "good", 10, 5),  # IMPROVED
+            DiffEntry("f.py", "new_ok", None, 8),  # NEW, under threshold
+            DiffEntry("f.py", "same", 3, 3),  # UNCHANGED
+        ]
+        assert has_regressions(entries, max_complexity=15) is False
