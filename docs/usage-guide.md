@@ -4,16 +4,19 @@ This guide covers everything you need to know to effectively use complexipy in y
 
 ## Installation
 
+<!-- prettier-ignore -->
 === "pip"
     ```bash
     pip install complexipy
     ```
 
+<!-- prettier-ignore -->
 === "uv"
     ```bash
     uv add complexipy
     ```
 
+<!-- prettier-ignore -->
 === "poetry"
     ```bash
     poetry add complexipy
@@ -53,6 +56,15 @@ Show only functions that exceed the threshold:
 complexipy . --failed
 ```
 
+Show only the top N most complex functions across the analyzed files:
+
+```bash
+complexipy . --top 10
+```
+
+When `--top` is set, results are globally re-sorted by complexity descending
+before truncation.
+
 Suppress all output (useful for CI pipelines):
 
 ```bash
@@ -66,7 +78,7 @@ Sort by complexity score:
 ```bash
 complexipy . --sort asc   # Ascending (default)
 complexipy . --sort desc  # Descending
-complexipy . --sort name  # Alphabetically by function name
+complexipy . --sort file_name  # Alphabetically by file name
 ```
 
 ### Excluding Files and Directories
@@ -84,6 +96,7 @@ complexipy . --exclude tests --exclude migrations --exclude build
 complexipy . --exclude src/legacy/old_code.py
 ```
 
+<!-- prettier-ignore -->
 !!! note "How exclusion works"
     - Entries resolve to existing directories (prefix match) or files (exact match)
     - Non-existent entries are silently ignored
@@ -119,24 +132,67 @@ complexipy . --output-format sarif
 Legacy flags such as `--output-json` and TOML keys such as `output-json = true`
 still work as deprecated aliases for one release cycle.
 
+### Complexity Diff
+
+Compare current results against any git reference:
+
+```bash
+complexipy . --diff HEAD~1
+complexipy . --diff main
+complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
+```
+
+The diff is appended after the regular analysis output and does not affect the exit code. This requires `git` and a repository-backed path.
+
+### Plain Output
+
+Use plain output when you need one machine-friendly line per function:
+
+```bash
+complexipy . --plain
+complexipy . --plain --top 5
+complexipy . --plain --failed -mx 10
+```
+
+Each line is emitted as:
+
+```text
+<path> <function> <complexity>
+```
+
+`--plain` is CLI-only and cannot be combined with `--quiet`.
+
+### Module-Level Script Complexity
+
+Use `--check-script` to include module-level code in the results as
+`<module>`:
+
+```bash
+complexipy path/to/script.py --check-script
+complexipy path/to/script.py --check-script -mx 5
+```
+
+This is useful for scripts with complex top-level control flow outside
+functions.
 **JSON Output Structure:**
+
 ```json
 {
-  "files": [
-    {
-      "path": "src/main.py",
-      "complexity": 42,
-      "functions": [
+    "files": [
         {
-          "name": "process_data",
-          "complexity": 18,
-          "line_start": 10,
-          "line_end": 45
+            "path": "src/main.py",
+            "complexity": 42,
+            "functions": [
+                {
+                    "name": "process_data",
+                    "complexity": 18,
+                    "line_start": 10,
+                    "line_end": 45
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "total_complexity": 42
+    ],
+    "total_complexity": 42
 }
 ```
 
@@ -163,6 +219,7 @@ complexipy loads configuration in this order (highest to lowest priority):
 
 ### Example Configurations
 
+<!-- prettier-ignore -->
 === "complexipy.toml"
     ```toml
     paths = ["src", "tests"]
@@ -177,8 +234,10 @@ complexipy loads configuration in this order (highest to lowest priority):
     sort = "asc"
     output-format = ["json", "gitlab"]
     output = "reports/"
+    check-script = false
     ```
 
+<!-- prettier-ignore -->
 === "pyproject.toml"
     ```toml
     [tool.complexipy]
@@ -187,14 +246,18 @@ complexipy loads configuration in this order (highest to lowest priority):
     exclude = ["migrations", "build"]
     failed = true
     sort = "desc"
+    check-script = true
     ```
 
+<!-- prettier-ignore -->
 === ".complexipy.toml"
     ```toml
     # Hidden config file for team-specific settings
     max-complexity-allowed = 15
     exclude = ["venv", ".venv", "node_modules"]
     ```
+
+`check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
 
 ## Python API
 
@@ -204,7 +267,7 @@ complexipy loads configuration in this order (highest to lowest priority):
 from complexipy import file_complexity
 
 # Analyze a file
-result = file_complexity("src/main.py")
+result = file_complexity("src/main.py", check_script=True)
 
 print(f"Total complexity: {result.complexity}")
 print(f"File path: {result.path}")
@@ -232,7 +295,7 @@ def calculate_discount(price, customer):
     return price
 """
 
-result = code_complexity(code)
+result = code_complexity(code, check_script=True)
 print(f"Complexity: {result.complexity}")
 
 for func in result.functions:
@@ -372,16 +435,16 @@ name: Complexity Check
 on: [push, pull_request]
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install complexipy
-        run: pip install complexipy
+            - name: Install complexipy
+              run: pip install complexipy
 
-      - name: Check complexity
-        run: complexipy . --max-complexity-allowed 15
+            - name: Check complexity
+              run: complexipy . --max-complexity-allowed 15
 ```
 
 The snapshot file (`complexipy-snapshot.json`) should be committed to version control.
@@ -395,6 +458,7 @@ complexipy . --snapshot-ignore
 ```
 
 Use this when:
+
 - Refactoring multiple files at once
 - Regenerating the baseline
 - Testing different thresholds
@@ -403,15 +467,15 @@ Use this when:
 
 ```json
 {
-  "version": "1.0",
-  "threshold": 15,
-  "functions": {
-    "src/legacy.py::old_function": {
-      "complexity": 23,
-      "line_start": 10,
-      "line_end": 50
+    "version": "1.0",
+    "threshold": 15,
+    "functions": {
+        "src/legacy.py::old_function": {
+            "complexity": 23,
+            "line_start": 10,
+            "line_end": 50
+        }
     }
-  }
 }
 ```
 
@@ -437,6 +501,7 @@ def complex_function():
     pass
 ```
 
+<!-- prettier-ignore -->
 !!! note "Deprecated Syntax"
     The `# noqa: complexipy` syntax is deprecated and will be removed in a future version.
     Please migrate to `# complexipy: ignore` instead.
@@ -445,6 +510,7 @@ def complex_function():
     comments that aren't recognized by flake8, which would silently remove your complexipy
     suppressions. The new syntax avoids this conflict entirely.
 
+<!-- prettier-ignore -->
 !!! warning "Use Sparingly"
     Inline ignores should be temporary. Document why the complexity is necessary and track technical debt.
 
@@ -457,9 +523,9 @@ Use the official action:
 ```yaml
 - uses: rohaquinlop/complexipy-action@v2
   with:
-    paths: src tests
-    max_complexity_allowed: 15
-    output_json: true
+      paths: src tests
+      max_complexity_allowed: 15
+      output_json: true
 ```
 
 Or run directly:
@@ -467,8 +533,8 @@ Or run directly:
 ```yaml
 - name: Check complexity
   run: |
-    pip install complexipy
-    complexipy . --max-complexity-allowed 15
+      pip install complexipy
+      complexipy . --max-complexity-allowed 15
 ```
 
 ### Pre-commit Hook
@@ -477,31 +543,31 @@ Add to `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-    rev: v4.2.0
-    hooks:
-      - id: complexipy
-        args: [--max-complexity-allowed=15]
+    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+      rev: v4.2.0
+      hooks:
+          - id: complexipy
+            args: [--max-complexity-allowed=15]
 ```
 
 ### GitLab CI
 
 ```yaml
 .complexipy_code_quality:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
-  artifacts:
-    when: always
-    reports:
-      codequality: complexipy-code-quality.json
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
+    artifacts:
+        when: always
+        reports:
+            codequality: complexipy-code-quality.json
 
 complexity:
-  extends: .complexipy_code_quality
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    extends: .complexipy_code_quality
+    rules:
+        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+        - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
 
 Use `--ignore-complexity` when your main goal is to upload the report even if violations exist. GitLab will still display the findings in the merge request widget and pipeline UI.
@@ -510,20 +576,20 @@ If you also want the job to fail when the threshold is exceeded, split the workf
 
 ```yaml
 complexity_check:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --max-complexity-allowed 15
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --max-complexity-allowed 15
 
 complexity_report:
-  image: python:3.11
-  script:
-    - pip install complexipy
-    - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
-  artifacts:
-    when: always
-    reports:
-      codequality: complexipy-code-quality.json
+    image: python:3.11
+    script:
+        - pip install complexipy
+        - complexipy . --output-format gitlab --output complexipy-code-quality.json --ignore-complexity --max-complexity-allowed 15
+    artifacts:
+        when: always
+        reports:
+            codequality: complexipy-code-quality.json
 ```
 
 ## VS Code Integration

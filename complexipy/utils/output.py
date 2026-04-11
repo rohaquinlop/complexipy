@@ -29,6 +29,8 @@ def output_summary(
     max_complexity: int,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
+    plain: bool = False,
+    top: Optional[int] = None,
 ) -> bool:
     (
         file_entries,
@@ -38,6 +40,13 @@ def output_summary(
         files, failed_only, sort, max_complexity, snapshot_map
     )
     has_success = not failing_functions or ignore_complexity
+
+    if top is not None:
+        file_entries = truncate_top_n(file_entries, top)
+
+    if plain:
+        output_plain(console, file_entries)
+        return has_success
 
     if failed_only and not file_entries:
         console.print(
@@ -61,12 +70,61 @@ def output_summary(
     return has_success
 
 
+def output_plain(
+    console: Console,
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+) -> None:
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if isinstance(function, str):
+                continue
+            path = normalize_path(
+                str(function["path"]), str(function["file_name"])
+            )
+            console.print(f"{path} {function['name']} {function['complexity']}")
+
+
+def truncate_top_n(
+    file_entries: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ],
+    n: int,
+) -> List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]]:
+    all_functions: List[
+        Tuple[str, Dict[str, str | int | bool | Tuple[str, str]]]
+    ] = []
+    for entry in file_entries:
+        for function in entry["functions"]:
+            if not isinstance(function, str):
+                all_functions.append((str(entry["path"]), function))
+
+    all_functions.sort(key=lambda x: int(x[1]["complexity"]), reverse=True)
+    top_functions = all_functions[:n]
+
+    # Preserve global descending order across files: emit a new entry whenever
+    # the path changes, rather than regrouping (which would collapse runs and
+    # lose the global rank order for multi-file results).
+    result: List[
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
+    ] = []
+    for path, function in top_functions:
+        if result and result[-1]["path"] == path:
+            functions_list = result[-1]["functions"]
+            if isinstance(functions_list, list):
+                functions_list.append(function)
+        else:
+            result.append({"path": path, "functions": [function]})
+    return result
+
+
 def output_file_entries(
     console: Console,
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ],
-    failing_functions: dict[str, List[str]],
+    failing_functions: Dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
@@ -108,7 +166,7 @@ def format_status_text(passed: bool) -> str:
 
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: dict[str, str | int | bool | Tuple[str, str]],
+    function: Dict[str, str | int | bool | Tuple[str, str]],
     max_complexity: int,
 ) -> str:
     delta_text = ""
@@ -159,21 +217,21 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
-) -> tuple[
-    List[dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]],
-    dict[str, List[str]],
+) -> Tuple[
+    List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]],
+    Dict[str, List[str]],
     int,
 ]:
     file_entries: List[
-        dict[str, str | List[dict[str, str | int | bool | Tuple[str, str]]]]
+        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
     ] = []
-    failing_functions: dict[str, List[str]] = {}
+    failing_functions: Dict[str, List[str]] = {}
     total_functions = 0
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
         displayable_functions: List[
-            dict[str, str | int | bool | Tuple[str, str]]
+            Dict[str, str | int | bool | Tuple[str, str]]
         ] = []
 
         for function in sorted_functions:

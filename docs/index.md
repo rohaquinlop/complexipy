@@ -26,6 +26,7 @@
 Unlike traditional metrics like cyclomatic complexity, cognitive complexity accounts for nesting depth and control flow patterns that affect human comprehension. Inspired by [G. Ann Campbell's research](https://www.sonarsource.com/resources/cognitive-complexity/) at SonarSource, complexipy provides a fast, accurate implementation for Python.
 
 **Key benefits:**
+
 - **Human-focused** - Penalizes nesting, flow breaks, and human-unfriendly logic
 - **Actionable insights** - Identifies genuinely hard-to-maintain code
 - **Different from cyclomatic** - Measures readability while cyclomatic measures structural, testing, and branch density
@@ -66,9 +67,20 @@ complexipy . --max-complexity-allowed 10
 # Save results to JSON/CSV
 complexipy . --output-format json --output-format csv
 
+# Show the top 5 most complex functions
+complexipy . --top 5
+
+# Emit plain text for scripting/AI agents
+complexipy . --plain
+
+# Include module-level script complexity as <module>
+complexipy . --check-script
+
 # Save a GitLab report to a deterministic path
 complexipy . --output-format gitlab --output complexipy-code-quality.json
 
+# Compare complexity against a git reference
+complexipy . --diff HEAD~1
 # Analyze current directory while excluding specific files
 complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
@@ -79,7 +91,7 @@ complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 from complexipy import file_complexity, code_complexity
 
 # Analyze a file
-result = file_complexity("app.py")
+result = file_complexity("app.py", check_script=True)
 print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
@@ -94,7 +106,7 @@ def complex_function(data):
                 process(item)
 """
 
-result = code_complexity(snippet)
+result = code_complexity(snippet, check_script=True)
 print(f"Complexity: {result.complexity}")
 ```
 
@@ -106,9 +118,9 @@ print(f"Complexity: {result.complexity}")
 ```yaml
 - uses: rohaquinlop/complexipy-action@v2
   with:
-    paths: .
-    max_complexity_allowed: 10
-    output_format: json
+      paths: .
+      max_complexity_allowed: 10
+      output_format: json
 ```
 
 </details>
@@ -118,10 +130,10 @@ print(f"Complexity: {result.complexity}")
 
 ```yaml
 repos:
-- repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v4.2.0
-  hooks:
-    - id: complexipy
+    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+      rev: v4.2.0
+      hooks:
+          - id: complexipy
 ```
 
 </details>
@@ -157,6 +169,7 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json", "gitlab"]
 output = "reports/"
 ```
@@ -174,6 +187,7 @@ failed = false
 color = "auto"
 sort = "asc"
 exclude = []
+check-script = false
 output-format = ["json"]
 output = "complexipy-results.json"
 ```
@@ -182,26 +196,32 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 `--output-json` still work for now, but they are deprecated in favor of
 `output-format` and `--output-format`.
 
+`check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
+
 ### CLI Options
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
-| `--max-complexity-allowed` | Complexity threshold | `15` |
-| `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
-| `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
-| `--failed` | Show only functions above the complexity threshold | `false` |
-| `--color <auto\|yes\|no>` | Use color | `auto` |
-| `--sort <asc\|desc\|name>` | Sort results | `asc` |
-| `--quiet` | Suppress output | `false` |
-| `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
-| `--version` | Show installed complexipy version and exit | - |
-| `--output-format <format>` | Select a machine-readable output format. Repeat the flag for multiple formats (`json`, `csv`, `gitlab`, `sarif`) | — |
-| `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | — |
-| `--output-json` | Deprecated alias for `--output-format json` | `false` |
-| `--output-csv` | Deprecated alias for `--output-format csv` | `false` |
-| `--output-gitlab` | Deprecated alias for `--output-format gitlab` | `false` |
-| `--output-sarif` | Deprecated alias for `--output-format sarif` | `false` |
+| Flag                       | Description                                                                                                                                                      | Default |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--exclude`                | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--max-complexity-allowed` | Complexity threshold                                                                                                                                             | `15`    |
+| `--snapshot-create`        | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
+| `--snapshot-ignore`        | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
+| `--failed`                 | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--color <auto\|yes\|no>`  | Use color                                                                                                                                                        | `auto`  |
+| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                 | `asc`   |
+| `--quiet`                  | Suppress output                                                                                                                                                  | `false` |
+| `--ignore-complexity`      | Don't exit with error on threshold breach                                                                                                                        | `false` |
+| `--version`                | Show installed complexipy version and exit                                                                                                                       | -       |
+| `--top <n>`                | Show only the `n` most complex functions, globally sorted by complexity descending                                                                               | —       |
+| `--plain`                  | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet`                                                                    | `false` |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag for multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                                 | —       |
+| `--output <path>`          | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
+| `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--check-script`           | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
+| `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
+| `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
+| `--output-gitlab`          | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
+| `--output-sarif`           | Deprecated alias for `--output-format sarif`                                                                                                                     | `false` |
 
 Example:
 
@@ -235,6 +255,30 @@ The snapshot file only stores functions whose complexity exceeds the configured 
 
 Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for example during a refactor or while regenerating the baseline).
 
+### Complexity Diff
+
+Compare complexity against any git reference to see whether a branch or commit made things better or worse:
+
+```bash
+# Compare the working tree against the previous commit
+complexipy . --diff HEAD~1
+
+# Compare against a named branch
+complexipy . --diff main
+```
+
+The diff is appended after the normal analysis output and does not affect the exit code. Requires `git` to be available and the analysed paths to be inside a git repository.
+
+### Script Complexity
+
+Use `--check-script` when you also want to score module-level control flow, not just functions:
+
+```bash
+complexipy scripts/bootstrap.py --check-script
+```
+
+The same capability is available in the Python API via `check_script=True` on both `file_complexity()` and `code_complexity()`.
+
 ### Inline Ignores
 
 You can explicitly ignore a known complex function inline using `# complexipy: ignore`:
@@ -254,8 +298,8 @@ Place `# complexipy: ignore` on the function definition line (or the line immedi
 
 ```python
 # Core functions
-file_complexity(path: str) -> FileComplexity
-code_complexity(source: str) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False) -> FileComplexity
+code_complexity(source: str, check_script: bool = False) -> CodeComplexity
 
 # Return types
 FileComplexity:
