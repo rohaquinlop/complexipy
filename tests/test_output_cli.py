@@ -379,6 +379,7 @@ class TestOutputToml:
             None,
             None,
             None,
+            None,
         )
 
         assert values[9] == ["json", "gitlab"]
