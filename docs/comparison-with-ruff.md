@@ -36,9 +36,9 @@ def example(a, b, c, d):
 # Ruff: 5 branches
 ```
 
-## complexipy: Cognitive Complexity
+## complexipy: Cognitive Complexity (default) and Cyclomatic Complexity
 
-complexipy implements **cognitive complexity**, which weights branches by their nesting level to reflect human understanding.
+complexipy implements **cognitive complexity**, which weights branches by their nesting level to reflect human understanding. It also ships a `--metric cyclomatic` switch so you can use the same analyzer for classical McCabe-style scoring when a CI gate requires it — useful if you already rely on cyclomatic thresholds but want a faster, pyproject-driven analyzer.
 
 ### How complexipy Scores
 

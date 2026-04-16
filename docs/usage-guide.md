@@ -48,6 +48,33 @@ The default threshold is 15. Functions exceeding this value will be highlighted:
 complexipy . --max-complexity-allowed 10
 ```
 
+### Choosing a Metric
+
+complexipy computes **cognitive complexity** by default. To use **cyclomatic
+(McCabe) complexity** as the threshold, sort key, and reported value, pass
+`--metric cyclomatic`:
+
+```bash
+complexipy . --metric cyclomatic -mx 10
+```
+
+| Metric | Measures | Best for |
+|--------|----------|----------|
+| `cognitive` (default) | Human comprehension effort, weighted by nesting | Maintainability, code reviews |
+| `cyclomatic` | Number of linearly independent paths | Test coverage targets, classical CI gates |
+
+Only one metric drives the threshold and the printed score per run; the other
+is not computed. The cyclomatic value is also exposed in `--output-format json`
+and `--output-format csv` when `--metric cyclomatic` is active.
+
+The metric can also be set in `pyproject.toml`:
+
+```toml
+[tool.complexipy]
+metric = "cyclomatic"
+max-complexity-allowed = 10
+```
+
 ### Filtering Results
 
 Show only functions that exceed the threshold:

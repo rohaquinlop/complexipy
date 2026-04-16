@@ -30,6 +30,7 @@ Unlike traditional metrics like cyclomatic complexity, cognitive complexity acco
 - **Human-focused** - Penalizes nesting, flow breaks, and human-unfriendly logic
 - **Actionable insights** - Identifies genuinely hard-to-maintain code
 - **Different from cyclomatic** - Measures readability while cyclomatic measures structural, testing, and branch density
+- **Both metrics available** - Pass `--metric cyclomatic` when you need classical McCabe-style scoring (counts decision points, ignores nesting); cognitive is the default
 
 ## Common Questions
 
@@ -63,6 +64,9 @@ complexipy path/to/code.py
 
 # Analyze with custom threshold
 complexipy . --max-complexity-allowed 10
+
+# Use cyclomatic (McCabe) complexity instead of the default cognitive metric
+complexipy . --metric cyclomatic -mx 10
 
 # Save results to JSON/CSV
 complexipy . --output-format json --output-format csv
