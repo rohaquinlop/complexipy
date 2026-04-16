@@ -400,6 +400,7 @@ pub fn function_level_cognitive_complexity_shared(
                     let function = FunctionComplexity {
                         name: f.name.to_string(),
                         complexity: func_complexity,
+                        cyclomatic_complexity: None,
                         line_start: start_line,
                         line_end: get_line_number(usize::from(f.range.end()), code),
                         line_complexities,
@@ -419,6 +420,7 @@ pub fn function_level_cognitive_complexity_shared(
                             let function = FunctionComplexity {
                                 name: format!("{}::{}", c.name, f.name),
                                 complexity: func_complexity,
+                                cyclomatic_complexity: None,
                                 line_start: start_line,
                                 line_end: get_line_number(usize::from(f.range.end()), code),
                                 line_complexities,
@@ -447,6 +449,7 @@ pub fn function_level_cognitive_complexity_shared(
         let module_func = FunctionComplexity {
             name: "<module>".to_string(),
             complexity: module_complexity,
+            cyclomatic_complexity: None,
             line_start: 1,
             line_end: total_lines,
             line_complexities: module_line_complexities,

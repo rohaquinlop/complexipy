@@ -24,6 +24,11 @@ pub struct LineComplexity {
 pub struct FunctionComplexity {
     pub name: String,
     pub complexity: u64,
+    #[cfg_attr(
+        any(feature = "python", feature = "wasm"),
+        serde(skip_serializing_if = "Option::is_none", default)
+    )]
+    pub cyclomatic_complexity: Option<u64>,
     pub line_start: u64,
     pub line_end: u64,
     pub line_complexities: Vec<LineComplexity>,
