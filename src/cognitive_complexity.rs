@@ -260,40 +260,24 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool)
         }
     }
 
-    if quiet {
-        let results: Vec<_> = files_paths
-            .iter()
-            .map(|file_path| match file_complexity(file_path, parent_dir, check_script) {
-                Ok(file_complexity) => (Some(file_complexity), None),
-                Err(_) => (None, Some(file_path.clone())),
-            })
-            .collect();
-
-        let mut complexities = Vec::new();
-        let mut failed_paths = Vec::new();
-
-        for (success, error_path) in results {
-            match (success, error_path) {
-                (Some(file_complexity), None) => complexities.push(file_complexity),
-                (None, Some(failed_path)) => failed_paths.push(failed_path),
-                _ => unreachable!(),
-            }
-        }
-
-        return (complexities, failed_paths);
-    }
-
-    let pb = ProgressBar::new(files_paths.len() as u64);
-    let bar_style = indicatif::ProgressStyle::default_bar()
-        .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
-        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
-        .progress_chars("##-");
-    pb.set_style(bar_style);
+    let pb = if quiet {
+        None
+    } else {
+        let pb = ProgressBar::new(files_paths.len() as u64);
+        let bar_style = indicatif::ProgressStyle::default_bar()
+            .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
+            .progress_chars("##-");
+        pb.set_style(bar_style);
+        Some(pb)
+    };
 
     let results: Vec<_> = files_paths
         .iter()
         .map(|file_path| {
-            pb.inc(1);
+            if let Some(pb) = &pb {
+                pb.inc(1);
+            }
             match file_complexity(file_path, parent_dir, check_script) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
@@ -312,7 +296,9 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool)
         }
     }
 
-    pb.finish_and_clear();
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
 
     (complexities, failed_paths)
 }
@@ -367,8 +353,6 @@ pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexit
     };
 
     let ast_body = parsed.into_suite();
-
-    // println!("{:#?}", ast_body);
 
     let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code, check_script);
 
@@ -469,7 +453,7 @@ fn statement_cognitive_complexity_shared(
     let mut complexity: u64 = 0;
     let mut line_complexities: Vec<LineComplexity> = Vec::new();
 
-    if is_decorator(statement.clone())
+    if is_decorator(statement)
         && let Stmt::FunctionDef(f) = statement
     {
         return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
@@ -505,7 +489,7 @@ fn statement_cognitive_complexity_shared(
             }
         }
         Stmt::Assign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
+            let bool_ops_complexity = count_bool_ops(&a.value, nesting_level);
             complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
             line_complexities.push(LineComplexity {
@@ -514,8 +498,8 @@ fn statement_cognitive_complexity_shared(
             });
         }
         Stmt::AnnAssign(a) => {
-            if let Some(value) = a.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
+            if let Some(value) = &a.value {
+                let bool_ops_complexity = count_bool_ops(value, nesting_level);
                 complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(a.range.start()), code);
                 line_complexities.push(LineComplexity {
@@ -525,7 +509,7 @@ fn statement_cognitive_complexity_shared(
             }
         }
         Stmt::AugAssign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
+            let bool_ops_complexity = count_bool_ops(&a.value, nesting_level);
             complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
             line_complexities.push(LineComplexity {
@@ -556,7 +540,7 @@ fn statement_cognitive_complexity_shared(
         }
         Stmt::While(w) => {
             let stmt_complexity =
-                1 + nesting_level + count_bool_ops(*w.test.clone(), nesting_level);
+                1 + nesting_level + count_bool_ops(&w.test, nesting_level);
             complexity += stmt_complexity;
             let line = get_line_number(usize::from(w.range.start()), code);
             line_complexities.push(LineComplexity {
@@ -578,7 +562,7 @@ fn statement_cognitive_complexity_shared(
         }
         Stmt::If(i) => {
             let stmt_complexity =
-                1 + nesting_level + count_bool_ops(*i.test.clone(), nesting_level);
+                1 + nesting_level + count_bool_ops(&i.test, nesting_level);
             complexity += stmt_complexity;
             let line = get_line_number(usize::from(i.range.start()), code);
             line_complexities.push(LineComplexity {
@@ -591,9 +575,9 @@ fn statement_cognitive_complexity_shared(
                 complexity += stmt_complexity;
                 line_complexities.extend(stmt_line_complexities);
             }
-            for clause in i.elif_else_clauses.clone() {
+            for clause in i.elif_else_clauses.iter() {
                 let mut clause_complexity = 1;
-                if let Some(test) = clause.test.clone() {
+                if let Some(test) = &clause.test {
                     clause_complexity += count_bool_ops(test, nesting_level);
                 }
 
@@ -659,8 +643,8 @@ fn statement_cognitive_complexity_shared(
             }
         }
         Stmt::Return(r) => {
-            if let Some(value) = r.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
+            if let Some(value) = &r.value {
+                let bool_ops_complexity = count_bool_ops(value, nesting_level);
                 complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(r.range.start()), code);
                 line_complexities.push(LineComplexity {
@@ -671,11 +655,11 @@ fn statement_cognitive_complexity_shared(
         }
         Stmt::Raise(r) => {
             let mut raise_complexity = 0;
-            if let Some(exc) = r.exc.clone() {
-                raise_complexity += count_bool_ops(*exc, nesting_level);
+            if let Some(exc) = &r.exc {
+                raise_complexity += count_bool_ops(exc, nesting_level);
             }
-            if let Some(cause) = r.cause.clone() {
-                raise_complexity += count_bool_ops(*cause, nesting_level);
+            if let Some(cause) = &r.cause {
+                raise_complexity += count_bool_ops(cause, nesting_level);
             }
             complexity += raise_complexity;
             let line = get_line_number(usize::from(r.range.start()), code);
@@ -685,9 +669,9 @@ fn statement_cognitive_complexity_shared(
             });
         }
         Stmt::Assert(a) => {
-            let mut assert_complexity = count_bool_ops(*a.test.clone(), nesting_level);
-            if let Some(msg) = a.msg.clone() {
-                assert_complexity += count_bool_ops(*msg, nesting_level);
+            let mut assert_complexity = count_bool_ops(&a.test, nesting_level);
+            if let Some(msg) = &a.msg {
+                assert_complexity += count_bool_ops(msg, nesting_level);
             }
             complexity += assert_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
@@ -699,7 +683,7 @@ fn statement_cognitive_complexity_shared(
         Stmt::With(w) => {
             let mut with_complexity = 0;
             for item in w.items.iter() {
-                with_complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
+                with_complexity += count_bool_ops(&item.context_expr, nesting_level);
             }
             complexity += with_complexity;
             let line = get_line_number(usize::from(w.range.start()), code);

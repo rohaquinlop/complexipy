@@ -217,98 +217,93 @@ pub fn get_repo_name(url: &str) -> PyResult<String> {
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-pub fn is_decorator(statement: Stmt) -> bool {
-    let mut ans = false;
+pub fn is_decorator(statement: &Stmt) -> bool {
     if let Stmt::FunctionDef(f) = statement
         && f.body.len() == 2
     {
-        ans = matches!(f.body[0].clone(), Stmt::FunctionDef(..))
-            && matches!(f.body[1].clone(), Stmt::Return(..));
+        matches!(f.body[0], Stmt::FunctionDef(..))
+            && matches!(f.body[1], Stmt::Return(..))
+    } else {
+        false
     }
-
-    ans
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
+pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(..) => {
+        ast::Expr::BoolOp(b) => {
             complexity += 1;
-            if let Some(b) = expr.clone().bool_op_expr() {
-                for value in b.values.iter() {
-                    complexity += count_different_childs_type(value.clone(), expr.clone());
-                }
+            for value in b.values.iter() {
+                complexity += count_different_childs_type(value, expr);
             }
         }
-        ast::Expr::UnaryOp(..) => {
-            if let Some(u) = expr.clone().unary_op_expr() {
-                complexity += count_different_childs_type(*u.operand, expr.clone());
-            }
+        ast::Expr::UnaryOp(u) => {
+            complexity += count_different_childs_type(&u.operand, expr);
         }
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(*c.left, nesting_level);
+            complexity += count_bool_ops(&c.left, nesting_level);
             for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator.clone(), nesting_level);
+                complexity += count_bool_ops(comparator, nesting_level);
             }
         }
         ast::Expr::If(i) => {
             complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*i.test, nesting_level);
-            complexity += count_bool_ops(*i.body, nesting_level);
-            complexity += count_bool_ops(*i.orelse, nesting_level);
+            complexity += count_bool_ops(&i.test, nesting_level);
+            complexity += count_bool_ops(&i.body, nesting_level);
+            complexity += count_bool_ops(&i.orelse, nesting_level);
         }
         ast::Expr::Call(c) => {
             for arg in c.arguments.args.iter() {
-                complexity += count_bool_ops(arg.clone(), nesting_level);
+                complexity += count_bool_ops(arg, nesting_level);
             }
         }
         ast::Expr::Tuple(t) => {
             for element in t.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::List(l) => {
             for element in l.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::Set(s) => {
             for element in s.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::Dict(d) => {
             for value in d.iter_values() {
-                complexity += count_bool_ops(value.clone(), nesting_level);
+                complexity += count_bool_ops(value, nesting_level);
             }
         }
         ast::Expr::FString(f) => {
             for element in f.value.elements() {
                 if element.is_interpolation() {
                     if let Some(inter) = element.as_interpolation() {
-                        complexity += count_bool_ops(*inter.expression.clone(), nesting_level);
+                        complexity += count_bool_ops(&inter.expression, nesting_level);
                     }
                 }
             }
         }
         ast::Expr::ListComp(l) => {
             complexity +=
-                count_comprehension_complexity(&l.generators, *l.elt.clone(), nesting_level);
+                count_comprehension_complexity(&l.generators, &l.elt, nesting_level);
         }
         ast::Expr::SetComp(s) => {
             complexity +=
-                count_comprehension_complexity(&s.generators, *s.elt.clone(), nesting_level);
+                count_comprehension_complexity(&s.generators, &s.elt, nesting_level);
         }
         ast::Expr::Generator(g) => {
             complexity +=
-                count_comprehension_complexity(&g.generators, *g.elt.clone(), nesting_level);
+                count_comprehension_complexity(&g.generators, &g.elt, nesting_level);
         }
         ast::Expr::DictComp(d) => {
             complexity +=
-                count_comprehension_complexity(&d.generators, *d.key.clone(), nesting_level);
-            complexity += count_bool_ops(*d.value.clone(), nesting_level + 1);
+                count_comprehension_complexity(&d.generators, &d.key, nesting_level);
+            complexity += count_bool_ops(&d.value, nesting_level + 1);
         }
         _ => {}
     }
@@ -319,7 +314,7 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
 #[cfg(any(feature = "python", feature = "wasm"))]
 fn count_comprehension_complexity(
     generators: &[ast::Comprehension],
-    elt: ast::Expr,
+    elt: &ast::Expr,
     nesting_level: u64,
 ) -> u64 {
     let mut complexity: u64 = 1 + nesting_level;
@@ -329,9 +324,9 @@ fn count_comprehension_complexity(
             complexity += 1;
         }
         for if_expr in clause.ifs.iter() {
-            complexity += 1 + count_bool_ops(if_expr.clone(), nesting_level + 1);
+            complexity += 1 + count_bool_ops(if_expr, nesting_level + 1);
         }
-        complexity += count_bool_ops(clause.iter.clone(), nesting_level + 1);
+        complexity += count_bool_ops(&clause.iter, nesting_level + 1);
     }
 
     complexity += count_bool_ops(elt, nesting_level + 1);
@@ -340,35 +335,33 @@ fn count_comprehension_complexity(
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
+fn count_different_childs_type(expr: &ast::Expr, prev_pr: &ast::Expr) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(..) => match prev_pr {
+        ast::Expr::BoolOp(b) => match prev_pr {
             ast::Expr::BoolOp(p) => {
-                if let Some(b) = expr.clone().bool_op_expr() {
-                    if b.op != p.op {
-                        complexity += 1;
-                    }
+                if b.op != p.op {
+                    complexity += 1;
                 }
 
-                for value in p.values {
-                    complexity += count_different_childs_type(value, expr.clone());
+                for value in p.values.iter() {
+                    complexity += count_different_childs_type(value, expr);
                 }
             }
             ast::Expr::UnaryOp(p) => {
-                complexity = 1 + count_different_childs_type(*p.operand, expr);
+                complexity = 1 + count_different_childs_type(&p.operand, expr);
             }
             _ => {}
         },
         ast::Expr::UnaryOp(..) => match prev_pr {
             ast::Expr::BoolOp(p) => {
-                for value in p.values {
-                    complexity += count_different_childs_type(value, expr.clone());
+                for value in p.values.iter() {
+                    complexity += count_different_childs_type(value, expr);
                 }
             }
             ast::Expr::UnaryOp(p) => {
-                complexity = count_different_childs_type(*p.operand, expr);
+                complexity = count_different_childs_type(&p.operand, expr);
             }
             _ => {}
         },
