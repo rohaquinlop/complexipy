@@ -315,8 +315,9 @@ def main(
 
     handle_console_settings(color, quiet, plain)
 
+    compute_cyclomatic = metric == Metric.cyclomatic
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script
+        paths, quiet, exclude, check_script, compute_cyclomatic
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
