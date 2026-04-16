@@ -30,7 +30,7 @@ from .types import (
 )
 from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
-from .utils.diff import compute_diff, format_diff
+from .utils.diff import DiffEntry, compute_diff, format_diff, has_regressions
 from .utils.gitlab import store_gitlab
 from .utils.json import store_json
 from .utils.output import (
@@ -46,6 +46,7 @@ from .utils.snapshot import (
     handle_snapshot_watermark,
 )
 from .utils.toml import (
+    get_argument_value,
     get_arguments_value,
     get_complexipy_toml_config,
 )
@@ -186,6 +187,18 @@ def main(
             "inside a git repository."
         ),
     ),
+    ratchet: Optional[bool] = typer.Option(
+        None,
+        "--ratchet",
+        "-R",
+        help=(
+            "Only fail when a change breaches --max-complexity-allowed. "
+            "Requires --diff. Exit 1 if a new function exceeds the threshold "
+            "or an existing function regresses above it (already-over "
+            "functions that get worse also fail). Regressions that stay "
+            "within the threshold are allowed."
+        ),
+    ),
     output_sarif: Optional[bool] = typer.Option(
         None,
         "--output-sarif",
@@ -264,6 +277,9 @@ def main(
         exclude,
         check_script,
     )
+
+    ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
+    validate_ratchet(ratchet, diff)
 
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
     # a session-level display preference, not a project-wide default.
@@ -355,11 +371,16 @@ def main(
     else:
         has_success = has_success and snapshot_result
 
-    has_success = (
-        print_invalid_paths(console, quiet, failed_paths) and has_success
+    valid_paths = print_invalid_paths(console, quiet, failed_paths)
+    diff_entries = handle_diff_output(diff, files_complexities, quiet)
+    has_success = resolve_final_success(
+        has_success,
+        valid_paths,
+        snapshot_result,
+        ratchet,
+        diff_entries,
+        max_complexity_allowed,
     )
-
-    handle_diff_output(diff, files_complexities, quiet)
 
     if not has_success:
         raise typer.Exit(code=1)
@@ -632,14 +653,34 @@ def handle_diff_output(
     diff: Optional[str],
     files_complexities: List[FileComplexity],
     quiet: bool,
-) -> None:
+) -> Optional[List[DiffEntry]]:
     global console
     if diff and files_complexities:
-        diff_output = format_diff(
-            compute_diff(files_complexities, diff, INVOCATION_PATH), diff
-        )
+        entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
         if not quiet:
-            console.print(diff_output)
+            console.print(format_diff(entries, diff))
+        return entries
+    return None
+
+
+def validate_ratchet(ratchet: bool, diff: Optional[str]) -> None:
+    if ratchet and not diff:
+        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
+        raise typer.Exit(code=2)
+
+
+def resolve_final_success(
+    has_success: bool,
+    valid_paths: bool,
+    snapshot_result: bool,
+    ratchet: bool,
+    diff_entries: Optional[List[DiffEntry]],
+    max_complexity_allowed: int,
+) -> bool:
+    if ratchet and diff_entries is not None:
+        ratchet_ok = not has_regressions(diff_entries, max_complexity_allowed)
+        return ratchet_ok and valid_paths and snapshot_result
+    return has_success and valid_paths
 
 
 if __name__ == "__main__":

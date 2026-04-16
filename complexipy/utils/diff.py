@@ -178,6 +178,35 @@ def _build_diff_summary(changed: List[DiffEntry]) -> str:
     return ", ".join(parts) if parts else "no changes"
 
 
+def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
+    """Return True if any entry represents a ratchet failure.
+
+    A ratchet failure is:
+    - A REGRESSED function whose new complexity exceeds *max_complexity*
+      (the function both increased in complexity AND breaches the threshold)
+    - A NEW function whose complexity exceeds *max_complexity*
+
+    Modified functions that increase in complexity but stay at or below the
+    threshold are not considered failures: the threshold remains the main
+    contract, and ratchet only blocks changes that push a function over it
+    (or make an already-over function worse).
+    """
+    for e in entries:
+        if (
+            e.status == _STATUS_REGRESSED
+            and e.new_complexity is not None
+            and e.new_complexity > max_complexity
+        ):
+            return True
+        if (
+            e.status == _STATUS_NEW
+            and e.new_complexity is not None
+            and e.new_complexity > max_complexity
+        ):
+            return True
+    return False
+
+
 def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
     """Return a human-readable diff table as a string."""
     if not entries:

@@ -140,6 +140,30 @@ complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
 El diff se añade después de la salida normal del análisis y no afecta el código
 de salida. Esto requiere `git` y una ruta dentro de un repositorio.
 
+### Modo Ratchet
+
+Combina `--diff` con `--ratchet` (`-R`) para convertir el diff en una verificación de regresión lista para CI:
+
+```bash
+complexipy . --diff main --ratchet
+complexipy . --diff HEAD~1 -R -mx 15
+```
+
+El modo ratchet sale con código `1` solo cuando un cambio rompe el contrato de complejidad definido por `--max-complexity-allowed`:
+
+- Una función **nueva** introducida por encima del umbral.
+- Una función **modificada** cuya complejidad aumentó **y** queda por encima del umbral (incluye funciones ya sobre el umbral que empeoran).
+
+Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `--max-complexity-allowed 15`) **no** son fallos. El umbral sigue siendo el contrato principal; ratchet solo evita que los cambios empeoren la situación una vez cruzado ese umbral.
+
+**Cuándo usarlo**
+
+- Limpieza incremental de un código legado: no puedes arreglar hoy cada función sobre el umbral, pero no quieres que los PRs las empeoren. `--ratchet` bloquea únicamente las regresiones que importan.
+- Pipelines de CI donde `--max-complexity-allowed` por sí solo es demasiado estricto o ruidoso: ratchet mantiene CI en verde para PRs no relacionados y falla solo cuando el PR realmente cruza el límite.
+- Adopción gradual: puedes ir bajando `--max-complexity-allowed` con el tiempo mientras `--ratchet` garantiza progreso sin retrocesos.
+
+`--ratchet` requiere `--diff`; usarlo sin una referencia de diff termina con error.
+
 ### Salida en Texto Plano
 
 Usa la salida en texto plano cuando necesites una línea legible por máquina por
