@@ -217,6 +217,7 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 | `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                                | —              |
 | `--output <path>`          | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                          | —              |
 | `--diff <ref>`             | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                                 | —              |
+| `--ratchet`, `-R`          | Junto con `--diff`, falla solo cuando un cambio lleva una función por encima de `--max-complexity-allowed` (o empeora una que ya estaba por encima). Ver [Modo Ratchet](usage-guide.md#modo-ratchet)         | `false`        |
 | `--check-script`           | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                        | `false`        |
 | `--output-json`            | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
 | `--output-csv`             | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
@@ -268,6 +269,22 @@ complexipy . --diff main
 ```
 
 El diff se añade después de la salida normal del análisis y no afecta el código de salida. Requiere que `git` esté disponible y que las rutas analizadas estén dentro de un repositorio git.
+
+#### Modo Ratchet
+
+Agrega `--ratchet` (`-R`) sobre `--diff` para convertirlo en un gate de regresiones para CI:
+
+```bash
+complexipy . --diff main --ratchet
+complexipy . --diff HEAD~1 -R -mx 15
+```
+
+La ejecución termina con código `1` **solo** cuando:
+
+- se introduce una función nueva por encima de `--max-complexity-allowed`, o
+- una función existente aumenta su complejidad **y** queda por encima del umbral (también falla cuando una función ya sobre el umbral empeora).
+
+Pequeños aumentos que se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `-mx 15`) no se marcan — el umbral sigue siendo el contrato principal, y ratchet solo detecta las regresiones que realmente lo rompen. Esto lo hace ideal para códigos legados donde quieres bloquear regresiones sin tener que arreglar primero a todos los ofensores existentes. Ver la [sección de Modo Ratchet](usage-guide.md#modo-ratchet) para más detalle.
 
 ### Complejidad de Script
 

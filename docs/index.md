@@ -217,6 +217,7 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--output-format <format>` | Select a machine-readable output format. Repeat the flag for multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                                 | —       |
 | `--output <path>`          | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
 | `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--ratchet`, `-R`          | With `--diff`, fail only when a change pushes a function above `--max-complexity-allowed` (or makes an already-over function worse). See [Ratchet Mode](usage-guide.md#ratchet-mode) | `false` |
 | `--check-script`           | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
 | `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
 | `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
@@ -268,6 +269,22 @@ complexipy . --diff main
 ```
 
 The diff is appended after the normal analysis output and does not affect the exit code. Requires `git` to be available and the analysed paths to be inside a git repository.
+
+#### Ratchet Mode
+
+Add `--ratchet` (`-R`) on top of `--diff` to turn it into a regression-only gate for CI:
+
+```bash
+complexipy . --diff main --ratchet
+complexipy . --diff HEAD~1 -R -mx 15
+```
+
+The run exits with code `1` **only** when:
+
+- a new function is introduced above `--max-complexity-allowed`, or
+- an existing function's complexity increases **and** ends above the threshold (already-over functions getting worse also fail).
+
+Small upward changes that stay at or below the threshold (e.g. `3 → 4` with `-mx 15`) are not flagged — the threshold is still the main contract, and ratchet only catches regressions that actually break it. This makes it ideal for legacy codebases where you want to block regressions without fixing every existing offender first. See the [Ratchet Mode section](usage-guide.md#ratchet-mode) for more detail.
 
 ### Script Complexity
 

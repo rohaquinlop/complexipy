@@ -270,8 +270,24 @@ class TestFormatDiff:
 
 
 class TestHasRegressions:
-    def test_regressed_function_triggers(self):
-        entries = [DiffEntry("f.py", "foo", 5, 10)]
+    def test_regressed_above_threshold_triggers(self):
+        # Regressed AND breaches the threshold.
+        entries = [DiffEntry("f.py", "foo", 10, 20)]
+        assert has_regressions(entries, max_complexity=15) is True
+
+    def test_regressed_within_threshold_passes(self):
+        # Regressed but still under the threshold — should not fail.
+        entries = [DiffEntry("f.py", "foo", 3, 4)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_regressed_at_threshold_passes(self):
+        # Regressed to exactly the threshold is allowed.
+        entries = [DiffEntry("f.py", "foo", 10, 15)]
+        assert has_regressions(entries, max_complexity=15) is False
+
+    def test_regressed_already_above_threshold_gets_worse_triggers(self):
+        # Already above the threshold and getting worse must fail.
+        entries = [DiffEntry("f.py", "foo", 16, 18)]
         assert has_regressions(entries, max_complexity=15) is True
 
     def test_new_function_above_threshold_triggers(self):
@@ -301,10 +317,10 @@ class TestHasRegressions:
     def test_empty_entries_passes(self):
         assert has_regressions([], max_complexity=15) is False
 
-    def test_mixed_entries_regressed_triggers(self):
+    def test_mixed_entries_regressed_above_threshold_triggers(self):
         entries = [
             DiffEntry("f.py", "good", 10, 5),  # IMPROVED
-            DiffEntry("f.py", "bad", 5, 12),  # REGRESSED
+            DiffEntry("f.py", "bad", 14, 20),  # REGRESSED and over threshold
             DiffEntry("f.py", "same", 3, 3),  # UNCHANGED
         ]
         assert has_regressions(entries, max_complexity=15) is True
@@ -313,6 +329,7 @@ class TestHasRegressions:
         entries = [
             DiffEntry("f.py", "good", 10, 5),  # IMPROVED
             DiffEntry("f.py", "new_ok", None, 8),  # NEW, under threshold
+            DiffEntry("f.py", "bumped", 5, 12),  # REGRESSED but under threshold
             DiffEntry("f.py", "same", 3, 3),  # UNCHANGED
         ]
         assert has_regressions(entries, max_complexity=15) is False

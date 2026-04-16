@@ -192,9 +192,11 @@ def main(
         "--ratchet",
         "-R",
         help=(
-            "Only fail when complexity regresses. Requires --diff. "
-            "Exit 1 if any function's complexity increased or a new "
-            "function exceeds --max-complexity-allowed."
+            "Only fail when a change breaches --max-complexity-allowed. "
+            "Requires --diff. Exit 1 if a new function exceeds the threshold "
+            "or an existing function regresses above it (already-over "
+            "functions that get worse also fail). Regressions that stay "
+            "within the threshold are allowed."
         ),
     ),
     output_sarif: Optional[bool] = typer.Option(
