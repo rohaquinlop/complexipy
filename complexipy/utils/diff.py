@@ -78,6 +78,50 @@ def _file_content_at_ref(
     return None
 
 
+def _file_content_at_index(path_from_root: str, cwd: str) -> Optional[str]:
+    """Return the file content in the git index, or None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "show", f":{path_from_root}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def _staged_python_files(git_ref: str, cwd: str) -> List[str]:
+    """Return paths (relative to repo root) of Python files staged vs *git_ref*."""
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--cached",
+                "--diff-filter=ACMRD",
+                git_ref,
+                "--",
+                "*.py",
+            ],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
 def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
 
@@ -140,6 +184,67 @@ def compute_diff(
             entries.append(DiffEntry(file.path, name, old_c, new_c))
 
     return entries
+
+
+def compute_staged_diff(
+    git_ref: str,
+    invocation_path: str,
+) -> List[DiffEntry]:
+    """Compare staged changes against *git_ref* (typically ``HEAD``).
+
+    For every Python file with staged changes, the content at *git_ref* and
+    the content in the git index are both analysed so the resulting
+    :class:`DiffEntry` list reflects "what am I about to commit" rather than
+    "what changed in my working tree".
+
+    Deleted staged files produce REMOVED entries; newly added staged files
+    produce NEW entries.  Files that cannot be parsed are skipped silently.
+
+    If the invocation path is not inside a git repository, the returned
+    list is empty.
+    """
+    root = _git_root(invocation_path)
+    if root is None:
+        return []
+
+    entries: List[DiffEntry] = []
+
+    for path_from_root in _staged_python_files(git_ref, root):
+        old_content = _file_content_at_ref(git_ref, path_from_root, root)
+        new_content = _file_content_at_index(path_from_root, root)
+
+        old_map = _analyse_content_to_map(old_content)
+        new_map = _analyse_content_to_map(new_content)
+
+        if old_map is None and new_map is None:
+            continue
+
+        old_map = old_map or {}
+        new_map = new_map or {}
+        all_names = sorted(set(old_map) | set(new_map))
+
+        for name in all_names:
+            entries.append(
+                DiffEntry(
+                    path_from_root,
+                    name,
+                    old_map.get(name),
+                    new_map.get(name),
+                )
+            )
+
+    return entries
+
+
+def _analyse_content_to_map(content: Optional[str]) -> Optional[Dict[str, int]]:
+    """Analyse source text and return a ``{function_name: complexity}`` map."""
+    if content is None:
+        return None
+    try:
+        result = _code_complexity(content)
+    except Exception:
+        return None
+    return {f.name: f.complexity for f in result.functions}
 
 
 def _format_entry(e: DiffEntry) -> str:
