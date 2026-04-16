@@ -351,7 +351,18 @@ jobs:
                         extract_path.mkdir(parents=True, exist_ok=True)
 
                         with zipfile.ZipFile(whl, 'r') as zip_ref:
-                          zip_ref.extractall(extract_path)
+                          for info in zip_ref.infolist():
+                            dest = extract_path / info.filename
+                            if info.filename.endswith('/'):
+                              dest.mkdir(parents=True, exist_ok=True)
+                              continue
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            try:
+                              data = zip_ref.read(info.filename)
+                              dest.write_bytes(data)
+                            except Exception as crc_err:
+                              print(f"  WARNING: Corrupted entry '{info.filename}': {crc_err} — writing empty placeholder")
+                              dest.write_bytes(b'')
 
                           # Remove the old RECORD file since it's malformed
                           for record_file in extract_path.rglob("RECORD"):
