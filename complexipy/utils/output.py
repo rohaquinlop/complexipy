@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import (
     Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
@@ -18,6 +19,21 @@ from complexipy._complexipy import (
 from complexipy.types import (
     Sort,
 )
+
+
+@dataclass
+class FunctionRow:
+    name: str
+    complexity: int
+    passed: bool
+    path: str
+    file_name: str
+
+
+@dataclass
+class FileEntry:
+    path: str
+    functions: List[FunctionRow]
 
 
 def output_summary(
@@ -72,75 +88,55 @@ def output_summary(
 
 def output_plain(
     console: Console,
-    file_entries: List[
-        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
-    ],
+    file_entries: List[FileEntry],
 ) -> None:
     for entry in file_entries:
-        for function in entry["functions"]:
-            if isinstance(function, str):
-                continue
-            path = normalize_path(
-                str(function["path"]), str(function["file_name"])
-            )
-            console.print(f"{path} {function['name']} {function['complexity']}")
+        for function in entry.functions:
+            path = normalize_path(function.path, function.file_name)
+            console.print(f"{path} {function.name} {function.complexity}")
 
 
 def truncate_top_n(
-    file_entries: List[
-        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
-    ],
+    file_entries: List[FileEntry],
     n: int,
-) -> List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]]:
-    all_functions: List[
-        Tuple[str, Dict[str, str | int | bool | Tuple[str, str]]]
-    ] = []
+) -> List[FileEntry]:
+    all_functions: List[Tuple[str, FunctionRow]] = []
     for entry in file_entries:
-        for function in entry["functions"]:
-            if not isinstance(function, str):
-                all_functions.append((str(entry["path"]), function))
+        for function in entry.functions:
+            all_functions.append((entry.path, function))
 
-    all_functions.sort(key=lambda x: int(x[1]["complexity"]), reverse=True)
+    all_functions.sort(key=lambda x: x[1].complexity, reverse=True)
     top_functions = all_functions[:n]
 
     # Preserve global descending order across files: emit a new entry whenever
     # the path changes, rather than regrouping (which would collapse runs and
     # lose the global rank order for multi-file results).
-    result: List[
-        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
-    ] = []
+    result: List[FileEntry] = []
     for path, function in top_functions:
-        if result and result[-1]["path"] == path:
-            functions_list = result[-1]["functions"]
-            if isinstance(functions_list, list):
-                functions_list.append(function)
+        if result and result[-1].path == path:
+            result[-1].functions.append(function)
         else:
-            result.append({"path": path, "functions": [function]})
+            result.append(FileEntry(path=path, functions=[function]))
     return result
 
 
 def output_file_entries(
     console: Console,
-    file_entries: List[
-        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
-    ],
+    file_entries: List[FileEntry],
     failing_functions: Dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
 ) -> None:
     for entry in file_entries:
-        console.print(f"[bold]{entry['path']}[/bold]")
-        for function in entry["functions"]:
-            if isinstance(function, str):
-                continue
-
-            status_text = format_status_text(bool(function["passed"]))
+        console.print(f"[bold]{entry.path}[/bold]")
+        for function in entry.functions:
+            status_text = format_status_text(function.passed)
             delta_text = output_delta_text(
                 previous_functions, function, max_complexity
             )
             console.print(
-                f"    {function['name']} {function['complexity']}{delta_text} {status_text}"
+                f"    {function.name} {function.complexity}{delta_text} {status_text}"
             )
         console.print()
 
@@ -166,34 +162,23 @@ def format_status_text(passed: bool) -> str:
 
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: Dict[str, str | int | bool | Tuple[str, str]],
+    function: FunctionRow,
     max_complexity: int,
 ) -> str:
-    delta_text = ""
-    if (
-        previous_functions is not None
-        and isinstance(function["path"], str)
-        and isinstance(function["file_name"], str)
-        and isinstance(function["name"], str)
-        and isinstance(function["complexity"], int)
-    ):
-        key: Tuple[str, str, str] = (
-            function["path"],
-            function["file_name"],
-            function["name"],
-        )
-        current_complexity = function["complexity"]
-        if current_complexity <= max_complexity:
-            return ""
+    if previous_functions is None:
+        return ""
 
-        previous = previous_functions.get(key)
-        if previous is None:
-            delta_text = f" (new, \u0394 = +{current_complexity})"
-        elif previous != current_complexity:
-            delta = current_complexity - previous
-            delta_text = f" (last: {previous}, \u0394 = {delta:+d})"
+    if function.complexity <= max_complexity:
+        return ""
 
-    return delta_text
+    key = (function.path, function.file_name, function.name)
+    previous = previous_functions.get(key)
+    if previous is None:
+        return f" (new, \u0394 = +{function.complexity})"
+    if previous != function.complexity:
+        delta = function.complexity - previous
+        return f" (last: {previous}, \u0394 = {delta:+d})"
+    return ""
 
 
 def _is_function_passing(
@@ -217,22 +202,14 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
-) -> Tuple[
-    List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]],
-    Dict[str, List[str]],
-    int,
-]:
-    file_entries: List[
-        Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]
-    ] = []
+) -> Tuple[List[FileEntry], Dict[str, List[str]], int]:
+    file_entries: List[FileEntry] = []
     failing_functions: Dict[str, List[str]] = {}
     total_functions = 0
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[
-            Dict[str, str | int | bool | Tuple[str, str]]
-        ] = []
+        displayable_functions: List[FunctionRow] = []
 
         for function in sorted_functions:
             total_functions += 1
@@ -254,21 +231,21 @@ def build_output_rows(
                 )
 
             displayable_functions.append(
-                {
-                    "name": function.name,
-                    "complexity": function.complexity,
-                    "passed": passed,
-                    "path": file.path,
-                    "file_name": file.file_name,
-                }
+                FunctionRow(
+                    name=function.name,
+                    complexity=function.complexity,
+                    passed=passed,
+                    path=file.path,
+                    file_name=file.file_name,
+                )
             )
 
         if displayable_functions:
             file_entries.append(
-                {
-                    "path": normalize_path(file.path, file.file_name),
-                    "functions": displayable_functions,
-                }
+                FileEntry(
+                    path=normalize_path(file.path, file.file_name),
+                    functions=displayable_functions,
+                )
             )
 
     return file_entries, failing_functions, total_functions
