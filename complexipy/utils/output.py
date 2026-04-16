@@ -16,8 +16,20 @@ from complexipy._complexipy import (
     FunctionComplexity,
 )
 from complexipy.types import (
+    Metric,
     Sort,
 )
+
+
+def effective_complexity(
+    function: FunctionComplexity, metric: Metric = Metric.cognitive
+) -> int:
+    if (
+        metric == Metric.cyclomatic
+        and function.cyclomatic_complexity is not None
+    ):
+        return function.cyclomatic_complexity
+    return function.complexity
 
 
 def output_summary(
@@ -31,13 +43,14 @@ def output_summary(
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
     plain: bool = False,
     top: Optional[int] = None,
+    metric: Metric = Metric.cognitive,
 ) -> bool:
     (
         file_entries,
         failing_functions,
         total_functions,
     ) = build_output_rows(
-        files, failed_only, sort, max_complexity, snapshot_map
+        files, failed_only, sort, max_complexity, snapshot_map, metric
     )
     has_success = not failing_functions or ignore_complexity
 
@@ -202,13 +215,15 @@ def _is_function_passing(
     file_name: str,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]],
+    metric: Metric = Metric.cognitive,
 ) -> bool:
-    if function.complexity <= max_complexity:
+    current = effective_complexity(function, metric)
+    if current <= max_complexity:
         return True
     if snapshot_map is None:
         return False
     prev = snapshot_map.get((file_path, file_name, function.name))
-    return prev is not None and function.complexity <= prev
+    return prev is not None and current <= prev
 
 
 def build_output_rows(
@@ -217,6 +232,7 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
+    metric: Metric = Metric.cognitive,
 ) -> Tuple[
     List[Dict[str, str | List[Dict[str, str | int | bool | Tuple[str, str]]]]],
     Dict[str, List[str]],
@@ -229,7 +245,7 @@ def build_output_rows(
     total_functions = 0
 
     for file in files:
-        sorted_functions = sort_functions(file.functions, sort)
+        sorted_functions = sort_functions(file.functions, sort, metric)
         displayable_functions: List[
             Dict[str, str | int | bool | Tuple[str, str]]
         ] = []
@@ -242,10 +258,13 @@ def build_output_rows(
                 file.file_name,
                 max_complexity,
                 snapshot_map,
+                metric,
             )
 
             if failed_only and passed:
                 continue
+
+            complexity_value = effective_complexity(function, metric)
 
             if not passed:
                 full_path = normalize_path(file.path, file.file_name)
@@ -256,7 +275,7 @@ def build_output_rows(
             displayable_functions.append(
                 {
                     "name": function.name,
-                    "complexity": function.complexity,
+                    "complexity": complexity_value,
                     "passed": passed,
                     "path": file.path,
                     "file_name": file.file_name,
@@ -275,12 +294,18 @@ def build_output_rows(
 
 
 def sort_functions(
-    functions: List[FunctionComplexity], sort: Sort
+    functions: List[FunctionComplexity],
+    sort: Sort,
+    metric: Metric = Metric.cognitive,
 ) -> List[FunctionComplexity]:
     if sort == Sort.file_name:
         return sorted(functions, key=lambda f: f.name.lower())
     reverse = sort == Sort.desc
-    return sorted(functions, key=lambda f: f.complexity, reverse=reverse)
+    return sorted(
+        functions,
+        key=lambda f: effective_complexity(f, metric),
+        reverse=reverse,
+    )
 
 
 def normalize_path(path: str, file_name: str) -> str:
@@ -314,11 +339,14 @@ def print_invalid_paths(
 
 
 def has_success_functions(
-    files: List[FileComplexity], max_complexity: int
+    files: List[FileComplexity],
+    max_complexity: int,
+    metric: Metric = Metric.cognitive,
 ) -> bool:
     return all(
         all(
-            function.complexity <= max_complexity for function in file.functions
+            effective_complexity(function, metric) <= max_complexity
+            for function in file.functions
         )
         for file in files
     )

@@ -376,6 +376,7 @@ def main(
         quiet,
         plain,
         top,
+        metric,
     )
 
     snapshot_result = handle_snapshot(
@@ -439,6 +440,7 @@ def handle_display(
     quiet: bool,
     plain: bool,
     top: Optional[int] = None,
+    metric: Metric = Metric.cognitive,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
@@ -448,7 +450,9 @@ def handle_display(
         previous_functions = None
 
     if quiet:
-        return has_success_functions(files_complexities, max_complexity_allowed)
+        return has_success_functions(
+            files_complexities, max_complexity_allowed, metric
+        )
 
     effective_sort = Sort.desc if top is not None else sort
     has_success = output_summary(
@@ -462,6 +466,7 @@ def handle_display(
         active_snapshot_map,
         plain,
         top,
+        metric,
     )
     if not plain:
         if platform.system() == "Windows":
