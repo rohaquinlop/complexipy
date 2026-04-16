@@ -25,6 +25,7 @@ from complexipy._complexipy import FileComplexity
 
 from .types import (
     ColorTypes,
+    Metric,
     OutputFormat,
     Sort,
 )
@@ -226,6 +227,16 @@ def main(
         "-cs",
         help="Report cognitive complexity of module-level (script) code as '<module>'.",
     ),
+    metric: Optional[Metric] = typer.Option(
+        None,
+        "--metric",
+        help=(
+            "Complexity metric to gate on: 'cognitive' (default) or "
+            "'cyclomatic'. When 'cyclomatic', the selected metric is used "
+            "for threshold checks and emitted alongside cognitive in "
+            "machine-readable outputs."
+        ),
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -280,6 +291,16 @@ def main(
 
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
     validate_ratchet(ratchet, diff)
+
+    metric = get_argument_value(TOML_CONFIG, "metric", metric, Metric.cognitive)
+    if isinstance(metric, str):
+        try:
+            metric = Metric(metric)
+        except ValueError as exc:
+            valid_values = ", ".join(m.value for m in Metric)
+            raise typer.BadParameter(
+                f"Invalid metric '{metric}'. Expected one of: {valid_values}."
+            ) from exc
 
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
     # a session-level display preference, not a project-wide default.

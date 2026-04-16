@@ -27,6 +27,11 @@ class OutputFormat(str, Enum):
     sarif = "sarif"
 
 
+class Metric(str, Enum):
+    cognitive = "cognitive"
+    cyclomatic = "cyclomatic"
+
+
 TOMLTypes = TypeVar(
     "TOMLTypes",
     int,
@@ -34,6 +39,7 @@ TOMLTypes = TypeVar(
     str,
     List[str],
     ColorTypes,
+    Metric,
     OutputFormat,
     Sort,
 )

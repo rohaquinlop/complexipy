@@ -15,6 +15,7 @@ from typer import Exit
 
 from complexipy.types import (
     ColorTypes,
+    Metric,
     OutputFormat,
     Sort,
     TOMLBase,
@@ -79,6 +80,12 @@ def load_values_from_toml_key(
             return value
         elif isinstance(value, str):
             return ColorTypes(value)
+        return value
+    elif key == "metric":
+        if isinstance(value, Metric):
+            return value
+        elif isinstance(value, str):
+            return Metric(value)
         return value
     elif key == "sort":
         if isinstance(value, Sort):
