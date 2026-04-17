@@ -31,17 +31,62 @@ pub fn output_csv(
         ))
     })?;
 
-    writer
-        .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
-        .map_err(|e| {
-            PyIOError::new_err(format!(
-                "Failed to write CSV header at {}: {}",
-                invocation_path, e
-            ))
-        })?;
+    let include_cyclomatic = functions_complexity
+        .iter()
+        .any(|f| f.functions.iter().any(|fn_| fn_.cyclomatic_complexity.is_some()));
+
+    let header: Vec<&str> = if include_cyclomatic {
+        vec![
+            "Path",
+            "File Name",
+            "Function Name",
+            "Cognitive Complexity",
+            "Cyclomatic Complexity",
+        ]
+    } else {
+        vec!["Path", "File Name", "Function Name", "Cognitive Complexity"]
+    };
+    writer.write_record(&header).map_err(|e| {
+        PyIOError::new_err(format!(
+            "Failed to write CSV header at {}: {}",
+            invocation_path, e
+        ))
+    })?;
 
     let max_complexity_limit = u64::try_from(max_complexity)
         .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
+
+    let write_row = |writer: &mut Writer<_>,
+                     path: &str,
+                     file_name: &str,
+                     function: &FunctionComplexity|
+     -> PyResult<()> {
+        if include_cyclomatic {
+            let cyc = function
+                .cyclomatic_complexity
+                .map(|v| v.to_string())
+                .unwrap_or_default();
+            writer
+                .write_record([
+                    path,
+                    file_name,
+                    &function.name,
+                    &function.complexity.to_string(),
+                    &cyc,
+                ])
+                .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
+        } else {
+            writer
+                .write_record([
+                    path,
+                    file_name,
+                    &function.name,
+                    &function.complexity.to_string(),
+                ])
+                .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
+        }
+        Ok(())
+    };
 
     if sort != "name" {
         let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
@@ -61,26 +106,12 @@ pub fn output_csv(
         }
 
         for (path, file_name, function) in all_functions.into_iter() {
-            writer
-                .write_record([
-                    &path,
-                    &file_name,
-                    &function.name,
-                    &function.complexity.to_string(),
-                ])
-                .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
+            write_row(&mut writer, &path, &file_name, &function)?;
         }
     } else {
         for file in functions_complexity {
             for function in file.functions {
-                writer
-                    .write_record([
-                        &file.path,
-                        &file.file_name,
-                        &function.name,
-                        &function.complexity.to_string(),
-                    ])
-                    .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
+                write_row(&mut writer, &file.path, &file.file_name, &function)?;
             }
         }
     }
@@ -107,12 +138,21 @@ pub fn output_json(
     for file in functions_complexity {
         for function in file.functions {
             if show_detailed_results || function.complexity > max_complexity_limit {
-                let entry = serde_json::json!({
-                    "path": file.path,
-                    "file_name": file.file_name,
-                    "function_name": function.name,
-                    "complexity": function.complexity
-                });
+                let entry = match function.cyclomatic_complexity {
+                    Some(cyc) => serde_json::json!({
+                        "path": file.path,
+                        "file_name": file.file_name,
+                        "function_name": function.name,
+                        "complexity": function.complexity,
+                        "cyclomatic_complexity": cyc,
+                    }),
+                    None => serde_json::json!({
+                        "path": file.path,
+                        "file_name": file.file_name,
+                        "function_name": function.name,
+                        "complexity": function.complexity,
+                    }),
+                };
                 json_data.push(entry);
             }
         }

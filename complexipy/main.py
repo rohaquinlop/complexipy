@@ -25,6 +25,7 @@ from complexipy._complexipy import FileComplexity
 
 from .types import (
     ColorTypes,
+    Metric,
     OutputFormat,
     Sort,
 )
@@ -226,6 +227,16 @@ def main(
         "-cs",
         help="Report cognitive complexity of module-level (script) code as '<module>'.",
     ),
+    metric: Optional[Metric] = typer.Option(
+        None,
+        "--metric",
+        help=(
+            "Complexity metric to gate on: 'cognitive' (default) or "
+            "'cyclomatic'. When 'cyclomatic', the selected metric is used "
+            "for threshold checks and emitted alongside cognitive in "
+            "machine-readable outputs."
+        ),
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -281,6 +292,10 @@ def main(
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
     validate_ratchet(ratchet, diff)
 
+    metric = resolve_metric(
+        get_argument_value(TOML_CONFIG, "metric", metric, Metric.cognitive)
+    )
+
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
     # a session-level display preference, not a project-wide default.
     if plain is None:
@@ -294,8 +309,9 @@ def main(
 
     handle_console_settings(color, quiet, plain)
 
+    compute_cyclomatic = metric == Metric.cyclomatic
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script
+        paths, quiet, exclude, check_script, compute_cyclomatic
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
@@ -354,6 +370,7 @@ def main(
         quiet,
         plain,
         top,
+        metric,
     )
 
     snapshot_result = handle_snapshot(
@@ -417,6 +434,7 @@ def handle_display(
     quiet: bool,
     plain: bool,
     top: Optional[int] = None,
+    metric: Metric = Metric.cognitive,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
@@ -426,7 +444,9 @@ def handle_display(
         previous_functions = None
 
     if quiet:
-        return has_success_functions(files_complexities, max_complexity_allowed)
+        return has_success_functions(
+            files_complexities, max_complexity_allowed, metric
+        )
 
     effective_sort = Sort.desc if top is not None else sort
     has_success = output_summary(
@@ -440,6 +460,7 @@ def handle_display(
         active_snapshot_map,
         plain,
         top,
+        metric,
     )
     if not plain:
         if platform.system() == "Windows":
@@ -667,6 +688,20 @@ def validate_ratchet(ratchet: bool, diff: Optional[str]) -> None:
     if ratchet and not diff:
         console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
         raise typer.Exit(code=2)
+
+
+def resolve_metric(raw: object) -> Metric:
+    if isinstance(raw, Metric):
+        return raw
+    if not isinstance(raw, str):
+        return Metric.cognitive
+    try:
+        return Metric(raw)
+    except ValueError as exc:
+        valid_values = ", ".join(m.value for m in Metric)
+        raise typer.BadParameter(
+            f"Invalid metric '{raw}'. Expected one of: {valid_values}."
+        ) from exc
 
 
 def resolve_final_success(

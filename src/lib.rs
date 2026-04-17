@@ -1,5 +1,6 @@
 mod classes;
 mod cognitive_complexity;
+mod cyclomatic_complexity;
 mod utils;
 
 #[cfg(feature = "python")]

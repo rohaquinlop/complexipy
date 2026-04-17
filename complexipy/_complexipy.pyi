@@ -7,7 +7,7 @@ understand and maintain, focusing on control flow structures that make code
 harder to reason about.
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 class LineComplexity:
     """
@@ -89,6 +89,15 @@ class FunctionComplexity:
     Higher values indicate more complex, harder-to-understand code.
     """
 
+    cyclomatic_complexity: Optional[int]
+    """
+    The cyclomatic (McCabe) complexity for this function, or None when the
+    analyzer was not asked to compute it. Populated only when the caller
+    passes `compute_cyclomatic=True` (i.e. when `--metric cyclomatic` is
+    active on the CLI). Always None on default cognitive runs, which keeps
+    JSON output byte-identical to pre-5.4 releases.
+    """
+
     line_start: int
     """
     The starting line number of the function definition (1-indexed).
@@ -125,6 +134,7 @@ class FunctionComplexity:
         line_start: int,
         line_end: int,
         line_complexities: List[LineComplexity],
+        cyclomatic_complexity: Optional[int] = None,
     ) -> None: ...
 
 class FileComplexity:
@@ -262,7 +272,11 @@ class CodeComplexity:
     ) -> None: ...
 
 def main(
-    paths: List[str], quiet: bool, exclude: List[str], check_script: bool = False
+    paths: List[str],
+    quiet: bool,
+    exclude: List[str],
+    check_script: bool = False,
+    compute_cyclomatic: bool = False,
 ) -> Tuple[List[FileComplexity], List[str]]:
     """
     Analyze cognitive complexity of Python files and directories.

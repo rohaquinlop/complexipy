@@ -215,6 +215,33 @@ def process_order(order):
 - Complexity dropped from 12 to 4
 - Logic is now linear and easier to follow
 
+## Cyclomatic Complexity (Optional)
+
+Pass `--metric cyclomatic` to switch the threshold, sort key, and reported
+value to McCabe's cyclomatic complexity. Every function starts at **1**
+and each decision point adds **+1** — nesting is ignored.
+
+| Construct | Increment |
+|-----------|-----------|
+| Function entry | +1 (base) |
+| `if` / `elif` | +1 each |
+| `else` | +0 |
+| `for` / `while` | +1 |
+| `except` handler | +1 |
+| `match` case | +1 per case arm |
+| Ternary (`x if c else y`) | +1 |
+| Comprehension `if` filter | +1 per filter |
+| Boolean operator (`and`/`or`) | +1 per extra operand (N operands → N−1) |
+
+`try`, `with`, `assert`, `finally`, and `else` clauses do **not** add to
+cyclomatic complexity. Nested function and class definitions are counted
+independently (their complexity does not leak up into the enclosing
+function), matching the cognitive-complexity behavior.
+
+Use cyclomatic complexity when your CI gate needs to align with classical
+test-coverage guidance; use cognitive complexity (default) when you care
+about how hard the code is for humans to read.
+
 ## Score Interpretation Tips
 
 1. **Context Matters** - A score of 20 might be acceptable for a complex algorithm but problematic for business logic
