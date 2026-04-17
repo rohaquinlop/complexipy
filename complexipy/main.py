@@ -292,15 +292,21 @@ def main(
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
     validate_ratchet(ratchet, diff)
 
-    metric = get_argument_value(TOML_CONFIG, "metric", metric, Metric.cognitive)
-    if isinstance(metric, str):
+    resolved_metric = get_argument_value(
+        TOML_CONFIG, "metric", metric, Metric.cognitive
+    )
+    if isinstance(resolved_metric, Metric):
+        metric = resolved_metric
+    elif isinstance(resolved_metric, str):
         try:
-            metric = Metric(metric)
+            metric = Metric(resolved_metric)
         except ValueError as exc:
             valid_values = ", ".join(m.value for m in Metric)
             raise typer.BadParameter(
-                f"Invalid metric '{metric}'. Expected one of: {valid_values}."
+                f"Invalid metric '{resolved_metric}'. Expected one of: {valid_values}."
             ) from exc
+    else:
+        metric = Metric.cognitive
 
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
     # a session-level display preference, not a project-wide default.
