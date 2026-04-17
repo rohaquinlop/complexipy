@@ -292,21 +292,9 @@ def main(
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
     validate_ratchet(ratchet, diff)
 
-    resolved_metric = get_argument_value(
-        TOML_CONFIG, "metric", metric, Metric.cognitive
+    metric = resolve_metric(
+        get_argument_value(TOML_CONFIG, "metric", metric, Metric.cognitive)
     )
-    if isinstance(resolved_metric, Metric):
-        metric = resolved_metric
-    elif isinstance(resolved_metric, str):
-        try:
-            metric = Metric(resolved_metric)
-        except ValueError as exc:
-            valid_values = ", ".join(m.value for m in Metric)
-            raise typer.BadParameter(
-                f"Invalid metric '{resolved_metric}'. Expected one of: {valid_values}."
-            ) from exc
-    else:
-        metric = Metric.cognitive
 
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
     # a session-level display preference, not a project-wide default.
@@ -700,6 +688,20 @@ def validate_ratchet(ratchet: bool, diff: Optional[str]) -> None:
     if ratchet and not diff:
         console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
         raise typer.Exit(code=2)
+
+
+def resolve_metric(raw: object) -> Metric:
+    if isinstance(raw, Metric):
+        return raw
+    if not isinstance(raw, str):
+        return Metric.cognitive
+    try:
+        return Metric(raw)
+    except ValueError as exc:
+        valid_values = ", ".join(m.value for m in Metric)
+        raise typer.BadParameter(
+            f"Invalid metric '{raw}'. Expected one of: {valid_values}."
+        ) from exc
 
 
 def resolve_final_success(
