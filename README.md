@@ -15,7 +15,8 @@
     <a href="#installation">Installation</a> •
     <a href="#quick-start">Quick Start</a> •
     <a href="#integrations">Integrations</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a>
+    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a> •
+    <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
   </p>
 </div>
 
