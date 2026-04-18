@@ -1,9 +1,12 @@
 #[cfg(any(feature = "python", feature = "wasm"))]
 mod shared_deps {
-    pub use crate::classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
+    pub use crate::classes::{FunctionComplexity, LineComplexity};
     pub use crate::utils::{count_bool_ops, get_line_number, has_noqa_complexipy, is_decorator};
     pub use ruff_python_ast::{self as ast, Stmt};
 }
+
+#[cfg(feature = "python")]
+use crate::classes::{CodeComplexity, FileComplexity};
 
 #[cfg(any(feature = "python", feature = "wasm"))]
 use shared_deps::*;
@@ -30,6 +33,7 @@ mod python_deps {
 #[cfg(feature = "python")]
 use python_deps::*;
 
+#[cfg(feature = "python")]
 type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
@@ -137,7 +141,8 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone(), check_script);
+        let (complexities, f_paths) =
+            evaluate_dir(&repo_path, quiet, exclude.clone(), check_script);
         dir.close()?;
 
         file_complexities = complexities;
@@ -168,7 +173,12 @@ pub fn process_path(
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool) -> ComplexitiesAndFailedPaths {
+fn evaluate_dir(
+    path: &str,
+    quiet: bool,
+    exclude: Vec<&str>,
+    check_script: bool,
+) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
     let parent_dir = path::Path::new(path)
@@ -263,10 +273,12 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool)
     if quiet {
         let results: Vec<_> = files_paths
             .iter()
-            .map(|file_path| match file_complexity(file_path, parent_dir, check_script) {
-                Ok(file_complexity) => (Some(file_complexity), None),
-                Err(_) => (None, Some(file_path.clone())),
-            })
+            .map(
+                |file_path| match file_complexity(file_path, parent_dir, check_script) {
+                    Ok(file_complexity) => (Some(file_complexity), None),
+                    Err(_) => (None, Some(file_path.clone())),
+                },
+            )
             .collect();
 
         let mut complexities = Vec::new();
@@ -320,7 +332,11 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>, check_script: bool)
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (file_path, base_path, check_script=false))]
-pub fn file_complexity(file_path: &str, base_path: &str, check_script: bool) -> PyResult<FileComplexity> {
+pub fn file_complexity(
+    file_path: &str,
+    base_path: &str,
+    check_script: bool,
+) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
     let file_name = path
         .file_name()
@@ -370,7 +386,8 @@ pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexit
 
     // println!("{:#?}", ast_body);
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code, check_script);
+    let (functions, complexity) =
+        function_level_cognitive_complexity_shared(&ast_body, code, check_script);
 
     Ok(CodeComplexity {
         functions,
