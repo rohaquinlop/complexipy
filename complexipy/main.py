@@ -30,7 +30,13 @@ from .types import (
 )
 from .utils.cache import remember_previous_functions
 from .utils.csv import store_csv
-from .utils.diff import DiffEntry, compute_diff, format_diff, has_regressions
+from .utils.diff import (
+    DiffEntry,
+    compute_diff,
+    compute_staged_diff,
+    format_diff,
+    has_regressions,
+)
 from .utils.gitlab import store_gitlab
 from .utils.json import store_json
 from .utils.output import (
@@ -199,6 +205,16 @@ def main(
             "within the threshold are allowed."
         ),
     ),
+    staged: Optional[bool] = typer.Option(
+        None,
+        "--staged",
+        "--cached",
+        help=(
+            "Compare staged changes (the git index) against --diff ref "
+            "(default: HEAD). Answers 'what complexity changed in the code "
+            "I am about to commit?'. Works with --ratchet."
+        ),
+    ),
     output_sarif: Optional[bool] = typer.Option(
         None,
         "--output-sarif",
@@ -279,6 +295,10 @@ def main(
     )
 
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
+    staged = bool(get_argument_value(TOML_CONFIG, "staged", staged, False))
+    # --staged without --diff defaults the baseline to HEAD.
+    if staged and not diff:
+        diff = "HEAD"
     validate_ratchet(ratchet, diff)
 
     # --plain is intentionally CLI-only (not resolved via TOML) because it is
@@ -372,7 +392,9 @@ def main(
         has_success = has_success and snapshot_result
 
     valid_paths = print_invalid_paths(console, quiet, failed_paths)
-    diff_entries = handle_diff_output(diff, files_complexities, quiet)
+    diff_entries = handle_diff_output(
+        diff, files_complexities, quiet, staged=staged
+    )
     has_success = resolve_final_success(
         has_success,
         valid_paths,
@@ -653,9 +675,18 @@ def handle_diff_output(
     diff: Optional[str],
     files_complexities: List[FileComplexity],
     quiet: bool,
+    staged: bool = False,
 ) -> Optional[List[DiffEntry]]:
     global console
-    if diff and files_complexities:
+    if not diff:
+        return None
+    if staged:
+        entries = compute_staged_diff(diff, INVOCATION_PATH)
+        label = f"{diff} (staged)"
+        if not quiet:
+            console.print(format_diff(entries, label))
+        return entries
+    if files_complexities:
         entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
         if not quiet:
             console.print(format_diff(entries, diff))

@@ -257,6 +257,7 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--output-format <format>`      | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                          | —       |
 | `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                             | —       |
 | `--diff <ref>`                  | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
+| `--staged` / `--cached`         | Compare staged changes (git index) against `--diff` ref (default `HEAD`). Useful in pre-commit hooks                                                             | `false` |
 | `--ratchet`                     | With `--diff`, fail only when a change pushes a function above `--max-complexity-allowed` or makes an already-over function worse                                | `false` |
 | `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
 | `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
@@ -315,6 +316,19 @@ complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
 ```
 
 `--ratchet` requires `--diff`. It exits with code `1` only when a new or modified function breaches `--max-complexity-allowed`; regressions that stay within the threshold are allowed.
+
+Add `--staged` (alias `--cached`) to compare the git index against the reference instead of the working tree. This answers "what complexity am I about to commit?" and is useful in pre-commit hooks:
+
+```bash
+# Compare staged changes against HEAD (the default baseline for --staged)
+complexipy . --staged
+
+# Compare staged changes against a specific ref
+complexipy . --diff main --staged
+
+# Gate commits: fail if staged changes push a function over the threshold
+complexipy . --staged --ratchet
+```
 
 Sample output:
 
