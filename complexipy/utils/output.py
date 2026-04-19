@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import (
     Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
@@ -19,21 +18,7 @@ from complexipy._complexipy import (
 from complexipy.types import (
     Sort,
 )
-
-
-@dataclass
-class FunctionRow:
-    name: str
-    complexity: int
-    passed: bool
-    path: str
-    file_name: str
-
-
-@dataclass
-class FileEntry:
-    path: str
-    functions: List[FunctionRow]
+from complexipy.utils import dataclasses as dc
 
 
 def output_summary(
@@ -88,7 +73,7 @@ def output_summary(
 
 def output_plain(
     console: Console,
-    file_entries: List[FileEntry],
+    file_entries: List[dc.FileEntry],
 ) -> None:
     for entry in file_entries:
         for function in entry.functions:
@@ -97,10 +82,10 @@ def output_plain(
 
 
 def truncate_top_n(
-    file_entries: List[FileEntry],
+    file_entries: List[dc.FileEntry],
     n: int,
-) -> List[FileEntry]:
-    all_functions: List[Tuple[str, FunctionRow]] = []
+) -> List[dc.FileEntry]:
+    all_functions: List[Tuple[str, dc.FunctionRow]] = []
     for entry in file_entries:
         for function in entry.functions:
             all_functions.append((entry.path, function))
@@ -111,18 +96,18 @@ def truncate_top_n(
     # Preserve global descending order across files: emit a new entry whenever
     # the path changes, rather than regrouping (which would collapse runs and
     # lose the global rank order for multi-file results).
-    result: List[FileEntry] = []
+    result: List[dc.FileEntry] = []
     for path, function in top_functions:
         if result and result[-1].path == path:
             result[-1].functions.append(function)
         else:
-            result.append(FileEntry(path=path, functions=[function]))
+            result.append(dc.FileEntry(path=path, functions=[function]))
     return result
 
 
 def output_file_entries(
     console: Console,
-    file_entries: List[FileEntry],
+    file_entries: List[dc.FileEntry],
     failing_functions: Dict[str, List[str]],
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
@@ -162,7 +147,7 @@ def format_status_text(passed: bool) -> str:
 
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: FunctionRow,
+    function: dc.FunctionRow,
     max_complexity: int,
 ) -> str:
     if previous_functions is None:
@@ -202,14 +187,14 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
-) -> Tuple[List[FileEntry], Dict[str, List[str]], int]:
-    file_entries: List[FileEntry] = []
+) -> Tuple[List[dc.FileEntry], Dict[str, List[str]], int]:
+    file_entries: List[dc.FileEntry] = []
     failing_functions: Dict[str, List[str]] = {}
     total_functions = 0
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[FunctionRow] = []
+        displayable_functions: List[dc.FunctionRow] = []
 
         for function in sorted_functions:
             total_functions += 1
@@ -231,7 +216,7 @@ def build_output_rows(
                 )
 
             displayable_functions.append(
-                FunctionRow(
+                dc.FunctionRow(
                     name=function.name,
                     complexity=function.complexity,
                     passed=passed,
@@ -242,7 +227,7 @@ def build_output_rows(
 
         if displayable_functions:
             file_entries.append(
-                FileEntry(
+                dc.FileEntry(
                     path=normalize_path(file.path, file.file_name),
                     functions=displayable_functions,
                 )
