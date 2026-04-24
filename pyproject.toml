@@ -9,14 +9,22 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [{name = "Robin Quintero", email = "rohaquinlop301@gmail.com"}]
 keywords = [
+    "maintainability",
+    "usability",
+    "DevEx tools",
     "cognitive",
     "complexity",
     "cognitive complexity",
     "quality",
     "quality assurance",
-    "testing",
     "libraries",
     "performance",
+    "static analysis",
+    "code quality",
+    "technical debt",
+    "refactoring",
+    "CI/CD",
+    "fast",
 ]
 requires-python = ">=3.8"
 classifiers = [
@@ -74,12 +82,6 @@ indent-width = 4
 [tool.ty.src]
 exclude = ["tests"]
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.9.0",
-    "ty>=0.0.1a1",
-]
-
 [dependency-groups]
 dev = [
     "maturin>=1.8.3",
@@ -89,3 +91,9 @@ dev = [
     "ruff>=0.9.0",
     "ty>=0.0.1a1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "main.py"]
+python_functions = ["test_*"]
+norecursedirs = ["tests/src"]
