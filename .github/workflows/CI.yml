@@ -183,7 +183,7 @@ jobs:
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
@@ -218,7 +218,7 @@ jobs:
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
@@ -253,7 +253,7 @@ jobs:
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
