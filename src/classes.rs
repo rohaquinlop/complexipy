@@ -24,8 +24,11 @@ pub struct LineComplexity {
 pub struct FunctionComplexity {
     pub name: String,
     pub complexity: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_start: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_end: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_complexities: Vec<LineComplexity>,
 }
 
@@ -38,6 +41,7 @@ pub struct FileComplexity {
     pub path: String,
     pub file_name: String,
     pub functions: Vec<FunctionComplexity>,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub complexity: u64,
 }
 
