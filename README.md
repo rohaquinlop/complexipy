@@ -364,6 +364,7 @@ code_complexity(source: str, check_script: bool = False) -> CodeComplexity
 # Return types
 FileComplexity:
   ├─ path: str
+  ├─ file_name: str
   ├─ complexity: int
   └─ functions: List[FunctionComplexity]
 
@@ -371,7 +372,16 @@ FunctionComplexity:
   ├─ name: str
   ├─ complexity: int
   ├─ line_start: int
-  └─ line_end: int
+  ├─ line_end: int
+  └─ line_complexities: List[LineComplexity]
+
+LineComplexity:
+  ├─ line: int
+  └─ complexity: int
+
+CodeComplexity:
+  ├─ complexity: int
+  └─ functions: List[FunctionComplexity]
 ```
 
 ---
