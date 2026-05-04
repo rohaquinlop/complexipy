@@ -65,7 +65,7 @@ complexipy . --top 10
 When `--top` is set, results are globally re-sorted by complexity descending
 before truncation.
 
-Suppress all output (useful for CI pipelines):
+Suppress analysis output (useful for CI pipelines):
 
 ```bash
 complexipy . --quiet
@@ -201,24 +201,17 @@ functions.
 **JSON Output Structure:**
 
 ```json
-{
-    "files": [
-        {
-            "path": "src/main.py",
-            "complexity": 42,
-            "functions": [
-                {
-                    "name": "process_data",
-                    "complexity": 18,
-                    "line_start": 10,
-                    "line_end": 45
-                }
-            ]
-        }
-    ],
-    "total_complexity": 42
-}
+[
+    {
+        "path": "src",
+        "file_name": "main.py",
+        "function_name": "process_data",
+        "complexity": 18
+    }
+]
 ```
+
+The JSON and CSV outputs contain one entry per emitted function. Line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV outputs.
 
 ### Color Output
 
@@ -490,18 +483,21 @@ Use this when:
 ### Snapshot File Format
 
 ```json
-{
-    "version": "1.0",
-    "threshold": 15,
-    "functions": {
-        "src/legacy.py::old_function": {
-            "complexity": 23,
-            "line_start": 10,
-            "line_end": 50
-        }
+[
+    {
+        "path": "src",
+        "file_name": "legacy.py",
+        "functions": [
+            {
+                "name": "old_function",
+                "complexity": 23
+            }
+        ]
     }
-}
+]
 ```
+
+Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
 ## Inline Ignores
 
@@ -549,7 +545,7 @@ Use the official action:
   with:
       paths: src tests
       max_complexity_allowed: 15
-      output_json: true
+      output_format: json
 ```
 
 Or run directly:

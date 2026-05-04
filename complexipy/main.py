@@ -23,62 +23,48 @@ from complexipy import (
 )
 from complexipy._complexipy import FileComplexity
 
-from .types import (
+from complexipy.types import (
     ColorTypes,
     OutputFormat,
     Sort,
 )
-from .utils.cache import remember_previous_functions
-from .utils.csv import store_csv
-from .utils.diff import (
+from complexipy.utils.cache import remember_previous_functions
+from complexipy.utils.csv import store_csv
+from complexipy.utils.diff import (
     DiffEntry,
     compute_diff,
-    compute_staged_diff,
     format_diff,
     has_regressions,
 )
-from .utils.gitlab import store_gitlab
-from .utils.json import store_json
-from .utils.output import (
+from complexipy.utils.gitlab import store_gitlab
+from complexipy.utils.json import store_json
+from complexipy.utils.output import (
     has_success_functions,
     output_summary,
     print_invalid_paths,
 )
-from .utils.sarif import store_sarif
-from .utils.snapshot import (
+from complexipy.utils.sarif import store_sarif
+from complexipy.utils.snapshot import (
     build_snapshot_map,
     handle_snapshot_file_creation,
     handle_snapshot_functions_load,
     handle_snapshot_watermark,
 )
-from .utils.toml import (
+from complexipy.utils.toml import (
     get_argument_value,
     get_arguments_value,
     get_complexipy_toml_config,
+)
+from complexipy.utils.constants import (
+    DEFAULT_OUTPUT_FILENAMES,
+    LEGACY_OUTPUT_CONFIG_KEYS,
+    LEGACY_OUTPUT_FLAGS,
 )
 
 app = typer.Typer(name="complexipy")
 console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
-DEFAULT_OUTPUT_FILENAMES = {
-    OutputFormat.csv: "complexipy-results.csv",
-    OutputFormat.json: "complexipy-results.json",
-    OutputFormat.gitlab: "complexipy-results.gitlab.json",
-    OutputFormat.sarif: "complexipy-results.sarif",
-}
-LEGACY_OUTPUT_FLAGS = {
-    OutputFormat.csv: "--output-csv",
-    OutputFormat.json: "--output-json",
-    OutputFormat.gitlab: "--output-gitlab",
-    OutputFormat.sarif: "--output-sarif",
-}
-LEGACY_OUTPUT_CONFIG_KEYS = {
-    OutputFormat.csv: "output-csv",
-    OutputFormat.json: "output-json",
-    OutputFormat.gitlab: "output-gitlab",
-    OutputFormat.sarif: "output-sarif",
-}
 
 
 def _version_callback(value: bool):
@@ -301,8 +287,6 @@ def main(
         diff = "HEAD"
     validate_ratchet(ratchet, diff)
 
-    # --plain is intentionally CLI-only (not resolved via TOML) because it is
-    # a session-level display preference, not a project-wide default.
     if plain is None:
         plain = False
 
@@ -384,9 +368,6 @@ def main(
         watermark_success,
     )
     if should_run_snapshot_watermark:
-        # When the snapshot watermark is active, it is the authoritative
-        # success check. Functions exceeding the threshold that are already
-        # in the snapshot (and haven't regressed) should not cause a failure.
         has_success = snapshot_result
     else:
         has_success = has_success and snapshot_result

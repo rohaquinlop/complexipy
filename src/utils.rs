@@ -284,57 +284,8 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
                 complexity += count_bool_ops(value.clone(), nesting_level);
             }
         }
-        ast::Expr::FString(f) => {
-            for element in f.value.elements() {
-                if element.is_interpolation() {
-                    if let Some(inter) = element.as_interpolation() {
-                        complexity += count_bool_ops(*inter.expression.clone(), nesting_level);
-                    }
-                }
-            }
-        }
-        ast::Expr::ListComp(l) => {
-            complexity +=
-                count_comprehension_complexity(&l.generators, *l.elt.clone(), nesting_level);
-        }
-        ast::Expr::SetComp(s) => {
-            complexity +=
-                count_comprehension_complexity(&s.generators, *s.elt.clone(), nesting_level);
-        }
-        ast::Expr::Generator(g) => {
-            complexity +=
-                count_comprehension_complexity(&g.generators, *g.elt.clone(), nesting_level);
-        }
-        ast::Expr::DictComp(d) => {
-            complexity +=
-                count_comprehension_complexity(&d.generators, *d.key.clone(), nesting_level);
-            complexity += count_bool_ops(*d.value.clone(), nesting_level + 1);
-        }
         _ => {}
     }
-
-    complexity
-}
-
-#[cfg(any(feature = "python", feature = "wasm"))]
-fn count_comprehension_complexity(
-    generators: &[ast::Comprehension],
-    elt: ast::Expr,
-    nesting_level: u64,
-) -> u64 {
-    let mut complexity: u64 = 1 + nesting_level;
-
-    for (i, clause) in generators.iter().enumerate() {
-        if i > 0 {
-            complexity += 1;
-        }
-        for if_expr in clause.ifs.iter() {
-            complexity += 1 + count_bool_ops(if_expr.clone(), nesting_level + 1);
-        }
-        complexity += count_bool_ops(clause.iter.clone(), nesting_level + 1);
-    }
-
-    complexity += count_bool_ops(elt, nesting_level + 1);
 
     complexity
 }

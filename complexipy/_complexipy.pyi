@@ -262,7 +262,10 @@ class CodeComplexity:
     ) -> None: ...
 
 def main(
-    paths: List[str], quiet: bool, exclude: List[str], check_script: bool = False
+    paths: List[str],
+    quiet: bool,
+    exclude: List[str],
+    check_script: bool = False,
 ) -> Tuple[List[FileComplexity], List[str]]:
     """
     Analyze cognitive complexity of Python files and directories.
@@ -355,7 +358,9 @@ def code_complexity(code: str, check_script: bool = False) -> CodeComplexity:
     """
     ...
 
-def file_complexity(file_path: str, base_path: str, check_script: bool = False) -> FileComplexity:
+def file_complexity(
+    file_path: str, base_path: str, check_script: bool = False
+) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
 

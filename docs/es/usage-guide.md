@@ -65,7 +65,7 @@ complexipy . --top 10
 Cuando se usa `--top`, los resultados se reordenan globalmente por complejidad
 descendente antes de truncarse.
 
-Suprimir toda la salida (útil para pipelines de CI):
+Suprimir la salida del análisis (útil para pipelines de CI):
 
 ```bash
 complexipy . --quiet
@@ -104,7 +104,7 @@ complexipy . --exclude src/legacy/old_code.py
 
 ### Formatos de Salida
 
-Guarda los resultados en JSON o CSV:
+Guarda los resultados en JSON, CSV, GitLab Code Quality o SARIF:
 
 ```bash
 # Salida JSON (guardada en complexipy-results.json)
@@ -198,24 +198,17 @@ fuera de las funciones.
 **Estructura de Salida JSON:**
 
 ```json
-{
-    "files": [
-        {
-            "path": "src/main.py",
-            "complexity": 42,
-            "functions": [
-                {
-                    "name": "process_data",
-                    "complexity": 18,
-                    "line_start": 10,
-                    "line_end": 45
-                }
-            ]
-        }
-    ],
-    "total_complexity": 42
-}
+[
+    {
+        "path": "src",
+        "file_name": "main.py",
+        "function_name": "process_data",
+        "complexity": 18
+    }
+]
 ```
+
+Las salidas JSON y CSV contienen una entrada por cada función emitida. Los rangos de líneas están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las salidas JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 
@@ -487,18 +480,21 @@ complexipy . --snapshot-ignore
 ### Formato del Archivo de snapshot
 
 ```json
-{
-    "version": "1.0",
-    "threshold": 15,
-    "functions": {
-        "src/legacy.py::old_function": {
-            "complexity": 23,
-            "line_start": 10,
-            "line_end": 50
-        }
+[
+    {
+        "path": "src",
+        "file_name": "legacy.py",
+        "functions": [
+            {
+                "name": "old_function",
+                "complexity": 23
+            }
+        ]
     }
-}
+]
 ```
+
+Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
 
 ## Ignorar en Línea
 
@@ -546,7 +542,7 @@ Usa la acción oficial:
   with:
       paths: src tests
       max_complexity_allowed: 15
-      output_json: true
+      output_format: json
 ```
 
 O ejecuta directamente:

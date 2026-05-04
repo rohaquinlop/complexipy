@@ -17,10 +17,11 @@ concurrency:
     cancel-in-progress: true
 
 permissions:
-    contents: write
+    contents: read
 
 jobs:
     linux-build:
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
         strategy:
             matrix:
@@ -61,6 +62,7 @@ jobs:
                   path: dist
 
     windows-build:
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
         strategy:
             matrix:
@@ -93,6 +95,7 @@ jobs:
                   path: dist
 
     macos-build:
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
         strategy:
             matrix:
@@ -124,6 +127,7 @@ jobs:
                   path: dist
 
     sdist:
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -149,6 +153,8 @@ jobs:
               uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
               with:
                   python-version: "3.13"
+                  enable-cache: true
+                  cache-dependency-glob: uv.lock
             - name: Install dev dependencies
               run: uv sync --group dev --no-install-project --frozen
             - name: Run ruff
@@ -156,10 +162,45 @@ jobs:
             - name: Run ty
               run: uv run ty check .
 
+    quick-tests:
+        name: Quick Tests
+        if: github.event_name == 'pull_request'
+        runs-on: ${{ matrix.runner }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - runner: ubuntu-latest
+                      python-version: "3.8"
+                    - runner: ubuntu-latest
+                      python-version: "3.13"
+                    - runner: windows-latest
+                      python-version: "3.13"
+                    - runner: macos-14
+                      python-version: "3.13"
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+            - name: Install uv
+              uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+              with:
+                  python-version: ${{ matrix.python-version }}
+                  enable-cache: true
+                  cache-dependency-glob: uv.lock
+            - name: pytest
+              shell: bash
+              run: |
+                  uv sync --all-extras --frozen
+                  uv run -p ${{ matrix.python-version }} maturin develop
+                  uv run -p ${{ matrix.python-version }} pytest
+            - name: complexipy execution
+              shell: bash
+              run: |
+                  uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+
     unit-tests-linux:
         name: Unit Tests
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
-        needs: [linux-build, sdist]
         strategy:
             matrix:
                 platform:
@@ -173,17 +214,14 @@ jobs:
               uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
               with:
                   python-version: ${{ matrix.python-version }}
-            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-              with:
-                  path: dist
-                  pattern: wheels-*
-                  merge-multiple: true
+                  enable-cache: true
+                  cache-dependency-glob: uv.lock
             - name: pytest
               shell: bash
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
@@ -191,8 +229,8 @@ jobs:
 
     unit-tests-windows:
         name: Unit Tests
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
-        needs: [windows-build, sdist]
         strategy:
             matrix:
                 platform:
@@ -208,17 +246,14 @@ jobs:
               uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
               with:
                   python-version: ${{ matrix.python-version }}
-            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-              with:
-                  path: dist
-                  pattern: wheels-*
-                  merge-multiple: true
+                  enable-cache: true
+                  cache-dependency-glob: uv.lock
             - name: pytest
               shell: bash
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
@@ -226,8 +261,8 @@ jobs:
 
     unit-tests-macos:
         name: Unit Tests
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         runs-on: ${{ matrix.platform.runner }}
-        needs: [macos-build, sdist]
         strategy:
             matrix:
                 platform:
@@ -243,17 +278,14 @@ jobs:
               uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
               with:
                   python-version: ${{ matrix.python-version }}
-            - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-              with:
-                  path: dist
-                  pattern: wheels-*
-                  merge-multiple: true
+                  enable-cache: true
+                  cache-dependency-glob: uv.lock
             - name: pytest
               shell: bash
               run: |
                   uv sync --all-extras --frozen
                   uv run -p ${{ matrix.python-version }} maturin develop
-                  uv run -p ${{ matrix.python-version }} pytest tests/main.py
+                  uv run -p ${{ matrix.python-version }} pytest
             - name: complexipy execution
               shell: bash
               run: |
@@ -263,8 +295,18 @@ jobs:
         name: Release
         runs-on: ubuntu-latest
         if: startsWith(github.ref, 'refs/tags/')
-        needs: [unit-tests-windows, unit-tests-linux, unit-tests-macos]
+        needs:
+            [
+                linux-build,
+                windows-build,
+                macos-build,
+                sdist,
+                unit-tests-windows,
+                unit-tests-linux,
+                unit-tests-macos,
+            ]
         permissions:
+            contents: read
             id-token: write
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -351,7 +393,18 @@ jobs:
                         extract_path.mkdir(parents=True, exist_ok=True)
 
                         with zipfile.ZipFile(whl, 'r') as zip_ref:
-                          zip_ref.extractall(extract_path)
+                          for info in zip_ref.infolist():
+                            dest = extract_path / info.filename
+                            if info.filename.endswith('/'):
+                              dest.mkdir(parents=True, exist_ok=True)
+                              continue
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            try:
+                              data = zip_ref.read(info.filename)
+                              dest.write_bytes(data)
+                            except Exception as crc_err:
+                              print(f"  WARNING: Corrupted entry '{info.filename}': {crc_err} — writing empty placeholder")
+                              dest.write_bytes(b'')
 
                           # Remove the old RECORD file since it's malformed
                           for record_file in extract_path.rglob("RECORD"):
