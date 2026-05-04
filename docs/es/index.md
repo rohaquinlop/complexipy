@@ -15,7 +15,8 @@
     <a href="#instalación">Instalación</a> •
     <a href="#inicio-rápido">Inicio Rápido</a> •
     <a href="#integraciones">Integraciones</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/">Documentación</a>
+    <a href="https://rohaquinlop.github.io/complexipy/">Documentación</a> •
+    <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
   </p>
 </div>
 
@@ -321,6 +322,7 @@ code_complexity(source: str, check_script: bool = False) -> CodeComplexity
 # Tipos de retorno
 FileComplexity:
   ├─ path: str
+  ├─ file_name: str
   ├─ complexity: int
   └─ functions: List[FunctionComplexity]
 
@@ -328,7 +330,16 @@ FunctionComplexity:
   ├─ name: str
   ├─ complexity: int
   ├─ line_start: int
-  └─ line_end: int
+  ├─ line_end: int
+  └─ line_complexities: List[LineComplexity]
+
+LineComplexity:
+  ├─ line: int
+  └─ complexity: int
+
+CodeComplexity:
+  ├─ complexity: int
+  └─ functions: List[FunctionComplexity]
 ```
 
 ---

@@ -24,21 +24,24 @@ pub struct LineComplexity {
 pub struct FunctionComplexity {
     pub name: String,
     pub complexity: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_start: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_end: u64,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub line_complexities: Vec<LineComplexity>,
 }
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
-    derive(Serialize, Deserialize)
+    feature = "python",
+    pyclass(module = "complexipy", get_all),
+    derive(Serialize, Deserialize, Clone)
 )]
-#[derive(Clone)]
 pub struct FileComplexity {
     pub path: String,
     pub file_name: String,
     pub functions: Vec<FunctionComplexity>,
+    #[cfg_attr(feature = "python", serde(skip))]
     pub complexity: u64,
 }
 
@@ -51,4 +54,6 @@ pub struct FileComplexity {
 pub struct CodeComplexity {
     pub functions: Vec<FunctionComplexity>,
     pub complexity: u64,
+    #[cfg(feature = "wasm")]
+    pub version: String,
 }
