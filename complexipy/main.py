@@ -156,18 +156,18 @@ def main(
         None,
         "--output-csv",
         "-c",
-        help="Output the results to a CSV file.",
+        help="Deprecated. Use `--output-format csv` instead. Output the results to a CSV file.",
     ),
     output_json: Optional[bool] = typer.Option(
         None,
         "--output-json",
         "-j",
-        help="Output the results to a JSON file.",
+        help="Deprecated. Use `--output-format json` instead. Output the results to a JSON file.",
     ),
     output_gitlab: Optional[bool] = typer.Option(
         None,
         "--output-gitlab",
-        help="Output the results as a GitLab Code Quality JSON report.",
+        help="Deprecated. Use `--output-format gitlab` instead. Output the results as a GitLab Code Quality JSON report.",
     ),
     diff: Optional[str] = typer.Option(
         None,
@@ -492,8 +492,8 @@ def emit_deprecated_output_warnings(
         if legacy_cli_output_flags[output_format]:
             console.print(
                 f"[yellow]Deprecated:[/yellow] {flag_name} will be removed "
-                f"in a future release. Use --output-format "
-                f"{output_format.value} instead."
+                f"in a future release. Use `--output-format "
+                f"{output_format.value}` instead."
             )
 
     if toml_config is None:
