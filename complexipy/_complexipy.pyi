@@ -42,6 +42,30 @@ class LineComplexity:
 
     def __init__(self, line: int, complexity: int) -> None: ...
 
+class RefactorPlan:
+    """Deterministic refactoring plan for reducing one function's complexity."""
+
+    kind: str
+    title: str
+    line_start: int
+    line_end: int
+    current_complexity: int
+    estimated_reduction: int
+    estimated_complexity_after: int
+    steps: List[str]
+
+    def __init__(
+        self,
+        kind: str,
+        title: str,
+        line_start: int,
+        line_end: int,
+        current_complexity: int,
+        estimated_reduction: int,
+        estimated_complexity_after: int,
+        steps: List[str],
+    ) -> None: ...
+
 class FunctionComplexity:
     """
     Represents the cognitive complexity analysis of a Python function.
@@ -118,6 +142,9 @@ class FunctionComplexity:
         ...     print(f"Line {line_info.line}: +{line_info.complexity}")
     """
 
+    refactor_plans: List[RefactorPlan]
+    """Ranked deterministic refactoring plans for this function."""
+
     def __init__(
         self,
         name: str,
@@ -125,6 +152,7 @@ class FunctionComplexity:
         line_start: int,
         line_end: int,
         line_complexities: List[LineComplexity],
+        refactor_plans: List[RefactorPlan],
     ) -> None: ...
 
 class FileComplexity:

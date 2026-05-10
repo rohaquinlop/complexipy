@@ -1,5 +1,6 @@
 mod classes;
 mod cognitive_complexity;
+mod refactor_plans;
 mod utils;
 
 // Add WASM support when wasm feature is enabled
@@ -7,7 +8,7 @@ mod utils;
 mod wasm;
 
 #[cfg(feature = "python")]
-use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity};
+use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity, RefactorPlan};
 #[cfg(feature = "python")]
 use cognitive_complexity::{code_complexity, file_complexity, main};
 #[cfg(feature = "python")]
@@ -31,5 +32,6 @@ fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<FileComplexity>()?;
     m.add_class::<FunctionComplexity>()?;
     m.add_class::<LineComplexity>()?;
+    m.add_class::<RefactorPlan>()?;
     Ok(())
 }
