@@ -149,7 +149,7 @@ def sample(a, b, c, d):
     assert func.refactor_plans[0].estimated_complexity_after <= func.complexity
 
 
-def test_manual_cli_json_and_snapshot_output_remain_unchanged(tmp_path) -> None:
+def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(tmp_path) -> None:
     source = tmp_path / "sample.py"
     source.write_text(
         """
@@ -165,12 +165,25 @@ def sample(a, b, c, d):
 
     complexipy._complexipy.output_json(str(output_path), [file_result], True, 0)
 
-    assert json.loads(output_path.read_text()) == [
+    json_data = json.loads(output_path.read_text())
+    assert json_data == [
         {
             "path": "sample.py",
             "file_name": "sample.py",
             "function_name": "sample",
             "complexity": func.complexity,
+            "refactor_plans": [
+                {
+                    "kind": func.refactor_plans[0].kind,
+                    "title": func.refactor_plans[0].title,
+                    "line_start": func.refactor_plans[0].line_start,
+                    "line_end": func.refactor_plans[0].line_end,
+                    "current_complexity": func.refactor_plans[0].current_complexity,
+                    "estimated_reduction": func.refactor_plans[0].estimated_reduction,
+                    "estimated_complexity_after": func.refactor_plans[0].estimated_complexity_after,
+                    "steps": list(func.refactor_plans[0].steps),
+                }
+            ],
         }
     ]
 

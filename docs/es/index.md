@@ -71,6 +71,9 @@ complexipy . --output-format json --output-format csv
 # Muestra las 5 funciones más complejas
 complexipy . --top 5
 
+# Muestra sugerencias deterministas de refactorización para funciones fallidas
+complexipy . --failed --suggest-refactors
+
 # Emite texto plano para scripts o agentes de IA
 complexipy . --plain
 
@@ -208,6 +211,7 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 | `--snapshot-create`        | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                         | `false`        |
 | `--snapshot-ignore`        | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
 | `--failed`                 | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                             | `false`        |
+| `--suggest-refactors`      | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain`                                                                              | `false`        |
 | `--color <auto\|yes\|no>`  | Usa color                                                                                                                                                                                                   | `auto`         |
 | `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                   | `asc`          |
 | `--quiet`                  | Suprime la salida                                                                                                                                                                                           | `false`        |
@@ -233,6 +237,24 @@ complexipy . --exclude tests
 # Esto no excluirá './complexipy/utils.py' si pasas '--exclude utils' en la raíz del repositorio,
 # porque no hay ningún directorio o archivo './utils' en ese nivel.
 ```
+
+### Sugerencias de Refactorización
+
+Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de planes deterministas de refactorización junto a los resultados enriquecidos de la CLI:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Salida de ejemplo:
+
+```text
+Refactor plans:
+  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
+    - invert the outer condition and return early
+```
+
+Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
 
 ### Snapshots Base
 
@@ -331,7 +353,18 @@ FunctionComplexity:
   ├─ complexity: int
   ├─ line_start: int
   ├─ line_end: int
-  └─ line_complexities: List[LineComplexity]
+  ├─ line_complexities: List[LineComplexity]
+  └─ refactor_plans: List[RefactorPlan]
+
+RefactorPlan:
+  ├─ kind: str
+  ├─ title: str
+  ├─ line_start: int
+  ├─ line_end: int
+  ├─ current_complexity: int
+  ├─ estimated_reduction: int
+  ├─ estimated_complexity_after: int
+  └─ steps: List[str]
 
 LineComplexity:
   ├─ line: int

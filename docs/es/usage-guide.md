@@ -62,6 +62,12 @@ Mostrar solo las N funciones más complejas entre todos los archivos analizados:
 complexipy . --top 10
 ```
 
+Mostrar sugerencias deterministas de refactorización para funciones fallidas:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
 Cuando se usa `--top`, los resultados se reordenan globalmente por complejidad
 descendente antes de truncarse.
 
@@ -195,6 +201,25 @@ complexipy path/to/script.py --check-script -mx 5
 
 Esto es útil para scripts con flujo de control complejo en el nivel superior,
 fuera de las funciones.
+
+### Sugerencias de Refactorización
+
+Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de planes deterministas de refactorización junto a los resultados enriquecidos de la CLI:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Salida de ejemplo:
+
+```text
+Refactor plans:
+  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
+    - invert the outer condition and return early
+```
+
+Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
+
 **Estructura de Salida JSON:**
 
 ```json
@@ -203,12 +228,26 @@ fuera de las funciones.
         "path": "src",
         "file_name": "main.py",
         "function_name": "process_data",
-        "complexity": 18
+        "complexity": 18,
+        "refactor_plans": [
+            {
+                "kind": "flatten_condition",
+                "title": "Flatten nested condition block with guard clauses",
+                "line_start": 12,
+                "line_end": 18,
+                "current_complexity": 18,
+                "estimated_reduction": 3,
+                "estimated_complexity_after": 15,
+                "steps": [
+                    "invert the outer condition and return early"
+                ]
+            }
+        ]
     }
 ]
 ```
 
-Las salidas JSON y CSV contienen una entrada por cada función emitida. Los rangos de líneas están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las salidas JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida e incluye `refactor_plans` (o `[]` cuando no existe ningún plan). La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 
