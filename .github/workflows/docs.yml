@@ -1,9 +1,7 @@
 name: Deploy docs
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
