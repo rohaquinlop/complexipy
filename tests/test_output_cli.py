@@ -99,6 +99,15 @@ class TestOutputCli:
         assert (output_dir / "complexipy-results.csv").exists()
 
 
+_REFACTOR_SNIPPET = """\
+def sample(a, b, c, d):
+    if a:
+        if b:
+            if c and d:
+                return 1
+    return 0
+"""
+
 _MULTI_SNIPPET = """\
 def simple(x):
     return x
@@ -260,6 +269,72 @@ def b_mid(x):
         )
 
         assert result.exit_code == 2
+
+
+class TestSuggestRefactorsOutput:
+    def test_suggest_refactors_prints_plan_fragments(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Refactor plans:" in result.output
+        assert "Flatten nested condition block with guard clauses" in result.output
+        assert "estimated: 7 -> 5 (-2)" in result.output
+        assert "invert the outer condition" in result.output
+
+    def test_failed_with_suggest_refactors_only_shows_displayed_failures(
+        self, tmp_path: Path
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            _REFACTOR_SNIPPET
+            + "\n\ndef simple(value):\n    return value\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--failed", "-mx", "0", "--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "sample 7" in result.output
+        assert "Refactor plans:" in result.output
+        assert "simple" not in result.output
+
+    def test_plain_with_suggest_refactors_preserves_plain_output(
+        self, tmp_path: Path
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+
+        without_flag = runner.invoke(
+            main_module.app,
+            ["--plain", str(source_file)],
+        )
+        with_flag = runner.invoke(
+            main_module.app,
+            ["--plain", "--suggest-refactors", str(source_file)],
+        )
+
+        assert without_flag.exit_code == 0, without_flag.output
+        assert with_flag.exit_code == 0, with_flag.output
+        assert with_flag.output == without_flag.output
+        assert "Refactor plans:" not in with_flag.output
 
 
 class TestPlainOutput:

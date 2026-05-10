@@ -32,6 +32,7 @@ def output_summary(
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
     plain: bool = False,
     top: Optional[int] = None,
+    suggest_refactors: bool = False,
 ) -> bool:
     (
         file_entries,
@@ -67,6 +68,7 @@ def output_summary(
             ignore_complexity,
             previous_functions,
             max_complexity,
+            suggest_refactors,
         )
     return has_success
 
@@ -112,6 +114,7 @@ def output_file_entries(
     ignore_complexity: bool,
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
+    suggest_refactors: bool = False,
 ) -> None:
     for entry in file_entries:
         console.print(f"[bold]{entry.path}[/bold]")
@@ -123,6 +126,8 @@ def output_file_entries(
             console.print(
                 f"    {function.name} {function.complexity}{delta_text} {status_text}"
             )
+            if suggest_refactors:
+                output_refactor_plans(console, function)
         console.print()
 
     if failing_functions:
@@ -137,6 +142,26 @@ def output_file_entries(
         console.print(
             "[bold green]All functions are within the allowed complexity.[/bold green]"
         )
+
+
+def output_refactor_plans(console: Console, function: dc.FunctionRow) -> None:
+    if not function.refactor_plans:
+        return
+
+    console.print("\n      Refactor plans:")
+    for index, plan in enumerate(function.refactor_plans, start=1):
+        console.print(
+            f"        {index}. {plan.title}, lines {plan.line_start}-{plan.line_end}"
+        )
+        console.print(
+            "           estimated: "
+            f"{plan.current_complexity} -> {plan.estimated_complexity_after} "
+            f"(-{plan.estimated_reduction})"
+        )
+        if plan.steps:
+            console.print("           steps:")
+            for step in plan.steps:
+                console.print(f"             - {step}")
 
 
 def format_status_text(passed: bool) -> str:
@@ -222,6 +247,7 @@ def build_output_rows(
                     passed=passed,
                     path=file.path,
                     file_name=file.file_name,
+                    refactor_plans=function.refactor_plans,
                 )
             )
 
