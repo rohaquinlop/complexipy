@@ -71,6 +71,9 @@ complexipy . --output-format json --output-format csv
 # Show the top 5 most complex functions
 complexipy . --top 5
 
+# Show deterministic refactor suggestions for failing functions
+complexipy . --failed --suggest-refactors
+
 # Emit plain text for scripting/AI agents
 complexipy . --plain
 
@@ -247,6 +250,7 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
 | `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
 | `--failed`                      | Show only functions above the complexity threshold                                                                                                               | `false` |
+| `--suggest-refactors`           | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain`                                                                        | `false` |
 | `--color <auto\|yes\|no>`       | Use color                                                                                                                                                        | `auto`  |
 | `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                     | `asc`   |
 | `--quiet`                       | Suppress output                                                                                                                                                  | `false` |
@@ -272,6 +276,24 @@ complexipy . --exclude tests
 # This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
 # because there is no './utils' directory or file at that level.
 ```
+
+### Refactor Suggestions
+
+Use `--suggest-refactors` to print a small, ranked set of deterministic refactor plans next to rich CLI results:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Sample output:
+
+```text
+Refactor plans:
+  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
+    - invert the outer condition and return early
+```
+
+Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
 
 ### Snapshot Baselines
 
@@ -373,7 +395,18 @@ FunctionComplexity:
   ├─ complexity: int
   ├─ line_start: int
   ├─ line_end: int
-  └─ line_complexities: List[LineComplexity]
+  ├─ line_complexities: List[LineComplexity]
+  └─ refactor_plans: List[RefactorPlan]
+
+RefactorPlan:
+  ├─ kind: str
+  ├─ title: str
+  ├─ line_start: int
+  ├─ line_end: int
+  ├─ current_complexity: int
+  ├─ estimated_reduction: int
+  ├─ estimated_complexity_after: int
+  └─ steps: List[str]
 
 LineComplexity:
   ├─ line: int

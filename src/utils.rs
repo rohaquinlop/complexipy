@@ -111,7 +111,8 @@ pub fn output_json(
                     "path": file.path,
                     "file_name": file.file_name,
                     "function_name": function.name,
-                    "complexity": function.complexity
+                    "complexity": function.complexity,
+                    "refactor_plans": function.refactor_plans
                 });
                 json_data.push(entry);
             }

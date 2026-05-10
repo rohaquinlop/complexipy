@@ -62,6 +62,12 @@ Show only the top N most complex functions across the analyzed files:
 complexipy . --top 10
 ```
 
+Show deterministic refactor suggestions for failing functions:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
 When `--top` is set, results are globally re-sorted by complexity descending
 before truncation.
 
@@ -198,6 +204,25 @@ complexipy path/to/script.py --check-script -mx 5
 
 This is useful for scripts with complex top-level control flow outside
 functions.
+
+### Refactor Suggestions
+
+Use `--suggest-refactors` to print a small, ranked set of deterministic refactor plans next to rich CLI results:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Sample output:
+
+```text
+Refactor plans:
+  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
+    - invert the outer condition and return early
+```
+
+Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
+
 **JSON Output Structure:**
 
 ```json
@@ -206,12 +231,26 @@ functions.
         "path": "src",
         "file_name": "main.py",
         "function_name": "process_data",
-        "complexity": 18
+        "complexity": 18,
+        "refactor_plans": [
+            {
+                "kind": "flatten_condition",
+                "title": "Flatten nested condition block with guard clauses",
+                "line_start": 12,
+                "line_end": 18,
+                "current_complexity": 18,
+                "estimated_reduction": 3,
+                "estimated_complexity_after": 15,
+                "steps": [
+                    "invert the outer condition and return early"
+                ]
+            }
+        ]
     }
 ]
 ```
 
-The JSON and CSV outputs contain one entry per emitted function. Line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV outputs.
+JSON output contains one entry per emitted function and includes `refactor_plans` (or `[]` when no plan exists). CSV output is unchanged and does not include plans. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
 
 ### Color Output
 

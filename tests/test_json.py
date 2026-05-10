@@ -38,7 +38,9 @@ class TestJsonOutput:
 
         assert content.endswith(b"\n")
         assert not content.endswith(b"\n\n")
-        assert json.loads(content.decode("utf-8"))[0]["function_name"] == "simple"
+        data = json.loads(content.decode("utf-8"))
+        assert data[0]["function_name"] == "simple"
+        assert data[0]["refactor_plans"] == []
 
     def test_cli_json_output_has_final_newline(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
