@@ -212,6 +212,14 @@ def main(
             "Useful for AI agents and scripting. CLI-only flag (not supported in TOML)."
         ),
     ),
+    suggest_refactors: Optional[bool] = typer.Option(
+        None,
+        "--suggest-refactors",
+        help=(
+            "Show deterministic refactor plans for displayed functions in rich output. "
+            "Ignored when --plain is used."
+        ),
+    ),
     check_script: Optional[bool] = typer.Option(
         None,
         "--check-script",
@@ -275,6 +283,8 @@ def main(
 
     if plain is None:
         plain = False
+    if suggest_refactors is None:
+        suggest_refactors = False
 
     if plain and quiet:
         raise typer.BadParameter("--plain and --quiet cannot be used together.")
@@ -344,6 +354,7 @@ def main(
         quiet,
         plain,
         top,
+        suggest_refactors,
     )
 
     snapshot_result = handle_snapshot(
@@ -404,6 +415,7 @@ def handle_display(
     quiet: bool,
     plain: bool,
     top: Optional[int] = None,
+    suggest_refactors: bool = False,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
@@ -427,6 +439,7 @@ def handle_display(
         active_snapshot_map,
         plain,
         top,
+        suggest_refactors,
     )
     if not plain:
         if platform.system() == "Windows":
