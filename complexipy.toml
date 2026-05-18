@@ -4,6 +4,6 @@ quiet = false
 ignore-complexity = false
 failed = false
 sort = "asc"
-exclude = ["tests"]
+exclude = ["tests/**"]
 output-csv = false
 output-json = false

@@ -16,9 +16,8 @@ use shared_deps::*;
 
 #[cfg(feature = "python")]
 mod python_deps {
+    pub use crate::helpers::exclude::get_paths_to_process;
     pub use crate::utils::get_repo_name;
-    pub use globset::{Glob, GlobMatcher};
-    pub use ignore::Walk;
     pub use indicatif::ProgressBar;
     pub use indicatif::ProgressStyle;
     pub use pyo3::exceptions::PyValueError;
@@ -41,15 +40,21 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (paths, quiet, exclude, check_script=false))]
+#[pyo3(signature = (paths, quiet, exclude, check_script=false, invocation_path="."))]
 pub fn main(
     paths: Vec<&str>,
     quiet: bool,
     exclude: Vec<&str>,
     check_script: bool,
+    invocation_path: &str,
 ) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
+
+    let cwd = path::Path::new(invocation_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    let cwd_str = cwd.to_string_lossy().replace('\\', "/");
 
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
@@ -65,7 +70,15 @@ pub fn main(
             continue;
         }
 
-        match process_path(path, is_dir, is_url, quiet, exclude.clone(), check_script) {
+        match process_path(
+            path,
+            is_dir,
+            is_url,
+            quiet,
+            exclude.clone(),
+            check_script,
+            &cwd_str,
+        ) {
             Ok((mut complexities, mut f_paths)) => {
                 successful.append(&mut complexities);
                 failed_paths.append(&mut f_paths);
@@ -86,6 +99,7 @@ pub fn process_path(
     quiet: bool,
     exclude: Vec<&str>,
     check_script: bool,
+    invocation_path: &str,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -139,13 +153,19 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) =
-            evaluate_dir(&repo_path, quiet, exclude.clone(), check_script);
+        let (complexities, f_paths) = evaluate_dir(
+            &repo_path,
+            quiet,
+            exclude.clone(),
+            check_script,
+            invocation_path,
+        );
         dir.close()?;
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, quiet, exclude.clone(), check_script);
+        let (complexities, f_paths) =
+            evaluate_dir(path, quiet, exclude.clone(), check_script, invocation_path);
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
@@ -173,95 +193,22 @@ fn evaluate_dir(
     quiet: bool,
     exclude: Vec<&str>,
     check_script: bool,
+    _invocation_path: &str,
 ) -> ComplexitiesAndFailedPaths {
-    let mut files_paths: Vec<String> = Vec::new();
-    let parent_dir = path::Path::new(path)
+    let base_dir = path::Path::new(path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
         .parent()
-        .and_then(|p| p.to_str())
-        .unwrap_or(".");
-
-    #[derive(Clone)]
-    struct ExcludeSpec {
-        abs: String,
-        is_dir: bool,
-    }
-
-    let root_canon = match path::Path::new(path).canonicalize() {
-        Ok(p) => p,
-        Err(_) => path::PathBuf::from(path),
-    };
-    let root_canon_str = root_canon.to_string_lossy().replace('\\', "/");
-    let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
-    let mut glob_matchers: Vec<GlobMatcher> = Vec::new();
-
-    for raw in exclude.iter() {
-        if raw.contains('*') || raw.contains('?') || raw.contains('[') {
-            if let Ok(glob) = Glob::new(raw) {
-                glob_matchers.push(glob.compile_matcher());
-            }
-            continue;
-        }
-
-        let p = path::Path::new(raw);
-        let candidate = if p.is_absolute() {
-            p.to_path_buf()
-        } else {
-            root_canon.join(p)
-        };
-        let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
-            Ok(canon) => {
-                let is_dir = canon.is_dir();
-                let is_file = canon.is_file();
-                let s = canon.to_string_lossy().replace('\\', "/");
-                (true, is_dir, is_file, s)
-            }
-            Err(_) => (false, false, false, String::new()),
-        };
-
-        if exists && (is_dir || is_file) {
-            exclude_specs.push(ExcludeSpec {
-                abs: abs_str,
-                is_dir,
-            });
-        }
-    }
-
-    for entry in Walk::new(path) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        let entry_path = entry.path();
-        if entry_path.extension().and_then(|s| s.to_str()) != Some("py") {
-            continue;
-        }
-        let file_abs = match entry_path.canonicalize() {
-            Ok(p) => p,
-            Err(_) => entry_path.to_path_buf(),
-        };
-        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
-        let relative_path = file_abs_str
-            .strip_prefix(&format!("{}/", root_canon_str))
-            .unwrap_or(&file_abs_str);
-        let is_excluded = exclude_specs.iter().any(|spec| {
-            if spec.is_dir {
-                file_abs_str.starts_with(&spec.abs)
-            } else {
-                file_abs_str == spec.abs
-            }
-        }) || glob_matchers
-            .iter()
-            .any(|m| m.is_match(relative_path) || m.is_match(&file_abs_str));
-        if !is_excluded && let Some(file_path_str) = entry_path.to_str() {
-            files_paths.push(file_path_str.to_string());
-        }
-    }
+        .unwrap_or(path::Path::new("."))
+        .to_string_lossy()
+        .replace('\\', "/");
+    let files_paths_to_process = get_paths_to_process(path, exclude);
 
     if quiet {
-        let results: Vec<_> = files_paths
+        let results: Vec<_> = files_paths_to_process
             .iter()
             .map(
-                |file_path| match file_complexity(file_path, parent_dir, check_script) {
+                |file_path| match file_complexity(file_path, &base_dir, check_script) {
                     Ok(file_complexity) => (Some(file_complexity), None),
                     Err(_) => (None, Some(file_path.clone())),
                 },
@@ -279,18 +226,18 @@ fn evaluate_dir(
         return (complexities, failed_paths);
     }
 
-    let pb = ProgressBar::new(files_paths.len() as u64);
+    let pb = ProgressBar::new(files_paths_to_process.len() as u64);
     let bar_style = indicatif::ProgressStyle::default_bar()
         .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
         .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
         .progress_chars("##-");
     pb.set_style(bar_style);
 
-    let results: Vec<_> = files_paths
+    let results: Vec<_> = files_paths_to_process
         .iter()
         .map(|file_path| {
             pb.inc(1);
-            match file_complexity(file_path, parent_dir, check_script) {
+            match file_complexity(file_path, &base_dir, check_script) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
             }

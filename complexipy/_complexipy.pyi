@@ -294,6 +294,7 @@ def main(
     quiet: bool,
     exclude: List[str],
     check_script: bool = False,
+    invocation_path: str = ".",
 ) -> Tuple[List[FileComplexity], List[str]]:
     """
     Analyze cognitive complexity of Python files and directories.

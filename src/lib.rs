@@ -1,5 +1,6 @@
 mod classes;
 mod cognitive_complexity;
+mod helpers;
 mod refactor_plans;
 mod utils;
 
