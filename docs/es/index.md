@@ -85,8 +85,8 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Compara la complejidad contra una referencia de git
 complexipy . --diff HEAD~1
-# Analiza el directorio actual excluyendo ciertos archivos
-complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
+# Analiza el directorio actual excluyendo archivos o directorios con patrones glob
+complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
 ```
 
 ### API de Python
@@ -206,7 +206,7 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 
 | Opción                     | Descripción                                                                                                                                                                                                 | Predeterminado |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `--exclude`                | Excluye entradas relativas a cada ruta proporcionada. Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta). Las entradas inexistentes se ignoran. |                |
+| `--exclude`                | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |                |
 | `--max-complexity-allowed` | Umbral de complejidad                                                                                                                                                                                       | `15`           |
 | `--snapshot-create`        | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                         | `false`        |
 | `--snapshot-ignore`        | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
@@ -232,10 +232,10 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 Ejemplo:
 
 ```
-# Excluye solo el directorio 'tests' de nivel superior bajo la raíz proporcionada
-complexipy . --exclude tests
-# Esto no excluirá './complexipy/utils.py' si pasas '--exclude utils' en la raíz del repositorio,
-# porque no hay ningún directorio o archivo './utils' en ese nivel.
+# Excluye un directorio recursivamente bajo la raíz proporcionada
+complexipy . --exclude "tests/**"
+# Excluye un archivo específico
+complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 ### Sugerencias de Refactorización

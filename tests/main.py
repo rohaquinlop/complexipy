@@ -252,7 +252,7 @@ def hello_world(s: str) -> str:
         files, _ = _complexipy.main(
             [path.resolve().as_posix()],
             False,
-            ["exclude_dir"],
+            ["exclude_dir/**"],
             False,
         )
         total_complexity = sum([file.complexity for file in files])

@@ -22,13 +22,17 @@ from complexipy import (
     _complexipy,
 )
 from complexipy._complexipy import FileComplexity
-
 from complexipy.types import (
     ColorTypes,
     OutputFormat,
     Sort,
 )
 from complexipy.utils.cache import remember_previous_functions
+from complexipy.utils.constants import (
+    DEFAULT_OUTPUT_FILENAMES,
+    LEGACY_OUTPUT_CONFIG_KEYS,
+    LEGACY_OUTPUT_FLAGS,
+)
 from complexipy.utils.csv import store_csv
 from complexipy.utils.diff import (
     DiffEntry,
@@ -54,11 +58,6 @@ from complexipy.utils.toml import (
     get_argument_value,
     get_arguments_value,
     get_complexipy_toml_config,
-)
-from complexipy.utils.constants import (
-    DEFAULT_OUTPUT_FILENAMES,
-    LEGACY_OUTPUT_CONFIG_KEYS,
-    LEGACY_OUTPUT_FLAGS,
 )
 
 app = typer.Typer(name="complexipy")
@@ -295,7 +294,7 @@ def main(
     handle_console_settings(color, quiet, plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script
+        paths, quiet, exclude, check_script, INVOCATION_PATH
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
