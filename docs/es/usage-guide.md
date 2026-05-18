@@ -92,21 +92,22 @@ complexipy . --sort file_name  # Alfabéticamente por nombre de archivo
 Excluir rutas específicas del análisis:
 
 ```bash
-# Excluir un directorio
-complexipy . --exclude tests
+# Excluir un directorio recursivamente
+complexipy . --exclude "tests/**"
 
-# Excluir múltiples rutas
-complexipy . --exclude tests --exclude migrations --exclude build
+# Excluir múltiples directorios recursivamente
+complexipy . --exclude "tests/**" --exclude "migrations/**" --exclude "build/**"
 
 # Excluir archivos específicos
-complexipy . --exclude src/legacy/old_code.py
+complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 <!-- prettier-ignore -->
 !!! note "Cómo funciona la exclusión"
-    - Las entradas se resuelven a directorios existentes (coincidencia por prefijo) o archivos (coincidencia exacta)
-    - Las entradas inexistentes se ignoran silenciosamente
-    - Las rutas son relativas a cada ruta raíz proporcionada
+    - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada
+    - Usa `directory/**` para excluir un directorio recursivamente
+    - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
+    - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos
 
 ### Formatos de Salida
 
@@ -277,7 +278,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     ```toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
-    exclude = ["migrations", "build"]
+    exclude = ["migrations/**", "build/**"]
     snapshot-create = false
     snapshot-ignore = false
     quiet = false
@@ -296,7 +297,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     [tool.complexipy]
     paths = ["src", "tests"]
     max-complexity-allowed = 10
-    exclude = ["migrations", "build"]
+    exclude = ["migrations/**", "build/**"]
     failed = true
     sort = "desc"
     check-script = true
@@ -307,7 +308,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     ```toml
     # Archivo de configuración oculto para ajustes específicos del equipo
     max-complexity-allowed = 15
-    exclude = ["venv", ".venv", "node_modules"]
+    exclude = ["venv/**", ".venv/**", "node_modules/**"]
     ```
 
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
@@ -726,7 +727,7 @@ python -m py_compile file.py
 Excluir directorios innecesarios:
 
 ```bash
-complexipy . --exclude venv --exclude .venv --exclude node_modules
+complexipy . --exclude "venv/**" --exclude ".venv/**" --exclude "node_modules/**"
 ```
 
 ### Resultados diferentes a los esperados

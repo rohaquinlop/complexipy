@@ -88,8 +88,8 @@ complexipy . --diff HEAD~1
 
 # Fail only on threshold-breaking regressions in a diff
 complexipy . --diff main --ratchet
-# Analyze current directory while excluding specific files
-complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
+# Analyze current directory while excluding files or directories with glob patterns
+complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
 ```
 
 ### Python API
@@ -245,7 +245,7 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 
 | Flag                            | Description                                                                                                                                                      | Default |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--exclude`                     | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |         |
+| `--exclude`                     | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |         |
 | `--max-complexity-allowed`      | Complexity threshold                                                                                                                                             | `15`    |
 | `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                  | `false` |
 | `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                            | `false` |
@@ -271,10 +271,10 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 Example:
 
 ```
-# Exclude only top-level 'tests' directory under the provided root
-complexipy . --exclude tests
-# This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
-# because there is no './utils' directory or file at that level.
+# Exclude a directory recursively under the provided root
+complexipy . --exclude "tests/**"
+# Exclude a specific file
+complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 ### Refactor Suggestions

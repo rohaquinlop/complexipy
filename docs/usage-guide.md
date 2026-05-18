@@ -92,21 +92,22 @@ complexipy . --sort file_name  # Alphabetically by file name
 Exclude specific paths from analysis:
 
 ```bash
-# Exclude a directory
-complexipy . --exclude tests
+# Exclude a directory recursively
+complexipy . --exclude "tests/**"
 
-# Exclude multiple paths
-complexipy . --exclude tests --exclude migrations --exclude build
+# Exclude multiple directories recursively
+complexipy . --exclude "tests/**" --exclude "migrations/**" --exclude "build/**"
 
 # Exclude specific files
-complexipy . --exclude src/legacy/old_code.py
+complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 <!-- prettier-ignore -->
 !!! note "How exclusion works"
-    - Entries resolve to existing directories (prefix match) or files (exact match)
-    - Non-existent entries are silently ignored
-    - Paths are relative to each provided root path
+    - Exclusions are glob patterns evaluated relative to each provided root path
+    - Use `directory/**` to exclude a directory recursively
+    - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
+    - Gitignore rules are still respected during file discovery
 
 ### Output Formats
 
@@ -280,7 +281,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     ```toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
-    exclude = ["migrations", "build"]
+    exclude = ["migrations/**", "build/**"]
     snapshot-create = false
     snapshot-ignore = false
     quiet = false
@@ -299,7 +300,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     [tool.complexipy]
     paths = ["src", "tests"]
     max-complexity-allowed = 10
-    exclude = ["migrations", "build"]
+    exclude = ["migrations/**", "build/**"]
     failed = true
     sort = "desc"
     check-script = true
@@ -310,7 +311,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     ```toml
     # Hidden config file for team-specific settings
     max-complexity-allowed = 15
-    exclude = ["venv", ".venv", "node_modules"]
+    exclude = ["venv/**", ".venv/**", "node_modules/**"]
     ```
 
 `check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
@@ -729,7 +730,7 @@ python -m py_compile file.py
 Exclude unnecessary directories:
 
 ```bash
-complexipy . --exclude venv --exclude .venv --exclude node_modules
+complexipy . --exclude "venv/**" --exclude ".venv/**" --exclude "node_modules/**"
 ```
 
 ### Different results than expected
