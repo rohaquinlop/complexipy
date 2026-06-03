@@ -12,12 +12,8 @@
 publish = false
 # Git tag format: "5.6.0" not "v5.6.0" (matches existing convention)
 git_tag_name = "{{version}}"
-# Release PR labels
-pr_labels = ["release"]
-# GitHub Release configuration
-git_release = true
-git_release_draft = false
-git_release_name = "{{version}}"
-# Changelog configuration
+# Changelog update settings
 changelog_update = true
 changelog_path = "CHANGELOG.md"
+# Release PR labels
+pr_labels = ["release"]
