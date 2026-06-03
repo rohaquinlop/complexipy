@@ -17,7 +17,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT so the tag push triggers CI.yml (GITHUB_TOKEN blocks
+          # recursive workflow triggers and CI.yml won't fire for PyPI publish)
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
 
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
@@ -25,4 +27,4 @@ jobs:
           release-pr: true
           release: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
