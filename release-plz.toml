@@ -1,5 +1,5 @@
 # Release-plz configuration for complexipy
-# Docs: https://release-plz.ieni.dev/configuration.html
+# Docs: https://release-plz.ieni.dev/docs/config
 #
 # release-plz handles:
 #   1. Bumping version in Cargo.toml
@@ -10,10 +10,15 @@
 [workspace]
 # Don't attempt `cargo publish` — complexipy is a Python package, not a crate
 publish = false
-# Git tag format: "5.6.0" not "v5.6.0" (matches existing convention)
+# Git tag format: "5.6.0" (no "v" prefix, matches existing convention)
 git_tag_name = "{{version}}"
-# Changelog update settings
+# Update CHANGELOG.md with conventional commit entries
 changelog_update = true
-changelog_path = "CHANGELOG.md"
-# Release PR labels
+# Enable GitHub Release creation
+git_release_enable = true
+# Publish GitHub Release immediately (not as draft)
+git_release_draft = false
+# GitHub Release name
+git_release_name = "{{version}}"
+# Labels added to the release PR
 pr_labels = ["release"]
