@@ -113,6 +113,9 @@ def compute_diff(
             # relpath fails across drives on Windows – fall back to file.path
             path_from_root = file.path
 
+        # git show requires forward slashes in the path even on Windows.
+        path_from_root = path_from_root.replace(os.sep, "/")
+
         old_content = _file_content_at_ref(
             git_ref, path_from_root, invocation_path
         )
