@@ -223,6 +223,193 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
+    # ── --no-ignore tests ────────────────────────────────────────────
+
+    def test_no_ignore_analyzes_ignored_function(self):
+        """With --no-ignore, functions with '# complexipy: ignore' are analyzed."""
+        path = self.local_path / "src/test_complexipy_ignore.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False, True
+        )
+        total_complexity = sum([file.complexity for file in files])
+        assert total_complexity > 0
+
+    def test_no_ignore_analyzes_noqa_function(self):
+        """With --no-ignore, functions with '# noqa: complexipy' are analyzed."""
+        path = self.local_path / "src/test_noqa_complex.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False, True
+        )
+        total_complexity = sum([file.complexity for file in files])
+        assert total_complexity > 0
+
+    def test_no_ignore_analyzes_decorated_ignored(self):
+        """With --no-ignore, decorated ignored functions are analyzed."""
+        path = self.local_path / "src/test_complexipy_ignore_decorator.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False, True
+        )
+        total_complexity = sum([file.complexity for file in files])
+        assert total_complexity > 0
+
+    def test_no_ignore_analyzes_decorated_noqa(self):
+        """With --no-ignore, decorated noqa functions are analyzed."""
+        path = self.local_path / "src/test_noqa_decorator.py"
+        files, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False, True
+        )
+        total_complexity = sum([file.complexity for file in files])
+        assert total_complexity > 0
+
+    def test_no_ignore_false_is_default(self):
+        """Without no_ignore, behavior is unchanged from before."""
+        path = self.local_path / "src/test_complexipy_ignore.py"
+        files_default, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
+        files_explicit, _ = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False, False
+        )
+        assert sum(f.complexity for f in files_default) == sum(f.complexity for f in files_explicit)
+
+    def test_no_ignore_code_complexity_api(self):
+        """Python API: code_complexity() with no_ignore analyzes ignored functions."""
+        code = (
+            "def ignored(a):  # complexipy: ignore\n"
+            "    if a:\n"
+            "        return a\n"
+            "    return 0\n"
+        )
+        result_without = code_complexity(code)
+        result_with = code_complexity(code, no_ignore=True)
+        assert result_without.complexity == 0
+        assert result_with.complexity > 0
+
+    def test_no_ignore_file_complexity_api(self, tmp_path):
+        """Python API: file_complexity() with no_ignore analyzes ignored functions."""
+        source = tmp_path / "ignored.py"
+        source.write_text(
+            "def ignored(a):  # complexipy: ignore\n"
+            "    if a:\n"
+            "        return a\n"
+            "    return 0\n",
+            encoding="utf-8",
+        )
+        result_without = file_complexity(str(source))
+        result_with = file_complexity(str(source), no_ignore=True)
+        assert result_without.complexity == 0
+        assert result_with.complexity > 0
+
+    # ── --report-ignored CLI tests ───────────────────────────────────
+
+    def test_report_ignored_shows_locations(self, tmp_path, monkeypatch):
+        """--report-ignored prints file:line for each ignore comment."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def ignored(a, b):  # complexipy: ignore\n"
+            "    if a and b:\n"
+            "        return a + b\n"
+            "    return 0\n\n"
+            "def normal(a):\n"
+            "    return a\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main_module.app, ["--report-ignored", str(source_file)])
+        assert result.exit_code == 0
+        assert "sample.py:1" in result.output
+        assert "# complexipy: ignore" in result.output
+        assert "Found 1 suppressed location(s)" in result.output
+
+    def test_report_ignored_no_markers(self, tmp_path, monkeypatch):
+        """--report-ignored with no markers prints 'No ignore comments found'."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "clean.py"
+        source_file.write_text("def foo():\n    return 1\n", encoding="utf-8")
+
+        result = runner.invoke(main_module.app, ["--report-ignored", str(source_file)])
+        assert result.exit_code == 0
+        assert "No ignore comments found" in result.output
+
+    def test_report_ignored_with_no_ignore(self, tmp_path, monkeypatch):
+        """--report-ignored --no-ignore: reports AND analyzes everything."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def ignored(a, b):  # complexipy: ignore\n"
+            "    if a and b:\n"
+            "        return a + b\n"
+            "    return 0\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app, ["--report-ignored", "--no-ignore", str(source_file)]
+        )
+        assert result.exit_code == 0
+        assert "sample.py:1" in result.output
+        assert "# complexipy: ignore" in result.output
+        assert "ignored" in result.output
+
+    def test_report_ignored_respects_exclude(self, tmp_path, monkeypatch):
+        """--report-ignored only scans files not excluded by --exclude."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "a.py").write_text(
+            "def foo():  # complexipy: ignore\n    pass\n", encoding="utf-8"
+        )
+        (tmp_path / "src" / "b.py").write_text(
+            "def bar():  # noqa: complexipy\n    pass\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--report-ignored", "--exclude", "b.py", str(tmp_path / "src")],
+        )
+        assert result.exit_code == 0
+        assert "a.py" in result.output
+        assert "b.py" not in result.output
+
+    def test_report_ignored_with_quiet(self, tmp_path, monkeypatch):
+        """--report-ignored still prints report even under --quiet."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def ignored(a, b):  # complexipy: ignore\n"
+            "    if a and b:\n"
+            "        return a + b\n"
+            "    return 0\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app, ["--report-ignored", "--quiet", str(source_file)]
+        )
+        assert result.exit_code == 0
+        assert "sample.py:1" in result.output
+        assert "Found 1 suppressed location(s)" in result.output
+
     def test_exclude(self):
         path = self.local_path / "src"
         files, _ = _complexipy.main(
