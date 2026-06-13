@@ -190,8 +190,10 @@ jobs:
                   cache-dependency-glob: uv.lock
             - name: Install dev dependencies
               run: uv sync --group dev --no-install-project --frozen
-            - name: Run ruff
+            - name: Run ruff check
               run: uv run ruff check .
+            - name: Run ruff format
+              run: uv run ruff format --check .
             - name: Run ty
               run: uv run ty check .
 
