@@ -76,3 +76,15 @@ pub struct CodeComplexity {
     #[cfg(feature = "wasm")]
     pub version: String,
 }
+
+#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
+#[derive(Clone)]
+pub struct IgnoredLocation {
+    pub path: String,
+    pub line: u64,
+    pub comment: String,
+}

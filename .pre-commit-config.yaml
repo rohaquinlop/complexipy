@@ -1,5 +1,5 @@
 repos:
-- repo: https://github.com/rohaquinlop/complexipy-pre-commit
-  rev: v4.2.0
-  hooks:
-    - id: complexipy
+    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+      rev: v5.5.0
+      hooks:
+          - id: complexipy

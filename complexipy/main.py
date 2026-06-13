@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 from importlib.metadata import (
@@ -225,6 +226,18 @@ def main(
         "-cs",
         help="Report cognitive complexity of module-level (script) code as '<module>'.",
     ),
+    no_ignore: Optional[bool] = typer.Option(
+        None,
+        "--no-ignore",
+        help="Disregard all '# complexipy: ignore' and '# noqa: complexipy' "
+        "comments, analyzing every function "
+        "(bare '# noqa' is not recognized).",
+    ),
+    report_ignored: Optional[bool] = typer.Option(
+        None,
+        "--report-ignored",
+        help="List every file:line where a '# complexipy: ignore' or '# noqa: complexipy' comment exists.",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -256,6 +269,8 @@ def main(
         output,
         exclude,
         check_script,
+        no_ignore,
+        report_ignored,
     ) = get_arguments_value(
         TOML_CONFIG,
         paths,
@@ -275,26 +290,23 @@ def main(
         output_sarif,
         exclude,
         check_script,
+        no_ignore,
+        report_ignored,
     )
 
+    no_ignore = bool(no_ignore)
+    report_ignored = bool(report_ignored)
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
     validate_ratchet(ratchet, diff)
 
-    if plain is None:
-        plain = False
-    if suggest_refactors is None:
-        suggest_refactors = False
-
-    if plain and quiet:
-        raise typer.BadParameter("--plain and --quiet cannot be used together.")
-
-    if top is not None and top < 1:
-        raise typer.BadParameter("--top must be a positive integer.")
+    plain, suggest_refactors = validate_cli_arguments(
+        plain, suggest_refactors, top, quiet
+    )
 
     handle_console_settings(color, quiet, plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script, INVOCATION_PATH
+        paths, quiet, exclude, check_script, no_ignore, INVOCATION_PATH
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
@@ -354,6 +366,10 @@ def main(
         plain,
         top,
         suggest_refactors,
+    )
+
+    handle_report_ignored(
+        report_ignored, paths, exclude, output_formats, output, no_ignore
     )
 
     snapshot_result = handle_snapshot(
@@ -662,10 +678,81 @@ def handle_diff_output(
     return None
 
 
+def handle_report_ignored(
+    report_ignored: bool,
+    paths: Optional[List[str]],
+    exclude: Optional[List[str]],
+    output_formats: List[OutputFormat],
+    output: Optional[str],
+    no_ignore: bool,
+) -> None:
+    """Print and optionally export ignored-location report."""
+    if not report_ignored:
+        return
+
+    global console
+    paths = paths or []
+    exclude = exclude or []
+    ignored_locations, _ = _complexipy.collect_all_ignored_locations(
+        paths, exclude, INVOCATION_PATH
+    )
+    if ignored_locations:
+        for loc in ignored_locations:
+            console.print(f"{loc.path}:{loc.line}  {loc.comment}")
+        console.print(
+            f"\nFound {len(ignored_locations)} suppressed location(s)."
+        )
+        if no_ignore:
+            console.print("(all markers ignored due to --no-ignore)")
+    else:
+        console.print("No ignore comments found.")
+
+    if OutputFormat.json in output_formats and ignored_locations:
+        ignored_output_paths = resolve_output_paths(
+            [OutputFormat.json], output
+        )
+        ignored_json_path = os.path.join(
+            os.path.dirname(ignored_output_paths[OutputFormat.json]),
+            "complexipy-ignored.json",
+        )
+        ignored_data = [
+            {"path": loc.path, "line": loc.line, "comment": loc.comment}
+            for loc in ignored_locations
+        ]
+        with open(ignored_json_path, "w") as f:
+            json.dump(ignored_data, f, indent=2)
+            f.write("\n")
+        console.print(f"Ignored locations saved at {ignored_json_path}")
+
+
 def validate_ratchet(ratchet: bool, diff: Optional[str]) -> None:
     if ratchet and not diff:
         console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
         raise typer.Exit(code=2)
+
+
+def validate_cli_arguments(
+    plain: Optional[bool],
+    suggest_refactors: Optional[bool],
+    top: Optional[int],
+    quiet: bool,
+) -> Tuple[bool, bool]:
+    """Validate and normalize CLI arguments.
+
+    Returns (plain, suggest_refactors) with None resolved to False.
+    """
+    if plain is None:
+        plain = False
+    if suggest_refactors is None:
+        suggest_refactors = False
+
+    if plain and quiet:
+        raise typer.BadParameter("--plain and --quiet cannot be used together.")
+
+    if top is not None and top < 1:
+        raise typer.BadParameter("--top must be a positive integer.")
+
+    return plain, suggest_refactors
 
 
 def resolve_final_success(

@@ -9,9 +9,12 @@ mod utils;
 mod wasm;
 
 #[cfg(feature = "python")]
-use classes::{CodeComplexity, FileComplexity, FunctionComplexity, LineComplexity, RefactorPlan};
+use classes::{
+    CodeComplexity, FileComplexity, FunctionComplexity, IgnoredLocation, LineComplexity,
+    RefactorPlan,
+};
 #[cfg(feature = "python")]
-use cognitive_complexity::{code_complexity, file_complexity, main};
+use cognitive_complexity::{code_complexity, collect_all_ignored_locations, file_complexity, main};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
@@ -25,6 +28,7 @@ fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(main, m)?)?;
     m.add_function(wrap_pyfunction!(file_complexity, m)?)?;
     m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
+    m.add_function(wrap_pyfunction!(collect_all_ignored_locations, m)?)?;
     m.add_function(wrap_pyfunction!(output_csv, m)?)?;
     m.add_function(wrap_pyfunction!(output_json, m)?)?;
     m.add_function(wrap_pyfunction!(create_snapshot_file, m)?)?;
@@ -32,6 +36,7 @@ fn _complexipy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<CodeComplexity>()?;
     m.add_class::<FileComplexity>()?;
     m.add_class::<FunctionComplexity>()?;
+    m.add_class::<IgnoredLocation>()?;
     m.add_class::<LineComplexity>()?;
     m.add_class::<RefactorPlan>()?;
     Ok(())
