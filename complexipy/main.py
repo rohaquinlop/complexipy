@@ -708,9 +708,7 @@ def handle_report_ignored(
         console.print("No ignore comments found.")
 
     if OutputFormat.json in output_formats and ignored_locations:
-        ignored_output_paths = resolve_output_paths(
-            [OutputFormat.json], output
-        )
+        ignored_output_paths = resolve_output_paths([OutputFormat.json], output)
         ignored_json_path = os.path.join(
             os.path.dirname(ignored_output_paths[OutputFormat.json]),
             "complexipy-ignored.json",
