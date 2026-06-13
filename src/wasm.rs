@@ -28,7 +28,7 @@ fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
     };
 
     let (functions, complexity) =
-        function_level_cognitive_complexity_shared(parsed.suite(), code, false);
+        function_level_cognitive_complexity_shared(parsed.suite(), code, false, false);
 
     Ok(CodeComplexity {
         complexity,

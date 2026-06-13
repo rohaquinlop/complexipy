@@ -7,6 +7,7 @@ from complexipy._complexipy import CodeComplexity, FileComplexity
 def code_complexity(
     code: str,
     check_script: bool = False,
+    no_ignore: bool = False,
 ) -> CodeComplexity:
     """
     Analyze cognitive complexity of Python code provided as a string.
@@ -21,6 +22,8 @@ def code_complexity(
               syntactically correct Python code.
         check_script: If True, also report cognitive complexity of
                       module-level (script) code as a '<module>' entry.
+        no_ignore: If True, disregard all '# complexipy: ignore' and
+                   '# noqa: complexipy' comments, analyzing every function.
 
     Returns:
         CodeComplexity object containing the analysis results, including
@@ -40,11 +43,13 @@ def code_complexity(
         >>> result = code_complexity(code)
         >>> print(f"Total complexity: {result.complexity}")
     """
-    return _complexipy.code_complexity(code, check_script)
+    return _complexipy.code_complexity(code, check_script, no_ignore)
 
 
 def file_complexity(
-    file_path: str, check_script: bool = False
+    file_path: str,
+    check_script: bool = False,
+    no_ignore: bool = False,
 ) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
@@ -59,6 +64,8 @@ def file_complexity(
                    absolute. The file must exist and be readable.
         check_script: If True, also report cognitive complexity of
                       module-level (script) code as a '<module>' entry.
+        no_ignore: If True, disregard all '# complexipy: ignore' and
+                   '# noqa: complexipy' comments, analyzing every function.
 
     Returns:
         FileComplexity object containing complete analysis results for the
@@ -83,4 +90,5 @@ def file_complexity(
         path.resolve().as_posix(),
         base_path.resolve().as_posix(),
         check_script,
+        no_ignore,
     )

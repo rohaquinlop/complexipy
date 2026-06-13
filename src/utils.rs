@@ -298,10 +298,10 @@ fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
     match expr {
         ast::Expr::BoolOp(..) => match prev_pr {
             ast::Expr::BoolOp(p) => {
-                if let Some(b) = expr.clone().bool_op_expr() {
-                    if b.op != p.op {
-                        complexity += 1;
-                    }
+                if let Some(b) = expr.clone().bool_op_expr()
+                    && b.op != p.op
+                {
+                    complexity += 1;
                 }
 
                 for value in p.values {
@@ -337,41 +337,79 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
     (newline_count + 1) as u64
 }
 
+/// Extract a canonical ignore comment marker from a line.
+///
+/// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
+/// when the line contains the corresponding pattern (case-insensitive).
+/// Returns `None` if neither marker is found.
+fn is_word_boundary(s: &str, pos: usize) -> bool {
+    pos >= s.len() || (!s.as_bytes()[pos].is_ascii_alphanumeric() && s.as_bytes()[pos] != b'_')
+}
+
+/// Extract a canonical ignore comment marker from a line.
+///
+/// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
+/// when the line contains the corresponding pattern (case-insensitive).
+/// Returns `None` if neither marker is found.
 #[cfg(any(feature = "python", feature = "wasm"))]
-pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
+pub fn extract_comment_marker(line: &str) -> Option<String> {
+    for (idx, ch) in line.char_indices() {
+        if ch == '#' {
+            let after_hash = &line[idx + 1..];
+            let trimmed = after_hash.trim_start();
+            if trimmed.len() >= "complexipy: ignore".len()
+                && trimmed[.."complexipy: ignore".len()].eq_ignore_ascii_case("complexipy: ignore")
+                && is_word_boundary(trimmed, "complexipy: ignore".len())
+            {
+                return Some("# complexipy: ignore".to_string());
+            }
+            if trimmed.len() >= "noqa: complexipy".len()
+                && trimmed[.."noqa: complexipy".len()].eq_ignore_ascii_case("noqa: complexipy")
+                && is_word_boundary(trimmed, "noqa: complexipy".len())
+            {
+                return Some("# noqa: complexipy".to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Find a noqa/ignore comment near a `def` or decorator line.
+///
+/// Returns `Some(comment_text)` when a marker is found that would
+/// trigger suppression, `None` otherwise.
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn find_noqa_comment(line_number: u64, code: &str) -> Option<String> {
     if line_number == 0 {
-        return false;
+        return None;
     }
 
     let lines: Vec<&str> = code.lines().collect();
     let idx = (line_number as usize).saturating_sub(1);
 
-    let contains_marker = |s: &str| -> bool {
-        let lower = s.to_lowercase();
-        lower.contains("complexipy: ignore") || lower.contains("noqa: complexipy")
-    };
-
-    let signature_has_marker = |def_idx: usize| -> bool {
+    let signature_has_marker = |def_idx: usize| -> Option<String> {
         let max_scan = (def_idx + 20).min(lines.len());
         for line in lines.iter().skip(def_idx).take(max_scan - def_idx) {
-            if contains_marker(line) {
-                return true;
+            if let Some(marker) = extract_comment_marker(line) {
+                return Some(marker);
             }
-
             if line.contains(':') {
                 break;
             }
         }
-
-        false
+        None
     };
 
-    if idx < lines.len() && contains_marker(lines[idx]) {
-        return true;
+    if idx < lines.len()
+        && let Some(marker) = extract_comment_marker(lines[idx])
+    {
+        return Some(marker);
     }
 
-    if idx > 0 && contains_marker(lines[idx - 1]) {
-        return true;
+    if idx > 0
+        && let Some(marker) = extract_comment_marker(lines[idx - 1])
+    {
+        return Some(marker);
     }
 
     if idx < lines.len() && lines[idx].trim_start().starts_with("def ") {
@@ -383,11 +421,13 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         for i in (idx + 1)..max_scan {
             let line = lines[i].trim();
             if line.starts_with("def ") {
-                if signature_has_marker(i) {
-                    return true;
+                if let Some(marker) = signature_has_marker(i) {
+                    return Some(marker);
                 }
-                if i > 0 && contains_marker(lines[i - 1]) {
-                    return true;
+                if i > 0
+                    && let Some(marker) = extract_comment_marker(lines[i - 1])
+                {
+                    return Some(marker);
                 }
                 break;
             }
@@ -397,5 +437,79 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
         }
     }
 
-    false
+    None
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
+    find_noqa_comment(line_number, code).is_some()
+}
+
+/// Collect ignored locations from code, only reporting markers that
+/// actually suppress a function definition (i.e., are adjacent to `def`
+/// or `@decorator` lines).
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
+    let mut results = Vec::new();
+    let lines: Vec<&str> = code.lines().collect();
+    #[allow(clippy::needless_range_loop)]
+    let mut idx = 0;
+    while idx < lines.len() {
+        let trimmed = lines[idx].trim_start();
+
+        if trimmed.starts_with("def ") {
+            let line_number = (idx + 1) as u64;
+            if let Some(comment) = find_noqa_comment(line_number, code) {
+                results.push((line_number, comment));
+            }
+            idx += 1;
+        } else if trimmed.starts_with('@') {
+            // Scan forward to find the def line, use its line number for
+            // both the comment lookup and the reported location.
+            let max_scan = (idx + 10).min(lines.len());
+            let mut def_line_number = None;
+            for (inner_idx, inner_line) in lines
+                .iter()
+                .enumerate()
+                .skip(idx + 1)
+                .take(max_scan - (idx + 1))
+            {
+                let inner = inner_line.trim();
+                if inner.starts_with("def ") {
+                    def_line_number = Some((inner_idx + 1) as u64);
+                    break;
+                }
+                if !inner.is_empty() && !inner.starts_with('@') {
+                    break;
+                }
+            }
+            let mut reported = false;
+            if let Some(dln) = def_line_number
+                && let Some(comment) = find_noqa_comment(dln, code)
+            {
+                results.push((dln, comment));
+                reported = true;
+            }
+            // Skip remaining decorators in the chain so they don't
+            // re-scan and produce duplicate entries.
+            while idx + 1 < lines.len() {
+                let next = lines[idx + 1].trim_start();
+                if next.starts_with('@') || next.is_empty() {
+                    idx += 1;
+                } else {
+                    break;
+                }
+            }
+            // Skip the def line too if we already reported from this chain
+            if reported && idx + 1 < lines.len() && lines[idx + 1].trim_start().starts_with("def ")
+            {
+                idx += 1;
+            }
+            idx += 1;
+        } else {
+            idx += 1;
+        }
+    }
+
+    results
 }

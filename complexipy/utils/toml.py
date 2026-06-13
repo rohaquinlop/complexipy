@@ -209,6 +209,8 @@ def get_arguments_value(
     output_sarif: bool | None,
     exclude: List[str] | None,
     check_script: bool | None,
+    no_ignore: bool | None,
+    report_ignored: bool | None,
 ) -> Tuple[
     List[str],
     int,
@@ -222,6 +224,8 @@ def get_arguments_value(
     List[str],
     str | None,
     List[str],
+    bool,
+    bool,
     bool,
 ]:
     paths = get_argument_value(toml_config, "paths", paths, [])
@@ -300,6 +304,16 @@ def get_arguments_value(
         bool,
         get_argument_value(toml_config, "check-script", check_script, False),
     )
+    no_ignore = cast(
+        bool,
+        get_argument_value(toml_config, "no-ignore", no_ignore, False),
+    )
+    report_ignored = cast(
+        bool,
+        get_argument_value(
+            toml_config, "report-ignored", report_ignored, False
+        ),
+    )
     return (
         paths,
         max_complexity_allowed,
@@ -314,4 +328,6 @@ def get_arguments_value(
         output,
         exclude,
         check_script,
+        no_ignore,
+        report_ignored,
     )

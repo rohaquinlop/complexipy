@@ -289,11 +289,40 @@ class CodeComplexity:
         self, functions: List[FunctionComplexity], complexity: int
     ) -> None: ...
 
+class IgnoredLocation:
+    """
+    Represents a single '# complexipy: ignore' or '# noqa: complexipy'
+    comment found in a source file.
+
+    This class is used by --report-ignored to surface suppressed
+    complexity locations for audit and technical debt tracking.
+
+    Example:
+        >>> loc = IgnoredLocation(
+        ...     path="src/utils/parser.py",
+        ...     line=42,
+        ...     comment="# complexipy: ignore"
+        ... )
+        >>> print(f"{loc.path}:{loc.line}  {loc.comment}")
+    """
+
+    path: str
+    """Relative path to the file containing the ignore comment."""
+
+    line: int
+    """Line number (1-indexed) where the ignore comment was found."""
+
+    comment: str
+    """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
+
+    def __init__(self, path: str, line: int, comment: str) -> None: ...
+
 def main(
     paths: List[str],
     quiet: bool,
     exclude: List[str],
     check_script: bool = False,
+    no_ignore: bool = False,
     invocation_path: str = ".",
 ) -> Tuple[List[FileComplexity], List[str]]:
     """
@@ -336,7 +365,9 @@ def main(
     """
     ...
 
-def code_complexity(code: str, check_script: bool = False) -> CodeComplexity:
+def code_complexity(
+    code: str, check_script: bool = False, no_ignore: bool = False
+) -> CodeComplexity:
     """
     Analyze cognitive complexity of Python code provided as a string.
 
@@ -388,7 +419,10 @@ def code_complexity(code: str, check_script: bool = False) -> CodeComplexity:
     ...
 
 def file_complexity(
-    file_path: str, base_path: str, check_script: bool = False
+    file_path: str,
+    base_path: str,
+    check_script: bool = False,
+    no_ignore: bool = False,
 ) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
@@ -550,3 +584,42 @@ def create_snapshot_file(
     files_complexities: List[FileComplexity],
 ) -> None: ...
 def load_snapshot_file(snapshot_file_path: str) -> List[FileComplexity]: ...
+def collect_all_ignored_locations(
+    paths: List[str],
+    exclude: List[str],
+    invocation_path: str = ".",
+) -> Tuple[List[IgnoredLocation], List[str]]:
+    """
+    Scan all processed Python files for ignore comments.
+
+    This function discovers all '# complexipy: ignore' and '# noqa: complexipy'
+    comments across the same set of files that the main analysis would process
+    (respecting --exclude and .gitignore). It returns the file path, line
+    number, and comment text for each ignore marker found.
+
+    Recognized forms:
+      - '# complexipy: ignore'
+      - '# noqa: complexipy'
+    (Bare '# noqa' is NOT recognized.)
+
+    This is the backend for the --report-ignored CLI flag.
+
+    Args:
+        paths: List of file paths, directory paths, or Git repository URLs.
+        exclude: List of file/directory paths or globs to exclude from scanning.
+        invocation_path: Working directory for resolving relative paths.
+
+    Returns:
+        A tuple of (ignored_locations, failed_paths) where:
+        - ignored_locations: List of IgnoredLocation objects, sorted by (path, line).
+        - failed_paths: List of paths that could not be processed.
+
+    Example:
+        >>> locations, failed = collect_all_ignored_locations(
+        ...     paths=["/project/src"],
+        ...     exclude=["tests/"],
+        ... )
+        >>> for loc in locations:
+        ...     print(f"{loc.path}:{loc.line}  {loc.comment}")
+    """
+    ...

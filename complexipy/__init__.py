@@ -4,6 +4,7 @@ from complexipy._complexipy import (
     CodeComplexity,
     FileComplexity,
     FunctionComplexity,
+    IgnoredLocation,
     LineComplexity,
     RefactorPlan,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "CodeComplexity",
     "FileComplexity",
     "FunctionComplexity",
+    "IgnoredLocation",
     "LineComplexity",
     "RefactorPlan",
     "code_complexity",

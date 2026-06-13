@@ -16,8 +16,9 @@ use shared_deps::*;
 
 #[cfg(feature = "python")]
 mod python_deps {
+    pub use crate::classes::IgnoredLocation;
     pub use crate::helpers::exclude::get_paths_to_process;
-    pub use crate::utils::get_repo_name;
+    pub use crate::utils::{collect_ignored_locations, get_repo_name};
     pub use indicatif::ProgressBar;
     pub use indicatif::ProgressStyle;
     pub use pyo3::exceptions::PyValueError;
@@ -33,6 +34,14 @@ mod python_deps {
 }
 
 #[cfg(feature = "python")]
+struct ProcessOptions<'a> {
+    quiet: bool,
+    exclude: Vec<&'a str>,
+    check_script: bool,
+    no_ignore: bool,
+}
+
+#[cfg(feature = "python")]
 use python_deps::*;
 
 #[cfg(feature = "python")]
@@ -40,21 +49,19 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (paths, quiet, exclude, check_script=false, invocation_path="."))]
+#[pyo3(signature = (paths, quiet, exclude, check_script=false, no_ignore=false, invocation_path="."))]
 pub fn main(
     paths: Vec<&str>,
     quiet: bool,
     exclude: Vec<&str>,
     check_script: bool,
+    no_ignore: bool,
     invocation_path: &str,
 ) -> PyResult<ComplexitiesAndFailedPaths> {
+    let _ = invocation_path;
+
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
         .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
-
-    let cwd = path::Path::new(invocation_path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
-    let cwd_str = cwd.to_string_lossy().replace('\\', "/");
 
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
@@ -70,15 +77,14 @@ pub fn main(
             continue;
         }
 
-        match process_path(
-            path,
-            is_dir,
-            is_url,
+        let opts = ProcessOptions {
             quiet,
-            exclude.clone(),
+            exclude: exclude.clone(),
             check_script,
-            &cwd_str,
-        ) {
+            no_ignore,
+        };
+
+        match process_path(path, is_dir, is_url, &opts) {
             Ok((mut complexities, mut f_paths)) => {
                 successful.append(&mut complexities);
                 failed_paths.append(&mut f_paths);
@@ -91,15 +97,11 @@ pub fn main(
 }
 
 #[cfg(feature = "python")]
-#[pyfunction]
-pub fn process_path(
+fn process_path(
     path: &str,
     is_dir: bool,
     is_url: bool,
-    quiet: bool,
-    exclude: Vec<&str>,
-    check_script: bool,
-    invocation_path: &str,
+    opts: &ProcessOptions,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -121,7 +123,7 @@ pub fn process_path(
             }
         });
 
-        let mut progress_bar = if quiet {
+        let mut progress_bar = if opts.quiet {
             None
         } else {
             let pb = ProgressBar::new_spinner();
@@ -153,19 +155,12 @@ pub fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) = evaluate_dir(
-            &repo_path,
-            quiet,
-            exclude.clone(),
-            check_script,
-            invocation_path,
-        );
+        let (complexities, f_paths) = evaluate_dir(&repo_path, opts);
         dir.close()?;
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) =
-            evaluate_dir(path, quiet, exclude.clone(), check_script, invocation_path);
+        let (complexities, f_paths) = evaluate_dir(path, opts);
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
@@ -173,7 +168,8 @@ pub fn process_path(
             .parent()
             .and_then(|p| p.to_str())
             .unwrap_or(".");
-        if let Ok(complexity) = file_complexity(path, parent_dir, check_script) {
+        if let Ok(complexity) = file_complexity(path, parent_dir, opts.check_script, opts.no_ignore)
+        {
             file_complexities.push(complexity);
         } else {
             failed_paths.push(path.to_string());
@@ -188,13 +184,7 @@ pub fn process_path(
 }
 
 #[cfg(feature = "python")]
-fn evaluate_dir(
-    path: &str,
-    quiet: bool,
-    exclude: Vec<&str>,
-    check_script: bool,
-    _invocation_path: &str,
-) -> ComplexitiesAndFailedPaths {
+fn evaluate_dir(path: &str, opts: &ProcessOptions) -> ComplexitiesAndFailedPaths {
     let base_dir = path::Path::new(path)
         .canonicalize()
         .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
@@ -202,17 +192,17 @@ fn evaluate_dir(
         .unwrap_or(path::Path::new("."))
         .to_string_lossy()
         .replace('\\', "/");
-    let files_paths_to_process = get_paths_to_process(path, exclude);
+    let files_paths_to_process = get_paths_to_process(path, opts.exclude.clone());
 
-    if quiet {
+    if opts.quiet {
         let results: Vec<_> = files_paths_to_process
             .iter()
-            .map(
-                |file_path| match file_complexity(file_path, &base_dir, check_script) {
+            .map(|file_path| {
+                match file_complexity(file_path, &base_dir, opts.check_script, opts.no_ignore) {
                     Ok(file_complexity) => (Some(file_complexity), None),
                     Err(_) => (None, Some(file_path.clone())),
-                },
-            )
+                }
+            })
             .collect();
         let mut complexities = Vec::new();
         let mut failed_paths = Vec::new();
@@ -237,7 +227,7 @@ fn evaluate_dir(
         .iter()
         .map(|file_path| {
             pb.inc(1);
-            match file_complexity(file_path, &base_dir, check_script) {
+            match file_complexity(file_path, &base_dir, opts.check_script, opts.no_ignore) {
                 Ok(file_complexity) => (Some(file_complexity), None),
                 Err(_) => (None, Some(file_path.clone())),
             }
@@ -259,11 +249,12 @@ fn evaluate_dir(
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (file_path, base_path, check_script=false))]
+#[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
 pub fn file_complexity(
     file_path: &str,
     base_path: &str,
     check_script: bool,
+    no_ignore: bool,
 ) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
     let file_name = path
@@ -276,7 +267,7 @@ pub fn file_complexity(
         .and_then(|p| p.to_str())
         .unwrap_or(file_path);
     let code = std::fs::read_to_string(file_path)?;
-    let code_complexity = match code_complexity(&code, check_script) {
+    let code_complexity = match code_complexity(&code, check_script, no_ignore) {
         Ok(v) => v,
         Err(e) => {
             return Err(PyValueError::new_err(format!(
@@ -295,8 +286,12 @@ pub fn file_complexity(
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (code, check_script=false))]
-pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexity> {
+#[pyo3(signature = (code, check_script=false, no_ignore=false))]
+pub fn code_complexity(
+    code: &str,
+    check_script: bool,
+    no_ignore: bool,
+) -> PyResult<CodeComplexity> {
     let parsed = match parse_module(code) {
         Ok(parsed) => parsed,
         Err(e) => {
@@ -308,7 +303,7 @@ pub fn code_complexity(code: &str, check_script: bool) -> PyResult<CodeComplexit
     };
     let ast_body = parsed.into_suite();
     let (functions, complexity) =
-        function_level_cognitive_complexity_shared(&ast_body, code, check_script);
+        function_level_cognitive_complexity_shared(&ast_body, code, check_script, no_ignore);
     Ok(CodeComplexity {
         functions,
         complexity,
@@ -322,6 +317,7 @@ pub fn function_level_cognitive_complexity_shared(
     ast_body: &ast::Suite,
     code: &str,
     check_script: bool,
+    no_ignore: bool,
 ) -> (Vec<FunctionComplexity>, u64) {
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
@@ -333,7 +329,7 @@ pub fn function_level_cognitive_complexity_shared(
         match node {
             Stmt::FunctionDef(f) => {
                 let start_line = get_line_number(usize::from(f.range.start()), code);
-                if !has_noqa_complexipy(start_line, code) {
+                if no_ignore || !has_noqa_complexipy(start_line, code) {
                     let result = statement_cognitive_complexity_shared(node, 0, code);
                     functions.push(FunctionComplexity {
                         name: f.name.to_string(),
@@ -349,7 +345,7 @@ pub fn function_level_cognitive_complexity_shared(
                 for node in c.body.iter() {
                     if let Stmt::FunctionDef(f) = node {
                         let start_line = get_line_number(usize::from(f.range.start()), code);
-                        if !has_noqa_complexipy(start_line, code) {
+                        if no_ignore || !has_noqa_complexipy(start_line, code) {
                             let result = statement_cognitive_complexity_shared(node, 0, code);
                             functions.push(FunctionComplexity {
                                 name: format!("{}::{}", c.name, f.name),
@@ -829,4 +825,139 @@ fn statement_cognitive_complexity_shared(
     }
 
     result
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (file_path, base_path))]
+pub fn collect_file_ignored_locations(
+    file_path: &str,
+    base_path: &str,
+) -> PyResult<Vec<IgnoredLocation>> {
+    let path = path::Path::new(file_path);
+    let relative_path = path
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path);
+    let code = std::fs::read_to_string(file_path).map_err(|e| {
+        PyValueError::new_err(format!("Failed to read file '{}': {}", file_path, e))
+    })?;
+    let locations = collect_ignored_locations(&code);
+    Ok(locations
+        .into_iter()
+        .map(|(line, comment)| IgnoredLocation {
+            path: relative_path.to_string(),
+            line,
+            comment,
+        })
+        .collect())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (paths, exclude, invocation_path="."))]
+pub fn collect_all_ignored_locations(
+    paths: Vec<&str>,
+    exclude: Vec<&str>,
+    invocation_path: &str,
+) -> PyResult<(Vec<IgnoredLocation>, Vec<String>)> {
+    let _invocation_dir = path::Path::new(invocation_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+
+    let mut all_locations = Vec::new();
+    let mut failed_paths = Vec::new();
+
+    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
+        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
+
+    for path_str in &paths {
+        let path_obj = path::Path::new(path_str);
+        let is_url = re.is_match(path_str);
+
+        if is_url {
+            match collect_ignored_locations_from_url(path_str, &exclude) {
+                Ok(locs) => all_locations.extend(locs),
+                Err(_) => failed_paths.push(path_str.to_string()),
+            }
+        } else if path_obj.is_dir() {
+            let files = get_paths_to_process(path_str, exclude.clone());
+            let base_dir = path_obj
+                .canonicalize()
+                .unwrap_or_else(|_| path_obj.to_path_buf())
+                .parent()
+                .unwrap_or(path::Path::new("."))
+                .to_string_lossy()
+                .replace('\\', "/");
+            for file_path in &files {
+                if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
+                    all_locations.extend(locs)
+                }
+            }
+        } else if path_obj.is_file() {
+            let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");
+            if let Ok(locs) = collect_file_ignored_locations(path_str, parent_dir) {
+                all_locations.extend(locs)
+            }
+        } else {
+            failed_paths.push(path_str.to_string());
+        }
+    }
+
+    all_locations.sort_by_key(|loc| (loc.path.clone(), loc.line));
+    Ok((all_locations, failed_paths))
+}
+
+fn collect_ignored_locations_from_url(
+    url: &str,
+    exclude: &[&str],
+) -> PyResult<Vec<IgnoredLocation>> {
+    let dir = tempdir()?;
+    let repo_name = get_repo_name(url)?;
+    env::set_current_dir(&dir)?;
+    let cloning_done = Arc::new(Mutex::new(false));
+    let cloning_done_clone = Arc::clone(&cloning_done);
+    let path_clone = url.to_owned();
+
+    thread::spawn(move || {
+        let _ = process::Command::new("git")
+            .args(["clone", &path_clone])
+            .output();
+        if let Ok(mut done) = cloning_done_clone.lock() {
+            *done = true;
+        }
+    });
+
+    loop {
+        match cloning_done.lock() {
+            Ok(done) if *done => break,
+            Ok(_) => {
+                thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(_) => {
+                return Err(PyValueError::new_err("Failed to track cloning progress"));
+            }
+        }
+    }
+
+    let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
+    let files = get_paths_to_process(&repo_path, exclude.to_vec());
+    let base_dir = path::Path::new(&repo_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(&repo_path).to_path_buf())
+        .parent()
+        .unwrap_or(path::Path::new("."))
+        .to_string_lossy()
+        .replace('\\', "/");
+
+    let mut locations = Vec::new();
+    for file_path in &files {
+        if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
+            locations.extend(locs);
+        }
+    }
+
+    dir.close()?;
+    Ok(locations)
 }
