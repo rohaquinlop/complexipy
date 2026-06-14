@@ -54,10 +54,12 @@ jobs:
           # Bump Cargo.toml
           sed -i "s/^version = \"$CURRENT\"/version = \"$NEXT\"/" Cargo.toml
 
-          # Update CHANGELOG.md: replace [Unreleased] header with the new version,
-          # then insert a fresh [Unreleased] section before it for future changes
+          # Update CHANGELOG.md: replace [Unreleased] header with the new version
           sed -i "s/## \[Unreleased\]/## [$NEXT] - $TODAY/" CHANGELOG.md
-          sed -i "/^## \[$NEXT\]/i \\n## [Unreleased]" CHANGELOG.md
+          # Insert a fresh [Unreleased] section after the description line
+          awk 'NR==4{print;print "";print "## [Unreleased]";next}1' \
+            CHANGELOG.md > /tmp/changelog.md
+          mv /tmp/changelog.md CHANGELOG.md
 
           # Commit, tag, and push
           git config user.name "github-actions[bot]"
