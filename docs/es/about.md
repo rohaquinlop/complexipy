@@ -5,6 +5,7 @@
 complexipy está inspirado en el artículo de investigación [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/) de **G. Ann Campbell** de SonarSource. Este trabajo pionero introdujo un nuevo enfoque para medir la complejidad del código que se alinea mejor con la comprensión humana.
 
 !!! info "Proyecto Independiente"
+
     Aunque complexipy implementa la metodología de complejidad cognitiva descrita en la investigación de Campbell, **no está afiliado ni respaldado por SonarSource ni por los productos Sonar**. complexipy es una implementación independiente de código abierto, escrita en Rust para el análisis de código Python.
 
 ## ¿Por Qué la Complejidad Cognitiva?
@@ -70,9 +71,9 @@ Esto se alinea con la intuición humana: el código anidado requiere mantener m�
 ## Objetivos del Proyecto
 
 1. **Rendimiento** - Análisis ultrarrápido usando Rust
-2. **Precisión** - Implementación fiel de los principios de complejidad cognitiva
-3. **Accesibilidad** - Integración sencilla con los flujos de trabajo de desarrollo en Python
-4. **Accionabilidad** - Perspectivas claras y accionables para mejorar la calidad del código
+1. **Precisión** - Implementación fiel de los principios de complejidad cognitiva
+1. **Accesibilidad** - Integración sencilla con los flujos de trabajo de desarrollo en Python
+1. **Accionabilidad** - Perspectivas claras y accionables para mejorar la calidad del código
 
 ## El Equipo
 

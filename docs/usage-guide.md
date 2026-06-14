@@ -5,19 +5,25 @@ This guide covers everything you need to know to effectively use complexipy in y
 ## Installation
 
 <!-- prettier-ignore -->
+
 === "pip"
+
     ```bash
     pip install complexipy
     ```
 
 <!-- prettier-ignore -->
+
 === "uv"
+
     ```bash
     uv add complexipy
     ```
 
 <!-- prettier-ignore -->
+
 === "poetry"
+
     ```bash
     poetry add complexipy
     ```
@@ -103,7 +109,9 @@ complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 <!-- prettier-ignore -->
+
 !!! note "How exclusion works"
+
     - Exclusions are glob patterns evaluated relative to each provided root path
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
@@ -270,14 +278,16 @@ complexipy . --color no    # Disable colors
 complexipy loads configuration in this order (highest to lowest priority):
 
 1. Command-line arguments
-2. `complexipy.toml`
-3. `.complexipy.toml`
-4. `pyproject.toml` (under `[tool.complexipy]`)
+1. `complexipy.toml`
+1. `.complexipy.toml`
+1. `pyproject.toml` (under `[tool.complexipy]`)
 
 ### Example Configurations
 
 <!-- prettier-ignore -->
+
 === "complexipy.toml"
+
     ```toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
@@ -297,7 +307,9 @@ complexipy loads configuration in this order (highest to lowest priority):
     ```
 
 <!-- prettier-ignore -->
+
 === "pyproject.toml"
+
     ```toml
     [tool.complexipy]
     paths = ["src", "tests"]
@@ -309,7 +321,9 @@ complexipy loads configuration in this order (highest to lowest priority):
     ```
 
 <!-- prettier-ignore -->
+
 === ".complexipy.toml"
+
     ```toml
     # Hidden config file for team-specific settings
     max-complexity-allowed = 15
@@ -570,7 +584,9 @@ def complex_function():
 ```
 
 <!-- prettier-ignore -->
+
 !!! note "Deprecated Syntax"
+
     The `# noqa: complexipy` syntax is deprecated and will be removed in a future version.
     Please migrate to `# complexipy: ignore` instead.
 
@@ -579,7 +595,9 @@ def complex_function():
     suppressions. The new syntax avoids this conflict entirely.
 
 <!-- prettier-ignore -->
+
 !!! warning "Use Sparingly"
+
     Inline ignores should be temporary. Document why the complexity is necessary and track technical debt.
 
 ### Disabling Inline Ignores

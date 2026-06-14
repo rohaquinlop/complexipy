@@ -3,15 +3,15 @@
 <div align="center">
   <img src="img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
 
-  <p><em>Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.</em></p>
+<p><em>Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.</em></p>
 
-  <p>
+<p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
     <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
     <a href="https://github.com/rohaquinlop/complexipy/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rohaquinlop/complexipy?style=flat-square" alt="License"></a>
   </p>
 
-  <p>
+<p>
     <a href="#instalación">Instalación</a> •
     <a href="#inicio-rápido">Inicio Rápido</a> •
     <a href="#integraciones">Integraciones</a> •
@@ -162,8 +162,8 @@ Instálala desde el [marketplace](https://marketplace.visualstudio.com/items?ite
 complexipy admite configuración mediante archivos TOML. Los archivos de configuración se cargan en este orden de precedencia:
 
 1. `complexipy.toml` (configuración específica del proyecto)
-2. `.complexipy.toml` (archivo de configuración oculto)
-3. `pyproject.toml` (bajo la sección `[tool.complexipy]`)
+1. `.complexipy.toml` (archivo de configuración oculto)
+1. `pyproject.toml` (bajo la sección `[tool.complexipy]`)
 
 #### Configuración de Ejemplo
 
@@ -214,32 +214,32 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 
 ### Opciones de CLI
 
-| Opción                     | Descripción                                                                                                                                                                                                 | Predeterminado |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `--exclude`                | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |                |
-| `--max-complexity-allowed` | Umbral de complejidad                                                                                                                                                                                       | `15`           |
-| `--snapshot-create`        | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                         | `false`        |
-| `--snapshot-ignore`        | Omite la comparación con un snapshot aunque exista                                                                                                                                                          | `false`        |
-| `--failed`                 | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                             | `false`        |
-| `--suggest-refactors`      | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain`                                                                              | `false`        |
-| `--color <auto\|yes\|no>`  | Usa color                                                                                                                                                                                                   | `auto`         |
-| `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                   | `asc`          |
-| `--quiet`                  | Suprime la salida                                                                                                                                                                                           | `false`        |
-| `--ignore-complexity`      | No termina con error al superar el umbral                                                                                                                                                                   | `false`        |
-| `--version`                | Muestra la versión instalada de complexipy y sale                                                                                                                                                           | -              |
-| `--top <n>`                | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente                                                                                                             | —              |
-| `--plain`                  | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet`                                                                                                      | `false`        |
-| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                                | —              |
-| `--output <path>`          | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                          | —              |
-| `--diff <ref>`             | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                                 | —              |
-| `--ratchet`, `-R`          | Junto con `--diff`, falla solo cuando un cambio lleva una función por encima de `--max-complexity-allowed` (o empeora una que ya estaba por encima). Ver [Modo Ratchet](usage-guide.md#modo-ratchet)         | `false`        |
-| `--check-script`           | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                        | `false`        |
-| `--no-ignore`                 | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`)                                           | `false` |
-| `--report-ignored`            | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet`                                              | `false` |
-| `--output-json`            | Alias deprecado de `--output-format json`                                                                                                                                                                   | `false`        |
-| `--output-csv`             | Alias deprecado de `--output-format csv`                                                                                                                                                                    | `false`        |
-| `--output-gitlab`          | Alias deprecado de `--output-format gitlab`                                                                                                                                                                 | `false`        |
-| `--output-sarif`           | Alias deprecado de `--output-format sarif`                                                                                                                                                                  | `false`        |
+| Opción                          | Descripción                                                                                                                                                                                          | Predeterminado |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `--exclude`                     | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos.                                           |                |
+| `--max-complexity-allowed`      | Umbral de complejidad                                                                                                                                                                                | `15`           |
+| `--snapshot-create`             | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json`                                                                                                                  | `false`        |
+| `--snapshot-ignore`             | Omite la comparación con un snapshot aunque exista                                                                                                                                                   | `false`        |
+| `--failed`                      | Muestra solo las funciones que superen el umbral de complejidad                                                                                                                                      | `false`        |
+| `--suggest-refactors`           | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain`                                                                       | `false`        |
+| `--color <auto\|yes\|no>`       | Usa color                                                                                                                                                                                            | `auto`         |
+| `--sort <asc\|desc\|file_name>` | Ordena los resultados                                                                                                                                                                                | `asc`          |
+| `--quiet`                       | Suprime la salida                                                                                                                                                                                    | `false`        |
+| `--ignore-complexity`           | No termina con error al superar el umbral                                                                                                                                                            | `false`        |
+| `--version`                     | Muestra la versión instalada de complexipy y sale                                                                                                                                                    | -              |
+| `--top <n>`                     | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente                                                                                                      | —              |
+| `--plain`                       | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet`                                                                                                | `false`        |
+| `--output-format <format>`      | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`)                                                                         | —              |
+| `--output <path>`               | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos                                                                                   | —              |
+| `--diff <ref>`                  | Muestra un diff de complejidad contra una referencia de git (por ejemplo, `HEAD~1`, `main`)                                                                                                          | —              |
+| `--ratchet`, `-R`               | Junto con `--diff`, falla solo cuando un cambio lleva una función por encima de `--max-complexity-allowed` (o empeora una que ya estaba por encima). Ver [Modo Ratchet](usage-guide.md#modo-ratchet) | `false`        |
+| `--check-script`                | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>`                                                                                                                 | `false`        |
+| `--no-ignore`                   | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`)                                                                                    | `false`        |
+| `--report-ignored`              | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet`                                                                                        | `false`        |
+| `--output-json`                 | Alias deprecado de `--output-format json`                                                                                                                                                            | `false`        |
+| `--output-csv`                  | Alias deprecado de `--output-format csv`                                                                                                                                                             | `false`        |
+| `--output-gitlab`               | Alias deprecado de `--output-format gitlab`                                                                                                                                                          | `false`        |
+| `--output-sarif`                | Alias deprecado de `--output-format sarif`                                                                                                                                                           | `false`        |
 
 Ejemplo:
 
@@ -413,7 +413,7 @@ CodeComplexity:
   └─ functions: List[FunctionComplexity]
 ```
 
----
+______________________________________________________________________
 
 <div align="center">
 

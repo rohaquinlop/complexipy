@@ -5,19 +5,25 @@ Esta guía cubre todo lo que necesitas saber para usar complexipy de manera efec
 ## Instalación
 
 <!-- prettier-ignore -->
+
 === "pip"
+
     ```bash
     pip install complexipy
     ```
 
 <!-- prettier-ignore -->
+
 === "uv"
+
     ```bash
     uv add complexipy
     ```
 
 <!-- prettier-ignore -->
+
 === "poetry"
+
     ```bash
     poetry add complexipy
     ```
@@ -103,7 +109,9 @@ complexipy . --exclude "src/legacy/old_code.py"
 ```
 
 <!-- prettier-ignore -->
+
 !!! note "Cómo funciona la exclusión"
+
     - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
@@ -267,14 +275,16 @@ complexipy . --color no    # Deshabilita colores
 complexipy carga la configuración en este orden (de mayor a menor prioridad):
 
 1. Argumentos de línea de comandos
-2. `complexipy.toml`
-3. `.complexipy.toml`
-4. `pyproject.toml` (bajo `[tool.complexipy]`)
+1. `complexipy.toml`
+1. `.complexipy.toml`
+1. `pyproject.toml` (bajo `[tool.complexipy]`)
 
 ### Configuraciones de Ejemplo
 
 <!-- prettier-ignore -->
+
 === "complexipy.toml"
+
     ```toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
@@ -294,7 +304,9 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     ```
 
 <!-- prettier-ignore -->
+
 === "pyproject.toml"
+
     ```toml
     [tool.complexipy]
     paths = ["src", "tests"]
@@ -306,7 +318,9 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     ```
 
 <!-- prettier-ignore -->
+
 === ".complexipy.toml"
+
     ```toml
     # Archivo de configuración oculto para ajustes específicos del equipo
     max-complexity-allowed = 15
@@ -567,7 +581,9 @@ def complex_function():
 ```
 
 <!-- prettier-ignore -->
+
 !!! note "Sintaxis Obsoleta"
+
     La sintaxis `# noqa: complexipy` está obsoleta y será eliminada en una versión futura.
     Por favor, migra a `# complexipy: ignore` en su lugar.
 
@@ -576,7 +592,9 @@ def complex_function():
     La nueva sintaxis evita este conflicto por completo.
 
 <!-- prettier-ignore -->
+
 !!! warning "Usar con Moderación"
+
     Los ignorados en línea deben ser temporales. Documenta por qué la complejidad es necesaria y rastrea la deuda técnica.
 
 ### Deshabilitar Ignorados en Línea

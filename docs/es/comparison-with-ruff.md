@@ -11,6 +11,7 @@ La regla [PLR0912 (too-many-branches)](https://docs.astral.sh/ruff/rules/too-man
 ### Cómo Ruff Cuenta las Ramas
 
 Ruff cuenta cada uno de estos como una rama:
+
 - Sentencias `if`, `elif`, `else`
 - Bucles `for` y `while`
 - Operadores booleanos `and`, `or`
@@ -64,6 +65,7 @@ def example(a, b, c, d):
 ### 1. El Anidamiento es Crítico en complexipy
 
 **Ruff trata todas las ramas por igual:**
+
 ```python
 # Ruff: 3 ramas
 def flat_logic(a, b, c):
@@ -85,6 +87,7 @@ def nested_logic(a, b, c):
 ```
 
 **complexipy tiene en cuenta el anidamiento:**
+
 ```python
 # complexipy: 3 puntos
 def flat_logic(a, b, c):
@@ -183,6 +186,7 @@ def process_payment(order):
 ```
 
 En este ejemplo:
+
 - Ruff marca la función por tener 7 ramas (por encima del umbral típico)
 - complexipy le da 8 puntos, con la mayor complejidad proveniente de la verificación de fraude anidada
 - complexipy identifica mejor que la verificación de fraude profundamente anidada es la parte problemática
@@ -190,12 +194,14 @@ En este ejemplo:
 ## ¿Cuál Deberías Usar?
 
 ### Usa Ruff (PLR0912) Cuando:
+
 - Necesitas medir la complejidad estructural y la densidad de ramas
 - Estás diseñando estrategias de cobertura de pruebas
 - Quieres limitar el número absoluto de puntos de decisión
 - Ya estás usando Ruff para otros tipos de linting
 
 ### Usa complexipy Cuando:
+
 - Quieres identificar código que sea difícil de entender para los seres humanos
 - Te enfocas en la legibilidad y mantenibilidad del código
 - El anidamiento y la complejidad de flujo son preocupaciones en tu base de código
@@ -250,22 +256,22 @@ max-complexity-allowed = 15
 Si ya estás usando Ruff y quieres agregar complexipy:
 
 1. **Línea Base Primero**: Ejecuta `complexipy . --snapshot-create` para capturar el estado actual
-2. **Establecer Umbrales**: Comienza con un umbral más alto (p. ej., 20) y redúcelo con el tiempo
-3. **Corregir Código Nuevo**: Solo falla el CI en nuevas violaciones
-4. **Mejora Gradual**: Refactoriza el código heredado de manera oportunista
+1. **Establecer Umbrales**: Comienza con un umbral más alto (p. ej., 20) y redúcelo con el tiempo
+1. **Corregir Código Nuevo**: Solo falla el CI en nuevas violaciones
+1. **Mejora Gradual**: Refactoriza el código heredado de manera oportunista
 
 ## Resumen
 
-| Característica | Ruff PLR0912 | complexipy |
-|----------------|--------------|------------|
-| **Basado en** | Complejidad Ciclomática | Complejidad Cognitiva |
-| **Cuenta anidamiento** | ❌ No | ✅ Sí |
-| **Penalización por else** | ✅ Sí | ❌ No (solo anidamiento) |
-| **Operadores booleanos** | ✅ Sí | ✅ Sí |
-| **Sentencias match** | ✅ Sí | Parcial (solo contenido) |
-| **Ideal para** | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
-| **Umbral** | ~12 ramas | ~15 puntos |
-| **Rendimiento** | Rápido (Rust) | Muy rápido (Rust) |
+| Característica            | Ruff PLR0912                                        | complexipy                            |
+| ------------------------- | --------------------------------------------------- | ------------------------------------- |
+| **Basado en**             | Complejidad Ciclomática                             | Complejidad Cognitiva                 |
+| **Cuenta anidamiento**    | ❌ No                                               | ✅ Sí                                 |
+| **Penalización por else** | ✅ Sí                                               | ❌ No (solo anidamiento)              |
+| **Operadores booleanos**  | ✅ Sí                                               | ✅ Sí                                 |
+| **Sentencias match**      | ✅ Sí                                               | Parcial (solo contenido)              |
+| **Ideal para**            | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
+| **Umbral**                | ~12 ramas                                           | ~15 puntos                            |
+| **Rendimiento**           | Rápido (Rust)                                       | Muy rápido (Rust)                     |
 
 **En Conclusión**: PLR0912 de Ruff mide la complejidad estructural y la densidad de ramas (útil para pruebas y análisis), mientras que complexipy mide qué tan difícil es el código para que los seres humanos lo entiendan y mantengan, penalizando el anidamiento y las interrupciones de flujo. Ambas son valiosas, y usarlas juntas proporciona la mejor cobertura para la calidad del código.
 
