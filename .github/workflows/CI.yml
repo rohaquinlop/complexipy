@@ -45,7 +45,7 @@ jobs:
             python-version: "3.13"
           - runner: windows-latest
             python-version: "3.13"
-          - runner: macos-14
+          - runner: macos-latest
             python-version: "3.13"
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8

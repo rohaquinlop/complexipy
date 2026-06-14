@@ -121,9 +121,9 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: macos-latest
+          - runner: macos-13
             target: x86_64
-          - runner: macos-14
+          - runner: macos-latest
             target: aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
@@ -227,9 +227,9 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: macos-latest
+          - runner: macos-13
             target: x86_64
-          - runner: macos-14
+          - runner: macos-latest
             target: aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
