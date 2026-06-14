@@ -11,8 +11,10 @@ permissions:
 jobs:
   release:
     name: Release
-    # Prevent infinite loop: skip if this commit is already a release
-    if: "!contains(github.event.head_commit.message, 'chore: release v')"
+    # Prevent infinite loop: skip release commits and pipeline fix commits
+    if: |
+      !contains(github.event.head_commit.message, 'chore: release v') &&
+      !startsWith(github.event.head_commit.message, 'fix(release):')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
