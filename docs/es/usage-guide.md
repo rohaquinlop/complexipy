@@ -4,23 +4,17 @@ Esta guía cubre todo lo que necesitas saber para usar complexipy de manera efec
 
 ## Instalación
 
-<!-- prettier-ignore -->
-
 === "pip"
 
     ```bash
     pip install complexipy
     ```
 
-<!-- prettier-ignore -->
-
 === "uv"
 
     ```bash
     uv add complexipy
     ```
-
-<!-- prettier-ignore -->
 
 === "poetry"
 
@@ -107,8 +101,6 @@ complexipy . --exclude "tests/**" --exclude "migrations/**" --exclude "build/**"
 # Excluir archivos específicos
 complexipy . --exclude "src/legacy/old_code.py"
 ```
-
-<!-- prettier-ignore -->
 
 !!! note "Cómo funciona la exclusión"
 
@@ -281,8 +273,6 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 
 ### Configuraciones de Ejemplo
 
-<!-- prettier-ignore -->
-
 === "complexipy.toml"
 
     ```toml
@@ -303,8 +293,6 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     report-ignored = false
     ```
 
-<!-- prettier-ignore -->
-
 === "pyproject.toml"
 
     ```toml
@@ -316,8 +304,6 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     sort = "desc"
     check-script = true
     ```
-
-<!-- prettier-ignore -->
 
 === ".complexipy.toml"
 
@@ -580,8 +566,6 @@ def complex_function():
     pass
 ```
 
-<!-- prettier-ignore -->
-
 !!! note "Sintaxis Obsoleta"
 
     La sintaxis `# noqa: complexipy` está obsoleta y será eliminada en una versión futura.
@@ -590,8 +574,6 @@ def complex_function():
     **¿Por qué?** Herramientas como [yesqa](https://github.com/asottile/yesqa) eliminan automáticamente los comentarios `# noqa`
     que flake8 no reconoce, lo que eliminaría silenciosamente tus supresiones de complexipy.
     La nueva sintaxis evita este conflicto por completo.
-
-<!-- prettier-ignore -->
 
 !!! warning "Usar con Moderación"
 
@@ -673,7 +655,7 @@ Agrega a `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v4.2.0
+      rev: v5.1.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

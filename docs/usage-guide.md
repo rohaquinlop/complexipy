@@ -4,23 +4,17 @@ This guide covers everything you need to know to effectively use complexipy in y
 
 ## Installation
 
-<!-- prettier-ignore -->
-
 === "pip"
 
     ```bash
     pip install complexipy
     ```
 
-<!-- prettier-ignore -->
-
 === "uv"
 
     ```bash
     uv add complexipy
     ```
-
-<!-- prettier-ignore -->
 
 === "poetry"
 
@@ -107,8 +101,6 @@ complexipy . --exclude "tests/**" --exclude "migrations/**" --exclude "build/**"
 # Exclude specific files
 complexipy . --exclude "src/legacy/old_code.py"
 ```
-
-<!-- prettier-ignore -->
 
 !!! note "How exclusion works"
 
@@ -284,8 +276,6 @@ complexipy loads configuration in this order (highest to lowest priority):
 
 ### Example Configurations
 
-<!-- prettier-ignore -->
-
 === "complexipy.toml"
 
     ```toml
@@ -306,8 +296,6 @@ complexipy loads configuration in this order (highest to lowest priority):
     report-ignored = false
     ```
 
-<!-- prettier-ignore -->
-
 === "pyproject.toml"
 
     ```toml
@@ -319,8 +307,6 @@ complexipy loads configuration in this order (highest to lowest priority):
     sort = "desc"
     check-script = true
     ```
-
-<!-- prettier-ignore -->
 
 === ".complexipy.toml"
 
@@ -583,8 +569,6 @@ def complex_function():
     pass
 ```
 
-<!-- prettier-ignore -->
-
 !!! note "Deprecated Syntax"
 
     The `# noqa: complexipy` syntax is deprecated and will be removed in a future version.
@@ -593,8 +577,6 @@ def complex_function():
     **Why?** Tools like [yesqa](https://github.com/asottile/yesqa) automatically strip `# noqa`
     comments that aren't recognized by flake8, which would silently remove your complexipy
     suppressions. The new syntax avoids this conflict entirely.
-
-<!-- prettier-ignore -->
 
 !!! warning "Use Sparingly"
 
@@ -676,7 +658,7 @@ Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v4.2.0
+      rev: v5.1.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

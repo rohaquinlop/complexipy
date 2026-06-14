@@ -10,9 +10,7 @@ repos:
           - id: mdformat
             additional_dependencies:
                 - mdformat-mkdocs>=0.2.1
-            args:
-                - --align-semantic-breaks-in-lists
             exclude: |
                 (?x)^(
-                    CHANGELOG\.md
+                    CHANGELOG\.md$
                 )$
