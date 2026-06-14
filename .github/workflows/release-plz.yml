@@ -1,5 +1,5 @@
 ---
-name: Release
+name: Auto-release
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Release
+  auto-release:
+    name: Auto-release
     # Prevent infinite loop: skip release commits and pipeline fix commits
     if: |
       !contains(github.event.head_commit.message, 'chore: release v') &&
@@ -34,7 +34,8 @@ jobs:
         id: version
         run: |
           CURRENT=$(grep '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-          NEXT=$(git cliff --bumped-version)
+          # git-cliff emits warnings to stderr and may exit non-zero; capture stdout only
+          NEXT=$(git cliff --bumped-version 2>/dev/null) || true
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
 
