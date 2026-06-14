@@ -384,14 +384,21 @@ jobs:
           for sd in dist.glob("*.tar.gz"):
             shutil.copy2(sd, repacked / sd.name)
 
-          for whl in dist.glob("*.whl"):
-            whl.unlink()
+          # Remove original wheels that failed repack — they're corrupted
+          # and would cause maturin upload to fail.
+          for fw_name in failed_wheels:
+            broken = dist / fw_name
+            if broken.exists():
+              broken.unlink()
+              print(f"  Removed corrupted wheel: {fw_name}")
 
+          # Replace successfully repacked wheels in dist/.
           for item in repacked.iterdir():
-            target = dist / item.name
-            if target.exists():
-              target.unlink()
-            item.replace(target)
+            if item.suffix == ".whl":
+              original = dist / item.name
+              if original.exists():
+                original.unlink()
+            item.replace(dist / item.name)
 
           # Final validation
           final_wheels = list(dist.glob("*.whl"))
