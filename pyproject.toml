@@ -77,6 +77,17 @@ exclude = ["tests"]
 line-length = 80
 indent-width = 4
 
+[tool.yamlfix]
+explicit_start = true
+line_length = 120
+whitelines = 1
+comments_whitelines = 1
+section_whitelines = 1
+comments_min_spaces_from_content = 2
+comments_require_starting_space = true
+preserve_quotes = true
+sequence_style = "keep_style"
+
 [tool.ty.src]
 exclude = ["tests"]
 

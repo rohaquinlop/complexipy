@@ -1,3 +1,4 @@
+---
 name: CI
 
 on:
@@ -62,5 +63,5 @@ jobs:
           uv run -p ${{ matrix.python-version }} pytest
       - name: complexipy execution
         shell: bash
-        run: |
+        run: |-
           uv run -p ${{ matrix.python-version }} complexipy complexipy --failed

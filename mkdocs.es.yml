@@ -1,3 +1,4 @@
+---
 site_name: complexipy
 site_description: Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.
 site_url: https://rohaquinlop.github.io/complexipy/es/
@@ -11,12 +12,12 @@ site_dir: site/es
 nav:
   - Inicio: index.md
   - Primeros Pasos:
-    - Guía de Uso: usage-guide.md
+      - Guía de Uso: usage-guide.md
   - Entendiendo la Complejidad:
-    - Qué Significan las Puntuaciones: understanding-scores.md
-    - Comparación con Ruff: comparison-with-ruff.md
+      - Qué Significan las Puntuaciones: understanding-scores.md
+      - Comparación con Ruff: comparison-with-ruff.md
   - Acerca de:
-    - Acerca de complexipy: about.md
+      - Acerca de complexipy: about.md
 
 theme:
   name: material
@@ -114,4 +115,5 @@ markdown_extensions:
       permalink: true
       toc_depth: 3
 
-copyright: Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+copyright: Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid
+  Quintero Lopez</a>
