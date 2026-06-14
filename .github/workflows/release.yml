@@ -286,6 +286,19 @@ jobs:
   deploy-docs:
     name: Deploy docs
     needs: release
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    uses: ./.github/workflows/docs.yml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+        with:
+          python-version: "3.10"
+      - uses: actions/cache@v4
+        with:
+          key: ${{ github.ref }}
+          path: .cache
+      - run: uv run mkdocs build
+      - run: uv run mkdocs build -f mkdocs.es.yml
+      - run: uv run ghp-import -n -p -f site
