@@ -45,21 +45,20 @@ jobs:
           fi
 
           # Only release if there are version-affecting commits since last tag.
-          # Excluded types: chore, docs, ci, test, build, refactor, perf, style,
-          # and fix(release) (pipeline fixes that shouldn't trigger releases).
+          # Releasing types: feat (any scope), fix (any scope except "release"), breaking.
+          # Non-releasing types: docs, chore, ci, test, build, refactor, perf, style.
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -n "$LAST_TAG" ]; then
-            TYPES=$(git log ${LAST_TAG}..HEAD --format="%s" \
-              | sed -n 's/^\([a-z]*\)\(([^)]*)\)\?:.*/\1\2/p' \
-              | sort -u)
-            # Remove commit types that should NOT trigger a release
-            NON_RELEASE=$(echo "$TYPES" \
-              | tr ' ' '\n' \
-              | grep -vx -e "chore" -e "docs" -e "ci" -e "test" \
-                         -e "build" -e "refactor" -e "perf" -e "style" \
-                         -e "fix(release)" \
-              | tr '\n' ' ')
-            if [ -z "$(echo $NON_RELEASE | tr -d ' ')" ]; then
+            HAS_RELEASE=$(git log ${LAST_TAG}..HEAD --format="%s" \
+              | while read -r msg; do
+                  type=$(echo "$msg" | sed -n 's/^\([a-z]*\).*/\1/p')
+                  scope=$(echo "$msg" | sed -n 's/^[a-z]*(\([^)]*\)):.*/\1/p')
+                  case "$type" in
+                    feat) echo "RELEASE" ;;
+                    fix)  [ "$scope" != "release" ] && echo "RELEASE" ;;
+                  esac
+                done)
+            if [ -z "$HAS_RELEASE" ]; then
               echo "No version-affecting commits since $LAST_TAG. Skipping."
               echo "skip=true" >> "$GITHUB_OUTPUT"
             else
