@@ -2,7 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+n## [Unreleased]
+## [5.6.0] - 2026-06-14
 
 ### Features
 
