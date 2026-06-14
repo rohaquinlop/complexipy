@@ -1,11 +1,6 @@
 # git-cliff configuration for complexipy
 # Docs: https://git-cliff.org/docs/configuration
 
-[bump]
-# Only feat, non-release fix, and breaking changes trigger version bumps.
-# fix(release) is excluded to prevent cascading release loops from pipeline fixes.
-no_increment_regex = "^(docs|chore|ci|test|build|refactor|perf|style|fix\(release\))"
-
 [changelog]
 header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"
 body = """
