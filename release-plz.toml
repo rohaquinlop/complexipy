@@ -4,12 +4,18 @@
 # release-plz handles:
 #   1. Bumping version in Cargo.toml
 #   2. Generating CHANGELOG.md from conventional commits
-#   3. Creating git tags (picked up by CI.yml → PyPI publish)
+#   3. Creating git tags (picked up by release.yml → PyPI publish)
 #   4. Creating GitHub Releases
 
 [workspace]
+# Use git tags (not crates.io) to determine the current version.
+# CRITICAL: Without this, release-plz queries crates.io and fails
+# to find complexipy (it's not published as a Rust crate).
+git_only = true
 # Don't attempt `cargo publish` — complexipy is a Python package, not a crate
 publish = false
+# Disable cargo-semver-checks — not a library crate
+semver_check = false
 # Git tag format: "5.6.0" (no "v" prefix, matches existing convention)
 git_tag_name = "{{version}}"
 # Update CHANGELOG.md with conventional commit entries
