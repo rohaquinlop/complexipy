@@ -4,20 +4,20 @@ This guide covers everything you need to know to effectively use complexipy in y
 
 ## Installation
 
-<!-- prettier-ignore -->
 === "pip"
+
     ```bash
     pip install complexipy
     ```
 
-<!-- prettier-ignore -->
 === "uv"
+
     ```bash
     uv add complexipy
     ```
 
-<!-- prettier-ignore -->
 === "poetry"
+
     ```bash
     poetry add complexipy
     ```
@@ -102,8 +102,8 @@ complexipy . --exclude "tests/**" --exclude "migrations/**" --exclude "build/**"
 complexipy . --exclude "src/legacy/old_code.py"
 ```
 
-<!-- prettier-ignore -->
 !!! note "How exclusion works"
+
     - Exclusions are glob patterns evaluated relative to each provided root path
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
@@ -270,14 +270,14 @@ complexipy . --color no    # Disable colors
 complexipy loads configuration in this order (highest to lowest priority):
 
 1. Command-line arguments
-2. `complexipy.toml`
-3. `.complexipy.toml`
-4. `pyproject.toml` (under `[tool.complexipy]`)
+1. `complexipy.toml`
+1. `.complexipy.toml`
+1. `pyproject.toml` (under `[tool.complexipy]`)
 
 ### Example Configurations
 
-<!-- prettier-ignore -->
 === "complexipy.toml"
+
     ```toml
     paths = ["src", "tests"]
     max-complexity-allowed = 10
@@ -292,10 +292,12 @@ complexipy loads configuration in this order (highest to lowest priority):
     output-format = ["json", "gitlab"]
     output = "reports/"
     check-script = false
+    no-ignore = false
+    report-ignored = false
     ```
 
-<!-- prettier-ignore -->
 === "pyproject.toml"
+
     ```toml
     [tool.complexipy]
     paths = ["src", "tests"]
@@ -306,8 +308,8 @@ complexipy loads configuration in this order (highest to lowest priority):
     check-script = true
     ```
 
-<!-- prettier-ignore -->
 === ".complexipy.toml"
+
     ```toml
     # Hidden config file for team-specific settings
     max-complexity-allowed = 15
@@ -327,6 +329,9 @@ from complexipy import file_complexity
 result = file_complexity("src/main.py", check_script=True)
 
 print(f"Total complexity: {result.complexity}")
+
+# Analyze without honoring inline ignore comments
+result = file_complexity("src/main.py", no_ignore=True)
 print(f"File path: {result.path}")
 
 # Iterate over functions
@@ -354,6 +359,9 @@ def calculate_discount(price, customer):
 
 result = code_complexity(code, check_script=True)
 print(f"Complexity: {result.complexity}")
+
+# Analyze code string without honoring ignore comments
+result = code_complexity(code, no_ignore=True)
 
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
@@ -561,8 +569,8 @@ def complex_function():
     pass
 ```
 
-<!-- prettier-ignore -->
 !!! note "Deprecated Syntax"
+
     The `# noqa: complexipy` syntax is deprecated and will be removed in a future version.
     Please migrate to `# complexipy: ignore` instead.
 
@@ -570,9 +578,55 @@ def complex_function():
     comments that aren't recognized by flake8, which would silently remove your complexipy
     suppressions. The new syntax avoids this conflict entirely.
 
-<!-- prettier-ignore -->
 !!! warning "Use Sparingly"
+
     Inline ignores should be temporary. Document why the complexity is necessary and track technical debt.
+
+### Disabling Inline Ignores
+
+Use `--no-ignore` to disregard all inline ignore comments and analyze every function:
+
+```bash
+complexipy . --no-ignore
+```
+
+Functions previously suppressed by `# complexipy: ignore` or `# noqa: complexipy` will be analyzed normally and may fail the threshold.
+
+### Reporting Ignored Functions
+
+Use `--report-ignored` to list every location where an ignore comment suppresses a function:
+
+```bash
+# List ignored functions
+complexipy . --report-ignored
+
+# Combine with --no-ignore to report while analyzing everything
+complexipy . --report-ignored --no-ignore
+```
+
+The output format is `path:line  # comment-text`. When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. The report prints even under `--quiet`.
+
+Both flags are also available in the Python API via `no_ignore=True`:
+
+```python
+from complexipy import file_complexity, code_complexity
+
+# Analyze without honoring ignore comments
+result = file_complexity("app.py", no_ignore=True)
+```
+
+To programmatically collect ignored locations, use `collect_all_ignored_locations()`:
+
+```python
+from complexipy import collect_all_ignored_locations
+
+locations, failed = collect_all_ignored_locations(
+    paths=["src"],
+    exclude=["tests/"],
+)
+for loc in locations:
+    print(f"{loc.path}:{loc.line}  {loc.comment}")
+```
 
 ## CI/CD Integration
 
@@ -604,7 +658,7 @@ Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v4.2.0
+      rev: v5.1.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

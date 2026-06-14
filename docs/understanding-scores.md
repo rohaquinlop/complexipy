@@ -6,15 +6,16 @@ Cognitive complexity scores represent the mental effort required to understand a
 
 ### Recommended Thresholds
 
-| Score Range | Interpretation | Recommendation |
-|-------------|----------------|----------------|
-| **0-5** | Simple | Easy to understand, no action needed |
-| **6-10** | Moderate | Generally acceptable, but watch for further growth |
-| **11-15** | Complex | Consider refactoring if functionality is being added |
-| **16-25** | High | Refactoring recommended |
-| **26+** | Very High | Refactoring strongly recommended |
+| Score Range | Interpretation | Recommendation                                       |
+| ----------- | -------------- | ---------------------------------------------------- |
+| **0-5**     | Simple         | Easy to understand, no action needed                 |
+| **6-10**    | Moderate       | Generally acceptable, but watch for further growth   |
+| **11-15**   | Complex        | Consider refactoring if functionality is being added |
+| **16-25**   | High           | Refactoring recommended                              |
+| **26+**     | Very High      | Refactoring strongly recommended                     |
 
 !!! note "Default Threshold"
+
     complexipy uses a default threshold of **15**. Functions exceeding this score will trigger warnings.
 
 ## How Complexity is Calculated
@@ -25,16 +26,16 @@ Cognitive complexity is calculated by analyzing the Abstract Syntax Tree (AST) o
 
 Each control flow structure adds to the complexity:
 
-| Structure | Score | Example |
-|-----------|-------|---------|
-| `if` statement | +1 | `if condition:` |
-| `elif` clause | +1 | `elif other_condition:` |
-| `else` clause | +0 | `else:` (nesting only) |
-| `for` loop | +1 | `for item in items:` |
-| `while` loop | +1 | `while condition:` |
-| `except` handler | +1 | `except ValueError:` |
-| `finally` clause | +0 | `finally:` (nesting only) |
-| Ternary operator | +1 | `x if condition else y` |
+| Structure        | Score | Example                   |
+| ---------------- | ----- | ------------------------- |
+| `if` statement   | +1    | `if condition:`           |
+| `elif` clause    | +1    | `elif other_condition:`   |
+| `else` clause    | +0    | `else:` (nesting only)    |
+| `for` loop       | +1    | `for item in items:`      |
+| `while` loop     | +1    | `while condition:`        |
+| `except` handler | +1    | `except ValueError:`      |
+| `finally` clause | +0    | `finally:` (nesting only) |
+| Ternary operator | +1    | `x if condition else y`   |
 
 ### 2. Nesting Multiplier
 
@@ -68,6 +69,7 @@ def check(a, b, c):
 ### 4. Special Cases
 
 **Break and Continue**
+
 ```python
 # Score: 3
 for item in items:  # +1
@@ -76,6 +78,7 @@ for item in items:  # +1
 ```
 
 **Match Statements** (Python 3.10+)
+
 ```python
 # Score: 2
 match value:        # +0 (match itself doesn't count)
@@ -165,13 +168,14 @@ def load_config(path):
 Focus on functions with scores above your threshold (default: 15). Common refactoring strategies:
 
 1. **Extract Methods** - Pull nested logic into separate functions
-2. **Early Returns** - Use guard clauses to reduce nesting
-3. **Simplify Conditions** - Break complex boolean expressions into named variables
-4. **Strategy Pattern** - Replace nested if/else with polymorphism
+1. **Early Returns** - Use guard clauses to reduce nesting
+1. **Simplify Conditions** - Break complex boolean expressions into named variables
+1. **Strategy Pattern** - Replace nested if/else with polymorphism
 
 ### Example Refactoring
 
 **Before (Complexity: 12)**
+
 ```python
 def process_order(order):
     if order:                          # +1
@@ -189,6 +193,7 @@ def process_order(order):
 ```
 
 **After (Complexity: 4)**
+
 ```python
 def process_order(order):
     if not order:                  # +1
@@ -211,6 +216,7 @@ def process_order(order):
 ```
 
 **Key improvements:**
+
 - Reduced nesting from 4 levels to 1
 - Complexity dropped from 12 to 4
 - Logic is now linear and easier to follow
@@ -218,9 +224,9 @@ def process_order(order):
 ## Score Interpretation Tips
 
 1. **Context Matters** - A score of 20 might be acceptable for a complex algorithm but problematic for business logic
-2. **Trend Over Time** - Watch for increasing complexity in functions you modify frequently
-3. **Relative Scores** - Compare functions within the same codebase to identify outliers
-4. **Team Agreement** - Establish thresholds that work for your team and project
+1. **Trend Over Time** - Watch for increasing complexity in functions you modify frequently
+1. **Relative Scores** - Compare functions within the same codebase to identify outliers
+1. **Team Agreement** - Establish thresholds that work for your team and project
 
 ## Further Reading
 

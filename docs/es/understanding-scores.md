@@ -6,15 +6,16 @@ Las puntuaciones de complejidad cognitiva representan el esfuerzo mental requeri
 
 ### Umbrales Recomendados
 
-| Rango de Puntuación | Interpretación | Recomendación |
-|---------------------|----------------|---------------|
-| **0-5** | Simple | Fácil de entender, no se requiere acción |
-| **6-10** | Moderado | Generalmente aceptable, pero con vigilancia ante mayor crecimiento |
-| **11-15** | Complejo | Considerar refactorización si se está añadiendo funcionalidad |
-| **16-25** | Alto | Refactorización recomendada |
-| **26+** | Muy Alto | Refactorización fuertemente recomendada |
+| Rango de Puntuación | Interpretación | Recomendación                                                      |
+| ------------------- | -------------- | ------------------------------------------------------------------ |
+| **0-5**             | Simple         | Fácil de entender, no se requiere acción                           |
+| **6-10**            | Moderado       | Generalmente aceptable, pero con vigilancia ante mayor crecimiento |
+| **11-15**           | Complejo       | Considerar refactorización si se está añadiendo funcionalidad      |
+| **16-25**           | Alto           | Refactorización recomendada                                        |
+| **26+**             | Muy Alto       | Refactorización fuertemente recomendada                            |
 
 !!! note "Umbral Predeterminado"
+
     complexipy usa un umbral predeterminado de **15**. Las funciones que superen esta puntuación activarán advertencias.
 
 ## Cómo se Calcula la Complejidad
@@ -25,16 +26,16 @@ La complejidad cognitiva se calcula analizando el Árbol de Sintaxis Abstracta (
 
 Cada estructura de flujo de control añade a la complejidad:
 
-| Estructura | Puntuación | Ejemplo |
-|------------|------------|---------|
-| Sentencia `if` | +1 | `if condition:` |
-| Cláusula `elif` | +1 | `elif other_condition:` |
-| Cláusula `else` | +0 | `else:` (solo anidamiento) |
-| Bucle `for` | +1 | `for item in items:` |
-| Bucle `while` | +1 | `while condition:` |
-| Manejador `except` | +1 | `except ValueError:` |
-| Cláusula `finally` | +0 | `finally:` (solo anidamiento) |
-| Operador ternario | +1 | `x if condition else y` |
+| Estructura         | Puntuación | Ejemplo                       |
+| ------------------ | ---------- | ----------------------------- |
+| Sentencia `if`     | +1         | `if condition:`               |
+| Cláusula `elif`    | +1         | `elif other_condition:`       |
+| Cláusula `else`    | +0         | `else:` (solo anidamiento)    |
+| Bucle `for`        | +1         | `for item in items:`          |
+| Bucle `while`      | +1         | `while condition:`            |
+| Manejador `except` | +1         | `except ValueError:`          |
+| Cláusula `finally` | +0         | `finally:` (solo anidamiento) |
+| Operador ternario  | +1         | `x if condition else y`       |
 
 ### 2. Multiplicador de Anidamiento
 
@@ -68,6 +69,7 @@ def check(a, b, c):
 ### 4. Casos Especiales
 
 **Break y Continue**
+
 ```python
 # Puntuación: 3
 for item in items:  # +1
@@ -76,6 +78,7 @@ for item in items:  # +1
 ```
 
 **Sentencias Match** (Python 3.10+)
+
 ```python
 # Puntuación: 2
 match value:        # +0 (el match en sí no cuenta)
@@ -165,13 +168,14 @@ def load_config(path):
 Enfócate en las funciones con puntuaciones por encima de tu umbral (predeterminado: 15). Estrategias comunes de refactorización:
 
 1. **Extraer Métodos** - Mover la lógica anidada a funciones separadas
-2. **Retornos Anticipados** - Usar cláusulas de `return` para reducir el anidamiento
-3. **Simplificar Condiciones** - Dividir expresiones booleanas complejas en variables con nombre
-4. **Patrón Estrategia** - Reemplazar if/else anidados con polimorfismo
+1. **Retornos Anticipados** - Usar cláusulas de `return` para reducir el anidamiento
+1. **Simplificar Condiciones** - Dividir expresiones booleanas complejas en variables con nombre
+1. **Patrón Estrategia** - Reemplazar if/else anidados con polimorfismo
 
 ### Ejemplo de Refactorización
 
 **Antes (Complejidad: 12)**
+
 ```python
 def process_order(order):
     if order:                          # +1
@@ -189,6 +193,7 @@ def process_order(order):
 ```
 
 **Después (Complejidad: 4)**
+
 ```python
 def process_order(order):
     if not order:                  # +1
@@ -211,6 +216,7 @@ def process_order(order):
 ```
 
 **Mejoras clave:**
+
 - Anidamiento reducido de 4 niveles a 1
 - Complejidad reducida de 12 a 4
 - La lógica ahora es lineal y más fácil de seguir
@@ -218,9 +224,9 @@ def process_order(order):
 ## Consejos para Interpretar Puntuaciones
 
 1. **El Contexto Importa** - Una puntuación de 20 puede ser aceptable para un algoritmo complejo pero problemática para lógica de negocio
-2. **Tendencia en el Tiempo** - Observa la complejidad creciente en funciones que modificas frecuentemente
-3. **Puntuaciones Relativas** - Compara funciones dentro de la misma base de código para identificar valores atípicos
-4. **Acuerdo del Equipo** - Establece umbrales que funcionen para tu equipo y proyecto
+1. **Tendencia en el Tiempo** - Observa la complejidad creciente en funciones que modificas frecuentemente
+1. **Puntuaciones Relativas** - Compara funciones dentro de la misma base de código para identificar valores atípicos
+1. **Acuerdo del Equipo** - Establece umbrales que funcionen para tu equipo y proyecto
 
 ## Lecturas Adicionales
 

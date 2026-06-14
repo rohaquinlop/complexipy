@@ -1,22 +1,35 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Features
+
+- Add `--no-ignore` flag to disregard `# complexipy: ignore` and `# noqa: complexipy` comments
+- Add `--report-ignored` flag to list all suppressed functions with optional JSON export to `complexipy-ignored.json`
+- Add `IgnoredLocation` type and `collect_all_ignored_locations()` to the Python API
+
 ## [5.5.0] - 2026-05-22
 
 ### Bug Fixes
 
 - **cache:** Bound target-set entries
+
 ### Documentation
 
 - Document recursive exclude globs
+
 ### Features
 
 - Add deterministic refactor plans
 - **cli:** Show refactor plans in rich output
 - **refactor-plans:** Include plans in json output
+
 ### Miscellaneous
 
 - **ci:** Deploy docs only on releases
+
 ### Refactor
 
 - Replace untyped dicts with dataclasses in output.py
@@ -26,9 +39,11 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - **snapshot:** Stabilize snapshot output
+
 ### CI/CD
 
 - Speed up pull request workflow
+
 ### Documentation
 
 - Update stale CLI and API docs## [5.4.0] - 2026-04-25
@@ -36,9 +51,11 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - Remove comprehension complexity scoring
+
 ### Documentation
 
 - Add complexipy teams link
+
 ### Miscellaneous
 
 - Remove warnings on cfg's feature wasm## [5.3.0] - 2026-04-16
@@ -48,8 +65,8 @@ All notable changes to this project will be documented in this file.
 - Snapshot watermark now determines exit code when active
 - Show snapshot-allowed functions as PASSED in output
 - Correct test assertions for comprehension complexity scoring
-- Replace FileComplexity constructor with _main() in diff tests
-- Use _complexipy.main() instead of FileComplexity constructor in tests
+- Replace FileComplexity constructor with \_main() in diff tests
+- Use \_complexipy.main() instead of FileComplexity constructor in tests
 - **utils:** Improve status output and ignore docs
 - **utils:** Support ignore markers on multiline defs
 - Add PyO3 default for check_script and validate --script-strict requires --check-script
@@ -59,9 +76,11 @@ All notable changes to this project will be documented in this file.
 - Resolve merge conflicts with upstream main
 - Ratchet only fails when regressions breach the threshold
 - **ci:** Handle bad CRC-32 entries in wheels during repack
+
 ### CI/CD
 
 - Retrigger after transient ppc64le build failure
+
 ### Documentation
 
 - Sync CLI and API documentation
@@ -71,6 +90,7 @@ All notable changes to this project will be documented in this file.
 - Polish documentation formatting
 - **config:** Resolve merge conflicts in docs
 - **readme:** Document --ratchet flag
+
 ### Features
 
 - Score cognitive complexity of comprehension expressions
@@ -84,6 +104,7 @@ All notable changes to this project will be documented in this file.
 - Add --check-script and --script-strict CLI flags
 - Add --plain flag for machine-readable output (closes #121)
 - Add --top N flag to show the N most complex functions
+
 ### Miscellaneous
 
 - Remove sonar keyword from project metadata
@@ -92,13 +113,15 @@ All notable changes to this project will be documented in this file.
 - **deps:** Refresh lockfiles
 - **config:** Align ty config with ci checks
 - Remove local issue and pr notes
+
 ### Refactor
 
-- Extract _is_function_passing to reduce build_output_rows complexity
+- Extract \_is_function_passing to reduce build_output_rows complexity
 - Reduce cognitive complexity of main and format_diff
 - Flatten rust module layout
 - Make module-level complexity a first-class analysis entry
 - Extract handle_display to reduce main() cognitive complexity
+
 ### Testing
 
 - Add script-level complexity fixture files
@@ -112,6 +135,7 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - #110 reduce error verbosity
+
 ### Features
 
 - #104 Use failed flag to modify output
@@ -119,18 +143,22 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- **py38:** Postpone annotations to support Python 3.8\n\n- Add  to  and \n- Fixes TypeError: unsupported operand type(s) for |: 'TypeVar' and 'NoneType' on 3.8\n- Keeps behavior unchanged on Python 3.9–3.12 (no-op on 3.11+)\n\nFixes #95
+- **py38:** Postpone annotations to support Python 3.8\\n\\n- Add to and \\n- Fixes TypeError: unsupported operand type(s) for |: 'TypeVar' and 'NoneType' on 3.8\\n- Keeps behavior unchanged on Python 3.9–3.12 (no-op on 3.11+)\\n\\nFixes #95
+
 ### CI/CD
 
-- Test across Python 3.8–3.12 on all OSes\n\n- Add matrix for python-version 3.8, 3.9, 3.10, 3.11, 3.12\n- Run uv/maturin/pytest and CLI smoke under each version using: uv run -p <version>\n- Ensures import-time annotation issues are caught on older Python
+- Test across Python 3.8–3.12 on all OSes\\n\\n- Add matrix for python-version 3.8, 3.9, 3.10, 3.11, 3.12\\n- Run uv/maturin/pytest and CLI smoke under each version using: uv run -p <version>\\n- Ensures import-time annotation issues are caught on older Python
+
 ### Documentation
 
 - **vscode:** Add 0.2.0 changelog to README
+
 ### Features
 
 - **cli:** Add --version flag to print installed version
 - #94 support inline ignore
 - **exclude:** Path-aware directory/file excludes relative to roots
+
 ### Update
 
 - Docs and cli order## [3.1.1] - 2025-07-06
@@ -141,6 +169,7 @@ All notable changes to this project will be documented in this file.
 - Revise documentation for command-line options and usage examples
 - Center badges in README and documentation
 - Update complexity thresholds in documentation and code
+
 ### Miscellaneous
 
 - Bump version to 3.1.0 in Cargo files and documentation## [3.0.0] - 2025-06-15
@@ -150,6 +179,7 @@ All notable changes to this project will be documented in this file.
 - **rust:** Fix decorator detection
 - **web:** Restart UI when no code is provided
 - **web:** Improve error handling in code analysis
+
 ### Documentation
 
 - Add GitHub Actions badge to README and index documentation
@@ -159,6 +189,7 @@ All notable changes to this project will be documented in this file.
 - Update README and documentation to reflect changes in complexity analysis options
 - Update README and documentation to reflect new output options for complexity analysis
 - Add pre-commit badge to README and documentation
+
 ### Features
 
 - **rust:** Refactor to reduce code duplication
@@ -174,6 +205,7 @@ All notable changes to this project will be documented in this file.
 - Introduce complexipy VSCode extension for cognitive complexity analysis
 - Update branding assets for complexipy extension
 - **cli:** #70 Add JSON output option for complexity analysis
+
 ### Miscellaneous
 
 - **deps:** Update dependencies and version for complexipy
@@ -191,6 +223,7 @@ All notable changes to this project will be documented in this file.
 - Update .gitignore and add LICENSE file for complexipy extension
 - Update CHANGELOG for version 0.0.2
 - Add pre-commit configuration and documentation for complexity checks
+
 ### Refactor
 
 - **wasm:** Simplify code complexity analysis and remove unused line number tracking
@@ -206,6 +239,7 @@ All notable changes to this project will be documented in this file.
 - **tests:** Clean up extension test file by removing unused imports and messages
 - Rename Rust module and update imports throughout the codebase
 - Update command name and enhance README for clarity
+
 ### WIP
 
 - Added wasm support on the same complexipy library## [2.1.1] - 2025-04-24
@@ -225,6 +259,7 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - **python:** #57 fix output_summary function call
+
 ### Features
 
 - **build:** Bump version to 1.2.0## [1.1.0] - 2024-12-14
@@ -253,6 +288,7 @@ All notable changes to this project will be documented in this file.
 - **ci:** Update ci
 - **ci:** Update ci
 - **ci:** Update ci
+
 ### Features
 
 - **cli|rust:** Update version to 0.3.3## [0.3.2] - 2024-03-22
@@ -261,6 +297,7 @@ All notable changes to this project will be documented in this file.
 
 - **doc:** Fix typo
 - **ci:** Update ci
+
 ### Features
 
 - **cli:** #37 no files found
@@ -269,6 +306,7 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - **algorithm:** #16 fix cognitive complexity
+
 ### Features
 
 - **build|report|docs:** #27 Add sort option to the output
@@ -279,6 +317,7 @@ All notable changes to this project will be documented in this file.
 
 - **docs:** Fix typo
 - **docs:** Fix links
+
 ### Features
 
 - **test:** #16 update test_try
@@ -321,10 +360,10 @@ All notable changes to this project will be documented in this file.
 - **back:** Add ast and first calculations
 - **back:** Add tests
 - **back:** Add count_bool_ops function
-- **back:** Improve cognitive complexity algorithm [**BREAKING**]
+- **back:** Improve cognitive complexity algorithm \[**BREAKING**\]
 - **test:** Add new tests
 - **test:** Add new tests
-- **back:** Add directory analysis [**BREAKING**]
+- **back:** Add directory analysis \[**BREAKING**\]
 - **cli:** Add parameters information to the help message
 - **docs:** Update readme
 - **ci:** Add workflow
@@ -332,7 +371,7 @@ All notable changes to this project will be documented in this file.
 - **build:** Set python version to 3.11
 - **test:** Delete test
 - **build:** Set python minimum version to 3.11
-- **build:** Update python version to 3.11 [**BREAKING**]
+- **build:** Update python version to 3.11 \[**BREAKING**\]
 - **ci:** Setup rust-toolchain
 - **build:** Set rustpython-parser version
 - **build:** Pin rustpython-parser
@@ -351,6 +390,7 @@ All notable changes to this project will be documented in this file.
 - **ci:** Remove skip existing
 - **ci:** Add skip existing
 - **build:** Update version
+
 ### Revert
 
 - **build:** Set python version to 3.11

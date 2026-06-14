@@ -11,6 +11,7 @@ Ruff's [PLR0912 (too-many-branches)](https://docs.astral.sh/ruff/rules/too-many-
 ### How Ruff Counts Branches
 
 Ruff counts each of these as a branch:
+
 - `if`, `elif`, `else` statements
 - `for` and `while` loops
 - `and`, `or` boolean operators
@@ -64,6 +65,7 @@ def example(a, b, c, d):
 ### 1. Nesting is Critical in complexipy
 
 **Ruff treats all branches equally:**
+
 ```python
 # Ruff: 3 branches
 def flat_logic(a, b, c):
@@ -85,6 +87,7 @@ def nested_logic(a, b, c):
 ```
 
 **complexipy accounts for nesting:**
+
 ```python
 # complexipy: 3 points
 def flat_logic(a, b, c):
@@ -183,6 +186,7 @@ def process_payment(order):
 ```
 
 In this example:
+
 - Ruff flags the function for having 7 branches (over typical threshold)
 - complexipy gives it 8 points, with most complexity coming from the nested fraud check
 - complexipy better identifies that the deeply nested fraud check is the problematic part
@@ -190,12 +194,14 @@ In this example:
 ## Which Should You Use?
 
 ### Use Ruff (PLR0912) When:
+
 - You need to measure structural complexity and branch density
 - You're designing test coverage strategies
 - You want to limit the absolute number of decision points
 - You're already using Ruff for other linting
 
 ### Use complexipy When:
+
 - You want to identify code that's hard for humans to understand
 - You're focused on code readability and maintainability
 - Nesting and flow complexity are concerns in your codebase
@@ -250,22 +256,22 @@ max-complexity-allowed = 15
 If you're already using Ruff and want to add complexipy:
 
 1. **Baseline First**: Run `complexipy . --snapshot-create` to capture current state
-2. **Set Thresholds**: Start with a higher threshold (e.g., 20) and lower it over time
-3. **Fix New Code**: Only fail CI on new violations
-4. **Gradual Improvement**: Refactor legacy code opportunistically
+1. **Set Thresholds**: Start with a higher threshold (e.g., 20) and lower it over time
+1. **Fix New Code**: Only fail CI on new violations
+1. **Gradual Improvement**: Refactor legacy code opportunistically
 
 ## Summary
 
-| Feature | Ruff PLR0912 | complexipy |
-|---------|--------------|------------|
-| **Based on** | Cyclomatic Complexity | Cognitive Complexity |
-| **Counts nesting** | ❌ No | ✅ Yes |
-| **else penalty** | ✅ Yes | ❌ No (only nesting) |
-| **Boolean operators** | ✅ Yes | ✅ Yes |
-| **match statements** | ✅ Yes | Partial (content only) |
-| **Best for** | Structural, testing, branch density | How difficult code is to understand |
-| **Threshold** | ~12 branches | ~15 points |
-| **Performance** | Fast (Rust) | Very fast (Rust) |
+| Feature               | Ruff PLR0912                        | complexipy                          |
+| --------------------- | ----------------------------------- | ----------------------------------- |
+| **Based on**          | Cyclomatic Complexity               | Cognitive Complexity                |
+| **Counts nesting**    | ❌ No                               | ✅ Yes                              |
+| **else penalty**      | ✅ Yes                              | ❌ No (only nesting)                |
+| **Boolean operators** | ✅ Yes                              | ✅ Yes                              |
+| **match statements**  | ✅ Yes                              | Partial (content only)              |
+| **Best for**          | Structural, testing, branch density | How difficult code is to understand |
+| **Threshold**         | ~12 branches                        | ~15 points                          |
+| **Performance**       | Fast (Rust)                         | Very fast (Rust)                    |
 
 **The Bottom Line**: Ruff's PLR0912 measures structural complexity and branch density (useful for testing and analysis), while complexipy measures how difficult code is for humans to understand and maintain by penalizing nesting and flow breaks. Both are valuable, and using them together provides the best coverage for code quality.
 
