@@ -72,6 +72,8 @@ jobs:
 
       - name: Bump version and update changelog
         if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
         run: |-
           NEXT="${{ steps.version.outputs.next }}"
           CURRENT="${{ steps.version.outputs.current }}"
@@ -94,3 +96,9 @@ jobs:
           git commit -m "chore: release v$NEXT"
           git tag "$NEXT"
           git push origin main --tags
+
+          # Create GitHub Release with changelog
+          awk "/^## \[$NEXT\]/,/^## \[/" CHANGELOG.md | sed '\$d' > /tmp/release-notes.md
+          gh release create "$NEXT" \
+            --title "$NEXT" \
+            --notes-file /tmp/release-notes.md
