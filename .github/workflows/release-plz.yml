@@ -11,10 +11,11 @@ permissions:
 jobs:
   auto-release:
     name: Auto-release
-    # Prevent infinite loop: skip release commits and pipeline fix commits
+    # Prevent infinite loop: skip release commits and pipeline maintenance commits
     if: |
       !contains(github.event.head_commit.message, 'chore: release v') &&
-      !startsWith(github.event.head_commit.message, 'fix(release):')
+      !startsWith(github.event.head_commit.message, 'fix(release):') &&
+      !startsWith(github.event.head_commit.message, 'chore(release):')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -56,7 +57,7 @@ jobs:
                   scope=$(echo "$msg" | sed -n 's/^[a-z]*(\([^)]*\)):.*/\1/p')
                   case "$type" in
                     feat) echo "RELEASE" ;;
-                    fix)  [ "$scope" != "release" ] && echo "RELEASE" ;;
+                    fix)  if [ "$scope" != "release" ]; then echo "RELEASE"; fi ;;
                   esac
                 done)
             if [ -z "$HAS_RELEASE" ]; then
