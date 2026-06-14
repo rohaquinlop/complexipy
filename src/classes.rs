@@ -4,7 +4,10 @@ use pyo3::prelude::*;
 #[cfg(any(feature = "python", feature = "wasm"))]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
 #[cfg_attr(
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)
@@ -15,7 +18,10 @@ pub struct LineComplexity {
     pub complexity: u64,
 }
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
 #[cfg_attr(
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)
@@ -32,7 +38,10 @@ pub struct RefactorPlan {
     pub steps: Vec<String>,
 }
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
 #[cfg_attr(
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)
@@ -53,7 +62,10 @@ pub struct FunctionComplexity {
 
 #[cfg_attr(
     feature = "python",
-    pyclass(module = "complexipy", get_all),
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize, Clone)
 )]
 pub struct FileComplexity {
@@ -64,7 +76,10 @@ pub struct FileComplexity {
     pub complexity: u64,
 }
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
 #[cfg_attr(
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)
@@ -77,7 +92,10 @@ pub struct CodeComplexity {
     pub version: String,
 }
 
-#[cfg_attr(feature = "python", pyclass(module = "complexipy", get_all))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
 #[cfg_attr(
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)

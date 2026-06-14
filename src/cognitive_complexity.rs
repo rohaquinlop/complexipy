@@ -34,9 +34,9 @@ mod python_deps {
 }
 
 #[cfg(feature = "python")]
-struct ProcessOptions<'a> {
+struct ProcessOptions {
     quiet: bool,
-    exclude: Vec<&'a str>,
+    exclude: Vec<String>,
     check_script: bool,
     no_ignore: bool,
 }
@@ -51,9 +51,9 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 #[pyfunction]
 #[pyo3(signature = (paths, quiet, exclude, check_script=false, no_ignore=false, invocation_path="."))]
 pub fn main(
-    paths: Vec<&str>,
+    paths: Vec<String>,
     quiet: bool,
-    exclude: Vec<&str>,
+    exclude: Vec<String>,
     check_script: bool,
     no_ignore: bool,
     invocation_path: &str,
@@ -67,8 +67,8 @@ pub fn main(
     let mut failed_paths = Vec::new();
 
     for path in paths {
-        let is_url = re.is_match(path);
-        let path_obj = path::Path::new(path);
+        let is_url = re.is_match(&path);
+        let path_obj = path::Path::new(&path);
         let exists = path_obj.exists();
         let is_dir = path_obj.is_dir();
 
@@ -84,7 +84,7 @@ pub fn main(
             no_ignore,
         };
 
-        match process_path(path, is_dir, is_url, &opts) {
+        match process_path(&path, is_dir, is_url, &opts) {
             Ok((mut complexities, mut f_paths)) => {
                 successful.append(&mut complexities);
                 failed_paths.append(&mut f_paths);
@@ -858,8 +858,8 @@ pub fn collect_file_ignored_locations(
 #[pyfunction]
 #[pyo3(signature = (paths, exclude, invocation_path="."))]
 pub fn collect_all_ignored_locations(
-    paths: Vec<&str>,
-    exclude: Vec<&str>,
+    paths: Vec<String>,
+    exclude: Vec<String>,
     invocation_path: &str,
 ) -> PyResult<(Vec<IgnoredLocation>, Vec<String>)> {
     let _invocation_dir = path::Path::new(invocation_path)
@@ -911,7 +911,7 @@ pub fn collect_all_ignored_locations(
 
 fn collect_ignored_locations_from_url(
     url: &str,
-    exclude: &[&str],
+    exclude: &[String],
 ) -> PyResult<Vec<IgnoredLocation>> {
     let dir = tempdir()?;
     let repo_name = get_repo_name(url)?;

@@ -2,7 +2,7 @@ use ignore::Walk;
 use wax::walk::{Entry, FileIterator};
 use wax::{Glob, any};
 
-pub fn get_paths_to_process(root_path: &str, to_exclude_paths: Vec<&str>) -> Vec<String> {
+pub fn get_paths_to_process(root_path: &str, to_exclude_paths: Vec<String>) -> Vec<String> {
     let mut files_paths: Vec<String> = Vec::new();
     let glob = Glob::new("**/*.py").unwrap();
     let gitignore_walk = Walk::new(root_path);
@@ -13,9 +13,10 @@ pub fn get_paths_to_process(root_path: &str, to_exclude_paths: Vec<&str>) -> Vec
         })
         .collect();
 
+    let exclude_refs: Vec<&str> = to_exclude_paths.iter().map(|s| s.as_str()).collect();
     for entry in glob
         .walk(root_path)
-        .not(any(to_exclude_paths))
+        .not(any(exclude_refs))
         .unwrap()
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
