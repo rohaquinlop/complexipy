@@ -105,7 +105,6 @@ markdown_extensions:
   - footnotes
   - pymdownx.mark
   - attr_list
-  - pymdownx.extra
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
@@ -113,4 +112,4 @@ markdown_extensions:
       permalink: true
       toc_depth: 3
 
-copyright: Copyright &copy; 2021-2025 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+copyright: Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>

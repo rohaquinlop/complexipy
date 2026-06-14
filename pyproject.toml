@@ -70,9 +70,7 @@ quiet = true
 ignore-complexity = false
 failed = true
 sort = "asc"
-output-csv = false
-output-json = false
-output-gitlab = false
+output-format = []
 
 [tool.ruff]
 exclude = ["tests"]
