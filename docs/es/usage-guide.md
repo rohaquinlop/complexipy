@@ -289,6 +289,8 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     output-format = ["json", "gitlab"]
     output = "reports/"
     check-script = false
+    no-ignore = false
+    report-ignored = false
     ```
 
 <!-- prettier-ignore -->
@@ -331,6 +333,9 @@ for func in result.functions:
     print(f"{func.name}:")
     print(f"  Complexity: {func.complexity}")
     print(f"  Lines: {func.line_start}-{func.line_end}")
+
+# Analizar sin respetar los comentarios de ignorado en línea
+result = file_complexity("src/main.py", no_ignore=True)
 ```
 
 ### Analizar Cadenas de Código
@@ -354,6 +359,9 @@ print(f"Complexity: {result.complexity}")
 
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
+
+# Analizar cadena de código sin respetar los comentarios de ignorado
+result = code_complexity(code, no_ignore=True)
 ```
 
 ### Uso Práctico de la API
@@ -570,6 +578,52 @@ def complex_function():
 <!-- prettier-ignore -->
 !!! warning "Usar con Moderación"
     Los ignorados en línea deben ser temporales. Documenta por qué la complejidad es necesaria y rastrea la deuda técnica.
+
+### Deshabilitar Ignorados en Línea
+
+Usa `--no-ignore` para ignorar todos los comentarios de supresión y analizar cada función:
+
+```bash
+complexipy . --no-ignore
+```
+
+Las funciones previamente suprimidas por `# complexipy: ignore` o `# noqa: complexipy` se analizarán normalmente y pueden superar el umbral.
+
+### Reportar Funciones Ignoradas
+
+Usa `--report-ignored` para listar cada ubicación donde un comentario de ignore suprime una función:
+
+```bash
+# Listar funciones ignoradas
+complexipy . --report-ignored
+
+# Combinar con --no-ignore para reportar mientras se analiza todo
+complexipy . --report-ignored --no-ignore
+```
+
+El formato de salida es `ruta:línea  # texto-del-comentario`. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. El informe se imprime incluso bajo `--quiet`.
+
+Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
+
+```python
+from complexipy import file_complexity, code_complexity
+
+# Analizar sin respetar los comentarios de ignore
+result = file_complexity("app.py", no_ignore=True)
+```
+
+Para recolectar ubicaciones ignoradas programáticamente, usa `collect_all_ignored_locations()`:
+
+```python
+from complexipy import collect_all_ignored_locations
+
+locations, failed = collect_all_ignored_locations(
+    paths=["src"],
+    exclude=["tests/"],
+)
+for loc in locations:
+    print(f"{loc.path}:{loc.line}  {loc.comment}")
+```
 
 ## Integración con CI/CD
 

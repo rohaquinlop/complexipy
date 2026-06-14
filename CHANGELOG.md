@@ -1,6 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Features
+
+- Add `--no-ignore` flag to disregard `# complexipy: ignore` and `# noqa: complexipy` comments
+- Add `--report-ignored` flag to list all suppressed functions with optional JSON export to `complexipy-ignored.json`
+- Add `IgnoredLocation` type and `collect_all_ignored_locations()` to the Python API
+
 ## [5.5.0] - 2026-05-22
 
 ### Bug Fixes

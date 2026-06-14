@@ -90,6 +90,12 @@ complexipy . --diff HEAD~1
 complexipy . --diff main --ratchet
 # Analyze current directory while excluding files or directories with glob patterns
 complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
+
+# Disregard all inline ignore comments
+complexipy . --no-ignore
+
+# Report all ignored functions
+complexipy . --report-ignored
 ```
 
 ### Python API
@@ -213,6 +219,8 @@ color = "auto"
 sort = "asc"
 exclude = []
 check-script = false
+no-ignore = false
+report-ignored = false
 output-format = ["json", "sarif"]
 output = "reports/"
 ```
@@ -231,6 +239,8 @@ color = "auto"
 sort = "asc"
 exclude = []
 check-script = false
+no-ignore = false
+report-ignored = false
 output-format = ["json"]
 output = "complexipy-results.json"
 ```
@@ -263,6 +273,8 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--diff <ref>`                  | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
 | `--ratchet`                     | With `--diff`, fail only when a change pushes a function above `--max-complexity-allowed` or makes an already-over function worse                                | `false` |
 | `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
+| `--no-ignore`                 | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`)                                                 | `false` |
+| `--report-ignored`            | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet`                                                               | `false` |
 | `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
 | `--output-csv`                  | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
 | `--output-gitlab`               | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
@@ -374,14 +386,42 @@ def legacy_adapter(x, y):  # complexipy: ignore
     return 0
 ```
 
-Place `# complexipy: ignore` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
+Place `# complexipy: ignore` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it's ignored by the parser.
+
+### Disabling Inline Ignores
+
+Use `--no-ignore` to disregard all inline ignore comments and analyze every function:
+
+```bash
+# Treat every function equally, regardless of suppression
+complexipy . --no-ignore
+```
+
+Functions previously suppressed by `# complexipy: ignore` or `# noqa: complexipy` will be analyzed normally and may fail the threshold.
+
+### Reporting Ignored Functions
+
+Use `--report-ignored` to list every location where an ignore comment suppresses a function:
+
+```bash
+# List ignored functions
+complexipy . --report-ignored
+
+# Combine with --no-ignore to report while analyzing everything
+complexipy . --report-ignored --no-ignore
+```
+
+When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. The report prints even under `--quiet`.
+
+Both flags are also available in the Python API via `no_ignore=True` on `file_complexity()` and `code_complexity()`. To programmatically collect ignored locations, use `collect_all_ignored_locations()` from the `complexipy` package.
 
 ## API Reference
 
 ```python
 # Core functions
-file_complexity(path: str, check_script: bool = False) -> FileComplexity
-code_complexity(source: str, check_script: bool = False) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
+code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
+collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
 
 # Return types
 FileComplexity:
@@ -411,6 +451,11 @@ RefactorPlan:
 LineComplexity:
   ├─ line: int
   └─ complexity: int
+
+IgnoredLocation:
+  ├─ path: str
+  ├─ line: int
+  └─ comment: str
 
 CodeComplexity:
   ├─ complexity: int

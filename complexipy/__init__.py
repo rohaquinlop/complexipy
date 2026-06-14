@@ -7,6 +7,7 @@ from complexipy._complexipy import (
     IgnoredLocation,
     LineComplexity,
     RefactorPlan,
+    collect_all_ignored_locations,
 )
 from complexipy.api import (
     code_complexity,
@@ -21,5 +22,6 @@ __all__ = [
     "LineComplexity",
     "RefactorPlan",
     "code_complexity",
+    "collect_all_ignored_locations",
     "file_complexity",
 ]

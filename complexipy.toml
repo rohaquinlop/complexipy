@@ -5,5 +5,7 @@ ignore-complexity = false
 failed = false
 sort = "asc"
 exclude = ["tests/**"]
+no-ignore = false
+report-ignored = false
 output-csv = false
 output-json = false

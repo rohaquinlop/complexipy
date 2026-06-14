@@ -87,6 +87,11 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 complexipy . --diff HEAD~1
 # Analyze current directory while excluding files or directories with glob patterns
 complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
+# Disregard all inline ignore comments
+complexipy . --no-ignore
+
+# Report all ignored functions
+complexipy . --report-ignored
 ```
 
 ### Python API
@@ -174,6 +179,8 @@ color = "auto"
 sort = "asc"
 exclude = []
 check-script = false
+no-ignore = false
+report-ignored = false
 output-format = ["json", "gitlab"]
 output = "reports/"
 ```
@@ -192,6 +199,8 @@ color = "auto"
 sort = "asc"
 exclude = []
 check-script = false
+no-ignore = false
+report-ignored = false
 output-format = ["json"]
 output = "complexipy-results.json"
 ```
@@ -224,6 +233,8 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--diff <ref>`             | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                                           | —       |
 | `--ratchet`, `-R`          | With `--diff`, fail only when a change pushes a function above `--max-complexity-allowed` (or makes an already-over function worse). See [Ratchet Mode](usage-guide.md#ratchet-mode) | `false` |
 | `--check-script`           | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                          | `false` |
+| `--no-ignore`                 | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`)                                                 | `false` |
+| `--report-ignored`            | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet`                                                               | `false` |
 | `--output-json`            | Deprecated alias for `--output-format json`                                                                                                                      | `false` |
 | `--output-csv`             | Deprecated alias for `--output-format csv`                                                                                                                       | `false` |
 | `--output-gitlab`          | Deprecated alias for `--output-format gitlab`                                                                                                                    | `false` |
@@ -334,12 +345,33 @@ Place `# complexipy: ignore` on the function definition line (or the line immedi
 
 > **Note:** The `# noqa: complexipy` syntax is deprecated. Tools like [yesqa](https://github.com/asottile/yesqa) strip unrecognized `# noqa` comments, which would silently remove your suppressions. Migrate to `# complexipy: ignore` to avoid this issue.
 
+### Disabling Inline Ignores
+
+Use `--no-ignore` to disregard all inline ignore comments and analyze every function:
+
+```bash
+complexipy . --no-ignore
+```
+
+Functions previously suppressed will be analyzed normally and may fail the threshold.
+
+### Reporting Ignored Functions
+
+Use `--report-ignored` to list every location where an ignore comment suppresses a function:
+
+```bash
+complexipy . --report-ignored
+```
+
+When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`.
+
 ## API Reference
 
 ```python
 # Core functions
-file_complexity(path: str, check_script: bool = False) -> FileComplexity
-code_complexity(source: str, check_script: bool = False) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
+code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
+collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
 
 # Return types
 FileComplexity:
@@ -369,6 +401,11 @@ RefactorPlan:
 LineComplexity:
   ├─ line: int
   └─ complexity: int
+
+IgnoredLocation:
+  ├─ path: str
+  ├─ line: int
+  └─ comment: str
 
 CodeComplexity:
   ├─ complexity: int
