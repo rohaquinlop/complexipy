@@ -15,7 +15,8 @@ jobs:
     if: |
       !contains(github.event.head_commit.message, 'chore: release v') &&
       !startsWith(github.event.head_commit.message, 'fix(release):') &&
-      !startsWith(github.event.head_commit.message, 'chore(release):')
+      !startsWith(github.event.head_commit.message, 'chore(release):') &&
+      !startsWith(github.event.head_commit.message, 'ci')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
