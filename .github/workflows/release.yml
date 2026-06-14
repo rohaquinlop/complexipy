@@ -267,9 +267,16 @@ jobs:
           submodules: recursive
       - uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: artifacts
           pattern: wheels-*
-          merge-multiple: true
+      - name: Flatten artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          find artifacts -name '*.whl' -o -name '*.tar.gz' | while read f; do
+            mv "$f" dist/
+          done
+          rm -rf artifacts
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
