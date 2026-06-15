@@ -1,4 +1,6 @@
 #[cfg(any(feature = "python", feature = "wasm"))]
+use regex::Regex;
+#[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
 
 #[cfg(feature = "python")]
@@ -342,35 +344,17 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
 /// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
 /// when the line contains the corresponding pattern (case-insensitive).
 /// Returns `None` if neither marker is found.
-fn is_word_boundary(s: &str, pos: usize) -> bool {
-    pos >= s.len() || (!s.as_bytes()[pos].is_ascii_alphanumeric() && s.as_bytes()[pos] != b'_')
-}
-
-/// Extract a canonical ignore comment marker from a line.
-///
-/// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
-/// when the line contains the corresponding pattern (case-insensitive).
-/// Returns `None` if neither marker is found.
 #[cfg(any(feature = "python", feature = "wasm"))]
 pub fn extract_comment_marker(line: &str) -> Option<String> {
-    for (idx, ch) in line.char_indices() {
-        if ch == '#' {
-            let after_hash = &line[idx + 1..];
-            let trimmed = after_hash.trim_start();
-            if trimmed.len() >= "complexipy: ignore".len()
-                && trimmed[.."complexipy: ignore".len()].eq_ignore_ascii_case("complexipy: ignore")
-                && is_word_boundary(trimmed, "complexipy: ignore".len())
-            {
-                return Some("# complexipy: ignore".to_string());
-            }
-            if trimmed.len() >= "noqa: complexipy".len()
-                && trimmed[.."noqa: complexipy".len()].eq_ignore_ascii_case("noqa: complexipy")
-                && is_word_boundary(trimmed, "noqa: complexipy".len())
-            {
-                return Some("# noqa: complexipy".to_string());
-            }
-        }
+    let ignore_re = Regex::new(r"#\s*complexipy\s*:\s*ignore.*").unwrap();
+    let noqa_re = Regex::new(r"#\s*noqa\s*:\s*complexipy").unwrap();
+
+    if ignore_re.is_match(line) {
+        return Some("# complexipy: ignore".to_string());
+    } else if noqa_re.is_match(line) {
+        return Some("# noqa: complexipy".to_string());
     }
+
     None
 }
 
