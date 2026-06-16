@@ -2,6 +2,8 @@
 use regex::Regex;
 #[cfg(any(feature = "python", feature = "wasm"))]
 use ruff_python_ast::{self as ast, Stmt};
+#[cfg(any(feature = "python", feature = "wasm"))]
+use std::sync::OnceLock;
 
 #[cfg(feature = "python")]
 mod python_deps {
@@ -346,8 +348,12 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
 /// Returns `None` if neither marker is found.
 #[cfg(any(feature = "python", feature = "wasm"))]
 pub fn extract_comment_marker(line: &str) -> Option<String> {
-    let ignore_re = Regex::new(r"#\s*complexipy\s*:\s*ignore.*").unwrap();
-    let noqa_re = Regex::new(r"#\s*noqa\s*:\s*complexipy").unwrap();
+    static IGNORE_RE: OnceLock<Regex> = OnceLock::new();
+    static NOQA_RE: OnceLock<Regex> = OnceLock::new();
+
+    let ignore_re =
+        IGNORE_RE.get_or_init(|| Regex::new(r"(?i)#\s*complexipy\s*:\s*ignore.*").unwrap());
+    let noqa_re = NOQA_RE.get_or_init(|| Regex::new(r"(?i)#\s*noqa\s*:\s*complexipy.*").unwrap());
 
     if ignore_re.is_match(line) {
         return Some("# complexipy: ignore".to_string());
