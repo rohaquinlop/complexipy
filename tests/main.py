@@ -45,7 +45,7 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 58 == total_complexity
+        assert 63 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -188,6 +188,25 @@ def hello_world(s: str) -> str:
 """
         result = code_complexity(snippet)
         assert 2 == result.complexity
+
+    def test_utf8_multi_byte_comment_no_panic(self):
+        """Multi-byte UTF-8 characters in comments must not cause panics.
+
+        The old byte-slicing implementation would panic when slicing at
+        positions that fell in the middle of multi-byte UTF-8 characters.
+        This test ensures the regex replacement handles all Unicode safely.
+        """
+        path = self.local_path / "src/test_utf8_comment.py"
+        files, failed = _complexipy.main(
+            [path.resolve().as_posix()], False, [], False
+        )
+        # All marker-commented functions should be ignored; only
+        # not_ignored_normal (no marker) should count.
+        total_complexity = sum([file.complexity for file in files])
+        assert 5 == total_complexity, (
+            f"Expected 5 (only not_ignored_normal), got {total_complexity}"
+        )
+        assert failed == [], f"Unexpected failures: {failed}"
 
     def test_noqa_complexipy_ignore(self):
         path = self.local_path / "src/test_noqa_complex.py"
@@ -421,7 +440,7 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        assert 58 == total_complexity
+        assert 63 == total_complexity
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -432,7 +451,7 @@ def hello_world(s: str) -> str:
             False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 55 == total_complexity
+        assert 60 == total_complexity
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
@@ -443,7 +462,7 @@ def hello_world(s: str) -> str:
             False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 52 == total_complexity
+        assert 57 == total_complexity
 
     def test_exclude_glob_single_file(self):
         path = self.local_path / "src"
@@ -455,7 +474,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude1.py should match exclude_dir/test_exclude1.py (complexity 3)
-        assert 55 == total_complexity
+        assert 60 == total_complexity
 
     def test_exclude_glob_directory(self):
         path = self.local_path / "src"
@@ -467,7 +486,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/exclude_dir/** should match all files under exclude_dir (complexity 6 total)
-        assert 52 == total_complexity
+        assert 57 == total_complexity
 
     def test_exclude_glob_wildcard(self):
         path = self.local_path / "src"
@@ -479,7 +498,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
-        assert 52 == total_complexity
+        assert 57 == total_complexity
 
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
