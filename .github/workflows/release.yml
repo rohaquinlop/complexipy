@@ -185,6 +185,9 @@ jobs:
           cache-dependency-glob: uv.lock
       - name: pytest
         shell: bash
+        env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
         run: |
           uv sync --all-extras --frozen
           uv run -p ${{ matrix.python-version }} maturin develop
