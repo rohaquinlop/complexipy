@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy"
-version = "5.6.0"
+version = "5.6.1"
 dependencies = [
  "console_error_panic_hook",
  "csv",
