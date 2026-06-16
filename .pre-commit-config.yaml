@@ -11,10 +11,6 @@ repos:
       - id: mdformat
         additional_dependencies:
           - mdformat-mkdocs>=0.2.1
-        exclude: |
-          (?x)^(
-              CHANGELOG\.md$
-          )$
 
   - repo: https://github.com/lyz-code/yamlfix
     rev: 1.19.1
