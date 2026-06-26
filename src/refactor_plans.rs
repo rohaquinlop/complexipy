@@ -1,8 +1,9 @@
 pub use crate::classes::{LineComplexity, RefactorPlan};
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum RegionKind {
+    #[default]
     If,
     ElifChain,
     Loop,
@@ -13,7 +14,7 @@ pub enum RegionKind {
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ComplexityRegion {
     pub kind: RegionKind,
     pub line_start: u64,

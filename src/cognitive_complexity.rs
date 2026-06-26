@@ -68,53 +68,21 @@ pub fn function_level_cognitive_complexity_shared(
     for node in ast_body.iter() {
         match node {
             Stmt::FunctionDef(f) => {
-                let start_line = get_line_number(usize::from(f.range.start()), code);
-                if no_ignore || !has_noqa_complexipy(start_line, code) {
-                    let mut result = statement_cognitive_complexity_shared(node, 0, code);
-                    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), code) {
-                        result.complexity += 1;
-                        result.line_complexities.push(LineComplexity {
-                            line,
-                            complexity: 1,
-                        });
-                    }
-                    functions.push(FunctionComplexity {
-                        name: f.name.to_string(),
-                        complexity: result.complexity,
-                        line_start: start_line,
-                        line_end: get_line_number(usize::from(f.range.end()), code),
-                        line_complexities: result.line_complexities,
-                        refactor_plans: build_refactor_plans(result.complexity, &result.regions),
-                    });
+                if !is_ignored(f, code, no_ignore) {
+                    functions.push(analyze_function(node, f, f.name.to_string(), code));
                 }
             }
             Stmt::ClassDef(c) => {
                 for node in c.body.iter() {
-                    if let Stmt::FunctionDef(f) = node {
-                        let start_line = get_line_number(usize::from(f.range.start()), code);
-                        if no_ignore || !has_noqa_complexipy(start_line, code) {
-                            let mut result = statement_cognitive_complexity_shared(node, 0, code);
-                            if let Some(line) =
-                                detect_direct_recursion(&f.body, f.name.as_str(), code)
-                            {
-                                result.complexity += 1;
-                                result.line_complexities.push(LineComplexity {
-                                    line,
-                                    complexity: 1,
-                                });
-                            }
-                            functions.push(FunctionComplexity {
-                                name: format!("{}::{}", c.name, f.name),
-                                complexity: result.complexity,
-                                line_start: start_line,
-                                line_end: get_line_number(usize::from(f.range.end()), code),
-                                line_complexities: result.line_complexities,
-                                refactor_plans: build_refactor_plans(
-                                    result.complexity,
-                                    &result.regions,
-                                ),
-                            });
-                        }
+                    if let Stmt::FunctionDef(f) = node
+                        && !is_ignored(f, code, no_ignore)
+                    {
+                        functions.push(analyze_function(
+                            node,
+                            f,
+                            format!("{}::{}", c.name, f.name),
+                            code,
+                        ));
                     }
                 }
             }
@@ -147,6 +115,34 @@ pub fn function_level_cognitive_complexity_shared(
         complexity += function.complexity;
     }
     (functions, complexity)
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
+    let start_line = get_line_number(usize::from(f.range.start()), code);
+    !no_ignore && has_noqa_complexipy(start_line, code)
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn analyze_function(
+    node: &Stmt,
+    f: &ast::StmtFunctionDef,
+    name: String,
+    code: &str,
+) -> FunctionComplexity {
+    let mut result = statement_cognitive_complexity_shared(node, 0, code);
+    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), code) {
+        result.complexity += 1;
+        push_line(&mut result, line, 1);
+    }
+    FunctionComplexity {
+        name,
+        complexity: result.complexity,
+        line_start: get_line_number(usize::from(f.range.start()), code),
+        line_end: get_line_number(usize::from(f.range.end()), code),
+        line_complexities: result.line_complexities,
+        refactor_plans: build_refactor_plans(result.complexity, &result.regions),
+    }
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
@@ -202,15 +198,44 @@ fn empty_result() -> ComplexityResult {
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-fn merge_child(
-    result: &mut ComplexityResult,
-    child: ComplexityResult,
-    region_children: &mut Vec<ComplexityRegion>,
-) {
+fn push_line(result: &mut ComplexityResult, line: u64, complexity: u64) {
+    result
+        .line_complexities
+        .push(LineComplexity { line, complexity });
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn absorb(result: &mut ComplexityResult, child: ComplexityResult) {
     result.complexity += child.complexity;
     result.line_complexities.extend(child.line_complexities);
-    region_children.extend(child.regions.clone());
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn absorb_with_regions(result: &mut ComplexityResult, child: ComplexityResult) {
+    result.complexity += child.complexity;
+    result.line_complexities.extend(child.line_complexities);
     result.regions.extend(child.regions);
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn finalize_region(result: &mut ComplexityResult, mut region: ComplexityRegion) {
+    region.total += sum_region_child_totals(&region.children);
+    result.regions.push(region);
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn count_line_bool_ops(
+    result: &mut ComplexityResult,
+    exprs: Vec<ast::Expr>,
+    line: u64,
+    nesting_level: u64,
+) {
+    let complexity: u64 = exprs
+        .into_iter()
+        .map(|expr| count_bool_ops(expr, nesting_level))
+        .sum();
+    result.complexity += complexity;
+    push_line(result, line, complexity);
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
@@ -223,7 +248,9 @@ fn collect_suite(
     let mut result = empty_result();
     for node in suite.iter() {
         let child = statement_cognitive_complexity_shared(node, nesting_level, code);
-        merge_child(&mut result, child, region_children);
+        result.complexity += child.complexity;
+        result.line_complexities.extend(child.line_complexities);
+        region_children.extend(child.regions);
     }
     result
 }
@@ -249,16 +276,57 @@ fn push_bool_region(
             kind: RegionKind::BooleanCondition,
             line_start,
             line_end,
-            structural: 0,
-            nesting: 0,
             boolean,
             total: boolean,
-            elif_count: 0,
-            case_count: 0,
             bool_op_count: boolean,
-            children: Vec::new(),
+            ..Default::default()
         });
     }
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn loop_complexity(
+    control: ast::Expr,
+    body: &ast::Suite,
+    orelse: &ast::Suite,
+    line_start: u64,
+    line_end: u64,
+    nesting_level: u64,
+    code: &str,
+) -> ComplexityResult {
+    let mut result = empty_result();
+    let boolean = count_bool_ops(control, nesting_level);
+    let own = 1 + nesting_level + boolean;
+    result.complexity += own;
+    push_line(&mut result, line_start, own);
+
+    let mut children = Vec::new();
+    push_bool_region(&mut children, line_start, line_start, boolean);
+    absorb(
+        &mut result,
+        collect_suite(body, nesting_level + 1, code, &mut children),
+    );
+    absorb(
+        &mut result,
+        collect_suite(orelse, nesting_level, code, &mut children),
+    );
+
+    finalize_region(
+        &mut result,
+        ComplexityRegion {
+            kind: RegionKind::Loop,
+            line_start,
+            line_end,
+            structural: 1,
+            nesting: nesting_level,
+            boolean,
+            total: own,
+            bool_op_count: boolean,
+            children,
+            ..Default::default()
+        },
+    );
+    result
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
@@ -283,203 +351,126 @@ fn statement_cognitive_complexity_shared(
                 } else {
                     nesting_level
                 };
-                let child = statement_cognitive_complexity_shared(node, next_nesting, code);
-                result.complexity += child.complexity;
-                result.line_complexities.extend(child.line_complexities);
-                result.regions.extend(child.regions);
+                absorb_with_regions(
+                    &mut result,
+                    statement_cognitive_complexity_shared(node, next_nesting, code),
+                );
             }
         }
         Stmt::ClassDef(c) => {
             for node in c.body.iter() {
                 if let Stmt::FunctionDef(..) = node {
-                    let child = statement_cognitive_complexity_shared(node, nesting_level, code);
-                    result.complexity += child.complexity;
-                    result.line_complexities.extend(child.line_complexities);
-                    result.regions.extend(child.regions);
+                    absorb_with_regions(
+                        &mut result,
+                        statement_cognitive_complexity_shared(node, nesting_level, code),
+                    );
                 }
             }
         }
         Stmt::Assign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
-            result.complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: bool_ops_complexity,
-            });
+            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
         }
         Stmt::AnnAssign(a) => {
             if let Some(value) = a.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
-                result.complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(a.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
+                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
             }
         }
         Stmt::AugAssign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
-            result.complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: bool_ops_complexity,
-            });
+            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
         }
         Stmt::For(f) => {
-            let structural = 1;
-            let nesting = nesting_level;
-            let boolean = count_bool_ops(*f.iter.clone(), nesting_level);
-            let own = structural + nesting + boolean;
-            result.complexity += own;
             let line_start = get_line_number(usize::from(f.range.start()), code);
             let line_end = get_line_number(usize::from(f.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
-            let mut children = Vec::new();
-            push_bool_region(&mut children, line_start, line_start, boolean);
-            let child_result = collect_suite(&f.body, nesting_level + 1, code, &mut children);
-            result.complexity += child_result.complexity;
-            result
-                .line_complexities
-                .extend(child_result.line_complexities);
-            let else_result = collect_suite(&f.orelse, nesting_level, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Loop,
+            result = loop_complexity(
+                *f.iter.clone(),
+                &f.body,
+                &f.orelse,
                 line_start,
                 line_end,
-                structural,
-                nesting,
-                boolean,
-                total: own,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: boolean,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+                nesting_level,
+                code,
+            );
         }
         Stmt::While(w) => {
-            let structural = 1;
-            let nesting = nesting_level;
-            let boolean = count_bool_ops(*w.test.clone(), nesting_level);
-            let own = structural + nesting + boolean;
-            result.complexity += own;
             let line_start = get_line_number(usize::from(w.range.start()), code);
             let line_end = get_line_number(usize::from(w.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
-            let mut children = Vec::new();
-            push_bool_region(&mut children, line_start, line_start, boolean);
-            let child_result = collect_suite(&w.body, nesting_level + 1, code, &mut children);
-            result.complexity += child_result.complexity;
-            result
-                .line_complexities
-                .extend(child_result.line_complexities);
-            let else_result = collect_suite(&w.orelse, nesting_level, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Loop,
+            result = loop_complexity(
+                *w.test.clone(),
+                &w.body,
+                &w.orelse,
                 line_start,
                 line_end,
-                structural,
-                nesting,
-                boolean,
-                total: own,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: boolean,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+                nesting_level,
+                code,
+            );
         }
         Stmt::If(i) => {
-            let structural = 1;
-            let nesting = nesting_level;
             let boolean = count_bool_ops(*i.test.clone(), nesting_level);
-            let own = structural + nesting + boolean;
+            let own = 1 + nesting_level + boolean;
             result.complexity += own;
             let line_start = get_line_number(usize::from(i.range.start()), code);
             let line_end = get_line_number(usize::from(i.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
+            push_line(&mut result, line_start, own);
+
             let mut children = Vec::new();
             push_bool_region(&mut children, line_start, line_start, boolean);
-            let body_result = collect_suite(&i.body, nesting_level + 1, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
+            absorb(
+                &mut result,
+                collect_suite(&i.body, nesting_level + 1, code, &mut children),
+            );
+
             let mut elif_count = 0;
             for clause in i.elif_else_clauses.clone() {
+                let line = get_line_number(usize::from(clause.range.start()), code);
                 let mut clause_complexity = 1;
                 if let Some(test) = clause.test.clone() {
                     elif_count += 1;
                     let clause_bool = count_bool_ops(test, nesting_level);
                     clause_complexity += clause_bool;
-                    let line = get_line_number(usize::from(clause.range.start()), code);
                     push_bool_region(&mut children, line, line, clause_bool);
                 }
                 result.complexity += clause_complexity;
-                let line = get_line_number(usize::from(clause.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: clause_complexity,
-                });
-                let clause_result =
-                    collect_suite(&clause.body, nesting_level + 1, code, &mut children);
-                result.complexity += clause_result.complexity;
-                result
-                    .line_complexities
-                    .extend(clause_result.line_complexities);
+                push_line(&mut result, line, clause_complexity);
+                absorb(
+                    &mut result,
+                    collect_suite(&clause.body, nesting_level + 1, code, &mut children),
+                );
             }
+
             let kind = if elif_count > 0 {
                 RegionKind::ElifChain
             } else {
                 RegionKind::If
             };
-            let mut region = ComplexityRegion {
-                kind,
-                line_start,
-                line_end,
-                structural,
-                nesting,
-                boolean,
-                total: own,
-                elif_count,
-                case_count: 0,
-                bool_op_count: boolean,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind,
+                    line_start,
+                    line_end,
+                    structural: 1,
+                    nesting: nesting_level,
+                    boolean,
+                    total: own,
+                    elif_count,
+                    bool_op_count: boolean,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Try(t) => {
             let line_start = get_line_number(usize::from(t.range.start()), code);
             let line_end = get_line_number(usize::from(t.range.end()), code);
             let mut children = Vec::new();
-            let body_result = collect_suite(&t.body, nesting_level, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
+            absorb(
+                &mut result,
+                collect_suite(&t.body, nesting_level, code, &mut children),
+            );
+
             let mut structural = 0;
             let mut own = 0;
             for handler in t.handlers.iter() {
@@ -489,160 +480,125 @@ fn statement_cognitive_complexity_shared(
                 result.complexity += handler_complexity;
                 let handler = handler.clone().expect_except_handler();
                 let line = get_line_number(usize::from(handler.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: handler_complexity,
-                });
-                let handler_result =
-                    collect_suite(&handler.body, nesting_level + 1, code, &mut children);
-                result.complexity += handler_result.complexity;
-                result
-                    .line_complexities
-                    .extend(handler_result.line_complexities);
+                push_line(&mut result, line, handler_complexity);
+                absorb(
+                    &mut result,
+                    collect_suite(&handler.body, nesting_level + 1, code, &mut children),
+                );
             }
-            let else_result = collect_suite(&t.orelse, nesting_level, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let final_result = collect_suite(&t.finalbody, nesting_level, code, &mut children);
-            result.complexity += final_result.complexity;
-            result
-                .line_complexities
-                .extend(final_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Try,
-                line_start,
-                line_end,
-                structural,
-                nesting: nesting_level,
-                boolean: 0,
-                total: own,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: 0,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+
+            absorb(
+                &mut result,
+                collect_suite(&t.orelse, nesting_level, code, &mut children),
+            );
+            absorb(
+                &mut result,
+                collect_suite(&t.finalbody, nesting_level, code, &mut children),
+            );
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::Try,
+                    line_start,
+                    line_end,
+                    structural,
+                    nesting: nesting_level,
+                    total: own,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Match(m) => {
-            let structural = 1;
-            let nesting = nesting_level;
-            let own = structural + nesting;
+            let own = 1 + nesting_level;
             result.complexity += own;
             let line_start = get_line_number(usize::from(m.range.start()), code);
             let line_end = get_line_number(usize::from(m.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
+            push_line(&mut result, line_start, own);
+
             let mut children = Vec::new();
             for case in m.cases.iter() {
-                let case_result = collect_suite(&case.body, nesting_level + 1, code, &mut children);
-                result.complexity += case_result.complexity;
-                result
-                    .line_complexities
-                    .extend(case_result.line_complexities);
+                absorb(
+                    &mut result,
+                    collect_suite(&case.body, nesting_level + 1, code, &mut children),
+                );
             }
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Match,
-                line_start,
-                line_end,
-                structural,
-                nesting,
-                boolean: 0,
-                total: own,
-                elif_count: 0,
-                case_count: m.cases.len() as u64,
-                bool_op_count: 0,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::Match,
+                    line_start,
+                    line_end,
+                    structural: 1,
+                    nesting: nesting_level,
+                    total: own,
+                    case_count: m.cases.len() as u64,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Return(r) => {
             if let Some(value) = r.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
-                result.complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(r.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
+                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
             }
         }
         Stmt::Raise(r) => {
-            let mut raise_complexity = 0;
+            let mut exprs = Vec::new();
             if let Some(exc) = r.exc.clone() {
-                raise_complexity += count_bool_ops(*exc, nesting_level);
+                exprs.push(*exc);
             }
             if let Some(cause) = r.cause.clone() {
-                raise_complexity += count_bool_ops(*cause, nesting_level);
+                exprs.push(*cause);
             }
-            result.complexity += raise_complexity;
             let line = get_line_number(usize::from(r.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: raise_complexity,
-            });
+            count_line_bool_ops(&mut result, exprs, line, nesting_level);
         }
         Stmt::Assert(a) => {
-            let mut assert_complexity = count_bool_ops(*a.test.clone(), nesting_level);
+            let mut exprs = vec![*a.test.clone()];
             if let Some(msg) = a.msg.clone() {
-                assert_complexity += count_bool_ops(*msg, nesting_level);
+                exprs.push(*msg);
             }
-            result.complexity += assert_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: assert_complexity,
-            });
+            count_line_bool_ops(&mut result, exprs, line, nesting_level);
         }
         Stmt::With(w) => {
-            let mut with_complexity = 0;
-            for item in w.items.iter() {
-                with_complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
-            }
+            let with_complexity: u64 = w
+                .items
+                .iter()
+                .map(|item| count_bool_ops(item.context_expr.clone(), nesting_level))
+                .sum();
             result.complexity += with_complexity;
             let line_start = get_line_number(usize::from(w.range.start()), code);
             let line_end = get_line_number(usize::from(w.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: with_complexity,
-            });
+            push_line(&mut result, line_start, with_complexity);
+
             let mut children = Vec::new();
-            // `with` is not a flow-breaking structure (it is absent from B1/B2/
-            // B3), so it does not raise the nesting level for its body.
-            let body_result = collect_suite(&w.body, nesting_level, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::With,
-                line_start,
-                line_end,
-                structural: 0,
-                nesting: 0,
-                boolean: with_complexity,
-                total: with_complexity,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: with_complexity,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+            absorb(
+                &mut result,
+                collect_suite(&w.body, nesting_level, code, &mut children),
+            );
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::With,
+                    line_start,
+                    line_end,
+                    boolean: with_complexity,
+                    total: with_complexity,
+                    bool_op_count: with_complexity,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Expr(e) => {
-            let bool_ops_complexity = count_bool_ops(*e.value.clone(), nesting_level);
-            result.complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(e.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: bool_ops_complexity,
-            });
+            count_line_bool_ops(&mut result, vec![*e.value.clone()], line, nesting_level);
         }
         _ => {}
     }
