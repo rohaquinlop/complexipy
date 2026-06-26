@@ -71,6 +71,9 @@ failed = true
 sort = "asc"
 output-format = []
 
+[tool.uv]
+cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+
 [tool.ruff]
 exclude = ["tests"]
 line-length = 80
