@@ -2,6 +2,8 @@ mod classes;
 mod cognitive_complexity;
 mod helpers;
 mod refactor_plans;
+#[cfg(feature = "python")]
+mod runner;
 mod utils;
 
 // Add WASM support when wasm feature is enabled
@@ -20,9 +22,8 @@ mod _complexipy {
         CodeComplexity, FileComplexity, FunctionComplexity, IgnoredLocation, LineComplexity,
         RefactorPlan,
     };
-    use super::cognitive_complexity::{
-        code_complexity, collect_all_ignored_locations, file_complexity, main,
-    };
+    use super::cognitive_complexity::code_complexity;
+    use super::runner::{collect_all_ignored_locations, file_complexity, main};
     use super::utils::{create_snapshot_file, load_snapshot_file, output_csv, output_json};
     use pyo3::prelude::*;
 

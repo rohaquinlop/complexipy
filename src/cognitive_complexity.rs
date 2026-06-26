@@ -9,280 +9,20 @@ mod shared_deps {
 }
 
 #[cfg(feature = "python")]
-use crate::classes::{CodeComplexity, FileComplexity};
+use crate::classes::CodeComplexity;
 
 #[cfg(any(feature = "python", feature = "wasm"))]
 use shared_deps::*;
 
 #[cfg(feature = "python")]
 mod python_deps {
-    pub use crate::classes::IgnoredLocation;
-    pub use crate::helpers::exclude::get_paths_to_process;
-    pub use crate::utils::{collect_ignored_locations, get_repo_name};
-    pub use indicatif::ProgressBar;
-    pub use indicatif::ProgressStyle;
     pub use pyo3::exceptions::PyValueError;
     pub use pyo3::prelude::*;
-    pub use regex::Regex;
     pub use ruff_python_parser::parse_module;
-    pub use std::env;
-    pub use std::path;
-    pub use std::process;
-    pub use std::sync::{Arc, Mutex};
-    pub use std::thread;
-    pub use tempfile::tempdir;
-}
-
-#[cfg(feature = "python")]
-struct ProcessOptions {
-    quiet: bool,
-    exclude: Vec<String>,
-    check_script: bool,
-    no_ignore: bool,
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
-
-#[cfg(feature = "python")]
-type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
-
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (paths, quiet, exclude, check_script=false, no_ignore=false, invocation_path="."))]
-pub fn main(
-    paths: Vec<String>,
-    quiet: bool,
-    exclude: Vec<String>,
-    check_script: bool,
-    no_ignore: bool,
-    invocation_path: &str,
-) -> PyResult<ComplexitiesAndFailedPaths> {
-    let _ = invocation_path;
-
-    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
-
-    let mut successful = Vec::new();
-    let mut failed_paths = Vec::new();
-
-    for path in paths {
-        let is_url = re.is_match(&path);
-        let path_obj = path::Path::new(&path);
-        let exists = path_obj.exists();
-        let is_dir = path_obj.is_dir();
-
-        if !exists && !is_url {
-            failed_paths.push(path.to_string());
-            continue;
-        }
-
-        let opts = ProcessOptions {
-            quiet,
-            exclude: exclude.clone(),
-            check_script,
-            no_ignore,
-        };
-
-        match process_path(&path, is_dir, is_url, &opts) {
-            Ok((mut complexities, mut f_paths)) => {
-                successful.append(&mut complexities);
-                failed_paths.append(&mut f_paths);
-            }
-            Err(_) => failed_paths.push(path.to_string()),
-        }
-    }
-
-    Ok((successful, failed_paths))
-}
-
-#[cfg(feature = "python")]
-fn process_path(
-    path: &str,
-    is_dir: bool,
-    is_url: bool,
-    opts: &ProcessOptions,
-) -> Result<ComplexitiesAndFailedPaths, PyErr> {
-    let mut file_complexities = Vec::new();
-    let mut failed_paths = Vec::new();
-
-    if is_url {
-        let dir = tempdir()?;
-        let repo_name = get_repo_name(path)?;
-        env::set_current_dir(&dir)?;
-        let cloning_done = Arc::new(Mutex::new(false));
-        let cloning_done_clone = Arc::clone(&cloning_done);
-        let path_clone = path.to_owned();
-
-        thread::spawn(move || {
-            let _ = process::Command::new("git")
-                .args(["clone", &path_clone])
-                .output();
-            if let Ok(mut done) = cloning_done_clone.lock() {
-                *done = true;
-            }
-        });
-
-        let mut progress_bar = if opts.quiet {
-            None
-        } else {
-            let pb = ProgressBar::new_spinner();
-            pb.set_style(ProgressStyle::default_spinner());
-            pb.set_message("Cloning repository...");
-            Some(pb)
-        };
-
-        loop {
-            match cloning_done.lock() {
-                Ok(done) if *done => break,
-                Ok(_) => {
-                    if let Some(pb) = progress_bar.as_ref() {
-                        pb.tick();
-                    }
-                    thread::sleep(std::time::Duration::from_millis(100));
-                }
-                Err(_) => {
-                    if let Some(pb) = progress_bar.take() {
-                        pb.finish_and_clear();
-                    }
-                    return Err(PyValueError::new_err("Failed to track cloning progress"));
-                }
-            }
-        }
-
-        if let Some(pb) = progress_bar {
-            pb.finish_and_clear();
-        }
-
-        let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, opts);
-        dir.close()?;
-        file_complexities = complexities;
-        failed_paths = f_paths;
-    } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, opts);
-        file_complexities = complexities;
-        failed_paths = f_paths;
-    } else {
-        let parent_dir = path::Path::new(path)
-            .parent()
-            .and_then(|p| p.to_str())
-            .unwrap_or(".");
-        if let Ok(complexity) = file_complexity(path, parent_dir, opts.check_script, opts.no_ignore)
-        {
-            file_complexities.push(complexity);
-        } else {
-            failed_paths.push(path.to_string());
-        }
-    }
-
-    file_complexities
-        .iter_mut()
-        .for_each(|f| f.functions.sort_by_key(|f| (f.complexity, f.name.clone())));
-    file_complexities.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
-    Ok((file_complexities, failed_paths))
-}
-
-#[cfg(feature = "python")]
-fn evaluate_dir(path: &str, opts: &ProcessOptions) -> ComplexitiesAndFailedPaths {
-    let base_dir = path::Path::new(path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
-        .parent()
-        .unwrap_or(path::Path::new("."))
-        .to_string_lossy()
-        .replace('\\', "/");
-    let files_paths_to_process = get_paths_to_process(path, opts.exclude.clone());
-
-    if opts.quiet {
-        let results: Vec<_> = files_paths_to_process
-            .iter()
-            .map(|file_path| {
-                match file_complexity(file_path, &base_dir, opts.check_script, opts.no_ignore) {
-                    Ok(file_complexity) => (Some(file_complexity), None),
-                    Err(_) => (None, Some(file_path.clone())),
-                }
-            })
-            .collect();
-        let mut complexities = Vec::new();
-        let mut failed_paths = Vec::new();
-        for (success, error_path) in results {
-            match (success, error_path) {
-                (Some(file_complexity), None) => complexities.push(file_complexity),
-                (None, Some(failed_path)) => failed_paths.push(failed_path),
-                _ => unreachable!(),
-            }
-        }
-        return (complexities, failed_paths);
-    }
-
-    let pb = ProgressBar::new(files_paths_to_process.len() as u64);
-    let bar_style = indicatif::ProgressStyle::default_bar()
-        .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
-        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
-        .progress_chars("##-");
-    pb.set_style(bar_style);
-
-    let results: Vec<_> = files_paths_to_process
-        .iter()
-        .map(|file_path| {
-            pb.inc(1);
-            match file_complexity(file_path, &base_dir, opts.check_script, opts.no_ignore) {
-                Ok(file_complexity) => (Some(file_complexity), None),
-                Err(_) => (None, Some(file_path.clone())),
-            }
-        })
-        .collect();
-
-    let mut complexities = Vec::new();
-    let mut failed_paths = Vec::new();
-    for (success, error_path) in results {
-        match (success, error_path) {
-            (Some(file_complexity), None) => complexities.push(file_complexity),
-            (None, Some(failed_path)) => failed_paths.push(failed_path),
-            _ => unreachable!(),
-        }
-    }
-    pb.finish_and_clear();
-    (complexities, failed_paths)
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
-pub fn file_complexity(
-    file_path: &str,
-    base_path: &str,
-    check_script: bool,
-    no_ignore: bool,
-) -> PyResult<FileComplexity> {
-    let path = path::Path::new(file_path);
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or_else(|| PyValueError::new_err(format!("Invalid file name: {}", file_path)))?;
-    let relative_path = path
-        .strip_prefix(base_path)
-        .ok()
-        .and_then(|p| p.to_str())
-        .unwrap_or(file_path);
-    let code = std::fs::read_to_string(file_path)?;
-    let code_complexity = match code_complexity(&code, check_script, no_ignore) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(PyValueError::new_err(format!(
-                "Failed to process file '{}': {}",
-                file_path, e
-            )));
-        }
-    };
-    Ok(FileComplexity {
-        path: relative_path.to_string(),
-        file_name: file_name.to_string(),
-        complexity: code_complexity.complexity,
-        functions: code_complexity.functions,
-    })
-}
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -328,37 +68,21 @@ pub fn function_level_cognitive_complexity_shared(
     for node in ast_body.iter() {
         match node {
             Stmt::FunctionDef(f) => {
-                let start_line = get_line_number(usize::from(f.range.start()), code);
-                if no_ignore || !has_noqa_complexipy(start_line, code) {
-                    let result = statement_cognitive_complexity_shared(node, 0, code);
-                    functions.push(FunctionComplexity {
-                        name: f.name.to_string(),
-                        complexity: result.complexity,
-                        line_start: start_line,
-                        line_end: get_line_number(usize::from(f.range.end()), code),
-                        line_complexities: result.line_complexities,
-                        refactor_plans: build_refactor_plans(result.complexity, &result.regions),
-                    });
+                if !is_ignored(f, code, no_ignore) {
+                    functions.push(analyze_function(node, f, f.name.to_string(), code));
                 }
             }
             Stmt::ClassDef(c) => {
                 for node in c.body.iter() {
-                    if let Stmt::FunctionDef(f) = node {
-                        let start_line = get_line_number(usize::from(f.range.start()), code);
-                        if no_ignore || !has_noqa_complexipy(start_line, code) {
-                            let result = statement_cognitive_complexity_shared(node, 0, code);
-                            functions.push(FunctionComplexity {
-                                name: format!("{}::{}", c.name, f.name),
-                                complexity: result.complexity,
-                                line_start: start_line,
-                                line_end: get_line_number(usize::from(f.range.end()), code),
-                                line_complexities: result.line_complexities,
-                                refactor_plans: build_refactor_plans(
-                                    result.complexity,
-                                    &result.regions,
-                                ),
-                            });
-                        }
+                    if let Stmt::FunctionDef(f) = node
+                        && !is_ignored(f, code, no_ignore)
+                    {
+                        functions.push(analyze_function(
+                            node,
+                            f,
+                            format!("{}::{}", c.name, f.name),
+                            code,
+                        ));
                     }
                 }
             }
@@ -394,6 +118,77 @@ pub fn function_level_cognitive_complexity_shared(
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
+fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
+    let start_line = get_line_number(usize::from(f.range.start()), code);
+    !no_ignore && has_noqa_complexipy(start_line, code)
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn analyze_function(
+    node: &Stmt,
+    f: &ast::StmtFunctionDef,
+    name: String,
+    code: &str,
+) -> FunctionComplexity {
+    let mut result = statement_cognitive_complexity_shared(node, 0, code);
+    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), code) {
+        result.complexity += 1;
+        push_line(&mut result, line, 1);
+    }
+    FunctionComplexity {
+        name,
+        complexity: result.complexity,
+        line_start: get_line_number(usize::from(f.range.start()), code),
+        line_end: get_line_number(usize::from(f.range.end()), code),
+        line_complexities: result.line_complexities,
+        refactor_plans: build_refactor_plans(result.complexity, &result.regions),
+    }
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+struct RecursionFinder<'a> {
+    name: &'a str,
+    found: Option<usize>,
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if self.found.is_some() {
+            return;
+        }
+        if matches!(stmt, Stmt::FunctionDef(_) | Stmt::ClassDef(_)) {
+            return;
+        }
+        ast::visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_expr(&mut self, expr: &'a ast::Expr) {
+        if self.found.is_some() {
+            return;
+        }
+        if let ast::Expr::Call(c) = expr
+            && let ast::Expr::Name(n) = c.func.as_ref()
+            && n.id.as_str() == self.name
+        {
+            self.found = Some(usize::from(c.range.start()));
+            return;
+        }
+        if matches!(expr, ast::Expr::Lambda(_)) {
+            return;
+        }
+        ast::visitor::walk_expr(self, expr);
+    }
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn detect_direct_recursion(body: &[Stmt], name: &str, code: &str) -> Option<u64> {
+    let mut finder = RecursionFinder { name, found: None };
+    ast::visitor::walk_body(&mut finder, body);
+    finder.found.map(|offset| get_line_number(offset, code))
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
 fn empty_result() -> ComplexityResult {
     ComplexityResult {
         complexity: 0,
@@ -403,15 +198,44 @@ fn empty_result() -> ComplexityResult {
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
-fn merge_child(
-    result: &mut ComplexityResult,
-    child: ComplexityResult,
-    region_children: &mut Vec<ComplexityRegion>,
-) {
+fn push_line(result: &mut ComplexityResult, line: u64, complexity: u64) {
+    result
+        .line_complexities
+        .push(LineComplexity { line, complexity });
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn absorb(result: &mut ComplexityResult, child: ComplexityResult) {
     result.complexity += child.complexity;
     result.line_complexities.extend(child.line_complexities);
-    region_children.extend(child.regions.clone());
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn absorb_with_regions(result: &mut ComplexityResult, child: ComplexityResult) {
+    result.complexity += child.complexity;
+    result.line_complexities.extend(child.line_complexities);
     result.regions.extend(child.regions);
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn finalize_region(result: &mut ComplexityResult, mut region: ComplexityRegion) {
+    region.total += sum_region_child_totals(&region.children);
+    result.regions.push(region);
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn count_line_bool_ops(
+    result: &mut ComplexityResult,
+    exprs: Vec<ast::Expr>,
+    line: u64,
+    nesting_level: u64,
+) {
+    let complexity: u64 = exprs
+        .into_iter()
+        .map(|expr| count_bool_ops(expr, nesting_level))
+        .sum();
+    result.complexity += complexity;
+    push_line(result, line, complexity);
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
@@ -424,7 +248,9 @@ fn collect_suite(
     let mut result = empty_result();
     for node in suite.iter() {
         let child = statement_cognitive_complexity_shared(node, nesting_level, code);
-        merge_child(&mut result, child, region_children);
+        result.complexity += child.complexity;
+        result.line_complexities.extend(child.line_complexities);
+        region_children.extend(child.regions);
     }
     result
 }
@@ -450,16 +276,57 @@ fn push_bool_region(
             kind: RegionKind::BooleanCondition,
             line_start,
             line_end,
-            structural: 0,
-            nesting: 0,
             boolean,
             total: boolean,
-            elif_count: 0,
-            case_count: 0,
             bool_op_count: boolean,
-            children: Vec::new(),
+            ..Default::default()
         });
     }
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn loop_complexity(
+    control: ast::Expr,
+    body: &ast::Suite,
+    orelse: &ast::Suite,
+    line_start: u64,
+    line_end: u64,
+    nesting_level: u64,
+    code: &str,
+) -> ComplexityResult {
+    let mut result = empty_result();
+    let boolean = count_bool_ops(control, nesting_level);
+    let own = 1 + nesting_level + boolean;
+    result.complexity += own;
+    push_line(&mut result, line_start, own);
+
+    let mut children = Vec::new();
+    push_bool_region(&mut children, line_start, line_start, boolean);
+    absorb(
+        &mut result,
+        collect_suite(body, nesting_level + 1, code, &mut children),
+    );
+    absorb(
+        &mut result,
+        collect_suite(orelse, nesting_level, code, &mut children),
+    );
+
+    finalize_region(
+        &mut result,
+        ComplexityRegion {
+            kind: RegionKind::Loop,
+            line_start,
+            line_end,
+            structural: 1,
+            nesting: nesting_level,
+            boolean,
+            total: own,
+            bool_op_count: boolean,
+            children,
+            ..Default::default()
+        },
+    );
+    result
 }
 
 #[cfg(any(feature = "python", feature = "wasm"))]
@@ -484,480 +351,257 @@ fn statement_cognitive_complexity_shared(
                 } else {
                     nesting_level
                 };
-                let child = statement_cognitive_complexity_shared(node, next_nesting, code);
-                result.complexity += child.complexity;
-                result.line_complexities.extend(child.line_complexities);
-                result.regions.extend(child.regions);
+                absorb_with_regions(
+                    &mut result,
+                    statement_cognitive_complexity_shared(node, next_nesting, code),
+                );
             }
         }
         Stmt::ClassDef(c) => {
             for node in c.body.iter() {
                 if let Stmt::FunctionDef(..) = node {
-                    let child = statement_cognitive_complexity_shared(node, nesting_level, code);
-                    result.complexity += child.complexity;
-                    result.line_complexities.extend(child.line_complexities);
-                    result.regions.extend(child.regions);
+                    absorb_with_regions(
+                        &mut result,
+                        statement_cognitive_complexity_shared(node, nesting_level, code),
+                    );
                 }
             }
         }
         Stmt::Assign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
-            result.complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: bool_ops_complexity,
-            });
+            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
         }
         Stmt::AnnAssign(a) => {
             if let Some(value) = a.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
-                result.complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(a.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
+                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
             }
         }
         Stmt::AugAssign(a) => {
-            let bool_ops_complexity = count_bool_ops(*a.value.clone(), nesting_level);
-            result.complexity += bool_ops_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: bool_ops_complexity,
-            });
+            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
         }
         Stmt::For(f) => {
-            let structural = 1;
-            let nesting = nesting_level;
-            let own = structural + nesting;
-            result.complexity += own;
             let line_start = get_line_number(usize::from(f.range.start()), code);
             let line_end = get_line_number(usize::from(f.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
-            let mut children = Vec::new();
-            let child_result = collect_suite(&f.body, nesting_level + 1, code, &mut children);
-            result.complexity += child_result.complexity;
-            result
-                .line_complexities
-                .extend(child_result.line_complexities);
-            let else_result = collect_suite(&f.orelse, nesting_level + 1, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Loop,
+            result = loop_complexity(
+                *f.iter.clone(),
+                &f.body,
+                &f.orelse,
                 line_start,
                 line_end,
-                structural,
-                nesting,
-                boolean: 0,
-                total: own,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: 0,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+                nesting_level,
+                code,
+            );
         }
         Stmt::While(w) => {
-            let structural = 1;
-            let nesting = nesting_level;
-            let boolean = count_bool_ops(*w.test.clone(), nesting_level);
-            let own = structural + nesting + boolean;
-            result.complexity += own;
             let line_start = get_line_number(usize::from(w.range.start()), code);
             let line_end = get_line_number(usize::from(w.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
-            let mut children = Vec::new();
-            push_bool_region(&mut children, line_start, line_start, boolean);
-            let child_result = collect_suite(&w.body, nesting_level + 1, code, &mut children);
-            result.complexity += child_result.complexity;
-            result
-                .line_complexities
-                .extend(child_result.line_complexities);
-            let else_result = collect_suite(&w.orelse, nesting_level + 1, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Loop,
+            result = loop_complexity(
+                *w.test.clone(),
+                &w.body,
+                &w.orelse,
                 line_start,
                 line_end,
-                structural,
-                nesting,
-                boolean,
-                total: own,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: boolean,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+                nesting_level,
+                code,
+            );
         }
         Stmt::If(i) => {
-            let structural = 1;
-            let nesting = nesting_level;
             let boolean = count_bool_ops(*i.test.clone(), nesting_level);
-            let own = structural + nesting + boolean;
+            let own = 1 + nesting_level + boolean;
             result.complexity += own;
             let line_start = get_line_number(usize::from(i.range.start()), code);
             let line_end = get_line_number(usize::from(i.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: own,
-            });
+            push_line(&mut result, line_start, own);
+
             let mut children = Vec::new();
             push_bool_region(&mut children, line_start, line_start, boolean);
-            let body_result = collect_suite(&i.body, nesting_level + 1, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
+            absorb(
+                &mut result,
+                collect_suite(&i.body, nesting_level + 1, code, &mut children),
+            );
+
             let mut elif_count = 0;
             for clause in i.elif_else_clauses.clone() {
+                let line = get_line_number(usize::from(clause.range.start()), code);
                 let mut clause_complexity = 1;
                 if let Some(test) = clause.test.clone() {
                     elif_count += 1;
                     let clause_bool = count_bool_ops(test, nesting_level);
                     clause_complexity += clause_bool;
-                    let line = get_line_number(usize::from(clause.range.start()), code);
                     push_bool_region(&mut children, line, line, clause_bool);
                 }
                 result.complexity += clause_complexity;
-                let line = get_line_number(usize::from(clause.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: clause_complexity,
-                });
-                let clause_result =
-                    collect_suite(&clause.body, nesting_level + 1, code, &mut children);
-                result.complexity += clause_result.complexity;
-                result
-                    .line_complexities
-                    .extend(clause_result.line_complexities);
+                push_line(&mut result, line, clause_complexity);
+                absorb(
+                    &mut result,
+                    collect_suite(&clause.body, nesting_level + 1, code, &mut children),
+                );
             }
+
             let kind = if elif_count > 0 {
                 RegionKind::ElifChain
             } else {
                 RegionKind::If
             };
-            let mut region = ComplexityRegion {
-                kind,
-                line_start,
-                line_end,
-                structural,
-                nesting,
-                boolean,
-                total: own,
-                elif_count,
-                case_count: 0,
-                bool_op_count: boolean,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind,
+                    line_start,
+                    line_end,
+                    structural: 1,
+                    nesting: nesting_level,
+                    boolean,
+                    total: own,
+                    elif_count,
+                    bool_op_count: boolean,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Try(t) => {
             let line_start = get_line_number(usize::from(t.range.start()), code);
             let line_end = get_line_number(usize::from(t.range.end()), code);
             let mut children = Vec::new();
-            let body_result = collect_suite(&t.body, nesting_level + 1, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
+            absorb(
+                &mut result,
+                collect_suite(&t.body, nesting_level, code, &mut children),
+            );
+
             let mut structural = 0;
+            let mut own = 0;
             for handler in t.handlers.iter() {
                 structural += 1;
-                result.complexity += 1;
+                let handler_complexity = 1 + nesting_level;
+                own += handler_complexity;
+                result.complexity += handler_complexity;
                 let handler = handler.clone().expect_except_handler();
                 let line = get_line_number(usize::from(handler.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: 1,
-                });
-                let handler_result =
-                    collect_suite(&handler.body, nesting_level + 1, code, &mut children);
-                result.complexity += handler_result.complexity;
-                result
-                    .line_complexities
-                    .extend(handler_result.line_complexities);
+                push_line(&mut result, line, handler_complexity);
+                absorb(
+                    &mut result,
+                    collect_suite(&handler.body, nesting_level + 1, code, &mut children),
+                );
             }
-            let else_result = collect_suite(&t.orelse, nesting_level + 1, code, &mut children);
-            result.complexity += else_result.complexity;
-            result
-                .line_complexities
-                .extend(else_result.line_complexities);
-            let final_result = collect_suite(&t.finalbody, nesting_level + 1, code, &mut children);
-            result.complexity += final_result.complexity;
-            result
-                .line_complexities
-                .extend(final_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Try,
-                line_start,
-                line_end,
-                structural,
-                nesting: 0,
-                boolean: 0,
-                total: structural,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: 0,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+
+            absorb(
+                &mut result,
+                collect_suite(&t.orelse, nesting_level, code, &mut children),
+            );
+            absorb(
+                &mut result,
+                collect_suite(&t.finalbody, nesting_level, code, &mut children),
+            );
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::Try,
+                    line_start,
+                    line_end,
+                    structural,
+                    nesting: nesting_level,
+                    total: own,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Match(m) => {
+            let own = 1 + nesting_level;
+            result.complexity += own;
             let line_start = get_line_number(usize::from(m.range.start()), code);
             let line_end = get_line_number(usize::from(m.range.end()), code);
+            push_line(&mut result, line_start, own);
+
             let mut children = Vec::new();
             for case in m.cases.iter() {
-                let case_result = collect_suite(&case.body, nesting_level + 1, code, &mut children);
-                result.complexity += case_result.complexity;
-                result
-                    .line_complexities
-                    .extend(case_result.line_complexities);
+                absorb(
+                    &mut result,
+                    collect_suite(&case.body, nesting_level + 1, code, &mut children),
+                );
             }
-            let mut region = ComplexityRegion {
-                kind: RegionKind::Match,
-                line_start,
-                line_end,
-                structural: 0,
-                nesting: 0,
-                boolean: 0,
-                total: 0,
-                elif_count: 0,
-                case_count: m.cases.len() as u64,
-                bool_op_count: 0,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::Match,
+                    line_start,
+                    line_end,
+                    structural: 1,
+                    nesting: nesting_level,
+                    total: own,
+                    case_count: m.cases.len() as u64,
+                    children,
+                    ..Default::default()
+                },
+            );
         }
         Stmt::Return(r) => {
             if let Some(value) = r.value.clone() {
-                let bool_ops_complexity = count_bool_ops(*value, nesting_level);
-                result.complexity += bool_ops_complexity;
                 let line = get_line_number(usize::from(r.range.start()), code);
-                result.line_complexities.push(LineComplexity {
-                    line,
-                    complexity: bool_ops_complexity,
-                });
+                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
             }
         }
         Stmt::Raise(r) => {
-            let mut raise_complexity = 0;
+            let mut exprs = Vec::new();
             if let Some(exc) = r.exc.clone() {
-                raise_complexity += count_bool_ops(*exc, nesting_level);
+                exprs.push(*exc);
             }
             if let Some(cause) = r.cause.clone() {
-                raise_complexity += count_bool_ops(*cause, nesting_level);
+                exprs.push(*cause);
             }
-            result.complexity += raise_complexity;
             let line = get_line_number(usize::from(r.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: raise_complexity,
-            });
+            count_line_bool_ops(&mut result, exprs, line, nesting_level);
         }
         Stmt::Assert(a) => {
-            let mut assert_complexity = count_bool_ops(*a.test.clone(), nesting_level);
+            let mut exprs = vec![*a.test.clone()];
             if let Some(msg) = a.msg.clone() {
-                assert_complexity += count_bool_ops(*msg, nesting_level);
+                exprs.push(*msg);
             }
-            result.complexity += assert_complexity;
             let line = get_line_number(usize::from(a.range.start()), code);
-            result.line_complexities.push(LineComplexity {
-                line,
-                complexity: assert_complexity,
-            });
+            count_line_bool_ops(&mut result, exprs, line, nesting_level);
         }
         Stmt::With(w) => {
-            let mut with_complexity = 0;
-            for item in w.items.iter() {
-                with_complexity += count_bool_ops(item.context_expr.clone(), nesting_level);
-            }
+            let with_complexity: u64 = w
+                .items
+                .iter()
+                .map(|item| count_bool_ops(item.context_expr.clone(), nesting_level))
+                .sum();
             result.complexity += with_complexity;
             let line_start = get_line_number(usize::from(w.range.start()), code);
             let line_end = get_line_number(usize::from(w.range.end()), code);
-            result.line_complexities.push(LineComplexity {
-                line: line_start,
-                complexity: with_complexity,
-            });
+            push_line(&mut result, line_start, with_complexity);
+
             let mut children = Vec::new();
-            let body_result = collect_suite(&w.body, nesting_level + 1, code, &mut children);
-            result.complexity += body_result.complexity;
-            result
-                .line_complexities
-                .extend(body_result.line_complexities);
-            let mut region = ComplexityRegion {
-                kind: RegionKind::With,
-                line_start,
-                line_end,
-                structural: 0,
-                nesting: 0,
-                boolean: with_complexity,
-                total: with_complexity,
-                elif_count: 0,
-                case_count: 0,
-                bool_op_count: with_complexity,
-                children,
-            };
-            region.total += sum_region_child_totals(&region.children);
-            result.regions.push(region);
+            absorb(
+                &mut result,
+                collect_suite(&w.body, nesting_level, code, &mut children),
+            );
+
+            finalize_region(
+                &mut result,
+                ComplexityRegion {
+                    kind: RegionKind::With,
+                    line_start,
+                    line_end,
+                    boolean: with_complexity,
+                    total: with_complexity,
+                    bool_op_count: with_complexity,
+                    children,
+                    ..Default::default()
+                },
+            );
+        }
+        Stmt::Expr(e) => {
+            let line = get_line_number(usize::from(e.range.start()), code);
+            count_line_bool_ops(&mut result, vec![*e.value.clone()], line, nesting_level);
         }
         _ => {}
     }
 
     result
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (file_path, base_path))]
-pub fn collect_file_ignored_locations(
-    file_path: &str,
-    base_path: &str,
-) -> PyResult<Vec<IgnoredLocation>> {
-    let path = path::Path::new(file_path);
-    let relative_path = path
-        .strip_prefix(base_path)
-        .ok()
-        .and_then(|p| p.to_str())
-        .unwrap_or(file_path);
-    let code = std::fs::read_to_string(file_path).map_err(|e| {
-        PyValueError::new_err(format!("Failed to read file '{}': {}", file_path, e))
-    })?;
-    let locations = collect_ignored_locations(&code);
-    Ok(locations
-        .into_iter()
-        .map(|(line, comment)| IgnoredLocation {
-            path: relative_path.to_string(),
-            line,
-            comment,
-        })
-        .collect())
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (paths, exclude, invocation_path="."))]
-pub fn collect_all_ignored_locations(
-    paths: Vec<String>,
-    exclude: Vec<String>,
-    invocation_path: &str,
-) -> PyResult<(Vec<IgnoredLocation>, Vec<String>)> {
-    let _invocation_dir = path::Path::new(invocation_path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
-
-    let mut all_locations = Vec::new();
-    let mut failed_paths = Vec::new();
-
-    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
-
-    for path_str in &paths {
-        let path_obj = path::Path::new(path_str);
-        let is_url = re.is_match(path_str);
-
-        if is_url {
-            match collect_ignored_locations_from_url(path_str, &exclude) {
-                Ok(locs) => all_locations.extend(locs),
-                Err(_) => failed_paths.push(path_str.to_string()),
-            }
-        } else if path_obj.is_dir() {
-            let files = get_paths_to_process(path_str, exclude.clone());
-            let base_dir = path_obj
-                .canonicalize()
-                .unwrap_or_else(|_| path_obj.to_path_buf())
-                .parent()
-                .unwrap_or(path::Path::new("."))
-                .to_string_lossy()
-                .replace('\\', "/");
-            for file_path in &files {
-                if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
-                    all_locations.extend(locs)
-                }
-            }
-        } else if path_obj.is_file() {
-            let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");
-            if let Ok(locs) = collect_file_ignored_locations(path_str, parent_dir) {
-                all_locations.extend(locs)
-            }
-        } else {
-            failed_paths.push(path_str.to_string());
-        }
-    }
-
-    all_locations.sort_by_key(|loc| (loc.path.clone(), loc.line));
-    Ok((all_locations, failed_paths))
-}
-
-fn collect_ignored_locations_from_url(
-    url: &str,
-    exclude: &[String],
-) -> PyResult<Vec<IgnoredLocation>> {
-    let dir = tempdir()?;
-    let repo_name = get_repo_name(url)?;
-    env::set_current_dir(&dir)?;
-    let cloning_done = Arc::new(Mutex::new(false));
-    let cloning_done_clone = Arc::clone(&cloning_done);
-    let path_clone = url.to_owned();
-
-    thread::spawn(move || {
-        let _ = process::Command::new("git")
-            .args(["clone", &path_clone])
-            .output();
-        if let Ok(mut done) = cloning_done_clone.lock() {
-            *done = true;
-        }
-    });
-
-    loop {
-        match cloning_done.lock() {
-            Ok(done) if *done => break,
-            Ok(_) => {
-                thread::sleep(std::time::Duration::from_millis(100));
-            }
-            Err(_) => {
-                return Err(PyValueError::new_err("Failed to track cloning progress"));
-            }
-        }
-    }
-
-    let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-    let files = get_paths_to_process(&repo_path, exclude.to_vec());
-    let base_dir = path::Path::new(&repo_path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(&repo_path).to_path_buf())
-        .parent()
-        .unwrap_or(path::Path::new("."))
-        .to_string_lossy()
-        .replace('\\', "/");
-
-    let mut locations = Vec::new();
-    for file_path in &files {
-        if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
-            locations.extend(locs);
-        }
-    }
-
-    dir.close()?;
-    Ok(locations)
 }

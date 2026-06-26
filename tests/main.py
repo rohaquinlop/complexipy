@@ -45,7 +45,7 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 63 == total_complexity
+        assert 64 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -93,7 +93,7 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 1 == total_complexity
+        assert 2 == total_complexity
 
     def test_if(self):
         path = self.local_path / "src/test_if.py"
@@ -117,7 +117,7 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 0 == total_complexity
+        assert 1 == total_complexity
 
     def test_multiple_func(self):
         path = self.local_path / "src/test_multiple_func.py"
@@ -141,7 +141,7 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 0 == total_complexity
+        assert 1 == total_complexity
 
     def test_ternary_op(self):
         path = self.local_path / "src/test_ternary_op.py"
@@ -165,12 +165,12 @@ class TestFiles:
             [path.resolve().as_posix()], False, [], False
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 12 == total_complexity
+        assert 10 == total_complexity
 
     def test_file_complexity(self):
         path = self.local_path / "src/test_try_nested.py"
         result = file_complexity(str(path))
-        assert 12 == result.complexity
+        assert 10 == result.complexity
 
     def test_code_complexity(self):
         snippet = """\
@@ -440,7 +440,7 @@ def hello_world(s: str) -> str:
         total_complexity = sum([file.complexity for file in files])
         # Excluding only by basename that does not exist at the root
         # should not exclude nested files anymore.
-        assert 63 == total_complexity
+        assert 64 == total_complexity
 
     def test_exclude_full_path(self):
         path = self.local_path / "src"
@@ -451,7 +451,7 @@ def hello_world(s: str) -> str:
             False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 60 == total_complexity
+        assert 61 == total_complexity
 
     def test_exclude_whole_directory(self):
         path = self.local_path / "src"
@@ -462,7 +462,7 @@ def hello_world(s: str) -> str:
             False,
         )
         total_complexity = sum([file.complexity for file in files])
-        assert 57 == total_complexity
+        assert 58 == total_complexity
 
     def test_exclude_glob_single_file(self):
         path = self.local_path / "src"
@@ -474,7 +474,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude1.py should match exclude_dir/test_exclude1.py (complexity 3)
-        assert 60 == total_complexity
+        assert 61 == total_complexity
 
     def test_exclude_glob_directory(self):
         path = self.local_path / "src"
@@ -486,7 +486,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/exclude_dir/** should match all files under exclude_dir (complexity 6 total)
-        assert 57 == total_complexity
+        assert 58 == total_complexity
 
     def test_exclude_glob_wildcard(self):
         path = self.local_path / "src"
@@ -498,7 +498,7 @@ def hello_world(s: str) -> str:
         )
         total_complexity = sum([file.complexity for file in files])
         # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
-        assert 57 == total_complexity
+        assert 58 == total_complexity
 
     def test_snapshot_watermark_passes_and_updates_snapshot(
         self, tmp_path: Path
@@ -829,3 +829,98 @@ class TestScriptComplexity:
         path = str(self.local_path / "src/test_script_simple.py")
         result = runner.invoke(app, [path, "--check-script", "-mx", "15"])
         assert result.exit_code == 0
+
+
+class TestPaperConformance:
+    """Conformance with the Cognitive Complexity white paper (G. Ann Campbell,
+    SonarSource v1.7). Each expected value is the one prescribed by the paper.
+    """
+
+    def _c(self, code: str) -> int:
+        return code_complexity(code).complexity
+
+    def test_match_top_level_structural_increment(self):
+        # A switch/match and all its cases combined incur a single structural
+        # increment (B1).
+        code = (
+            "def f(x):\n"
+            "    match x:\n"
+            "        case 1:\n"
+            "            return 'one'\n"
+            "        case _:\n"
+            "            return 'other'\n"
+        )
+        assert self._c(code) == 1
+
+    def test_match_nested_gets_nesting_increment(self):
+        # match inside a for: for(+1) + match(+1 structural +1 nesting) = 3.
+        code = (
+            "def f(xs, x):\n"
+            "    for i in xs:\n"
+            "        match x:\n"
+            "            case 1:\n"
+            "                pass\n"
+        )
+        assert self._c(code) == 3
+
+    def test_try_body_is_not_nested(self):
+        # try/except: an `if` directly in the try body is charged at nesting 0.
+        code = "def f(x):\n    try:\n        if x:\n            pass\n    except Exception:\n        pass\n"
+        # try body if (+1) + except handler (+1) = 2
+        assert self._c(code) == 2
+
+    def test_finally_is_not_nested(self):
+        code = "def f(x):\n    try:\n        pass\n    finally:\n        if x:\n            pass\n"
+        assert self._c(code) == 1
+
+    def test_except_handler_gets_nesting_increment(self):
+        # except nested in a for: for(+1) + handler(+1 +1 nesting) = 3.
+        code = (
+            "def f(xs):\n"
+            "    for i in xs:\n"
+            "        try:\n"
+            "            pass\n"
+            "        except Exception:\n"
+            "            pass\n"
+        )
+        assert self._c(code) == 3
+
+    def test_with_does_not_nest(self):
+        code = "def f(x, y):\n    with open(x):\n        if y:\n            pass\n"
+        assert self._c(code) == 1
+
+    def test_direct_recursion_increments(self):
+        code = "def fact(n):\n    return fact(n - 1)\n"
+        assert self._c(code) == 1
+
+    def test_recursion_in_nested_control_flow(self):
+        # The recursive call lives inside an `if`, not the immediate body.
+        code = "def fact(n):\n    if n:\n        return fact(n - 1)\n    return 1\n"
+        assert self._c(code) == 2
+
+    def test_nested_function_calling_outer_is_not_recursion(self):
+        # A closure calling its enclosing function is a separate scope, not
+        # direct self-recursion of the outer function.
+        code = "def foo():\n    def bar():\n        foo()\n    return bar\n"
+        assert self._c(code) == 0
+
+    def test_lambda_raises_nesting(self):
+        assert self._c("g = lambda x: (1 if x else 2)\n") == 2
+        assert self._c("g = lambda x: x and x\n") == 1
+
+    def test_comprehension_loop_and_filter(self):
+        assert self._c("def f(xs):\n    return [x for x in xs if x > 0]\n") == 2
+        assert (
+            self._c("def f(xs):\n    return [y for x in xs for y in x if y]\n") == 3
+        )
+        assert self._c("def f(xs):\n    return any(x and x for x in xs)\n") == 2
+
+    def test_nested_ternary_gets_nesting_increment(self):
+        assert self._c("x = 1 if a else (2 if b else 3)\n") == 3
+
+    def test_bare_expression_boolean_sequence(self):
+        assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
+
+    def test_loop_else_is_not_nested(self):
+        code = "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n"
+        assert self._c(code) == 2

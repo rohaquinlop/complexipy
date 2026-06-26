@@ -261,8 +261,23 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
         ast::Expr::If(i) => {
             complexity += 1 + nesting_level;
             complexity += count_bool_ops(*i.test, nesting_level);
-            complexity += count_bool_ops(*i.body, nesting_level);
-            complexity += count_bool_ops(*i.orelse, nesting_level);
+            complexity += count_bool_ops(*i.body, nesting_level + 1);
+            complexity += count_bool_ops(*i.orelse, nesting_level + 1);
+        }
+        ast::Expr::Lambda(l) => {
+            complexity += count_bool_ops(*l.body, nesting_level + 1);
+        }
+        ast::Expr::ListComp(c) => {
+            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+        }
+        ast::Expr::SetComp(c) => {
+            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+        }
+        ast::Expr::Generator(c) => {
+            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+        }
+        ast::Expr::DictComp(c) => {
+            complexity += count_comprehension(&[*c.key, *c.value], &c.generators, nesting_level);
         }
         ast::Expr::Call(c) => {
             for arg in c.arguments.args.iter() {
@@ -290,6 +305,31 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
             }
         }
         _ => {}
+    }
+
+    complexity
+}
+
+#[cfg(any(feature = "python", feature = "wasm"))]
+fn count_comprehension(
+    elements: &[ast::Expr],
+    generators: &[ast::Comprehension],
+    nesting_level: u64,
+) -> u64 {
+    let mut complexity: u64 = 0;
+    let inner_nesting = nesting_level + 1;
+
+    for generator in generators.iter() {
+        complexity += 1 + nesting_level;
+        complexity += count_bool_ops(generator.iter.clone(), nesting_level);
+        for filter in generator.ifs.iter() {
+            complexity += 1;
+            complexity += count_bool_ops(filter.clone(), inner_nesting);
+        }
+    }
+
+    for element in elements.iter() {
+        complexity += count_bool_ops(element.clone(), inner_nesting);
     }
 
     complexity
