@@ -165,7 +165,10 @@ fn evaluate_dir(path: &str, opts: &ProcessOptions) -> ComplexitiesAndFailedPaths
         .unwrap_or(path::Path::new("."))
         .to_string_lossy()
         .replace('\\', "/");
-    let files_paths_to_process = get_paths_to_process(path, opts.exclude.clone());
+    let files_paths_to_process = match get_paths_to_process(path, opts.exclude.clone()) {
+        Ok(paths) => paths,
+        Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
+    };
 
     if opts.quiet {
         let results: Vec<_> = files_paths_to_process
@@ -309,7 +312,13 @@ pub fn collect_all_ignored_locations(
                 Err(_) => failed_paths.push(path_str.to_string()),
             }
         } else if path_obj.is_dir() {
-            let files = get_paths_to_process(path_str, exclude.clone());
+            let files = match get_paths_to_process(path_str, exclude.clone()) {
+                Ok(paths) => paths,
+                Err(e) => {
+                    failed_paths.push(format!("{}: {}", path_str, e));
+                    continue;
+                }
+            };
             let base_dir = path_obj
                 .canonicalize()
                 .unwrap_or_else(|_| path_obj.to_path_buf())
@@ -369,7 +378,8 @@ fn collect_ignored_locations_from_url(
     }
 
     let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-    let files = get_paths_to_process(&repo_path, exclude.to_vec());
+    let files =
+        get_paths_to_process(&repo_path, exclude.to_vec()).map_err(PyValueError::new_err)?;
     let base_dir = path::Path::new(&repo_path)
         .canonicalize()
         .unwrap_or_else(|_| path::Path::new(&repo_path).to_path_buf())

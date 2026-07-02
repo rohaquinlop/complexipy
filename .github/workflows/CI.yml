@@ -47,9 +47,13 @@ jobs:
           - runner: ubuntu-latest
             python-version: "3.13"
           - runner: windows-latest
+            python-version: "3.8"
+          - runner: windows-latest
             python-version: "3.13"
           - runner: macos-latest
             python-version: "3.13"
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -58,13 +62,28 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: uv.lock
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
       - name: pytest
         shell: bash
         run: |
           uv sync --all-extras --frozen
           uv run -p ${{ matrix.python-version }} maturin develop
           uv run -p ${{ matrix.python-version }} pytest
-      - name: complexipy execution
+      - name: complexipy CLI validation
         shell: bash
         run: |-
           uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+      - name: complexipy exclude pattern validation
+        shell: bash
+        run: |-
+          uv run -p ${{ matrix.python-version }} complexipy tests/src --exclude "exclude_dir/**" --ignore-complexity
+          uv run -p ${{ matrix.python-version }} complexipy tests/src --exclude "**/test_exclude*.py" --ignore-complexity
