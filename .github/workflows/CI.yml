@@ -52,6 +52,8 @@ jobs:
             python-version: "3.13"
           - runner: macos-latest
             python-version: "3.13"
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
