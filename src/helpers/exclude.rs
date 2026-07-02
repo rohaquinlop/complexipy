@@ -16,14 +16,9 @@ pub fn get_paths_to_process(
         .collect();
 
     let gitignore_walk = Walk::new(&normalized_root);
-    // Normalize all paths to use forward slashes for consistent comparison
-    // On Windows, ignore::Walk may return paths with backslashes
     let non_ignored: Vec<String> = gitignore_walk
         .filter_map(|result| match result {
-            Ok(entry) => entry
-                .path()
-                .to_str()
-                .map(|s| s.replace('\\', "/")),
+            Ok(entry) => entry.path().to_str().map(|s| s.replace('\\', "/")),
             Err(_) => None,
         })
         .collect();
