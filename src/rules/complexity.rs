@@ -444,6 +444,10 @@ impl RefactorRule for FlattenTryRule {
     }
 }
 
+/// Generate an approximate code sketch showing how a nested condition block could be
+/// flattened with guard clauses. The output is an illustrative "before/after" preview
+/// and may not be semantically correct or directly compilable — it omits else/elif
+/// branches, side effects, and may produce invalid Python in edge cases.
 fn generate_flattened_code(region: &ComplexityRegion, source: &str) -> CodeSnippet {
     let lines: Vec<&str> = source.lines().collect();
     let start = (region.line_start.saturating_sub(1)) as usize;
@@ -483,6 +487,10 @@ fn generate_flattened_code(region: &ComplexityRegion, source: &str) -> CodeSnipp
     }
 }
 
+/// Generate an approximate code sketch showing how a loop body could use `continue`
+/// guards to reduce nesting. The output is an illustrative preview — it simplifies
+/// the original source and may not preserve full semantics (e.g., else clauses,
+/// multi-branch logic, or side-effect ordering).
 fn generate_loop_guard_code(region: &ComplexityRegion, source: &str) -> CodeSnippet {
     let lines: Vec<&str> = source.lines().collect();
     let start = (region.line_start.saturating_sub(1)) as usize;
@@ -525,6 +533,10 @@ fn generate_loop_guard_code(region: &ComplexityRegion, source: &str) -> CodeSnip
     }
 }
 
+/// Generate an approximate code sketch showing how a complex boolean condition could
+/// be extracted into a named predicate function. The output is illustrative and may
+/// not be directly usable — e.g., the generated function name is synthetic and
+/// parameter passing for captured variables is not handled.
 fn generate_predicate_code(region: &ComplexityRegion, source: &str) -> CodeSnippet {
     let lines: Vec<&str> = source.lines().collect();
     let start = (region.line_start.saturating_sub(1)) as usize;
@@ -563,6 +575,10 @@ fn get_indentation(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
 
+/// Best-effort heuristic to extract the condition text from an `if`/`elif`/`while`
+/// line by finding the first `:` delimiter. This breaks when the condition itself
+/// contains a colon inside a string literal (e.g., `if x == "a:b":`), so callers
+/// should treat the result as approximate.
 fn extract_condition(line: &str) -> String {
     let trimmed = line.trim_start();
     if let Some(pos) = trimmed.find("if ") {
