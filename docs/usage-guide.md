@@ -235,6 +235,7 @@ Plans are based on the Rust AST analysis only; no AI is used and no code is rewr
         "complexity": 18,
         "refactor_plans": [
             {
+                "rule_id": "C001",
                 "kind": "flatten_condition",
                 "title": "Flatten nested condition block with guard clauses",
                 "line_start": 12,
@@ -244,7 +245,14 @@ Plans are based on the Rust AST analysis only; no AI is used and no code is rewr
                 "estimated_complexity_after": 15,
                 "steps": [
                     "invert the outer condition and return early"
-                ]
+                ],
+                "category": "Complexity",
+                "applicability": "MaybeIncorrect",
+                "description": "Flatten nested condition blocks by using guard clauses with early returns",
+                "before_code": {"text": "...", "line_start": 12, "line_end": 18},
+                "after_code": {"text": "...", "line_start": 12, "line_end": 15},
+                "explanation": "Deeply nested conditions are hard to follow...",
+                "references": ["https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions"]
             }
         ]
     }

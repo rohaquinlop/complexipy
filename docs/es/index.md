@@ -397,7 +397,23 @@ RefactorPlan:
   ├─ current_complexity: int
   ├─ estimated_reduction: int
   ├─ estimated_complexity_after: int
-  └─ steps: List[str]
+  ├─ steps: List[str]
+  ├─ rule_id: str
+  ├─ category: RuleCategory
+  ├─ applicability: Applicability
+  ├─ description: str
+  ├─ before_code: Optional[CodeSnippet]
+  ├─ after_code: Optional[CodeSnippet]
+  ├─ explanation: str
+  └─ references: List[str]
+
+CodeSnippet:
+  ├─ text: str
+  ├─ line_start: int
+  └─ line_end: int
+
+RuleCategory: Complexity | Readability | Maintainability
+Applicability: MachineApplicable | MaybeIncorrect | Informational
 
 LineComplexity:
   ├─ line: int
