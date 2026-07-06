@@ -285,10 +285,10 @@ class TestSuggestRefactorsOutput:
         )
 
         assert result.exit_code == 0, result.output
-        assert "Refactor plans:" in result.output
+        assert "Refactor Suggestions:" in result.output
         assert "Flatten nested condition block with guard clauses" in result.output
-        assert "estimated: 7 -> 5 (-2)" in result.output
-        assert "invert the outer condition" in result.output
+        assert "Estimated reduction: -2 complexity" in result.output
+        assert "C001" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path
@@ -310,7 +310,7 @@ class TestSuggestRefactorsOutput:
 
         assert result.exit_code == 1, result.output
         assert "sample 7" in result.output
-        assert "Refactor plans:" in result.output
+        assert "Refactor Suggestions:" in result.output
         assert "simple" not in result.output
 
     def test_plain_with_suggest_refactors_preserves_plain_output(

@@ -166,27 +166,35 @@ def sample(a, b, c, d):
     complexipy._complexipy.output_json(str(output_path), [file_result], True, 0)
 
     json_data = json.loads(output_path.read_text())
-    assert json_data == [
-        {
-            "path": "sample.py",
-            "file_name": "sample.py",
-            "function_name": "sample",
-            "complexity": func.complexity,
-            "refactor_plans": [
-                {
-                    "kind": func.refactor_plans[0].kind,
-                    "title": func.refactor_plans[0].title,
-                    "line_start": func.refactor_plans[0].line_start,
-                    "line_end": func.refactor_plans[0].line_end,
-                    "current_complexity": func.refactor_plans[0].current_complexity,
-                    "estimated_reduction": func.refactor_plans[0].estimated_reduction,
-                    "estimated_complexity_after": func.refactor_plans[0].estimated_complexity_after,
-                    "steps": list(func.refactor_plans[0].steps),
-                }
-            ],
-        }
-    ]
-
+    # Check that the JSON contains the expected structure with new fields
+    assert len(json_data) == 1
+    assert json_data[0]["path"] == "sample.py"
+    assert json_data[0]["file_name"] == "sample.py"
+    assert json_data[0]["function_name"] == "sample"
+    assert json_data[0]["complexity"] == func.complexity
+    
+    # Check that refactor plans are included with new fields
+    assert len(json_data[0]["refactor_plans"]) > 0
+    plan = json_data[0]["refactor_plans"][0]
+    assert plan["kind"] == func.refactor_plans[0].kind
+    assert plan["title"] == func.refactor_plans[0].title
+    assert plan["line_start"] == func.refactor_plans[0].line_start
+    assert plan["line_end"] == func.refactor_plans[0].line_end
+    assert plan["current_complexity"] == func.refactor_plans[0].current_complexity
+    assert plan["estimated_reduction"] == func.refactor_plans[0].estimated_reduction
+    assert plan["estimated_complexity_after"] == func.refactor_plans[0].estimated_complexity_after
+    assert plan["steps"] == list(func.refactor_plans[0].steps)
+    
+    # Check new clippy-style fields
+    assert "rule_id" in plan
+    assert "category" in plan
+    assert "applicability" in plan
+    assert "description" in plan
+    assert "explanation" in plan
+    assert "references" in plan
+    assert "before_code" in plan
+    assert "after_code" in plan
+    
     snapshot_path = tmp_path / "complexipy-snapshot.json"
     complexipy._complexipy.create_snapshot_file(str(snapshot_path), 0, [file_result])
     snapshot_data = json.loads(snapshot_path.read_text())
