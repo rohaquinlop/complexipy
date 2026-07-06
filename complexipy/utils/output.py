@@ -186,7 +186,7 @@ def _output_single_plan(console: Console, plan: RefactorPlan, index: int) -> Non
 
     if plan.explanation:
         console.print(
-            f"\n          [yellow]\u26a1[/yellow] {plan.explanation}"
+            f"\n          [bold]>[/bold] {plan.explanation}"
         )
 
     if not plan.before_code and plan.steps:
@@ -200,12 +200,12 @@ def _output_single_plan(console: Console, plan: RefactorPlan, index: int) -> Non
 def _get_category_icon(category: Union[str, RuleCategory]) -> str:
     category_str = str(category)
     if "Complexity" in category_str:
-        return "\U0001f9e9"
+        return "[bold]\u2022[/bold]"
     elif "Readability" in category_str:
-        return "\U0001f4d6"
+        return "[bold]\u2022[/bold]"
     elif "Maintainability" in category_str:
-        return "\U0001f527"
-    return "\u2699"
+        return "[bold]\u2022[/bold]"
+    return "[bold]\u2022[/bold]"
 
 
 def _get_category_name(category: Union[str, RuleCategory]) -> str:
@@ -222,12 +222,12 @@ def _get_category_name(category: Union[str, RuleCategory]) -> str:
 def _get_applicability_icon(applicability: Union[str, Applicability]) -> str:
     applicability_str = str(applicability)
     if "MachineApplicable" in applicability_str:
-        return "[green]\u2705[/green]"
+        return "[green]*[/green]"
     elif "MaybeIncorrect" in applicability_str:
-        return "[yellow]\u26a0\ufe0f[/yellow]"
+        return "[yellow]![/yellow]"
     elif "Informational" in applicability_str:
-        return "[blue]\u2139\ufe0f[/blue]"
-    return "\u2753"
+        return "[blue]i[/blue]"
+    return "?"
 
 
 def _get_applicability_name(applicability: Union[str, Applicability]) -> str:
