@@ -6,17 +6,17 @@ complexipy includes a clippy-inspired refactoring system that provides actionabl
 
 | Category            | Icon | Description                                     |
 | ------------------- | ---- | ----------------------------------------------- |
-| **Complexity**      | 🧩   | Rules that directly reduce cognitive complexity |
-| **Readability**     | 📖   | Rules that improve code readability             |
-| **Maintainability** | 🔧   | Rules that improve long-term maintainability    |
+| **Complexity**      | •    | Rules that directly reduce cognitive complexity |
+| **Readability**     | •    | Rules that improve code readability             |
+| **Maintainability** | •    | Rules that improve long-term maintainability    |
 
 ## Applicability Levels
 
 | Level               | Icon | Description                                        |
 | ------------------- | ---- | -------------------------------------------------- |
-| **Auto-applicable** | ✅   | Safe to apply automatically without human review   |
-| **Needs review**    | ⚠️   | May be incorrect in some cases, needs human review |
-| **Informational**   | ℹ️   | Just guidance, not directly actionable             |
+| **Auto-applicable** | \*   | Safe to apply automatically without human review   |
+| **Needs review**    | !    | May be incorrect in some cases, needs human review |
+| **Informational**   | i    | Just guidance, not directly actionable             |
 
 ______________________________________________________________________
 
@@ -24,8 +24,8 @@ ______________________________________________________________________
 
 ### C001: Flatten Nested Conditions
 
-**Category:** 🧩 Complexity\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Complexity\
+**Applicability:** ! Needs review\
 **Priority:** High (4/5)
 
 Flatten nested condition blocks by using guard clauses with early returns.
@@ -68,8 +68,8 @@ ______________________________________________________________________
 
 ### C002: Loop Guards
 
-**Category:** 🧩 Complexity\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Complexity\
+**Applicability:** ! Needs review\
 **Priority:** Medium (3/5)
 
 Use continue guards at the top of loops to reduce nesting.
@@ -114,8 +114,8 @@ ______________________________________________________________________
 
 ### C003: Extract Helper Function
 
-**Category:** 🧩 Complexity\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Complexity\
+**Applicability:** ! Needs review\
 **Priority:** Medium (3/5)
 
 Extract complex code blocks into separate helper functions.
@@ -167,8 +167,8 @@ ______________________________________________________________________
 
 ### C004: Split Dispatcher
 
-**Category:** 🧩 Complexity\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Complexity\
+**Applicability:** ! Needs review\
 **Priority:** Low (2/5)
 
 Split long elif chains or match statements into separate handlers.
@@ -219,8 +219,8 @@ ______________________________________________________________________
 
 ### C006: Reduce Nesting Depth
 
-**Category:** 🧩 Complexity\
-**Applicability:** ✅ Auto-applicable\
+**Category:** • Complexity\
+**Applicability:** * Auto-applicable\
 **Priority:** High (4/5)
 
 Reduce nesting depth by using early returns and guard clauses.
@@ -263,8 +263,8 @@ ______________________________________________________________________
 
 ### C011: Flatten Try/Except
 
-**Category:** 🧩 Complexity\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Complexity\
+**Applicability:** ! Needs review\
 **Priority:** Low (2/5)
 
 Flatten nested try/except blocks by combining or restructuring.
@@ -310,8 +310,8 @@ ______________________________________________________________________
 
 ### C005: Extract Predicate
 
-**Category:** 📖 Readability\
-**Applicability:** ⚠️ Needs review\
+**Category:** • Readability\
+**Applicability:** ! Needs review\
 **Priority:** Medium (3/5)
 
 Extract complex boolean conditions into named predicate functions.
@@ -429,12 +429,12 @@ ______________________________________________________________________
 
 ## Rule ID Reference
 
-| ID                                      | Name                      | Category       | Applicability      | Priority |
-| --------------------------------------- | ------------------------- | -------------- | ------------------ | -------- |
-| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | 🧩 Complexity  | ⚠️ Needs review    | High     |
-| [C002](#c002-loop-guards)               | Loop Guards               | 🧩 Complexity  | ⚠️ Needs review    | Medium   |
-| [C003](#c003-extract-helper-function)   | Extract Helper Function   | 🧩 Complexity  | ⚠️ Needs review    | Medium   |
-| [C004](#c004-split-dispatcher)          | Split Dispatcher          | 🧩 Complexity  | ⚠️ Needs review    | Low      |
-| [C005](#c005-extract-predicate)         | Extract Predicate         | 📖 Readability | ⚠️ Needs review    | Medium   |
-| [C006](#c006-reduce-nesting-depth)      | Reduce Nesting Depth      | 🧩 Complexity  | ✅ Auto-applicable | High     |
-| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | 🧩 Complexity  | ⚠️ Needs review    | Low      |
+| ID                                      | Name                      | Category      | Applicability      | Priority |
+| --------------------------------------- | ------------------------- | ------------- | ------------------ | -------- |
+| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | • Complexity  | ! Needs review     | High     |
+| [C002](#c002-loop-guards)               | Loop Guards               | • Complexity  | ! Needs review     | Medium   |
+| [C003](#c003-extract-helper-function)   | Extract Helper Function   | • Complexity  | ! Needs review     | Medium   |
+| [C004](#c004-split-dispatcher)          | Split Dispatcher          | • Complexity  | ! Needs review     | Low      |
+| [C005](#c005-extract-predicate)         | Extract Predicate         | • Readability | ! Needs review     | Medium   |
+| [C006](#c006-reduce-nesting-depth)      | Reduce Nesting Depth      | • Complexity  | \* Auto-applicable | High     |
+| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | • Complexity  | ! Needs review     | Low      |
