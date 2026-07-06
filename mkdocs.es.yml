@@ -16,6 +16,8 @@ nav:
   - Entendiendo la Complejidad:
       - Qué Significan las Puntuaciones: understanding-scores.md
       - Comparación con Ruff: comparison-with-ruff.md
+  - Refactorización:
+      - Reglas de Refactorización: refactoring-rules.md
   - Acerca de:
       - Acerca de complexipy: about.md
 
