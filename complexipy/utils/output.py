@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import (
     Dict,
-    List,  # It's important to use this to make it compatible with python 3.8, don't remove it
+    List,
     Optional,
     Tuple,
+    Union,
 )
 
 from rich.align import Align
@@ -12,8 +13,10 @@ from rich.console import Console
 from rich.text import Text
 
 from complexipy._complexipy import (
+    Applicability,
     FileComplexity,
     FunctionComplexity,
+    RuleCategory,
 )
 from complexipy.types import (
     Sort,
@@ -95,9 +98,6 @@ def truncate_top_n(
     all_functions.sort(key=lambda x: x[1].complexity, reverse=True)
     top_functions = all_functions[:n]
 
-    # Preserve global descending order across files: emit a new entry whenever
-    # the path changes, rather than regrouping (which would collapse runs and
-    # lose the global rank order for multi-file results).
     result: List[dc.FileEntry] = []
     for path, function in top_functions:
         if result and result[-1].path == path:
@@ -148,20 +148,207 @@ def output_refactor_plans(console: Console, function: dc.FunctionRow) -> None:
     if not function.refactor_plans:
         return
 
-    console.print("\n      Refactor plans:")
+    console.print("\n      [bold]Refactor Suggestions:[/bold]")
     for index, plan in enumerate(function.refactor_plans, start=1):
+        _output_single_plan(console, plan, index)
+
+
+def _output_single_plan(console: Console, plan, index: int) -> None:
+    category_icon = _get_category_icon(plan.category)
+    category_name = _get_category_name(plan.category)
+    applicability_icon = _get_applicability_icon(plan.applicability)
+    applicability_name = _get_applicability_name(plan.applicability)
+
+    console.print(
+        f"\n      [{index}] [bold cyan]{plan.rule_id}[/bold cyan] {plan.title}"
+    )
+    console.print(
+        f"          Category: {category_icon} {category_name} "
+        f"| Applicability: {applicability_icon} {applicability_name}"
+    )
+    console.print(
+        f"          Lines {plan.line_start}-{plan.line_end} "
+        f"-> Estimated reduction: [green]-{plan.estimated_reduction}[/green] complexity "
+        f"({plan.current_complexity} -> {plan.estimated_complexity_after})"
+    )
+
+    if plan.description:
+        console.print(f"\n          [dim]{plan.description}[/dim]")
+
+    if plan.before_code or plan.after_code:
+        console.print()
+        _output_code_comparison(console, plan)
+
+    if plan.explanation:
         console.print(
-            f"        {index}. {plan.title}, lines {plan.line_start}-{plan.line_end}"
+            f"\n          [yellow]\u26a1[/yellow] {plan.explanation}"
         )
-        console.print(
-            "           estimated: "
-            f"{plan.current_complexity} -> {plan.estimated_complexity_after} "
-            f"(-{plan.estimated_reduction})"
+
+    if not plan.before_code and plan.steps:
+        console.print("\n          [bold]Steps:[/bold]")
+        for step in plan.steps:
+            console.print(f"            - {step}")
+
+    _output_plan_references(console, plan.rule_id, plan.references)
+
+
+def _get_category_icon(category: Union[str, RuleCategory]) -> str:
+    category_str = str(category)
+    if "Complexity" in category_str:
+        return "\U0001f9e9"
+    elif "Readability" in category_str:
+        return "\U0001f4d6"
+    elif "Maintainability" in category_str:
+        return "\U0001f527"
+    return "\u2699"
+
+
+def _get_category_name(category: Union[str, RuleCategory]) -> str:
+    category_str = str(category)
+    if "Complexity" in category_str:
+        return "Complexity"
+    elif "Readability" in category_str:
+        return "Readability"
+    elif "Maintainability" in category_str:
+        return "Maintainability"
+    return category_str
+
+
+def _get_applicability_icon(applicability: Union[str, Applicability]) -> str:
+    applicability_str = str(applicability)
+    if "MachineApplicable" in applicability_str:
+        return "[green]\u2705[/green]"
+    elif "MaybeIncorrect" in applicability_str:
+        return "[yellow]\u26a0\ufe0f[/yellow]"
+    elif "Informational" in applicability_str:
+        return "[blue]\u2139\ufe0f[/blue]"
+    return "\u2753"
+
+
+def _get_applicability_name(applicability: Union[str, Applicability]) -> str:
+    applicability_str = str(applicability)
+    if "MachineApplicable" in applicability_str:
+        return "Auto-applicable"
+    elif "MaybeIncorrect" in applicability_str:
+        return "Needs review"
+    elif "Informational" in applicability_str:
+        return "Informational"
+    return applicability_str
+
+
+def _output_plan_references(console: Console, rule_id: str, references: list) -> None:
+    doc_url = _get_doc_url(rule_id)
+    if doc_url or references:
+        console.print("\n          [dim]References:[/dim]")
+        if doc_url:
+            console.print(
+                f"            [blue underline]{doc_url}[/blue underline]"
+            )
+        for ref in references:
+            console.print(
+                f"            [blue underline]{ref}[/blue underline]"
+            )
+
+
+def _get_doc_url(rule_id: str) -> str:
+    doc_anchors = {
+        "C001": "c001-flatten-nested-conditions",
+        "C002": "c002-loop-guards",
+        "C003": "c003-extract-helper-function",
+        "C004": "c004-split-dispatcher",
+        "C005": "c005-extract-predicate",
+        "C006": "c006-reduce-nesting-depth",
+        "C011": "c011-flatten-tryexcept",
+    }
+    anchor = doc_anchors.get(rule_id)
+    if anchor:
+        return f"https://rohaquinlop.github.io/complexipy/refactoring-rules/#{anchor}"
+    return ""
+
+
+def _output_code_comparison(console: Console, plan) -> None:
+    console.print("          [bold]Code:[/bold]")
+
+    if plan.before_code:
+        console.print("          [dim]Before:[/dim]")
+        _output_code_snippet(console, plan.before_code, indent=12)
+
+    if plan.after_code:
+        console.print("\n          [dim]After:[/dim]")
+        _output_code_snippet(console, plan.after_code, indent=12)
+
+
+def _output_code_snippet(console, snippet, indent: int = 8) -> None:
+    if not snippet or not snippet.text:
+        return
+
+    lines = snippet.text.split("\n")
+    line_num = snippet.line_start
+
+    for line in lines:
+        highlighted = _highlight_python_line(line)
+        console.print(f"{' ' * indent}{line_num:4d} | {highlighted}")
+        line_num += 1
+
+
+def _highlight_python_line(line: str) -> str:
+    import re
+
+    keywords = [
+        "def",
+        "class",
+        "if",
+        "elif",
+        "else",
+        "for",
+        "while",
+        "return",
+        "import",
+        "from",
+        "try",
+        "except",
+        "finally",
+        "with",
+        "as",
+        "raise",
+        "pass",
+        "break",
+        "continue",
+        "yield",
+        "lambda",
+    ]
+
+    constants = ["True", "False", "None"]
+    boolean_ops = ["and", "or", "not", "in", "is"]
+
+    result = line
+
+    result = re.sub(
+        r'("""[^"]*"""|\'\'\'[^\']*\'\'\' |"[^"]*"|\'[^\']*\')',
+        r"[green]\1[/green]",
+        result,
+    )
+
+    result = re.sub(r"(\s*#.*)$", r"[dim]\1[/dim]", result)
+
+    for keyword in keywords:
+        result = re.sub(
+            rf"\b{keyword}\b", f"[bold blue]{keyword}[/bold blue]", result
         )
-        if plan.steps:
-            console.print("           steps:")
-            for step in plan.steps:
-                console.print(f"             - {step}")
+
+    for op in boolean_ops:
+        result = re.sub(
+            rf"\b{op}\b", f"[bold magenta]{op}[/bold magenta]", result
+        )
+
+    for constant in constants:
+        result = re.sub(
+            rf"\b{constant}\b", f"[bold cyan]{constant}[/bold cyan]", result
+        )
+
+    result = re.sub(r"\b(\d+)\b", r"[yellow]\1[/yellow]", result)
+
+    return result
 
 
 def format_status_text(passed: bool) -> str:
