@@ -17,6 +17,7 @@ from complexipy._complexipy import (
     Applicability,
     FileComplexity,
     FunctionComplexity,
+    RefactorPlan,
     RuleCategory,
 )
 from complexipy.types import (
@@ -334,7 +335,7 @@ def output_refactor_plans(console: Console, function: FunctionRow) -> None:
         _output_single_plan(console, plan, index)
 
 
-def _output_single_plan(console: Console, plan, index: int) -> None:
+def _output_single_plan(console: Console, plan: RefactorPlan, index: int) -> None:
     category_icon = _get_category_icon(plan.category)
     category_name = _get_category_name(plan.category)
     applicability_icon = _get_applicability_icon(plan.applicability)
@@ -453,7 +454,7 @@ def _get_doc_url(rule_id: str) -> str:
 
 import re as _re
 
-_STRING_PATTERN = _re.compile(r'("""[^"]*"""|\'\'\'[^\']*\'\'\' |"[^"]*"|\'[^\']*\')')
+_STRING_PATTERN = _re.compile(r'("""[^"]*"""|\'\'\'[^\']*\'\'\'|"[^"]*"|\'[^\']*\')')
 _COMMENT_PATTERN = _re.compile(r'(\s*#.*)$')
 _NUMBER_PATTERN = _re.compile(r'\b(\d+)\b')
 

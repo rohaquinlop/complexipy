@@ -40,6 +40,8 @@ impl RuleRegistry {
 
         self.collect_plans(regions, source, function_complexity, &mut plans);
 
+        // Filter out low-impact plans: a reduction of 1 is noise — it doesn't meaningfully
+        // improve readability or maintainability, so we only surface plans with reduction >= 2.
         plans.retain(|plan| plan.estimated_reduction >= 2);
 
         plans.sort_by(|a, b| {
