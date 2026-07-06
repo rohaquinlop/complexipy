@@ -15,7 +15,7 @@ pub struct RuleMetadata {
     pub doc_url: String,
 }
 
-pub trait RefactorRule {
+pub trait RefactorRule: Sync + Send {
     fn metadata(&self) -> &'static RuleMetadata;
 
     fn check(

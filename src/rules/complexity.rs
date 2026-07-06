@@ -543,13 +543,13 @@ fn generate_predicate_code(region: &ComplexityRegion, source: &str) -> CodeSnipp
 
     let predicate_indent = " ".repeat(base_indent);
     let call_indent = " ".repeat(base_indent + 4);
+    let func_name = format!("_check_condition_L{}", region.line_start);
 
     let result = format!(
-        "{predicate_indent}def is_valid(data) -> bool:\n\
-         {predicate_indent}    # TODO: Give this a descriptive name\n\
+        "{predicate_indent}def {func_name}() -> bool:\n\
          {predicate_indent}    return {condition}\n\
          \n\
-         {call_indent}if is_valid(data):"
+         {call_indent}if {func_name}():"
     );
 
     CodeSnippet {

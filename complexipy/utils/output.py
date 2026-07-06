@@ -270,6 +270,32 @@ def _get_doc_url(rule_id: str) -> str:
     return ""
 
 
+import re as _re
+
+_STRING_PATTERN = _re.compile(r'("""[^"]*"""|\'\'\'[^\']*\'\'\' |"[^"]*"|\'[^\']*\')')
+_COMMENT_PATTERN = _re.compile(r'(\s*#.*)$')
+_NUMBER_PATTERN = _re.compile(r'\b(\d+)\b')
+
+_KEYWORD_PATTERNS = {
+    kw: _re.compile(rf'\b{kw}\b')
+    for kw in [
+        "def", "class", "if", "elif", "else", "for", "while", "return",
+        "import", "from", "try", "except", "finally", "with", "as",
+        "raise", "pass", "break", "continue", "yield", "lambda",
+    ]
+}
+
+_BOOL_OP_PATTERNS = {
+    op: _re.compile(rf'\b{op}\b')
+    for op in ["and", "or", "not", "in", "is"]
+}
+
+_CONSTANT_PATTERNS = {
+    const: _re.compile(rf'\b{const}\b')
+    for const in ["True", "False", "None"]
+}
+
+
 def _output_code_comparison(console: Console, plan) -> None:
     console.print("          [bold]Code:[/bold]")
 
@@ -296,61 +322,21 @@ def _output_code_snippet(console, snippet, indent: int = 8) -> None:
 
 
 def _highlight_python_line(line: str) -> str:
-    import re
-
-    keywords = [
-        "def",
-        "class",
-        "if",
-        "elif",
-        "else",
-        "for",
-        "while",
-        "return",
-        "import",
-        "from",
-        "try",
-        "except",
-        "finally",
-        "with",
-        "as",
-        "raise",
-        "pass",
-        "break",
-        "continue",
-        "yield",
-        "lambda",
-    ]
-
-    constants = ["True", "False", "None"]
-    boolean_ops = ["and", "or", "not", "in", "is"]
-
     result = line
 
-    result = re.sub(
-        r'("""[^"]*"""|\'\'\'[^\']*\'\'\' |"[^"]*"|\'[^\']*\')',
-        r"[green]\1[/green]",
-        result,
-    )
+    result = _STRING_PATTERN.sub(r"[green]\1[/green]", result)
+    result = _COMMENT_PATTERN.sub(r"[dim]\1[/dim]", result)
 
-    result = re.sub(r"(\s*#.*)$", r"[dim]\1[/dim]", result)
+    for pattern in _KEYWORD_PATTERNS.values():
+        result = pattern.sub(lambda m: f"[bold blue]{m.group()}[/bold blue]", result)
 
-    for keyword in keywords:
-        result = re.sub(
-            rf"\b{keyword}\b", f"[bold blue]{keyword}[/bold blue]", result
-        )
+    for pattern in _BOOL_OP_PATTERNS.values():
+        result = pattern.sub(lambda m: f"[bold magenta]{m.group()}[/bold magenta]", result)
 
-    for op in boolean_ops:
-        result = re.sub(
-            rf"\b{op}\b", f"[bold magenta]{op}[/bold magenta]", result
-        )
+    for pattern in _CONSTANT_PATTERNS.values():
+        result = pattern.sub(lambda m: f"[bold cyan]{m.group()}[/bold cyan]", result)
 
-    for constant in constants:
-        result = re.sub(
-            rf"\b{constant}\b", f"[bold cyan]{constant}[/bold cyan]", result
-        )
-
-    result = re.sub(r"\b(\d+)\b", r"[yellow]\1[/yellow]", result)
+    result = _NUMBER_PATTERN.sub(r"[yellow]\1[/yellow]", result)
 
     return result
 

@@ -2,6 +2,7 @@ pub use crate::classes::{LineComplexity, RefactorPlan};
 
 #[cfg(any(feature = "python", feature = "wasm"))]
 use crate::rules::RuleRegistry;
+use std::sync::OnceLock;
 
 #[cfg(any(feature = "python", feature = "wasm"))]
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -45,6 +46,7 @@ pub fn build_refactor_plans(
     regions: &[ComplexityRegion],
     source: &str,
 ) -> Vec<RefactorPlan> {
-    let registry = RuleRegistry::new();
+    static REGISTRY: OnceLock<RuleRegistry> = OnceLock::new();
+    let registry = REGISTRY.get_or_init(RuleRegistry::new);
     registry.analyze(regions, source, function_complexity)
 }
