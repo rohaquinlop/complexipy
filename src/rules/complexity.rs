@@ -15,7 +15,7 @@ impl RefactorRule for FlattenConditionRule {
             description: "Flatten nested condition blocks by using guard clauses with early returns".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 4,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions".to_string(),
         })
     }
 
@@ -75,10 +75,8 @@ impl RefactorRule for LoopGuardsRule {
             description: "Use continue guards at the top of loops to reduce nesting".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 3,
-            doc_url: Some(
-                "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c002-loop-guards"
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c002-loop-guards"
                     .to_string(),
-            ),
         })
     }
 
@@ -151,7 +149,7 @@ impl RefactorRule for ExtractHelperRule {
             description: "Extract complex code blocks into separate helper functions".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 3,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c003-extract-helper-function".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c003-extract-helper-function".to_string(),
         })
     }
 
@@ -210,7 +208,7 @@ impl RefactorRule for SplitDispatcherRule {
             description: "Split long elif chains or match statements into separate handlers".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 2,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c004-split-dispatcher".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c004-split-dispatcher".to_string(),
         })
     }
 
@@ -275,7 +273,7 @@ impl RefactorRule for ExtractPredicateRule {
             description: "Extract complex boolean conditions into named predicate functions".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 3,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c005-extract-predicate".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c005-extract-predicate".to_string(),
         })
     }
 
@@ -332,7 +330,7 @@ impl RefactorRule for ReduceNestingRule {
             description: "Reduce nesting depth by using early returns and guard clauses".to_string(),
             applicability: Applicability::MachineApplicable,
             priority: 4,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c006-reduce-nesting-depth".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c006-reduce-nesting-depth".to_string(),
         })
     }
 
@@ -393,7 +391,7 @@ impl RefactorRule for FlattenTryRule {
             description: "Flatten nested try/except blocks by combining or restructuring".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 2,
-            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c011-flatten-tryexcept".to_string()),
+            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c011-flatten-tryexcept".to_string(),
         })
     }
 

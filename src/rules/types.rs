@@ -12,7 +12,7 @@ pub struct RuleMetadata {
     pub description: String,
     pub applicability: Applicability,
     pub priority: u8,
-    pub doc_url: Option<String>,
+    pub doc_url: String,
 }
 
 pub trait RefactorRule {
