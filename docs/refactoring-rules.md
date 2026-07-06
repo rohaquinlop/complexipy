@@ -25,7 +25,7 @@ ______________________________________________________________________
 ### C001: Flatten Nested Conditions
 
 **Category:** 🧩 Complexity\
-**Applicability:** ✅ Auto-applicable\
+**Applicability:** ⚠️ Needs review\
 **Priority:** High (4/5)
 
 Flatten nested condition blocks by using guard clauses with early returns.
@@ -69,7 +69,7 @@ ______________________________________________________________________
 ### C002: Loop Guards
 
 **Category:** 🧩 Complexity\
-**Applicability:** ✅ Auto-applicable\
+**Applicability:** ⚠️ Needs review\
 **Priority:** Medium (3/5)
 
 Use continue guards at the top of loops to reduce nesting.
@@ -311,7 +311,7 @@ ______________________________________________________________________
 ### C005: Extract Predicate
 
 **Category:** 📖 Readability\
-**Applicability:** ✅ Auto-applicable\
+**Applicability:** ⚠️ Needs review\
 **Priority:** Medium (3/5)
 
 Extract complex boolean conditions into named predicate functions.
@@ -431,10 +431,10 @@ ______________________________________________________________________
 
 | ID                                      | Name                      | Category       | Applicability      | Priority |
 | --------------------------------------- | ------------------------- | -------------- | ------------------ | -------- |
-| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | 🧩 Complexity  | ✅ Auto-applicable | High     |
-| [C002](#c002-loop-guards)               | Loop Guards               | 🧩 Complexity  | ✅ Auto-applicable | Medium   |
+| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | 🧩 Complexity  | ⚠️ Needs review    | High     |
+| [C002](#c002-loop-guards)               | Loop Guards               | 🧩 Complexity  | ⚠️ Needs review    | Medium   |
 | [C003](#c003-extract-helper-function)   | Extract Helper Function   | 🧩 Complexity  | ⚠️ Needs review    | Medium   |
 | [C004](#c004-split-dispatcher)          | Split Dispatcher          | 🧩 Complexity  | ⚠️ Needs review    | Low      |
-| [C005](#c005-extract-predicate)         | Extract Predicate         | 📖 Readability | ✅ Auto-applicable | Medium   |
+| [C005](#c005-extract-predicate)         | Extract Predicate         | 📖 Readability | ⚠️ Needs review    | Medium   |
 | [C006](#c006-reduce-nesting-depth)      | Reduce Nesting Depth      | 🧩 Complexity  | ✅ Auto-applicable | High     |
 | [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | 🧩 Complexity  | ⚠️ Needs review    | Low      |

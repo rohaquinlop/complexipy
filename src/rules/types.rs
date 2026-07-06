@@ -16,7 +16,7 @@ pub struct RuleMetadata {
 }
 
 pub trait RefactorRule {
-    fn metadata(&self) -> RuleMetadata;
+    fn metadata(&self) -> &'static RuleMetadata;
 
     fn check(
         &self,
@@ -26,6 +26,7 @@ pub trait RefactorRule {
     ) -> Option<crate::classes::RefactorPlan>;
 }
 
+#[must_use]
 pub fn extract_code_snippet(source: &str, line_start: u64, line_end: u64) -> CodeSnippet {
     let lines: Vec<&str> = source.lines().collect();
     let start = (line_start.saturating_sub(1)) as usize;
