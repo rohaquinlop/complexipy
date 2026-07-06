@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from complexipy._complexipy import RefactorPlan
+from complexipy._complexipy import (
+    RefactorPlan,
+)
 
 
 @dataclass

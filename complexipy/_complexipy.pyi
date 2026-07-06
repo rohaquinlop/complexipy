@@ -7,7 +7,46 @@ understand and maintain, focusing on control flow structures that make code
 harder to reason about.
 """
 
-from typing import List, Tuple
+from enum import Enum
+from typing import List, Optional, Tuple
+
+class RuleCategory(Enum):
+    """Category of a refactoring rule."""
+
+    Complexity = "Complexity"
+    """Rules that reduce cognitive complexity."""
+
+    Readability = "Readability"
+    """Rules that improve code readability."""
+
+    Maintainability = "Maintainability"
+    """Rules that improve long-term maintainability."""
+
+class Applicability(Enum):
+    """Applicability level for refactoring suggestions."""
+
+    MachineApplicable = "MachineApplicable"
+    """Safe to apply automatically without human review."""
+
+    MaybeIncorrect = "MaybeIncorrect"
+    """May be incorrect in some cases, needs human review."""
+
+    Informational = "Informational"
+    """Informational only, not directly actionable."""
+
+class CodeSnippet:
+    """A snippet of source code with line information."""
+
+    text: str
+    """The source code text."""
+
+    line_start: int
+    """Starting line number (1-indexed)."""
+
+    line_end: int
+    """Ending line number (1-indexed)."""
+
+    def __init__(self, text: str, line_start: int, line_end: int) -> None: ...
 
 class LineComplexity:
     """
@@ -43,16 +82,62 @@ class LineComplexity:
     def __init__(self, line: int, complexity: int) -> None: ...
 
 class RefactorPlan:
-    """Deterministic refactoring plan for reducing one function's complexity."""
+    """Deterministic refactoring plan for reducing one function's complexity.
 
+    This plan includes clippy-style metadata with rule information,
+    code snippets, and detailed explanations to help developers and
+    AI agents understand and apply the refactoring.
+    """
+
+    # Existing fields (backward compatible)
     kind: str
+    """Type of refactoring (e.g., 'flatten_condition', 'extract_helper')."""
+
     title: str
+    """Human-readable title of the refactoring suggestion."""
+
     line_start: int
+    """Starting line number of the code region to refactor."""
+
     line_end: int
+    """Ending line number of the code region to refactor."""
+
     current_complexity: int
+    """Current cognitive complexity of the function."""
+
     estimated_reduction: int
+    """Estimated complexity reduction from applying this refactoring."""
+
     estimated_complexity_after: int
+    """Estimated complexity after applying this refactoring."""
+
     steps: List[str]
+    """Step-by-step instructions for applying the refactoring."""
+
+    # New clippy-style fields
+    rule_id: str
+    """Unique identifier for the rule (e.g., 'C001', 'R002')."""
+
+    category: RuleCategory
+    """Category of the refactoring rule."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Detailed description of what the rule checks for."""
+
+    before_code: Optional[CodeSnippet]
+    """The code before refactoring (if available)."""
+
+    after_code: Optional[CodeSnippet]
+    """The code after refactoring (if available)."""
+
+    explanation: str
+    """Explanation of why this refactoring helps."""
+
+    references: List[str]
+    """Links to documentation and examples."""
 
     def __init__(
         self,
@@ -64,6 +149,14 @@ class RefactorPlan:
         estimated_reduction: int,
         estimated_complexity_after: int,
         steps: List[str],
+        rule_id: str,
+        category: RuleCategory,
+        applicability: Applicability,
+        description: str,
+        before_code: Optional[CodeSnippet],
+        after_code: Optional[CodeSnippet],
+        explanation: str,
+        references: List[str],
     ) -> None: ...
 
 class FunctionComplexity:
