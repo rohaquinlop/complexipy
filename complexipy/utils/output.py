@@ -178,6 +178,10 @@ def _output_single_plan(console: Console, plan, index: int) -> None:
     if plan.before_code or plan.after_code:
         console.print()
         _output_code_comparison(console, plan)
+        if plan.applicability and "MaybeIncorrect" in str(plan.applicability):
+            console.print(
+                "\n          [dim]Note: The 'After' code is illustrative and may need adjustments.[/dim]"
+            )
 
     if plan.explanation:
         console.print(

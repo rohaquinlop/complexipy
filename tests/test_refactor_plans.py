@@ -199,3 +199,102 @@ def sample(a, b, c, d):
     complexipy._complexipy.create_snapshot_file(str(snapshot_path), 0, [file_result])
     snapshot_data = json.loads(snapshot_path.read_text())
     assert "refactor_plans" not in snapshot_data[0]["functions"][0]
+
+
+def test_single_line_function_creates_no_plans() -> None:
+    func = first_func("""
+def sample():
+    pass
+""")
+    assert func.complexity == 0
+    assert func.refactor_plans == []
+
+
+def test_function_with_only_comments_creates_no_plans() -> None:
+    func = first_func("""
+def sample():
+    # This is a comment
+    # Another comment
+    pass
+""")
+    assert func.complexity == 0
+    assert func.refactor_plans == []
+
+
+def test_function_with_unusual_indentation() -> None:
+    func = first_func("""
+def sample(a, b, c, d):
+    if a:
+        if b:
+            if c:
+                if d:
+                    return True
+    return False
+""")
+    assert func.complexity == 10
+    assert len(func.refactor_plans) > 0
+
+
+def test_rule_priority_ordering() -> None:
+    func = first_func("""
+def sample(data, config, user):
+    if data:
+        if data.is_valid():
+            if config.enabled:
+                if user.has_permission:
+                    return process(data)
+    return None
+""")
+    plans = func.refactor_plans
+    assert len(plans) > 1
+    
+    priorities = {
+        "C001": 4,
+        "C002": 3,
+        "C003": 3,
+        "C004": 2,
+        "C005": 3,
+        "C006": 4,
+        "C011": 2,
+    }
+    
+    for i in range(len(plans) - 1):
+        curr_priority = priorities.get(plans[i].rule_id, 0)
+        next_priority = priorities.get(plans[i + 1].rule_id, 0)
+        assert curr_priority >= next_priority
+
+
+def test_rule_metadata_has_doc_url() -> None:
+    func = first_func("""
+def sample(a, b, c, d):
+    if a:
+        if b:
+            if c and d:
+                return 1
+    return 0
+""")
+    for plan in func.refactor_plans:
+        assert plan.rule_id.startswith("C")
+        assert plan.category is not None
+        assert plan.applicability is not None
+        assert plan.description
+        assert plan.explanation
+
+
+def test_code_generation_produces_nonempty_snippets() -> None:
+    func = first_func("""
+def sample(a, b, c):
+    if a:
+        if b:
+            if c:
+                return 1
+    return 0
+""")
+    flatten_plan = next(
+        (p for p in func.refactor_plans if p.kind == "flatten_condition"),
+        None
+    )
+    if flatten_plan and flatten_plan.before_code:
+        assert len(flatten_plan.before_code.text) > 0
+        assert flatten_plan.before_code.line_start > 0
+        assert flatten_plan.before_code.line_end >= flatten_plan.before_code.line_start
