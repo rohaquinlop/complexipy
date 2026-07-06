@@ -107,7 +107,7 @@ pub fn function_level_cognitive_complexity_shared(
             line_start: 1,
             line_end: total_lines,
             line_complexities: module_line_complexities,
-            refactor_plans: build_refactor_plans(module_complexity, &module_regions),
+            refactor_plans: build_refactor_plans(module_complexity, &module_regions, code),
         });
     }
 
@@ -141,7 +141,7 @@ fn analyze_function(
         line_start: get_line_number(usize::from(f.range.start()), code),
         line_end: get_line_number(usize::from(f.range.end()), code),
         line_complexities: result.line_complexities,
-        refactor_plans: build_refactor_plans(result.complexity, &result.regions),
+        refactor_plans: build_refactor_plans(result.complexity, &result.regions, code),
     }
 }
 

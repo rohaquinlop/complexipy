@@ -27,7 +27,53 @@ pub struct LineComplexity {
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
+pub struct CodeSnippet {
+    pub text: String,
+    pub line_start: u64,
+    pub line_end: u64,
+}
+
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum RuleCategory {
+    Complexity,
+    Readability,
+    Maintainability,
+}
+
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Applicability {
+    MachineApplicable,
+    MaybeIncorrect,
+    Informational,
+}
+
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
+#[derive(Clone)]
 pub struct RefactorPlan {
+    // Existing fields (backward compatible)
     pub kind: String,
     pub title: String,
     pub line_start: u64,
@@ -36,6 +82,16 @@ pub struct RefactorPlan {
     pub estimated_reduction: u64,
     pub estimated_complexity_after: u64,
     pub steps: Vec<String>,
+
+    // New clippy-style fields
+    pub rule_id: String,
+    pub category: RuleCategory,
+    pub applicability: Applicability,
+    pub description: String,
+    pub before_code: Option<CodeSnippet>,
+    pub after_code: Option<CodeSnippet>,
+    pub explanation: String,
+    pub references: Vec<String>,
 }
 
 #[cfg_attr(
