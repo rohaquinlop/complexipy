@@ -29,6 +29,7 @@ impl RuleRegistry {
         self.rules.push(rule);
     }
 
+    #[must_use]
     pub fn analyze(
         &self,
         regions: &[ComplexityRegion],

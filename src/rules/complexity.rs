@@ -1,20 +1,22 @@
 use crate::classes::{Applicability, CodeSnippet, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata, extract_code_snippet};
+use std::sync::OnceLock;
 
 pub struct FlattenConditionRule;
 
 impl RefactorRule for FlattenConditionRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C001".to_string(),
             name: "flatten_condition".to_string(),
             category: RuleCategory::Complexity,
             description: "Flatten nested condition blocks by using guard clauses with early returns".to_string(),
-            applicability: Applicability::MachineApplicable,
+            applicability: Applicability::MaybeIncorrect,
             priority: 4,
             doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions".to_string()),
-        }
+        })
     }
 
     fn check(
@@ -46,7 +48,7 @@ impl RefactorRule for FlattenConditionRule {
             ],
             rule_id: "C001".to_string(),
             category: RuleCategory::Complexity,
-            applicability: Applicability::MachineApplicable,
+            applicability: Applicability::MaybeIncorrect,
             description:
                 "Flatten nested condition blocks by using guard clauses with early returns"
                     .to_string(),
@@ -64,19 +66,20 @@ impl RefactorRule for FlattenConditionRule {
 pub struct LoopGuardsRule;
 
 impl RefactorRule for LoopGuardsRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C002".to_string(),
             name: "loop_guards".to_string(),
             category: RuleCategory::Complexity,
             description: "Use continue guards at the top of loops to reduce nesting".to_string(),
-            applicability: Applicability::MachineApplicable,
+            applicability: Applicability::MaybeIncorrect,
             priority: 3,
             doc_url: Some(
                 "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c002-loop-guards"
                     .to_string(),
             ),
-        }
+        })
     }
 
     fn check(
@@ -123,7 +126,7 @@ impl RefactorRule for LoopGuardsRule {
             ],
             rule_id: "C002".to_string(),
             category: RuleCategory::Complexity,
-            applicability: Applicability::MachineApplicable,
+            applicability: Applicability::MaybeIncorrect,
             description: "Use continue guards at the top of loops to reduce nesting".to_string(),
             before_code: Some(before),
             after_code: Some(after),
@@ -139,8 +142,9 @@ impl RefactorRule for LoopGuardsRule {
 pub struct ExtractHelperRule;
 
 impl RefactorRule for ExtractHelperRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C003".to_string(),
             name: "extract_helper".to_string(),
             category: RuleCategory::Complexity,
@@ -148,7 +152,7 @@ impl RefactorRule for ExtractHelperRule {
             applicability: Applicability::MaybeIncorrect,
             priority: 3,
             doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c003-extract-helper-function".to_string()),
-        }
+        })
     }
 
     fn check(
@@ -197,20 +201,17 @@ impl RefactorRule for ExtractHelperRule {
 pub struct SplitDispatcherRule;
 
 impl RefactorRule for SplitDispatcherRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C004".to_string(),
             name: "split_dispatcher".to_string(),
             category: RuleCategory::Complexity,
-            description: "Split long elif chains or match statements into separate handlers"
-                .to_string(),
+            description: "Split long elif chains or match statements into separate handlers".to_string(),
             applicability: Applicability::MaybeIncorrect,
             priority: 2,
-            doc_url: Some(
-                "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c004-split-dispatcher"
-                    .to_string(),
-            ),
-        }
+            doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c004-split-dispatcher".to_string()),
+        })
     }
 
     fn check(
@@ -250,8 +251,7 @@ impl RefactorRule for SplitDispatcherRule {
             rule_id: "C004".to_string(),
             category: RuleCategory::Complexity,
             applicability: Applicability::MaybeIncorrect,
-            description: "Split long elif chains or match statements into separate handlers"
-                .to_string(),
+            description: "Split long elif chains or match statements into separate handlers".to_string(),
             before_code: Some(before),
             after_code: None,
             explanation: "Long conditional chains are hard to maintain and extend. \
@@ -266,16 +266,17 @@ impl RefactorRule for SplitDispatcherRule {
 pub struct ExtractPredicateRule;
 
 impl RefactorRule for ExtractPredicateRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C005".to_string(),
             name: "extract_predicate".to_string(),
             category: RuleCategory::Readability,
             description: "Extract complex boolean conditions into named predicate functions".to_string(),
-            applicability: Applicability::MachineApplicable,
+            applicability: Applicability::MaybeIncorrect,
             priority: 3,
             doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c005-extract-predicate".to_string()),
-        }
+        })
     }
 
     fn check(
@@ -306,9 +307,8 @@ impl RefactorRule for ExtractPredicateRule {
             ],
             rule_id: "C005".to_string(),
             category: RuleCategory::Readability,
-            applicability: Applicability::MachineApplicable,
-            description: "Extract complex boolean conditions into named predicate functions"
-                .to_string(),
+            applicability: Applicability::MaybeIncorrect,
+            description: "Extract complex boolean conditions into named predicate functions".to_string(),
             before_code: Some(before),
             after_code: Some(after),
             explanation: "Complex boolean expressions are hard to understand at a glance. \
@@ -323,8 +323,9 @@ impl RefactorRule for ExtractPredicateRule {
 pub struct ReduceNestingRule;
 
 impl RefactorRule for ReduceNestingRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C006".to_string(),
             name: "reduce_nesting".to_string(),
             category: RuleCategory::Complexity,
@@ -332,7 +333,7 @@ impl RefactorRule for ReduceNestingRule {
             applicability: Applicability::MachineApplicable,
             priority: 4,
             doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c006-reduce-nesting-depth".to_string()),
-        }
+        })
     }
 
     fn check(
@@ -368,8 +369,7 @@ impl RefactorRule for ReduceNestingRule {
             rule_id: "C006".to_string(),
             category: RuleCategory::Complexity,
             applicability: Applicability::MachineApplicable,
-            description: "Reduce nesting depth by using early returns and guard clauses"
-                .to_string(),
+            description: "Reduce nesting depth by using early returns and guard clauses".to_string(),
             before_code: Some(before),
             after_code: None,
             explanation: "Deep nesting (3+ levels) makes code hard to follow. \
@@ -384,8 +384,9 @@ impl RefactorRule for ReduceNestingRule {
 pub struct FlattenTryRule;
 
 impl RefactorRule for FlattenTryRule {
-    fn metadata(&self) -> RuleMetadata {
-        RuleMetadata {
+    fn metadata(&self) -> &'static RuleMetadata {
+        static META: OnceLock<RuleMetadata> = OnceLock::new();
+        META.get_or_init(|| RuleMetadata {
             id: "C011".to_string(),
             name: "flatten_try".to_string(),
             category: RuleCategory::Complexity,
@@ -393,7 +394,7 @@ impl RefactorRule for FlattenTryRule {
             applicability: Applicability::MaybeIncorrect,
             priority: 2,
             doc_url: Some("https://rohaquinlop.github.io/complexipy/refactoring-rules/#c011-flatten-tryexcept".to_string()),
-        }
+        })
     }
 
     fn check(
@@ -433,8 +434,7 @@ impl RefactorRule for FlattenTryRule {
             rule_id: "C011".to_string(),
             category: RuleCategory::Complexity,
             applicability: Applicability::MaybeIncorrect,
-            description: "Flatten nested try/except blocks by combining or restructuring"
-                .to_string(),
+            description: "Flatten nested try/except blocks by combining or restructuring".to_string(),
             before_code: Some(before),
             after_code: None,
             explanation: "Nested try/except blocks are confusing and hard to maintain. \
