@@ -41,6 +41,21 @@ pub struct CodeSnippet {
     any(feature = "python", feature = "wasm"),
     derive(Serialize, Deserialize)
 )]
+#[derive(Clone)]
+pub struct CodeSuggestion {
+    pub replacement: String,
+    pub applicability: Applicability,
+    pub description: String,
+}
+
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RuleCategory {
     Complexity,
@@ -81,17 +96,16 @@ pub struct RefactorPlan {
     pub current_complexity: u64,
     pub estimated_reduction: u64,
     pub estimated_complexity_after: u64,
-    pub steps: Vec<String>,
 
-    // New clippy-style fields
+    // Clippy-style fields
     pub rule_id: String,
     pub category: RuleCategory,
     pub applicability: Applicability,
     pub description: String,
-    pub before_code: Option<CodeSnippet>,
-    pub after_code: Option<CodeSnippet>,
     pub explanation: String,
     pub references: Vec<String>,
+    pub suggestion: Option<CodeSuggestion>,
+    pub help: Option<String>,
 }
 
 #[cfg_attr(

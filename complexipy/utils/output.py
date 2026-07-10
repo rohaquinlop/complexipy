@@ -154,7 +154,9 @@ def output_refactor_plans(console: Console, function: dc.FunctionRow) -> None:
         _output_single_plan(console, plan, index)
 
 
-def _output_single_plan(console: Console, plan: RefactorPlan, index: int) -> None:
+def _output_single_plan(
+    console: Console, plan: RefactorPlan, index: int
+) -> None:
     category_icon = _get_category_icon(plan.category)
     category_name = _get_category_name(plan.category)
     applicability_icon = _get_applicability_icon(plan.applicability)
@@ -176,23 +178,14 @@ def _output_single_plan(console: Console, plan: RefactorPlan, index: int) -> Non
     if plan.description:
         console.print(f"\n          [dim]{plan.description}[/dim]")
 
-    if plan.before_code or plan.after_code:
-        console.print()
-        _output_code_comparison(console, plan)
-        if plan.applicability and "MaybeIncorrect" in str(plan.applicability):
-            console.print(
-                "\n          [dim]Note: The 'After' code is illustrative and may need adjustments.[/dim]"
-            )
-
     if plan.explanation:
-        console.print(
-            f"\n          [bold]>[/bold] {plan.explanation}"
-        )
+        console.print(f"\n          [bold]>[/bold] {plan.explanation}")
 
-    if not plan.before_code and plan.steps:
-        console.print("\n          [bold]Steps:[/bold]")
-        for step in plan.steps:
-            console.print(f"            - {step}")
+    # Output suggestion or help text
+    if plan.suggestion:
+        _output_suggestion(console, plan.suggestion)
+    elif plan.help:
+        _output_help(console, plan.help)
 
     _output_plan_references(console, plan.rule_id, plan.references)
 
@@ -241,7 +234,9 @@ def _get_applicability_name(applicability: Union[str, Applicability]) -> str:
     return applicability_str
 
 
-def _output_plan_references(console: Console, rule_id: str, references: list) -> None:
+def _output_plan_references(
+    console: Console, rule_id: str, references: list
+) -> None:
     doc_url = _get_doc_url(rule_id)
     if doc_url or references:
         console.print("\n          [dim]References:[/dim]")
@@ -250,9 +245,7 @@ def _output_plan_references(console: Console, rule_id: str, references: list) ->
                 f"            [blue underline]{doc_url}[/blue underline]"
             )
         for ref in references:
-            console.print(
-                f"            [blue underline]{ref}[/blue underline]"
-            )
+            console.print(f"            [blue underline]{ref}[/blue underline]")
 
 
 def _get_doc_url(rule_id: str) -> str:
@@ -273,53 +266,78 @@ def _get_doc_url(rule_id: str) -> str:
 
 import re as _re
 
-_STRING_PATTERN = _re.compile(r'("""[^"]*"""|\'\'\'[^\']*\'\'\'|"[^"]*"|\'[^\']*\')')
-_COMMENT_PATTERN = _re.compile(r'(\s*#.*)$')
-_NUMBER_PATTERN = _re.compile(r'\b(\d+)\b')
+_STRING_PATTERN = _re.compile(
+    r'("""[^"]*"""|\'\'\'[^\']*\'\'\'|"[^"]*"|\'[^\']*\')'
+)
+_COMMENT_PATTERN = _re.compile(r"(\s*#.*)$")
+_NUMBER_PATTERN = _re.compile(r"\b(\d+)\b")
 
 _KEYWORD_PATTERNS = {
-    kw: _re.compile(rf'\b{kw}\b')
+    kw: _re.compile(rf"\b{kw}\b")
     for kw in [
-        "def", "class", "if", "elif", "else", "for", "while", "return",
-        "import", "from", "try", "except", "finally", "with", "as",
-        "raise", "pass", "break", "continue", "yield", "lambda",
+        "def",
+        "class",
+        "if",
+        "elif",
+        "else",
+        "for",
+        "while",
+        "return",
+        "import",
+        "from",
+        "try",
+        "except",
+        "finally",
+        "with",
+        "as",
+        "raise",
+        "pass",
+        "break",
+        "continue",
+        "yield",
+        "lambda",
     ]
 }
 
 _BOOL_OP_PATTERNS = {
-    op: _re.compile(rf'\b{op}\b')
-    for op in ["and", "or", "not", "in", "is"]
+    op: _re.compile(rf"\b{op}\b") for op in ["and", "or", "not", "in", "is"]
 }
 
 _CONSTANT_PATTERNS = {
-    const: _re.compile(rf'\b{const}\b')
-    for const in ["True", "False", "None"]
+    const: _re.compile(rf"\b{const}\b") for const in ["True", "False", "None"]
 }
 
 
-def _output_code_comparison(console: Console, plan) -> None:
-    console.print("          [bold]Code:[/bold]")
+def _output_suggestion(console: Console, suggestion) -> None:
+    """Output a concrete code suggestion."""
+    applicability_icon = _get_applicability_icon(suggestion.applicability)
+    applicability_name = _get_applicability_name(suggestion.applicability)
 
-    if plan.before_code:
-        console.print("          [dim]Before:[/dim]")
-        _output_code_snippet(console, plan.before_code, indent=12)
+    console.print(
+        f"\n          [bold]Suggestion:[/bold] {applicability_icon} {applicability_name}"
+    )
+    if suggestion.description:
+        console.print(f"          [dim]{suggestion.description}[/dim]")
 
-    if plan.after_code:
-        console.print("\n          [dim]After:[/dim]")
-        _output_code_snippet(console, plan.after_code, indent=12)
+    if suggestion.replacement:
+        console.print("\n          [dim]Replacement:[/dim]")
+        _output_code_snippet(console, suggestion.replacement, indent=12)
 
 
-def _output_code_snippet(console, snippet, indent: int = 8) -> None:
-    if not snippet or not snippet.text:
+def _output_help(console: Console, help_text: str) -> None:
+    """Output help text with actionable guidance."""
+    console.print(f"\n          [bold]Help:[/bold]")
+    console.print(f"          {help_text}")
+
+
+def _output_code_snippet(console, code: str, indent: int = 8) -> None:
+    if not code:
         return
 
-    lines = snippet.text.split("\n")
-    line_num = snippet.line_start
-
-    for line in lines:
+    lines = code.split("\n")
+    for i, line in enumerate(lines):
         highlighted = _highlight_python_line(line)
-        console.print(f"{' ' * indent}{line_num:4d} | {highlighted}")
-        line_num += 1
+        console.print(f"{' ' * indent}{i + 1:4d} | {highlighted}")
 
 
 def _highlight_python_line(line: str) -> str:
@@ -329,13 +347,19 @@ def _highlight_python_line(line: str) -> str:
     result = _COMMENT_PATTERN.sub(r"[dim]\1[/dim]", result)
 
     for pattern in _KEYWORD_PATTERNS.values():
-        result = pattern.sub(lambda m: f"[bold blue]{m.group()}[/bold blue]", result)
+        result = pattern.sub(
+            lambda m: f"[bold blue]{m.group()}[/bold blue]", result
+        )
 
     for pattern in _BOOL_OP_PATTERNS.values():
-        result = pattern.sub(lambda m: f"[bold magenta]{m.group()}[/bold magenta]", result)
+        result = pattern.sub(
+            lambda m: f"[bold magenta]{m.group()}[/bold magenta]", result
+        )
 
     for pattern in _CONSTANT_PATTERNS.values():
-        result = pattern.sub(lambda m: f"[bold cyan]{m.group()}[/bold cyan]", result)
+        result = pattern.sub(
+            lambda m: f"[bold cyan]{m.group()}[/bold cyan]", result
+        )
 
     result = _NUMBER_PATTERN.sub(r"[yellow]\1[/yellow]", result)
 
