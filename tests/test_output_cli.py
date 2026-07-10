@@ -286,9 +286,11 @@ class TestSuggestRefactorsOutput:
 
         assert result.exit_code == 0, result.output
         assert "Refactor Suggestions:" in result.output
-        assert "Flatten nested condition block with guard clauses" in result.output
-        assert "Estimated reduction: -2 complexity" in result.output
-        assert "C001" in result.output
+        # With region overlap dedup, C007 (collapsible_if) wins over C001 (flatten_condition)
+        # because they fire on overlapping regions with equal priority and reduction.
+        assert "Merge nested if statements" in result.output
+        assert "Estimated reduction: -5 complexity" in result.output
+        assert "C007" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path
