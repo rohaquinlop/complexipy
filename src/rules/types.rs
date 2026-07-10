@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use crate::classes::{Applicability, CodeSnippet, RuleCategory};
+pub use crate::classes::{Applicability, RuleCategory};
 
 use crate::refactor_plans::ComplexityRegion;
 
@@ -24,26 +24,4 @@ pub trait RefactorRule: Sync + Send {
         source: &str,
         function_complexity: u64,
     ) -> Option<crate::classes::RefactorPlan>;
-}
-
-#[must_use]
-pub fn extract_code_snippet(source: &str, line_start: u64, line_end: u64) -> CodeSnippet {
-    let lines: Vec<&str> = source.lines().collect();
-    let start = (line_start.saturating_sub(1)) as usize;
-    let end = (line_end as usize).min(lines.len());
-
-    if start >= lines.len() {
-        return CodeSnippet {
-            text: String::new(),
-            line_start,
-            line_end,
-        };
-    }
-
-    let text = lines[start..end].join("\n");
-    CodeSnippet {
-        text,
-        line_start,
-        line_end,
-    }
 }

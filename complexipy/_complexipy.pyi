@@ -48,6 +48,22 @@ class CodeSnippet:
 
     def __init__(self, text: str, line_start: int, line_end: int) -> None: ...
 
+class CodeSuggestion:
+    """A concrete code suggestion with replacement text and applicability."""
+
+    replacement: str
+    """The suggested replacement code."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Description of what this suggestion does."""
+
+    def __init__(
+        self, replacement: str, applicability: Applicability, description: str
+    ) -> None: ...
+
 class LineComplexity:
     """
     Represents the cognitive complexity contribution of a single line of code.
@@ -85,8 +101,8 @@ class RefactorPlan:
     """Deterministic refactoring plan for reducing one function's complexity.
 
     This plan includes clippy-style metadata with rule information,
-    code snippets, and detailed explanations to help developers and
-    AI agents understand and apply the refactoring.
+    concrete suggestions or help text, and detailed explanations to help
+    developers and AI agents understand and apply the refactoring.
     """
 
     # Existing fields (backward compatible)
@@ -111,10 +127,7 @@ class RefactorPlan:
     estimated_complexity_after: int
     """Estimated complexity after applying this refactoring."""
 
-    steps: List[str]
-    """Step-by-step instructions for applying the refactoring."""
-
-    # New clippy-style fields
+    # Clippy-style fields
     rule_id: str
     """Unique identifier for the rule (e.g., 'C001', 'R002')."""
 
@@ -127,17 +140,17 @@ class RefactorPlan:
     description: str
     """Detailed description of what the rule checks for."""
 
-    before_code: Optional[CodeSnippet]
-    """The code before refactoring (if available)."""
-
-    after_code: Optional[CodeSnippet]
-    """The code after refactoring (if available)."""
-
     explanation: str
     """Explanation of why this refactoring helps."""
 
     references: List[str]
     """Links to documentation and examples."""
+
+    suggestion: Optional[CodeSuggestion]
+    """Concrete code suggestion for machine-applicable rules."""
+
+    help: Optional[str]
+    """Help text with actionable guidance for informational rules."""
 
     def __init__(
         self,
@@ -148,15 +161,14 @@ class RefactorPlan:
         current_complexity: int,
         estimated_reduction: int,
         estimated_complexity_after: int,
-        steps: List[str],
         rule_id: str,
         category: RuleCategory,
         applicability: Applicability,
         description: str,
-        before_code: Optional[CodeSnippet],
-        after_code: Optional[CodeSnippet],
         explanation: str,
         references: List[str],
+        suggestion: Optional[CodeSuggestion],
+        help: Optional[str],
     ) -> None: ...
 
 class FunctionComplexity:
