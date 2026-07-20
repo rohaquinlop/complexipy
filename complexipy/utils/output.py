@@ -7,7 +7,6 @@ from typing import (
     Tuple,
 )
 
-from rich.align import Align
 from rich.console import Console
 from rich.text import Text
 
@@ -18,7 +17,7 @@ from complexipy._complexipy import (
 from complexipy.types import (
     Sort,
 )
-from complexipy.utils import dataclasses as dc
+from complexipy.utils.dataclasses import FileEntry, FunctionRow
 
 
 def output_summary(
@@ -34,14 +33,10 @@ def output_summary(
     top: Optional[int] = None,
     suggest_refactors: bool = False,
 ) -> bool:
-    (
-        file_entries,
-        failing_functions,
-        total_functions,
-    ) = build_output_rows(
+    file_entries, total_functions, all_pass = build_output_rows(
         files, failed_only, sort, max_complexity, snapshot_map
     )
-    has_success = not failing_functions or ignore_complexity
+    has_success = all_pass or ignore_complexity
 
     if top is not None:
         file_entries = truncate_top_n(file_entries, top)
@@ -56,16 +51,12 @@ def output_summary(
         )
     elif total_functions == 0:
         console.print(
-            Align.center(
-                "No files were found with functions. No complexity was calculated."
-            )
+            "No files were found with functions. No complexity was calculated."
         )
     else:
         output_file_entries(
             console,
             file_entries,
-            failing_functions,
-            ignore_complexity,
             previous_functions,
             max_complexity,
             suggest_refactors,
@@ -75,7 +66,7 @@ def output_summary(
 
 def output_plain(
     console: Console,
-    file_entries: List[dc.FileEntry],
+    file_entries: List[FileEntry],
 ) -> None:
     for entry in file_entries:
         for function in entry.functions:
@@ -84,10 +75,10 @@ def output_plain(
 
 
 def truncate_top_n(
-    file_entries: List[dc.FileEntry],
+    file_entries: List[FileEntry],
     n: int,
-) -> List[dc.FileEntry]:
-    all_functions: List[Tuple[str, dc.FunctionRow]] = []
+) -> List[FileEntry]:
+    all_functions: List[Tuple[str, FunctionRow]] = []
     for entry in file_entries:
         for function in entry.functions:
             all_functions.append((entry.path, function))
@@ -95,56 +86,53 @@ def truncate_top_n(
     all_functions.sort(key=lambda x: x[1].complexity, reverse=True)
     top_functions = all_functions[:n]
 
-    # Preserve global descending order across files: emit a new entry whenever
-    # the path changes, rather than regrouping (which would collapse runs and
-    # lose the global rank order for multi-file results).
-    result: List[dc.FileEntry] = []
+    result: List[FileEntry] = []
     for path, function in top_functions:
         if result and result[-1].path == path:
             result[-1].functions.append(function)
         else:
-            result.append(dc.FileEntry(path=path, functions=[function]))
+            result.append(FileEntry(path=path, functions=[function]))
     return result
 
 
 def output_file_entries(
     console: Console,
-    file_entries: List[dc.FileEntry],
-    failing_functions: Dict[str, List[str]],
-    ignore_complexity: bool,
+    file_entries: List[FileEntry],
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
     suggest_refactors: bool = False,
 ) -> None:
-    for entry in file_entries:
+    for i, entry in enumerate(file_entries):
         console.print(f"[bold]{entry.path}[/bold]")
         for function in entry.functions:
             status_text = format_status_text(function.passed)
+            complexity_text = colorize_complexity(
+                function.complexity, max_complexity
+            )
             delta_text = output_delta_text(
                 previous_functions, function, max_complexity
             )
             console.print(
-                f"    {function.name} {function.complexity}{delta_text} {status_text}"
+                f"    {function.name} {complexity_text}{delta_text} {status_text}"
             )
             if suggest_refactors:
                 output_refactor_plans(console, function)
-        console.print()
+        if i < len(file_entries) - 1:
+            console.print()
 
-    if failing_functions:
-        console.print("[bold red]Failed functions:[/bold red]")
-        for path, functions in failing_functions.items():
-            console.print(f" - {path}: {', '.join(sorted(functions))}")
-        if ignore_complexity:
-            console.print(
-                "[yellow]--ignore-complexity enabled: failures will not affect the exit code.[/yellow]"
-            )
-    else:
+    if not file_entries:
+        return
+
+    all_pass = all(
+        fn.passed for entry in file_entries for fn in entry.functions
+    )
+    if all_pass:
         console.print(
             "[bold green]All functions are within the allowed complexity.[/bold green]"
         )
 
 
-def output_refactor_plans(console: Console, function: dc.FunctionRow) -> None:
+def output_refactor_plans(console: Console, function: FunctionRow) -> None:
     if not function.refactor_plans:
         return
 
@@ -172,7 +160,7 @@ def format_status_text(passed: bool) -> str:
 
 def output_delta_text(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
-    function: dc.FunctionRow,
+    function: FunctionRow,
     max_complexity: int,
 ) -> str:
     if previous_functions is None:
@@ -212,14 +200,14 @@ def build_output_rows(
     sort: Sort,
     max_complexity: int,
     snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
-) -> Tuple[List[dc.FileEntry], Dict[str, List[str]], int]:
-    file_entries: List[dc.FileEntry] = []
-    failing_functions: Dict[str, List[str]] = {}
+) -> Tuple[List[FileEntry], int, bool]:
+    file_entries: List[FileEntry] = []
     total_functions = 0
+    all_pass = True
 
     for file in files:
         sorted_functions = sort_functions(file.functions, sort)
-        displayable_functions: List[dc.FunctionRow] = []
+        displayable_functions: List[FunctionRow] = []
 
         for function in sorted_functions:
             total_functions += 1
@@ -231,17 +219,14 @@ def build_output_rows(
                 snapshot_map,
             )
 
+            if not passed:
+                all_pass = False
+
             if failed_only and passed:
                 continue
 
-            if not passed:
-                full_path = normalize_path(file.path, file.file_name)
-                failing_functions.setdefault(full_path, []).append(
-                    function.name
-                )
-
             displayable_functions.append(
-                dc.FunctionRow(
+                FunctionRow(
                     name=function.name,
                     complexity=function.complexity,
                     passed=passed,
@@ -253,13 +238,13 @@ def build_output_rows(
 
         if displayable_functions:
             file_entries.append(
-                dc.FileEntry(
+                FileEntry(
                     path=normalize_path(file.path, file.file_name),
                     functions=displayable_functions,
                 )
             )
 
-    return file_entries, failing_functions, total_functions
+    return file_entries, total_functions, all_pass
 
 
 def sort_functions(
@@ -278,6 +263,12 @@ def normalize_path(path: str, file_name: str) -> str:
     if cleaned_path:
         return f"{cleaned_path}/{file_name}"
     return file_name
+
+
+def colorize_complexity(complexity: int, max_complexity: int) -> str:
+    if complexity <= max_complexity:
+        return f"[green]{complexity}[/green]"
+    return f"[red]{complexity}[/red]"
 
 
 def print_invalid_paths(
@@ -302,11 +293,20 @@ def print_invalid_paths(
 
 
 def has_success_functions(
-    files: List[FileComplexity], max_complexity: int
+    files: List[FileComplexity],
+    max_complexity: int,
+    snapshot_map: Optional[Dict[Tuple[str, str, str], int]] = None,
 ) -> bool:
     return all(
         all(
-            function.complexity <= max_complexity for function in file.functions
+            _is_function_passing(
+                function,
+                file.path,
+                file.file_name,
+                max_complexity,
+                snapshot_map,
+            )
+            for function in file.functions
         )
         for file in files
     )

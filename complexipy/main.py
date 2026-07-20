@@ -440,7 +440,9 @@ def handle_display(
         previous_functions = None
 
     if quiet:
-        return has_success_functions(files_complexities, max_complexity_allowed)
+        return has_success_functions(
+            files_complexities, max_complexity_allowed, active_snapshot_map
+        )
 
     effective_sort = Sort.desc if top is not None else sort
     has_success = output_summary(
