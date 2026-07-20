@@ -12,6 +12,7 @@ from complexipy.utils.diff import (
     _STATUS_REMOVED,
     _STATUS_UNCHANGED,
     DiffEntry,
+    _resolve_git_path,
     compute_diff,
     format_diff,
     has_regressions,
@@ -333,3 +334,99 @@ class TestHasRegressions:
             DiffEntry("f.py", "same", 3, 3),  # UNCHANGED
         ]
         assert has_regressions(entries, max_complexity=15) is False
+
+
+# ---------------------------------------------------------------------------
+# _resolve_git_path tests
+# ---------------------------------------------------------------------------
+
+
+class TestResolveGitPath:
+    """Tests for the git path resolution helper.
+
+    The Rust runner computes ``file.path`` relative to the *parent* of the
+    target directory.  When the invocation path equals the git root (e.g.
+    ``complexipy .``), this produces paths with an extra leading component.
+    ``_resolve_git_path`` strips components until ``git show`` finds the file.
+    """
+
+    # Paths that exist at the mocked git ref.
+    _KNOWN = {"complexipy/main.py", "complexipy/utils/output.py", "src/app.py"}
+
+    def _mock_content(self, git_ref, path, cwd):
+        return "content" if path in self._KNOWN else None
+
+    def test_path_exists_as_is(self):
+        """Path found directly — no stripping needed."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path(
+                "complexipy/main.py", "main", "/repo"
+            )
+        assert result == "complexipy/main.py"
+
+    def test_extra_prefix_stripped(self):
+        """Runner produced a double-nested path — strip the extra prefix."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path(
+                "complexipy/complexipy/main.py", "main", "/repo"
+            )
+        assert result == "complexipy/main.py"
+
+    def test_extra_prefix_stripped_nested_path(self):
+        """Extra prefix with a nested subdirectory path."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path(
+                "complexipy/complexipy/utils/output.py", "main", "/repo"
+            )
+        assert result == "complexipy/utils/output.py"
+
+    def test_no_match_returns_original(self):
+        """File doesn't exist at the ref — return original path."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=None,
+        ):
+            result = _resolve_git_path(
+                "nonexistent/file.py", "main", "/repo"
+            )
+        assert result == "nonexistent/file.py"
+
+    def test_single_segment_path(self):
+        """Path with no slashes — nothing to strip."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path("app.py", "main", "/repo")
+        assert result == "app.py"
+
+    def test_backslash_normalization(self):
+        """Windows-style backslashes are converted to forward slashes."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path(
+                "complexipy\\complexipy\\main.py", "main", "/repo"
+            )
+        assert result == "complexipy/main.py"
+
+    def test_triple_nested_prefix(self):
+        """Three extra components — strip until a match is found."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            side_effect=self._mock_content,
+        ):
+            result = _resolve_git_path(
+                "a/b/complexipy/main.py", "main", "/repo"
+            )
+        assert result == "complexipy/main.py"

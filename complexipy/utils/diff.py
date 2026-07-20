@@ -82,6 +82,34 @@ def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
 
 
+def _resolve_git_path(
+    file_path: str, git_ref: str, invocation_path: str
+) -> str:
+    """Resolve a runner-relative file path to a git-root-relative path.
+
+    The Rust runner computes ``file.path`` relative to the *parent* of the
+    target directory (its ``base_dir``).  When the invocation path equals
+    the git root (e.g. ``complexipy .``), this produces paths like
+    ``complexipy/complexipy/main.py`` instead of the git-correct
+    ``complexipy/main.py``.
+
+    We fix this by trying the path as-is first, then progressively stripping
+    leading components until ``git show`` can locate the file.
+    """
+    normalized = file_path.replace(os.sep, "/").replace("\\", "/")
+    parts = normalized.split("/")
+
+    for i in range(len(parts)):
+        candidate = "/".join(parts[i:])
+        if (
+            _file_content_at_ref(git_ref, candidate, invocation_path)
+            is not None
+        ):
+            return candidate
+
+    return normalized
+
+
 def compute_diff(
     current_files: List[FileComplexity],
     git_ref: str,
@@ -101,20 +129,13 @@ def compute_diff(
     either changed or is new/removed.  Unchanged functions are included so
     callers can choose how to filter.
     """
-    root = _git_root(invocation_path) or invocation_path
     entries: List[DiffEntry] = []
 
     for file in current_files:
-        # Build the path relative to the git root so ``git show`` can find it.
-        abs_file = os.path.normpath(os.path.join(invocation_path, file.path))
-        try:
-            path_from_root = os.path.relpath(abs_file, root)
-        except ValueError:
-            # relpath fails across drives on Windows – fall back to file.path
-            path_from_root = file.path
-
-        # git show requires forward slashes in the path even on Windows.
-        path_from_root = path_from_root.replace(os.sep, "/")
+        # file.path is relative to the parent of invocation_path (the Rust
+        # runner's base_dir).  Resolve it to a git-root-relative path so
+        # ``git show`` can find the file at the reference.
+        path_from_root = _resolve_git_path(file.path, git_ref, invocation_path)
 
         old_content = _file_content_at_ref(
             git_ref, path_from_root, invocation_path
@@ -146,18 +167,25 @@ def compute_diff(
 
 
 def _format_entry(e: DiffEntry) -> str:
-    label = e.status.ljust(10)
     location = f"{e.file_path}::{e.func_name}"
 
     if e.status == _STATUS_NEW:
-        return f"  {label}  {location:<55}  {e.new_complexity}  (new)"
+        label = f"[bold yellow]{_STATUS_NEW}[/bold yellow]"
+        return f"  {label:<30}  {location:<55}  {e.new_complexity}  (new)"
     if e.status == _STATUS_REMOVED:
-        return f"  {label}  {location:<55}  {e.old_complexity}  (removed)"
+        label = f"[dim]{_STATUS_REMOVED}[/dim]"
+        return f"  {label:<30}  {location:<55}  {e.old_complexity}  (removed)"
+    if e.status == _STATUS_REGRESSED:
+        label = f"[bold red]{_STATUS_REGRESSED}[/bold red]"
+    elif e.status == _STATUS_IMPROVED:
+        label = f"[bold green]{_STATUS_IMPROVED}[/bold green]"
+    else:
+        label = e.status
 
     delta = e.delta
     sign = "+" if delta and delta > 0 else ""
     score = f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
-    return f"  {label}  {location:<55}  {score}  "
+    return f"  {label:<30}  {location:<55}  {score}  "
 
 
 def _build_diff_summary(changed: List[DiffEntry]) -> str:
@@ -172,12 +200,16 @@ def _build_diff_summary(changed: List[DiffEntry]) -> str:
             counts[e.status] += 1
 
     labels = [
-        (_STATUS_REGRESSED, "regressed"),
-        (_STATUS_IMPROVED, "improved"),
-        (_STATUS_NEW, "new"),
-        (_STATUS_REMOVED, "removed"),
+        (_STATUS_REGRESSED, "regressed", "red"),
+        (_STATUS_IMPROVED, "improved", "green"),
+        (_STATUS_NEW, "new", "yellow"),
+        (_STATUS_REMOVED, "removed", "dim"),
     ]
-    parts = [f"{counts[s]} {label}" for s, label in labels if counts[s]]
+    parts = [
+        f"[{style}]{counts[s]} {label}[/{style}]"
+        for s, label, style in labels
+        if counts[s]
+    ]
     return ", ".join(parts) if parts else "no changes"
 
 
