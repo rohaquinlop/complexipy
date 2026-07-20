@@ -78,6 +78,9 @@ cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs
 line-length = 80
 indent-width = 4
 
+[tool.ruff.lint]
+exclude = ["tests/**"]
+
 [tool.yamlfix]
 explicit_start = true
 line_length = 120
