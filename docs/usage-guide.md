@@ -149,31 +149,33 @@ complexipy . --diff main
 complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
 ```
 
-The diff is appended after the regular analysis output and does not affect the exit code. This requires `git` and a repository-backed path.
-
-### Ratchet Mode
-
-Pair `--diff` with `--ratchet` (`-R`) to turn the diff into a CI-friendly regression check:
-
-```bash
-complexipy . --diff main --ratchet
-complexipy . --diff HEAD~1 -R -mx 15
-```
-
-Ratchet mode exits with code `1` only when a change breaches the complexity contract relative to `--max-complexity-allowed`:
+By default `--diff` **enforces** the complexity threshold: the run exits with code `1` only when a change breaches the contract relative to `--max-complexity-allowed`:
 
 - A **new** function introduced above the threshold.
 - A **modified** function whose complexity increased **and** ends above the threshold (including already-over functions that get worse).
 
-Functions that regress but stay at or below the threshold (e.g. `3 → 4` with `--max-complexity-allowed 15`) are **not** failures. The threshold remains the main contract; ratchet just prevents changes from making things worse once the threshold is crossed.
+Functions that regress but stay at or below the threshold (e.g. `3 → 4` with `--max-complexity-allowed 15`) are **not** failures.
 
-**When to use it**
+To see the diff visually without affecting the exit code, use `--diff-only` instead:
 
-- Incremental cleanup of a legacy codebase: you can't fix every over-threshold function today, but you don't want PRs making them worse. `--ratchet` blocks only the regressions that matter.
-- CI pipelines where `--max-complexity-allowed` alone is too strict or too noisy: ratchet keeps CI green for unrelated PRs and fires only when a PR actually pushes complexity past the limit.
-- Gradual adoption: lower `--max-complexity-allowed` over time while `--ratchet` guarantees forward-only progress.
+```bash
+complexipy . --diff-only HEAD~1
+```
 
-`--ratchet` requires `--diff`; running it without a diff reference exits with an error.
+This requires `git` and a repository-backed path.
+
+### Ratchet Mode
+
+!!! warning "Deprecated"
+
+    `--ratchet` (`-R`) is deprecated and will be removed in a future version. `--diff` now enforces by default with the same behavior. Migrate to `--diff` without `--ratchet`:
+
+    ```bash
+    # Before
+    complexipy . --diff main --ratchet
+    # After
+    complexipy . --diff main
+    ```
 
 ### Plain Output
 

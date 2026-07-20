@@ -27,7 +27,9 @@ def sample(a, b, c, d):
     )
 
     assert func.complexity == 7
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "flatten_condition")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "flatten_condition"
+    )
     assert plan.title == "Flatten nested condition block with guard clauses"
     assert plan.line_start == 5
     assert plan.line_end == 6
@@ -82,7 +84,9 @@ def sample(kind):
 """
     )
 
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "split_dispatcher")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "split_dispatcher"
+    )
     assert plan.line_start == 3
     assert plan.line_end == 10
 
@@ -117,7 +121,9 @@ def sample(a, b, c, d):
 """
     )
 
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "extract_predicate")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "extract_predicate"
+    )
     assert plan.line_start == 3
     assert plan.line_end == 3
 
@@ -149,7 +155,9 @@ def sample(a, b, c, d):
     assert func.refactor_plans[0].estimated_complexity_after <= func.complexity
 
 
-def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(tmp_path) -> None:
+def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(
+    tmp_path,
+) -> None:
     source = tmp_path / "sample.py"
     source.write_text(
         """
@@ -178,9 +186,15 @@ def sample(a, b, c, d):
                     "title": func.refactor_plans[0].title,
                     "line_start": func.refactor_plans[0].line_start,
                     "line_end": func.refactor_plans[0].line_end,
-                    "current_complexity": func.refactor_plans[0].current_complexity,
-                    "estimated_reduction": func.refactor_plans[0].estimated_reduction,
-                    "estimated_complexity_after": func.refactor_plans[0].estimated_complexity_after,
+                    "current_complexity": func.refactor_plans[
+                        0
+                    ].current_complexity,
+                    "estimated_reduction": func.refactor_plans[
+                        0
+                    ].estimated_reduction,
+                    "estimated_complexity_after": func.refactor_plans[
+                        0
+                    ].estimated_complexity_after,
                     "steps": list(func.refactor_plans[0].steps),
                 }
             ],
@@ -188,6 +202,8 @@ def sample(a, b, c, d):
     ]
 
     snapshot_path = tmp_path / "complexipy-snapshot.json"
-    complexipy._complexipy.create_snapshot_file(str(snapshot_path), 0, [file_result])
+    complexipy._complexipy.create_snapshot_file(
+        str(snapshot_path), 0, [file_result]
+    )
     snapshot_data = json.loads(snapshot_path.read_text())
     assert "refactor_plans" not in snapshot_data[0]["functions"][0]

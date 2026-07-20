@@ -289,7 +289,9 @@ def hello_world(s: str) -> str:
         files_explicit, _ = _complexipy.main(
             [path.resolve().as_posix()], False, [], False, False
         )
-        assert sum(f.complexity for f in files_default) == sum(f.complexity for f in files_explicit)
+        assert sum(f.complexity for f in files_default) == sum(
+            f.complexity for f in files_explicit
+        )
 
     def test_no_ignore_code_complexity_api(self):
         """Python API: code_complexity() with no_ignore analyzes ignored functions."""
@@ -339,7 +341,9 @@ def hello_world(s: str) -> str:
             encoding="utf-8",
         )
 
-        result = runner.invoke(main_module.app, ["--report-ignored", str(source_file)])
+        result = runner.invoke(
+            main_module.app, ["--report-ignored", str(source_file)]
+        )
         assert result.exit_code == 0
         assert "sample.py:1" in result.output
         assert "# complexipy: ignore" in result.output
@@ -355,7 +359,9 @@ def hello_world(s: str) -> str:
         source_file = tmp_path / "clean.py"
         source_file.write_text("def foo():\n    return 1\n", encoding="utf-8")
 
-        result = runner.invoke(main_module.app, ["--report-ignored", str(source_file)])
+        result = runner.invoke(
+            main_module.app, ["--report-ignored", str(source_file)]
+        )
         assert result.exit_code == 0
         assert "No ignore comments found" in result.output
 
@@ -376,7 +382,8 @@ def hello_world(s: str) -> str:
         )
 
         result = runner.invoke(
-            main_module.app, ["--report-ignored", "--no-ignore", str(source_file)]
+            main_module.app,
+            ["--report-ignored", "--no-ignore", str(source_file)],
         )
         assert result.exit_code == 0
         assert "sample.py:1" in result.output
@@ -886,7 +893,9 @@ class TestPaperConformance:
         assert self._c(code) == 3
 
     def test_with_does_not_nest(self):
-        code = "def f(x, y):\n    with open(x):\n        if y:\n            pass\n"
+        code = (
+            "def f(x, y):\n    with open(x):\n        if y:\n            pass\n"
+        )
         assert self._c(code) == 1
 
     def test_direct_recursion_increments(self):
@@ -911,7 +920,8 @@ class TestPaperConformance:
     def test_comprehension_loop_and_filter(self):
         assert self._c("def f(xs):\n    return [x for x in xs if x > 0]\n") == 2
         assert (
-            self._c("def f(xs):\n    return [y for x in xs for y in x if y]\n") == 3
+            self._c("def f(xs):\n    return [y for x in xs for y in x if y]\n")
+            == 3
         )
         assert self._c("def f(xs):\n    return any(x and x for x in xs)\n") == 2
 

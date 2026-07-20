@@ -144,32 +144,33 @@ complexipy . --diff main
 complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
 ```
 
-El diff se añade después de la salida normal del análisis y no afecta el código
-de salida. Esto requiere `git` y una ruta dentro de un repositorio.
-
-### Modo Ratchet
-
-Combina `--diff` con `--ratchet` (`-R`) para convertir el diff en una verificación de regresión lista para CI:
-
-```bash
-complexipy . --diff main --ratchet
-complexipy . --diff HEAD~1 -R -mx 15
-```
-
-El modo ratchet sale con código `1` solo cuando un cambio rompe el contrato de complejidad definido por `--max-complexity-allowed`:
+Por defecto `--diff` **aplica** el umbral de complejidad: la ejecución termina con código `1` solo cuando un cambio rompe el contrato definido por `--max-complexity-allowed`:
 
 - Una función **nueva** introducida por encima del umbral.
 - Una función **modificada** cuya complejidad aumentó **y** queda por encima del umbral (incluye funciones ya sobre el umbral que empeoran).
 
-Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `--max-complexity-allowed 15`) **no** son fallos. El umbral sigue siendo el contrato principal; ratchet solo evita que los cambios empeoren la situación una vez cruzado ese umbral.
+Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `--max-complexity-allowed 15`) **no** son fallos.
 
-**Cuándo usarlo**
+Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only` en su lugar:
 
-- Limpieza incremental de un código legado: no puedes arreglar hoy cada función sobre el umbral, pero no quieres que los PRs las empeoren. `--ratchet` bloquea únicamente las regresiones que importan.
-- Pipelines de CI donde `--max-complexity-allowed` por sí solo es demasiado estricto o ruidoso: ratchet mantiene CI en verde para PRs no relacionados y falla solo cuando el PR realmente cruza el límite.
-- Adopción gradual: puedes ir bajando `--max-complexity-allowed` con el tiempo mientras `--ratchet` garantiza progreso sin retrocesos.
+```bash
+complexipy . --diff-only HEAD~1
+```
 
-`--ratchet` requiere `--diff`; usarlo sin una referencia de diff termina con error.
+Esto requiere `git` y una ruta dentro de un repositorio.
+
+### Modo Ratchet
+
+!!! warning "Deprecado"
+
+    `--ratchet` (`-R`) está deprecado y será eliminado en una versión futura. `--diff` ahora aplica por defecto con el mismo comportamiento. Migra a `--diff` sin `--ratchet`:
+
+    ```bash
+    # Antes
+    complexipy . --diff main --ratchet
+    # Después
+    complexipy . --diff main
+    ```
 
 ### Salida en Texto Plano
 

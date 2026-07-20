@@ -50,7 +50,9 @@ class TestCache:
         readme = cache_dir / "README.md"
         assert readme.exists()
         assert readme.is_file()
-        assert "complexipy cache directory" in readme.read_text(encoding="utf-8")
+        assert "complexipy cache directory" in readme.read_text(
+            encoding="utf-8"
+        )
 
         cache_file = cache_dir / "v" / "cache" / FUNCTIONS_CACHE_KEY
         assert cache_file.exists()
@@ -85,12 +87,16 @@ class TestCache:
         content = gitignore_file.read_text(encoding="utf-8")
         assert content == custom_content
 
-    def test_cache_reuses_single_functions_file_for_target_sets(self, tmp_path: Path):
+    def test_cache_reuses_single_functions_file_for_target_sets(
+        self, tmp_path: Path
+    ):
         """Test that target-set caches are entries in one value file."""
         first_file = tmp_path / "first.py"
         first_file.write_text("def first():\n    return 1\n", encoding="utf-8")
         second_file = tmp_path / "second.py"
-        second_file.write_text("def second():\n    return 2\n", encoding="utf-8")
+        second_file.write_text(
+            "def second():\n    return 2\n", encoding="utf-8"
+        )
 
         first_files, _ = _complexipy.main([str(first_file)], False, [])
         second_files, _ = _complexipy.main([str(second_file)], False, [])
@@ -119,7 +125,9 @@ class TestCache:
 
         cache_dir = tmp_path / CACHE_DIR_NAME
         value_files = [path for path in cache_dir.rglob("*") if path.is_file()]
-        cache_values = [path for path in value_files if path.name == FUNCTIONS_CACHE_KEY]
+        cache_values = [
+            path for path in value_files if path.name == FUNCTIONS_CACHE_KEY
+        ]
         legacy_json_files = list(cache_dir.glob("*.json"))
 
         assert len(cache_values) == 1
@@ -137,7 +145,9 @@ class TestCache:
             files_complexities=files,
         )
 
-        cache_file = tmp_path / CACHE_DIR_NAME / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        cache_file = (
+            tmp_path / CACHE_DIR_NAME / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        )
         cache_payload = json.loads(cache_file.read_text(encoding="utf-8"))
         [cache_key] = cache_payload["entries"].keys()
         cache_file.unlink()
@@ -178,7 +188,9 @@ class TestCache:
                 files_complexities=complexities,
             )
 
-        cache_file = tmp_path / CACHE_DIR_NAME / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        cache_file = (
+            tmp_path / CACHE_DIR_NAME / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        )
         cache_payload = json.loads(cache_file.read_text(encoding="utf-8"))
 
         assert len(cache_payload["entries"]) == MAX_CACHE_ENTRIES

@@ -5,10 +5,11 @@ import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from rich.console import Console
+
 from complexipy import code_complexity as _code_complexity
 from complexipy._complexipy import FileComplexity
 
-# Status labels with fixed width for aligned output.
 _STATUS_REGRESSED = "REGRESSED"
 _STATUS_IMPROVED = "IMPROVED"
 _STATUS_UNCHANGED = "UNCHANGED"
@@ -20,8 +21,8 @@ _STATUS_REMOVED = "REMOVED"
 class DiffEntry:
     file_path: str
     func_name: str
-    old_complexity: Optional[int]  # None when the function is new
-    new_complexity: Optional[int]  # None when the function was removed
+    old_complexity: Optional[int]
+    new_complexity: Optional[int]
 
     @property
     def status(self) -> str:
@@ -82,6 +83,34 @@ def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
 
 
+def _resolve_git_path(
+    file_path: str, git_ref: str, invocation_path: str
+) -> str:
+    """Resolve a runner-relative file path to a git-root-relative path.
+
+    The Rust runner computes ``file.path`` relative to the *parent* of the
+    target directory (its ``base_dir``).  When the invocation path equals
+    the git root (e.g. ``complexipy .``), this produces paths like
+    ``complexipy/complexipy/main.py`` instead of the git-correct
+    ``complexipy/main.py``.
+
+    We fix this by trying the path as-is first, then progressively stripping
+    leading components until ``git show`` can locate the file.
+    """
+    normalized = file_path.replace(os.sep, "/").replace("\\", "/")
+    parts = normalized.split("/")
+
+    for i in range(len(parts)):
+        candidate = "/".join(parts[i:])
+        if (
+            _file_content_at_ref(git_ref, candidate, invocation_path)
+            is not None
+        ):
+            return candidate
+
+    return normalized
+
+
 def compute_diff(
     current_files: List[FileComplexity],
     git_ref: str,
@@ -101,20 +130,13 @@ def compute_diff(
     either changed or is new/removed.  Unchanged functions are included so
     callers can choose how to filter.
     """
-    root = _git_root(invocation_path) or invocation_path
     entries: List[DiffEntry] = []
 
     for file in current_files:
-        # Build the path relative to the git root so ``git show`` can find it.
-        abs_file = os.path.normpath(os.path.join(invocation_path, file.path))
-        try:
-            path_from_root = os.path.relpath(abs_file, root)
-        except ValueError:
-            # relpath fails across drives on Windows – fall back to file.path
-            path_from_root = file.path
-
-        # git show requires forward slashes in the path even on Windows.
-        path_from_root = path_from_root.replace(os.sep, "/")
+        # file.path is relative to the parent of invocation_path (the Rust
+        # runner's base_dir).  Resolve it to a git-root-relative path so
+        # ``git show`` can find the file at the reference.
+        path_from_root = _resolve_git_path(file.path, git_ref, invocation_path)
 
         old_content = _file_content_at_ref(
             git_ref, path_from_root, invocation_path
@@ -122,7 +144,6 @@ def compute_diff(
         current_map = _build_func_map(file)
 
         if old_content is None:
-            # File did not exist at the reference – every function is new.
             for name, new_c in sorted(current_map.items()):
                 entries.append(DiffEntry(file.path, name, None, new_c))
             continue
@@ -145,19 +166,32 @@ def compute_diff(
     return entries
 
 
-def _format_entry(e: DiffEntry) -> str:
-    label = e.status.ljust(10)
-    location = f"{e.file_path}::{e.func_name}"
+def _status_style(status: str) -> str:
+    """Return Rich markup for a diff status label."""
+    if status == _STATUS_REGRESSED:
+        return "[bold red]REGRESSED[/bold red]"
+    if status == _STATUS_IMPROVED:
+        return "[bold green]IMPROVED[/bold green]"
+    if status == _STATUS_NEW:
+        return "[bold yellow]NEW[/bold yellow]"
+    if status == _STATUS_REMOVED:
+        return "[dim]REMOVED[/dim]"
+    return status
 
+
+def _format_change(e: DiffEntry) -> str:
+    """Return the change column value for a diff entry."""
     if e.status == _STATUS_NEW:
-        return f"  {label}  {location:<55}  {e.new_complexity}  (new)"
+        return f"[bold yellow]{e.new_complexity}[/bold yellow]  (new)"
     if e.status == _STATUS_REMOVED:
-        return f"  {label}  {location:<55}  {e.old_complexity}  (removed)"
-
+        return f"[dim]{e.old_complexity}[/dim]  (removed)"
     delta = e.delta
     sign = "+" if delta and delta > 0 else ""
-    score = f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
-    return f"  {label}  {location:<55}  {score}  "
+    if e.status == _STATUS_REGRESSED:
+        return f"[red]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/red]"
+    if e.status == _STATUS_IMPROVED:
+        return f"[green]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/green]"
+    return f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
 
 
 def _build_diff_summary(changed: List[DiffEntry]) -> str:
@@ -172,12 +206,16 @@ def _build_diff_summary(changed: List[DiffEntry]) -> str:
             counts[e.status] += 1
 
     labels = [
-        (_STATUS_REGRESSED, "regressed"),
-        (_STATUS_IMPROVED, "improved"),
-        (_STATUS_NEW, "new"),
-        (_STATUS_REMOVED, "removed"),
+        (_STATUS_REGRESSED, "regressed", "red"),
+        (_STATUS_IMPROVED, "improved", "green"),
+        (_STATUS_NEW, "new", "yellow"),
+        (_STATUS_REMOVED, "removed", "dim"),
     ]
-    parts = [f"{counts[s]} {label}" for s, label in labels if counts[s]]
+    parts = [
+        f"[{style}]{counts[s]} {label}[/{style}]"
+        for s, label, style in labels
+        if counts[s]
+    ]
     return ", ".join(parts) if parts else "no changes"
 
 
@@ -210,10 +248,13 @@ def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
     return False
 
 
-def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
-    """Return a human-readable diff table as a string."""
+def format_diff(
+    console: Console, entries: List[DiffEntry], git_ref: str
+) -> None:
+    """Render a complexity diff table to the console."""
     if not entries:
-        return f"No functions changed relative to {git_ref}.\n"
+        console.print(f"No functions changed relative to {git_ref}.")
+        return
 
     changed = [
         e
@@ -222,13 +263,31 @@ def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
         in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
     ]
 
-    sep = "─" * 72
-    lines: List[str] = [
-        f"Complexity diff  (vs {git_ref})",
-        sep,
-        *[_format_entry(e) for e in changed],
-        sep,
-        f"Net: {_build_diff_summary(changed)}",
-    ]
+    if not changed:
+        console.print(f"No functions changed relative to {git_ref}.")
+        return
 
-    return "\n".join(lines) + "\n"
+    from rich.table import Table
+
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        box=None,
+        pad_edge=False,
+        padding=(0, 2),
+    )
+    table.add_column("Status")
+    table.add_column("Location")
+    table.add_column("Change", justify="right")
+
+    for e in changed:
+        table.add_row(
+            _status_style(e.status),
+            f"{e.file_path}::{e.func_name}",
+            _format_change(e),
+        )
+
+    console.print()
+    console.rule(f"Complexity diff (vs {git_ref})")
+    console.print(table)
+    console.print(f"\nNet: {_build_diff_summary(changed)}")
