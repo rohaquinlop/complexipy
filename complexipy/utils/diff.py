@@ -5,6 +5,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from rich.console import Console
+
 from complexipy import code_complexity as _code_complexity
 from complexipy._complexipy import FileComplexity
 
@@ -166,26 +168,32 @@ def compute_diff(
     return entries
 
 
-def _format_entry(e: DiffEntry) -> str:
-    location = f"{e.file_path}::{e.func_name}"
+def _status_style(status: str) -> str:
+    """Return Rich markup for a diff status label."""
+    if status == _STATUS_REGRESSED:
+        return "[bold red]REGRESSED[/bold red]"
+    if status == _STATUS_IMPROVED:
+        return "[bold green]IMPROVED[/bold green]"
+    if status == _STATUS_NEW:
+        return "[bold yellow]NEW[/bold yellow]"
+    if status == _STATUS_REMOVED:
+        return "[dim]REMOVED[/dim]"
+    return status
 
+
+def _format_change(e: DiffEntry) -> str:
+    """Return the change column value for a diff entry."""
     if e.status == _STATUS_NEW:
-        label = f"[bold yellow]{_STATUS_NEW}[/bold yellow]"
-        return f"  {label:<30}  {location:<55}  {e.new_complexity}  (new)"
+        return f"[bold yellow]{e.new_complexity}[/bold yellow]  (new)"
     if e.status == _STATUS_REMOVED:
-        label = f"[dim]{_STATUS_REMOVED}[/dim]"
-        return f"  {label:<30}  {location:<55}  {e.old_complexity}  (removed)"
-    if e.status == _STATUS_REGRESSED:
-        label = f"[bold red]{_STATUS_REGRESSED}[/bold red]"
-    elif e.status == _STATUS_IMPROVED:
-        label = f"[bold green]{_STATUS_IMPROVED}[/bold green]"
-    else:
-        label = e.status
-
+        return f"[dim]{e.old_complexity}[/dim]  (removed)"
     delta = e.delta
     sign = "+" if delta and delta > 0 else ""
-    score = f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
-    return f"  {label:<30}  {location:<55}  {score}  "
+    if e.status == _STATUS_REGRESSED:
+        return f"[red]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/red]"
+    if e.status == _STATUS_IMPROVED:
+        return f"[green]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/green]"
+    return f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
 
 
 def _build_diff_summary(changed: List[DiffEntry]) -> str:
@@ -242,10 +250,13 @@ def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
     return False
 
 
-def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
-    """Return a human-readable diff table as a string."""
+def format_diff(
+    console: Console, entries: List[DiffEntry], git_ref: str
+) -> None:
+    """Render a complexity diff table to the console."""
     if not entries:
-        return f"No functions changed relative to {git_ref}.\n"
+        console.print(f"No functions changed relative to {git_ref}.")
+        return
 
     changed = [
         e
@@ -254,13 +265,31 @@ def format_diff(entries: List[DiffEntry], git_ref: str) -> str:
         in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
     ]
 
-    sep = "─" * 72
-    lines: List[str] = [
-        f"Complexity diff  (vs {git_ref})",
-        sep,
-        *[_format_entry(e) for e in changed],
-        sep,
-        f"Net: {_build_diff_summary(changed)}",
-    ]
+    if not changed:
+        console.print(f"No functions changed relative to {git_ref}.")
+        return
 
-    return "\n".join(lines) + "\n"
+    from rich.table import Table
+
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        box=None,
+        pad_edge=False,
+        padding=(0, 2),
+    )
+    table.add_column("Status")
+    table.add_column("Location")
+    table.add_column("Change", justify="right")
+
+    for e in changed:
+        table.add_row(
+            _status_style(e.status),
+            f"{e.file_path}::{e.func_name}",
+            _format_change(e),
+        )
+
+    console.print()
+    console.rule(f"Complexity diff (vs {git_ref})")
+    console.print(table)
+    console.print(f"\nNet: {_build_diff_summary(changed)}")

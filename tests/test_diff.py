@@ -193,36 +193,47 @@ class TestComputeDiff:
 
 
 class TestFormatDiff:
+    @staticmethod
+    def _render(entries, git_ref="HEAD~1"):
+        """Render diff to a string via a capturing Console."""
+        import io
+
+        from rich.console import Console
+
+        buf = io.StringIO()
+        console = Console(file=buf, color_system=None, highlight=False)
+        format_diff(console, entries, git_ref)
+        return buf.getvalue()
+
     def test_empty_entries_no_changes(self):
         entries = [DiffEntry("f.py", "foo", 3, 3)]  # UNCHANGED
-        output = format_diff(entries, "HEAD~1")
-        assert "No functions changed" not in output  # UNCHANGED is filtered but
-        # header is still shown since entries list is non-empty
-        # Actually UNCHANGED entries are filtered from display:
+        output = self._render(entries)
+        # All entries are UNCHANGED — filtered out, shows no-changes message
+        assert "No functions changed" in output
         assert "foo" not in output
 
     def test_regressed_entry_shown(self):
         entries = [DiffEntry("f.py", "handle", 10, 18)]
-        output = format_diff(entries, "HEAD~1")
+        output = self._render(entries)
         assert "REGRESSED" in output
         assert "handle" in output
         assert "10 → 18" in output
 
     def test_improved_entry_shown(self):
         entries = [DiffEntry("f.py", "helper", 20, 8)]
-        output = format_diff(entries, "HEAD~1")
+        output = self._render(entries)
         assert "IMPROVED" in output
         assert "20 → 8" in output
 
     def test_new_entry_shown(self):
         entries = [DiffEntry("f.py", "newcomer", None, 5)]
-        output = format_diff(entries, "HEAD~1")
+        output = self._render(entries)
         assert "NEW" in output
         assert "newcomer" in output
 
     def test_removed_entry_shown(self):
         entries = [DiffEntry("f.py", "gone", 7, None)]
-        output = format_diff(entries, "HEAD~1")
+        output = self._render(entries)
         assert "REMOVED" in output
         assert "gone" in output
 
@@ -232,18 +243,18 @@ class TestFormatDiff:
             DiffEntry("f.py", "b", 10, 5),  # IMPROVED
             DiffEntry("f.py", "c", None, 3),  # NEW
         ]
-        output = format_diff(entries, "HEAD~1")
+        output = self._render(entries)
         assert "1 regressed" in output
         assert "1 improved" in output
         assert "1 new" in output
 
     def test_ref_name_in_header(self):
         entries = [DiffEntry("f.py", "fn", 3, 7)]
-        output = format_diff(entries, "abc1234")
+        output = self._render(entries, "abc1234")
         assert "abc1234" in output
 
     def test_no_changes_message(self):
-        output = format_diff([], "HEAD~1")
+        output = self._render([], "HEAD~1")
         assert "No functions changed" in output
 
 

@@ -127,6 +127,7 @@ def output_file_entries(
         fn.passed for entry in file_entries for fn in entry.functions
     )
     if all_pass:
+        console.print()
         console.print(
             "[bold green]All functions are within the allowed complexity.[/bold green]"
         )
