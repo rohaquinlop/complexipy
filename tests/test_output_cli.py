@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -208,8 +209,6 @@ class TestTopOutput:
         runner = CliRunner()
         file_a = tmp_path / "a.py"
         file_b = tmp_path / "b.py"
-        # a.py has the most complex and the least complex function;
-        # b.py has a middle-complexity function. Global order must interleave.
         file_a.write_text(
             """\
 def a_high(x):
@@ -249,8 +248,6 @@ def b_mid(x):
         assert len(lines) == 3
         complexities = [int(line.split()[-1]) for line in lines]
         assert complexities == sorted(complexities, reverse=True)
-        # Ensure the middle entry is from b.py — proves the output is not
-        # regrouped by file (which would cluster both a.py rows together).
         names = [line.split()[1] for line in lines]
         assert names[0] == "a_high"
         assert names[1] == "b_mid"
@@ -286,7 +283,9 @@ class TestSuggestRefactorsOutput:
 
         assert result.exit_code == 0, result.output
         assert "Refactor plans:" in result.output
-        assert "Flatten nested condition block with guard clauses" in result.output
+        assert (
+            "Flatten nested condition block with guard clauses" in result.output
+        )
         assert "estimated: 7 -> 5 (-2)" in result.output
         assert "invert the outer condition" in result.output
 
@@ -298,8 +297,7 @@ class TestSuggestRefactorsOutput:
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(
-            _REFACTOR_SNIPPET
-            + "\n\ndef simple(value):\n    return value\n",
+            _REFACTOR_SNIPPET + "\n\ndef simple(value):\n    return value\n",
             encoding="utf-8",
         )
 
@@ -428,6 +426,238 @@ class TestPlainOutput:
             "sample.py", ""
         )
         assert "Analysis completed" not in result.output
+
+
+class TestDiffCli:
+    """Tests for --diff (enforcing), --diff-only (visual), and --ratchet deprecation."""
+
+    _SIMPLE = "def simple(x):\n    return x + 1\n"
+    _COMPLEX = (
+        "def simple(x):\n"
+        "    if x:\n"
+        "        for i in range(x):\n"
+        "            if i > 0:\n"
+        "                if i % 2:\n"
+        "                    return i\n"
+        "    return 0\n"
+    )
+
+    def test_diff_enforces_on_regression_above_threshold(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            result = runner.invoke(
+                main_module.app,
+                ["--diff", "main", "-mx", "5", str(source_file)],
+            )
+
+        assert result.exit_code == 1
+        assert "REGRESSED" in result.output
+
+    def test_diff_passes_when_within_threshold(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            result = runner.invoke(
+                main_module.app,
+                ["--diff", "main", "-mx", "50", str(source_file)],
+            )
+
+        assert result.exit_code == 0
+
+    def test_diff_shows_diff_output(self, tmp_path: Path, monkeypatch):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            result = runner.invoke(
+                main_module.app,
+                ["--diff", "main", "-mx", "50", str(source_file)],
+            )
+
+        assert "Complexity diff" in result.output
+        assert "main" in result.output
+
+    def test_diff_only_does_not_enforce(self, tmp_path: Path, monkeypatch):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            # --diff-only: regression exists but threshold is high enough
+            # for normal check to pass.  Exit code should be 0.
+            result = runner.invoke(
+                main_module.app,
+                [
+                    "--diff-only",
+                    "main",
+                    "-mx",
+                    "50",
+                    str(source_file),
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "Complexity diff" in result.output
+
+    def test_diff_only_visual_no_enforcement_even_with_regression(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            # --diff-only with low threshold: regression above threshold,
+            # but --diff-only should NOT enforce.  Exit code comes from
+            # normal threshold check (which WILL fail at mx=5).
+            result = runner.invoke(
+                main_module.app,
+                [
+                    "--diff-only",
+                    "main",
+                    "-mx",
+                    "5",
+                    str(source_file),
+                ],
+            )
+
+        # Exit 1 from threshold check, NOT from diff enforcement.
+        # Verify diff is shown.
+        assert "Complexity diff" in result.output
+        assert "REGRESSED" in result.output
+
+    def test_ratchet_deprecation_warning(self, tmp_path: Path, monkeypatch):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._SIMPLE, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            result = runner.invoke(
+                main_module.app,
+                [
+                    "--ratchet",
+                    "--diff",
+                    "main",
+                    "-mx",
+                    "15",
+                    str(source_file),
+                ],
+            )
+
+        assert "Deprecated" in result.output
+        assert "--ratchet" in result.output
+
+    def test_ratchet_without_diff_errors(self, tmp_path: Path):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._SIMPLE, encoding="utf-8")
+
+        result = runner.invoke(
+            main_module.app,
+            ["--ratchet", str(source_file)],
+        )
+
+        assert result.exit_code == 2
+        assert "requires" in result.output.lower() or "--diff" in result.output
+
+    def test_diff_and_diff_only_conflict(self, tmp_path: Path, monkeypatch):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._git_root",
+            return_value=str(tmp_path),
+        ):
+            # Both --diff and --diff-only: warning printed, --diff-only wins
+            # (no enforcement).  With high threshold, exit 0.
+            result = runner.invoke(
+                main_module.app,
+                [
+                    "--diff",
+                    "main",
+                    "--diff-only",
+                    "main",
+                    "-mx",
+                    "50",
+                    str(source_file),
+                ],
+            )
+
+        assert "Warning" in result.output
+        assert result.exit_code == 0
 
 
 class TestOutputToml:

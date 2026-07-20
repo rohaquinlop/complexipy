@@ -5,6 +5,7 @@ import tempfile
 from unittest.mock import patch
 
 from complexipy._complexipy import main as _main
+from complexipy.main import resolve_final_success
 from complexipy.utils.diff import (
     _STATUS_IMPROVED,
     _STATUS_NEW,
@@ -17,10 +18,6 @@ from complexipy.utils.diff import (
     format_diff,
     has_regressions,
 )
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 _SIMPLE = """\
 def simple(x):
@@ -63,11 +60,6 @@ def _make_file_complexity(code: str, path: str = "src/example.py"):
     return files[0]
 
 
-# ---------------------------------------------------------------------------
-# DiffEntry tests
-# ---------------------------------------------------------------------------
-
-
 class TestDiffEntry:
     def test_status_new(self):
         e = DiffEntry("f.py", "foo", None, 5)
@@ -100,11 +92,6 @@ class TestDiffEntry:
     def test_delta_none_for_removed(self):
         e = DiffEntry("f.py", "foo", 5, None)
         assert e.delta is None
-
-
-# ---------------------------------------------------------------------------
-# compute_diff tests (git operations mocked)
-# ---------------------------------------------------------------------------
 
 
 class TestComputeDiff:
@@ -205,11 +192,6 @@ class TestComputeDiff:
         assert isinstance(entries, list)
 
 
-# ---------------------------------------------------------------------------
-# format_diff tests
-# ---------------------------------------------------------------------------
-
-
 class TestFormatDiff:
     def test_empty_entries_no_changes(self):
         entries = [DiffEntry("f.py", "foo", 3, 3)]  # UNCHANGED
@@ -263,11 +245,6 @@ class TestFormatDiff:
     def test_no_changes_message(self):
         output = format_diff([], "HEAD~1")
         assert "No functions changed" in output
-
-
-# ---------------------------------------------------------------------------
-# has_regressions tests
-# ---------------------------------------------------------------------------
 
 
 class TestHasRegressions:
@@ -336,11 +313,6 @@ class TestHasRegressions:
         assert has_regressions(entries, max_complexity=15) is False
 
 
-# ---------------------------------------------------------------------------
-# _resolve_git_path tests
-# ---------------------------------------------------------------------------
-
-
 class TestResolveGitPath:
     """Tests for the git path resolution helper.
 
@@ -362,9 +334,7 @@ class TestResolveGitPath:
             "complexipy.utils.diff._file_content_at_ref",
             side_effect=self._mock_content,
         ):
-            result = _resolve_git_path(
-                "complexipy/main.py", "main", "/repo"
-            )
+            result = _resolve_git_path("complexipy/main.py", "main", "/repo")
         assert result == "complexipy/main.py"
 
     def test_extra_prefix_stripped(self):
@@ -395,9 +365,7 @@ class TestResolveGitPath:
             "complexipy.utils.diff._file_content_at_ref",
             return_value=None,
         ):
-            result = _resolve_git_path(
-                "nonexistent/file.py", "main", "/repo"
-            )
+            result = _resolve_git_path("nonexistent/file.py", "main", "/repo")
         assert result == "nonexistent/file.py"
 
     def test_single_segment_path(self):
@@ -430,3 +398,75 @@ class TestResolveGitPath:
                 "a/b/complexipy/main.py", "main", "/repo"
             )
         assert result == "complexipy/main.py"
+
+
+class TestResolveFinalSuccess:
+    """Tests for the final exit-code decision logic.
+
+    When ``enforce`` is True (--diff), regressions above the threshold
+    cause failure.  When ``enforce`` is False (--diff-only), diff entries
+    are ignored and the normal has_success check applies.
+    """
+
+    def test_enforce_true_regression_above_threshold_fails(self):
+        entries = [DiffEntry("f.py", "foo", 5, 20)]
+        assert (
+            resolve_final_success(True, True, True, True, entries, 15) is False
+        )
+
+    def test_enforce_true_regression_within_threshold_passes(self):
+        entries = [DiffEntry("f.py", "foo", 5, 12)]
+        assert (
+            resolve_final_success(True, True, True, True, entries, 15) is True
+        )
+
+    def test_enforce_true_new_above_threshold_fails(self):
+        entries = [DiffEntry("f.py", "foo", None, 20)]
+        assert (
+            resolve_final_success(True, True, True, True, entries, 15) is False
+        )
+
+    def test_enforce_true_new_within_threshold_passes(self):
+        entries = [DiffEntry("f.py", "foo", None, 10)]
+        assert (
+            resolve_final_success(True, True, True, True, entries, 15) is True
+        )
+
+    def test_enforce_true_no_regressions_passes(self):
+        entries = [DiffEntry("f.py", "foo", 5, 8)]
+        assert (
+            resolve_final_success(True, True, True, True, entries, 15) is True
+        )
+
+    def test_enforce_false_ignores_diff_entries(self):
+        """--diff-only: regression exists but enforce=False, so it passes."""
+        entries = [DiffEntry("f.py", "foo", 5, 20)]
+        assert (
+            resolve_final_success(True, True, True, False, entries, 15) is True
+        )
+
+    def test_enforce_false_uses_has_success(self):
+        """--diff-only: falls back to has_success (threshold check)."""
+        assert (
+            resolve_final_success(False, True, True, False, None, 15) is False
+        )
+
+    def test_enforce_true_invalid_paths_fails(self):
+        entries = [DiffEntry("f.py", "foo", 5, 8)]
+        assert (
+            resolve_final_success(True, False, True, True, entries, 15) is False
+        )
+
+    def test_enforce_true_snapshot_failure_fails(self):
+        entries = [DiffEntry("f.py", "foo", 5, 8)]
+        assert (
+            resolve_final_success(True, True, False, True, entries, 15) is False
+        )
+
+    def test_enforce_true_no_entries_passes(self):
+        """No diff entries (empty diff) — enforce has nothing to check."""
+        assert resolve_final_success(True, True, True, True, [], 15) is True
+
+    def test_enforce_true_none_entries_passes(self):
+        """diff_entries is None when --diff was not used."""
+        assert resolve_final_success(True, True, True, True, None, 15) is True

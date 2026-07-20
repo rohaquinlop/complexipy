@@ -174,22 +174,24 @@ def main(
         "--diff",
         "-d",
         help=(
-            "Show a complexity diff against a git reference (e.g. HEAD~1, main, "
-            "a commit SHA).  Requires git to be available and the paths to be "
-            "inside a git repository."
+            "Show a complexity diff against a git reference and fail if any "
+            "function regresses above --max-complexity-allowed. "
+            "Use --diff-only for visual-only output without enforcement."
+        ),
+    ),
+    diff_only: Optional[str] = typer.Option(
+        None,
+        "--diff-only",
+        help=(
+            "Show a complexity diff against a git reference without affecting "
+            "the exit code. Visual-only, no enforcement."
         ),
     ),
     ratchet: Optional[bool] = typer.Option(
         None,
         "--ratchet",
         "-R",
-        help=(
-            "Only fail when a change breaches --max-complexity-allowed. "
-            "Requires --diff. Exit 1 if a new function exceeds the threshold "
-            "or an existing function regresses above it (already-over "
-            "functions that get worse also fail). Regressions that stay "
-            "within the threshold are allowed."
-        ),
+        help="Deprecated. --diff now enforces by default.",
     ),
     output_sarif: Optional[bool] = typer.Option(
         None,
@@ -297,7 +299,21 @@ def main(
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
-    validate_ratchet(ratchet, diff)
+    if ratchet and diff:
+        console.print(
+            "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "
+            "--diff now enforces by default. Remove --ratchet."
+        )
+    elif ratchet and not diff:
+        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
+        raise typer.Exit(code=2)
+
+    if diff_only and diff:
+        console.print(
+            "[yellow]Warning:[/yellow] --diff and --diff-only both set. "
+            "Using --diff-only (visual only, no enforcement)."
+        )
+        diff = None
 
     plain, suggest_refactors = validate_cli_arguments(
         plain, suggest_refactors, top, quiet
@@ -385,12 +401,13 @@ def main(
         has_success = has_success and snapshot_result
 
     valid_paths = print_invalid_paths(console, quiet, failed_paths)
-    diff_entries = handle_diff_output(diff, files_complexities, quiet)
+    diff_ref = diff or diff_only
+    diff_entries = handle_diff_output(diff_ref, files_complexities, quiet)
     has_success = resolve_final_success(
         has_success,
         valid_paths,
         snapshot_result,
-        ratchet,
+        bool(diff),
         diff_entries,
         max_complexity_allowed,
     )
@@ -725,12 +742,6 @@ def handle_report_ignored(
         console.print(f"Ignored locations saved at {ignored_json_path}")
 
 
-def validate_ratchet(ratchet: bool, diff: Optional[str]) -> None:
-    if ratchet and not diff:
-        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
-        raise typer.Exit(code=2)
-
-
 def validate_cli_arguments(
     plain: Optional[bool],
     suggest_refactors: Optional[bool],
@@ -759,11 +770,11 @@ def resolve_final_success(
     has_success: bool,
     valid_paths: bool,
     snapshot_result: bool,
-    ratchet: bool,
+    enforce: bool,
     diff_entries: Optional[List[DiffEntry]],
     max_complexity_allowed: int,
 ) -> bool:
-    if ratchet and diff_entries is not None:
+    if enforce and diff_entries is not None:
         ratchet_ok = not has_regressions(diff_entries, max_complexity_allowed)
         return ratchet_ok and valid_paths and snapshot_result
     return has_success and valid_paths
