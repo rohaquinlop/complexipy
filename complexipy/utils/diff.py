@@ -10,7 +10,6 @@ from rich.console import Console
 from complexipy import code_complexity as _code_complexity
 from complexipy._complexipy import FileComplexity
 
-# Status labels with fixed width for aligned output.
 _STATUS_REGRESSED = "REGRESSED"
 _STATUS_IMPROVED = "IMPROVED"
 _STATUS_UNCHANGED = "UNCHANGED"
@@ -22,8 +21,8 @@ _STATUS_REMOVED = "REMOVED"
 class DiffEntry:
     file_path: str
     func_name: str
-    old_complexity: Optional[int]  # None when the function is new
-    new_complexity: Optional[int]  # None when the function was removed
+    old_complexity: Optional[int]
+    new_complexity: Optional[int]
 
     @property
     def status(self) -> str:
@@ -145,7 +144,6 @@ def compute_diff(
         current_map = _build_func_map(file)
 
         if old_content is None:
-            # File did not exist at the reference – every function is new.
             for name, new_c in sorted(current_map.items()):
                 entries.append(DiffEntry(file.path, name, None, new_c))
             continue

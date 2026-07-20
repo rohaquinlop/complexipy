@@ -9,9 +9,9 @@ else:
 
 
 class ColorTypes(str, Enum):
-    auto = "auto"  # Decide whether to color automatically, based on output tty
-    yes = "yes"  # Use color
-    no = "no"  # Do not use color
+    auto = "auto"
+    yes = "yes"
+    no = "no"
 
 
 class Sort(str, Enum):
