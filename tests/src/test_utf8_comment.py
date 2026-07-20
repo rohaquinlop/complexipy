@@ -25,7 +25,9 @@ def accent_before(b):  # noqa: complexipy café multi-byte accent after marker
         return 0
 
 
-def mixed_comment_marker(a, b, c):  # complexipy: ignore — 🚀 mixed em-dash & emoji
+def mixed_comment_marker(
+    a, b, c
+):  # complexipy: ignore — 🚀 mixed em-dash & emoji
     if a and b:
         return a + b
     elif b and c:

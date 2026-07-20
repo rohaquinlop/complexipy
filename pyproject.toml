@@ -75,7 +75,6 @@ output-format = []
 cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
 
 [tool.ruff]
-exclude = ["tests"]
 line-length = 80
 indent-width = 4
 

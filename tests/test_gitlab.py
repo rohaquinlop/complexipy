@@ -69,7 +69,9 @@ class TestGitlabOutput:
         assert entry["fingerprint"]
         assert "complex_func" in entry["description"]
 
-    def test_gitlab_report_is_empty_when_threshold_is_high(self, tmp_path: Path):
+    def test_gitlab_report_is_empty_when_threshold_is_high(
+        self, tmp_path: Path
+    ):
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
         output_file = tmp_path / "results.gitlab.json"
@@ -83,7 +85,9 @@ class TestGitlabOutput:
         report = json.loads(output_file.read_text(encoding="utf-8"))
         assert report == []
 
-    def test_cli_output_gitlab_creates_expected_file(self, tmp_path: Path, monkeypatch):
+    def test_cli_output_gitlab_creates_expected_file(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
@@ -93,7 +97,12 @@ class TestGitlabOutput:
 
         result = runner.invoke(
             main_module.app,
-            ["--output-gitlab", "--max-complexity-allowed", "5", str(source_file)],
+            [
+                "--output-gitlab",
+                "--max-complexity-allowed",
+                "5",
+                str(source_file),
+            ],
         )
 
         assert result.exit_code == 1, result.output

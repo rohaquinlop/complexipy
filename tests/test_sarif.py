@@ -26,7 +26,9 @@ def complex_func(data):
 
 class TestSarif:
     def _build_file_complexity(self, max_complexity: int = 5):
-        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False
+        ) as f:
             f.write(_SNIPPET)
             tmp_path = f.name
         try:
