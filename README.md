@@ -87,7 +87,7 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 complexipy . --diff HEAD~1
 
 # Fail only on threshold-breaking regressions in a diff
-complexipy . --diff main --ratchet
+complexipy . --diff main
 # Analyze current directory while excluding files or directories with glob patterns
 complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
 
@@ -253,32 +253,33 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 
 ### CLI Options
 
-| Flag                            | Description                                                                                                                                    | Default |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--exclude`                     | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |         |
-| `--max-complexity-allowed`      | Complexity threshold                                                                                                                           | `15`    |
-| `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                | `false` |
-| `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                          | `false` |
-| `--failed`                      | Show only functions above the complexity threshold                                                                                             | `false` |
-| `--suggest-refactors`           | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain`                                                      | `false` |
-| `--color <auto\|yes\|no>`       | Use color                                                                                                                                      | `auto`  |
-| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                   | `asc`   |
-| `--quiet`                       | Suppress output                                                                                                                                | `false` |
-| `--ignore-complexity`           | Don't exit with error on threshold breach                                                                                                      | `false` |
-| `--version`                     | Show installed complexipy version and exit                                                                                                     | -       |
-| `--top <n>`                     | Show only the `n` most complex functions, globally sorted by complexity descending                                                             | —       |
-| `--plain`                       | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet`                                                   | `false` |
-| `--output-format <format>`      | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                        | —       |
-| `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                           | —       |
-| `--diff <ref>`                  | Show a complexity diff against a git reference (e.g. `HEAD~1`, `main`)                                                                         | —       |
-| `--ratchet`                     | With `--diff`, fail only when a change pushes a function above `--max-complexity-allowed` or makes an already-over function worse              | `false` |
-| `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                        | `false` |
-| `--no-ignore`                   | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`)                                     | `false` |
-| `--report-ignored`              | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet`                                                | `false` |
-| `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                    | `false` |
-| `--output-csv`                  | Deprecated alias for `--output-format csv`                                                                                                     | `false` |
-| `--output-gitlab`               | Deprecated alias for `--output-format gitlab`                                                                                                  | `false` |
-| `--output-sarif`                | Deprecated alias for `--output-format sarif`                                                                                                   | `false` |
+| Flag                            | Description                                                                                                                                                               | Default |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--exclude`                     | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files.                            |         |
+| `--max-complexity-allowed`      | Complexity threshold                                                                                                                                                      | `15`    |
+| `--snapshot-create`             | Save the current violations above the threshold into `complexipy-snapshot.json`                                                                                           | `false` |
+| `--snapshot-ignore`             | Skip comparing against the snapshot even if it exists                                                                                                                     | `false` |
+| `--failed`                      | Show only functions above the complexity threshold                                                                                                                        | `false` |
+| `--suggest-refactors`           | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain`                                                                                 | `false` |
+| `--color <auto\|yes\|no>`       | Use color                                                                                                                                                                 | `auto`  |
+| `--sort <asc\|desc\|file_name>` | Sort results                                                                                                                                                              | `asc`   |
+| `--quiet`                       | Suppress output                                                                                                                                                           | `false` |
+| `--ignore-complexity`           | Don't exit with error on threshold breach                                                                                                                                 | `false` |
+| `--version`                     | Show installed complexipy version and exit                                                                                                                                | -       |
+| `--top <n>`                     | Show only the `n` most complex functions, globally sorted by complexity descending                                                                                        | —       |
+| `--plain`                       | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet`                                                                              | `false` |
+| `--output-format <format>`      | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`)                                                   | —       |
+| `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                                      | —       |
+| `--diff <ref>`                  | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | —       |
+| `--diff-only <ref>`             | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff))                                                                 | —       |
+| `--ratchet`, `-R`               | **Deprecated.** Use `--diff` instead, which now enforces by default                                                                                                       | `false` |
+| `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                                   | `false` |
+| `--no-ignore`                   | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`)                                                                | `false` |
+| `--report-ignored`              | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet`                                                                           | `false` |
+| `--output-json`                 | Deprecated alias for `--output-format json`                                                                                                                               | `false` |
+| `--output-csv`                  | Deprecated alias for `--output-format csv`                                                                                                                                | `false` |
+| `--output-gitlab`               | Deprecated alias for `--output-format gitlab`                                                                                                                             | `false` |
+| `--output-sarif`                | Deprecated alias for `--output-format sarif`                                                                                                                              | `false` |
 
 Example:
 
@@ -332,7 +333,7 @@ Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for
 
 ### Complexity Diff
 
-Compare complexity against any git reference to see at a glance whether a branch or commit made things better or worse:
+Compare complexity against any git reference to see whether a branch or commit made things better or worse:
 
 ```bash
 # Compare the working tree against the previous commit
@@ -340,29 +341,22 @@ complexipy . --diff HEAD~1
 
 # Compare against a named branch
 complexipy . --diff main
-
-# Fail only on threshold-breaking regressions
-complexipy . --diff main --ratchet
-
-# Combine with other flags
-complexipy src/ --max-complexity-allowed 10 --diff HEAD~1
 ```
 
-`--ratchet` requires `--diff`. It exits with code `1` only when a new or modified function breaches `--max-complexity-allowed`; regressions that stay within the threshold are allowed.
+By default `--diff` **enforces** the complexity threshold: the run exits with code `1` only when a change breaches the contract relative to `--max-complexity-allowed`:
 
-Sample output:
+- A new function is introduced above the threshold, or
+- an existing function's complexity increases **and** ends above the threshold (already-over functions getting worse also fail).
 
+Functions that regress but stay at or below the threshold (e.g. `3 → 4` with `-mx 15`) are **not** flagged — the threshold is still the main contract, and `--diff` only catches regressions that actually break it.
+
+To see the diff visually without affecting the exit code, use `--diff-only` instead:
+
+```bash
+complexipy . --diff-only HEAD~1
 ```
-Complexity diff  (vs HEAD~1)
-────────────────────────────────────────────────────────────────────────
-  REGRESSED   src/api.py::handle_request                        12 → 19  (+7)
-  IMPROVED    src/utils.py::flatten_tree                        22 → 14  (-8)
-  NEW         src/auth.py::validate_token                       17        (new)
-────────────────────────────────────────────────────────────────────────
-Net: 1 regressed, 1 improved, 1 new
-```
 
-The diff is appended after the normal analysis output and does not affect the exit code. Requires `git` to be available and the analysed paths to be inside a git repository.
+Requires `git` to be available and the analysed paths to be inside a git repository.
 
 ### Script Complexity
 
