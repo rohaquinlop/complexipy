@@ -65,6 +65,25 @@ INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
 
+def _comma_separated_list(value: str) -> List[str]:
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
+_comma_separated_list.__name__ = "TEXT[,TEXT...]"
+
+
+def _flatten_lists(value) -> List[str]:
+    if not value:
+        return []
+    result = []
+    for item in value:
+        if isinstance(item, list):
+            result.extend(item)
+        else:
+            result.append(item)
+    return result
+
+
 def resolve_config(
     paths,
     max_complexity_allowed,
@@ -139,6 +158,9 @@ def resolve_config(
         report_ignored,
     )
 
+    exclude = _flatten_lists(exclude)
+    output_format = _flatten_lists(output_format)
+
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
     ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
@@ -193,7 +215,13 @@ def main(
         None,
         "--exclude",
         "-e",
-        help="Paths to the directories or files to exclude.",
+        parser=_comma_separated_list,
+        help=(
+            "Paths to the directories or files to exclude. "
+            "Comma-separated or repeated flags. "
+            "Wrap glob patterns in quotes to prevent shell expansion: "
+            "--exclude 'tests/**' or --exclude=tests/**."
+        ),
     ),
     max_complexity_allowed: Optional[int] = typer.Option(
         None,
@@ -246,8 +274,9 @@ def main(
     output_format: Optional[List[str]] = typer.Option(
         None,
         "--output-format",
+        parser=_comma_separated_list,
         help=(
-            "Output format to emit. Repeat the flag to request multiple formats: "
+            "Output format to emit. Comma-separated or repeated flags: "
             "csv, json, gitlab, sarif."
         ),
     ),
