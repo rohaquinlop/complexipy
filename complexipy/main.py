@@ -61,7 +61,6 @@ from complexipy.utils.toml import (
 )
 
 app = typer.Typer(name="complexipy")
-console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
@@ -148,8 +147,6 @@ def resolve_config(
         plain, suggest_refactors, top, quiet
     )
 
-    diff, diff_only = resolve_diff_flags(diff, diff_only, ratchet)
-
     return RunConfig(
         paths=paths,
         max_complexity_allowed=max_complexity_allowed,
@@ -178,10 +175,11 @@ def resolve_config(
 
 def _version_callback(value: bool):
     if value:
+        version_console = Console(color_system="auto")
         try:
-            console.print(pkg_version("complexipy"))
+            version_console.print(pkg_version("complexipy"))
         except PackageNotFoundError:
-            console.print("Unknown version")
+            version_console.print("Unknown version")
         raise typer.Exit()
 
 
@@ -357,8 +355,6 @@ def main(
         is_eager=True,
     ),
 ):
-    global console
-
     cfg = resolve_config(
         paths,
         max_complexity_allowed,
@@ -388,7 +384,11 @@ def main(
         version,
     )
 
-    handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
+    console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
+
+    cfg.diff, cfg.diff_only = resolve_diff_flags(
+        console, cfg.diff, cfg.diff_only, cfg.ratchet
+    )
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
         cfg.paths,
@@ -400,6 +400,7 @@ def main(
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
+        console,
         cfg.legacy_cli_output_flags,
         TOML_CONFIG,
     )
@@ -419,6 +420,7 @@ def main(
     )
 
     handle_results_storage(
+        console,
         output_formats,
         cfg.output,
         files_complexities,
@@ -443,6 +445,7 @@ def main(
     )
 
     handle_report_ignored(
+        console,
         cfg.report_ignored,
         cfg.paths,
         cfg.exclude,
@@ -452,6 +455,7 @@ def main(
     )
 
     snapshot_ok = handle_snapshot(
+        console,
         snap.should_run,
         cfg.quiet,
         snap.watermark_messages,
@@ -461,7 +465,9 @@ def main(
     _ = print_invalid_paths(console, cfg.quiet, failed_paths)
     paths_ok = not failed_paths
     diff_ref = cfg.diff or cfg.diff_only
-    diff_entries = handle_diff_output(diff_ref, files_complexities, cfg.quiet)
+    diff_entries = handle_diff_output(
+        console, diff_ref, files_complexities, cfg.quiet
+    )
     diff_ok = True
     if cfg.diff and diff_entries is not None:
         diff_ok = not has_regressions(diff_entries, cfg.max_complexity_allowed)
@@ -483,21 +489,24 @@ def main(
 
 def handle_console_settings(
     color: ColorTypes, quiet: bool, plain: bool = False
-):
-    global console
+) -> Console:
     if plain:
-        console = Console(color_system=None, highlight=False)
-        return
+        return Console(color_system=None, highlight=False)
+
     if color == ColorTypes.no:
         console = Console(color_system=None)
     elif color == ColorTypes.yes:
         console = Console(color_system="standard")
+    else:
+        console = Console(color_system="auto")
 
     if not quiet:
         if platform.system() == "Windows":
             console.rule("complexipy")
         else:
             console.rule(":octopus: complexipy")
+
+    return console
 
 
 def handle_display(
@@ -544,6 +553,7 @@ def handle_display(
 
 
 def handle_results_storage(
+    console: Console,
     output_formats: List[OutputFormat],
     output: Optional[str],
     files_complexities: List[FileComplexity],
@@ -551,8 +561,6 @@ def handle_results_storage(
     show_details: bool,
     max_complexity: int,
 ) -> None:
-    global console
-
     output_paths = resolve_output_paths(output_formats, output)
 
     for output_format in output_formats:
@@ -590,11 +598,10 @@ def handle_results_storage(
 
 
 def emit_deprecated_output_warnings(
+    console: Console,
     legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
     toml_config,
 ) -> None:
-    global console
-
     for output_format, flag_name in LEGACY_OUTPUT_FLAGS.items():
         if legacy_cli_output_flags[output_format]:
             console.print(
@@ -720,14 +727,13 @@ def ensure_directory_destination(
 
 
 def handle_snapshot(
+    console: Console,
     should_run_snapshot_watermark: bool,
     quiet: bool,
     watermark_messages: List[str],
     output_snapshot_path: str,
     watermark_success: bool,
 ) -> bool:
-    global console
-
     if should_run_snapshot_watermark:
         if not quiet:
             if watermark_messages:
@@ -744,11 +750,11 @@ def handle_snapshot(
 
 
 def handle_diff_output(
+    console: Console,
     diff: Optional[str],
     files_complexities: List[FileComplexity],
     quiet: bool,
 ) -> Optional[List[DiffEntry]]:
-    global console
     if diff:
         if files_complexities:
             entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
@@ -760,6 +766,7 @@ def handle_diff_output(
 
 
 def handle_report_ignored(
+    console: Console,
     report_ignored: bool,
     paths: Optional[List[str]],
     exclude: Optional[List[str]],
@@ -767,11 +774,9 @@ def handle_report_ignored(
     output: Optional[str],
     no_ignore: bool,
 ) -> None:
-    """Print and optionally export ignored-location report."""
     if not report_ignored:
         return
 
-    global console
     paths = paths or []
     exclude = exclude or []
     ignored_locations, _ = _complexipy.collect_all_ignored_locations(
@@ -805,13 +810,11 @@ def handle_report_ignored(
 
 
 def resolve_diff_flags(
+    console: Console,
     diff: Optional[str],
     diff_only: Optional[str],
     ratchet: bool,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """Validate and resolve --diff, --diff-only, and deprecated --ratchet flags."""
-    global console
-
     if ratchet and diff:
         console.print(
             "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "

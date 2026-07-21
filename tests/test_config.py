@@ -4,9 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from complexipy.main import resolve_config
+from complexipy.main import resolve_config, resolve_diff_flags
 from complexipy.types import ColorTypes, OutputFormat, Sort
+from rich.console import Console
 
+_console = Console(color_system=None)
 _NO_TOML = patch("complexipy.main.TOML_CONFIG", None)
 
 
@@ -782,37 +784,9 @@ class TestPlainAndSuggestRefactors:
 
 class TestDiffFlagResolution:
     def test_diff_only_when_both_set(self):
-        with _NO_TOML:
-            cfg = resolve_config(
-                paths=["."],
-                max_complexity_allowed=None,
-                snapshot_create=None,
-                snapshot_ignore=None,
-                quiet=None,
-                ignore_complexity=None,
-                failed=None,
-                color=None,
-                sort=None,
-                output_format=None,
-                output=None,
-                output_csv=None,
-                output_json=None,
-                output_gitlab=None,
-                output_sarif=None,
-                diff="main",
-                diff_only="main",
-                ratchet=None,
-                top=None,
-                plain=None,
-                suggest_refactors=None,
-                exclude=None,
-                check_script=None,
-                no_ignore=None,
-                report_ignored=None,
-                version=False,
-            )
-        assert cfg.diff is None
-        assert cfg.diff_only == "main"
+        diff, diff_only = resolve_diff_flags(_console, "main", "main", False)
+        assert diff is None
+        assert diff_only == "main"
 
     def test_diff_standalone(self):
         with _NO_TOML:
@@ -986,38 +960,7 @@ class TestRatchetFromToml:
 
     def test_ratchet_from_toml_without_diff_errors(self):
         with pytest.raises(Exception):
-            with patch(
-                "complexipy.main.TOML_CONFIG",
-                {"ratchet": True},
-            ):
-                resolve_config(
-                    paths=["."],
-                    max_complexity_allowed=None,
-                    snapshot_create=None,
-                    snapshot_ignore=None,
-                    quiet=None,
-                    ignore_complexity=None,
-                    failed=None,
-                    color=None,
-                    sort=None,
-                    output_format=None,
-                    output=None,
-                    output_csv=None,
-                    output_json=None,
-                    output_gitlab=None,
-                    output_sarif=None,
-                    diff=None,
-                    diff_only=None,
-                    ratchet=None,
-                    top=None,
-                    plain=None,
-                    suggest_refactors=None,
-                    exclude=None,
-                    check_script=None,
-                    no_ignore=None,
-                    report_ignored=None,
-                    version=False,
-                )
+            resolve_diff_flags(_console, None, None, True)
 
     def test_ratchet_false_by_default_in_toml(self):
         with patch(
