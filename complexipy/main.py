@@ -25,6 +25,7 @@ from complexipy import (
 from complexipy._complexipy import FileComplexity
 from complexipy.types import (
     ColorTypes,
+    ExitReport,
     OutputFormat,
     RunConfig,
     Sort,
@@ -426,7 +427,7 @@ def main(
         cfg.max_complexity_allowed,
     )
 
-    has_success = handle_display(
+    display_ok = handle_display(
         console,
         files_complexities,
         cfg.paths,
@@ -450,34 +451,33 @@ def main(
         cfg.no_ignore,
     )
 
-    snapshot_result = handle_snapshot(
+    snapshot_ok = handle_snapshot(
         snap.should_run,
         cfg.quiet,
         snap.watermark_messages,
         output_snapshot_path,
         snap.watermark_success,
     )
-    has_success = has_success and snapshot_result
-
-    valid_paths = print_invalid_paths(console, cfg.quiet, failed_paths)
+    _ = print_invalid_paths(console, cfg.quiet, failed_paths)
+    paths_ok = not failed_paths
     diff_ref = cfg.diff or cfg.diff_only
     diff_entries = handle_diff_output(diff_ref, files_complexities, cfg.quiet)
-    has_success = resolve_final_success(
-        has_success,
-        valid_paths,
-        snapshot_result,
-        bool(cfg.diff),
-        diff_entries,
-        cfg.max_complexity_allowed,
+    diff_ok = True
+    if cfg.diff and diff_entries is not None:
+        diff_ok = not has_regressions(diff_entries, cfg.max_complexity_allowed)
+    report = ExitReport(
+        display_ok=display_ok,
+        snapshot_ok=snapshot_ok,
+        paths_ok=paths_ok,
+        diff_ok=diff_ok,
+        enforce_diff=bool(cfg.diff),
     )
-
     if not cfg.quiet and not cfg.plain:
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
         else:
             console.rule(":tada: Analysis completed! :tada:")
-
-    if not has_success:
+    if not report.success:
         raise typer.Exit(code=1)
 
 
@@ -853,20 +853,6 @@ def validate_cli_arguments(
         raise typer.BadParameter("--top must be a positive integer.")
 
     return plain, suggest_refactors
-
-
-def resolve_final_success(
-    has_success: bool,
-    valid_paths: bool,
-    snapshot_result: bool,
-    enforce: bool,
-    diff_entries: Optional[List[DiffEntry]],
-    max_complexity_allowed: int,
-) -> bool:
-    if enforce and diff_entries is not None:
-        ratchet_ok = not has_regressions(diff_entries, max_complexity_allowed)
-        return ratchet_ok and valid_paths and snapshot_result
-    return has_success and valid_paths
 
 
 if __name__ == "__main__":

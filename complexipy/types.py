@@ -68,3 +68,18 @@ class RunConfig:
     diff: Optional[str]
     diff_only: Optional[str]
     legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]]
+
+
+@dataclass
+class ExitReport:
+    display_ok: bool
+    snapshot_ok: bool
+    paths_ok: bool
+    diff_ok: bool
+    enforce_diff: bool
+
+    @property
+    def success(self) -> bool:
+        if self.enforce_diff:
+            return self.diff_ok and self.paths_ok and self.snapshot_ok
+        return self.display_ok and self.snapshot_ok and self.paths_ok
