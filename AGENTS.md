@@ -105,6 +105,7 @@ uv run mkdocs serve
 - **PR titles:** Must follow Conventional Commits (enforced by CI).
 - **Tests:** pytest with `CliRunner` for CLI tests, `unittest.mock.patch` for git operations in diff tests.
 - **Dual-target Rust:** `#[cfg(feature = "python")]` for PyO3, `#[cfg(feature = "wasm")]` for wasm-bindgen. Shared logic uses `#[cfg(any(feature = "python", feature = "wasm"))]`.
+- **GitHub CLI:** When available, use `gh` to retrieve context before making changes — check linked issues for requirements (`gh issue view <number>`), review open PRs for related work (`gh pr list`, `gh pr view <number>`), inspect CI status (`gh run list`, `gh run view <id>`), and search the repo (`gh search issues`, `gh search prs`). Always check the relevant issue or PR before implementing to understand the full scope and any prior discussion. If `gh` is not installed, skip these checks and work from the code and local context only.
 
 ## Anti-Patterns
 
