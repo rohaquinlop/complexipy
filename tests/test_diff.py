@@ -53,7 +53,12 @@ def _make_file_complexity(code: str, path: str = "src/example.py"):
     try:
         with open(tmp_path, "w") as f:
             f.write(code)
-        files, _ = _main([tmp_path], False, [])
+        files, _ = _main(
+            [tmp_path],
+            False,
+            [],
+            invocation_path=tmp_dir,
+        )
     finally:
         os.unlink(tmp_path)
         os.rmdir(tmp_dir)

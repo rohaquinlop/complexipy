@@ -130,12 +130,13 @@ def complex_fn(x):
 
 
 class TestTopOutput:
-    def test_top_limits_to_n_functions(self, tmp_path: Path):
+    def test_top_limits_to_n_functions(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -148,12 +149,13 @@ class TestTopOutput:
         ]
         assert len(lines) == 2
 
-    def test_top_sorts_descending(self, tmp_path: Path):
+    def test_top_sorts_descending(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -166,12 +168,13 @@ class TestTopOutput:
         complexities = [int(line.split()[-1]) for line in lines]
         assert complexities == sorted(complexities, reverse=True)
 
-    def test_top_works_with_rich_output(self, tmp_path: Path):
+    def test_top_works_with_rich_output(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -182,12 +185,13 @@ class TestTopOutput:
         assert "complex_fn" in result.output
         assert "simple" not in result.output
 
-    def test_top_with_failed_filters_both(self, tmp_path: Path):
+    def test_top_with_failed_filters_both(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -202,7 +206,7 @@ class TestTopOutput:
         assert "complex_fn" in lines[0]
 
     def test_top_multi_file_preserves_global_descending_order(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch
     ):
         import complexipy.main as main_module
 
@@ -235,6 +239,7 @@ def b_mid(x):
 """,
             encoding="utf-8",
         )
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -253,12 +258,13 @@ def b_mid(x):
         assert names[1] == "b_mid"
         assert names[2] == "a_low"
 
-    def test_top_zero_errors(self, tmp_path: Path):
+    def test_top_zero_errors(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_MULTI_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -269,12 +275,15 @@ def b_mid(x):
 
 
 class TestSuggestRefactorsOutput:
-    def test_suggest_refactors_prints_plan_fragments(self, tmp_path: Path):
+    def test_suggest_refactors_prints_plan_fragments(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -290,7 +299,7 @@ class TestSuggestRefactorsOutput:
         assert "invert the outer condition" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch
     ):
         import complexipy.main as main_module
 
@@ -300,6 +309,7 @@ class TestSuggestRefactorsOutput:
             _REFACTOR_SNIPPET + "\n\ndef simple(value):\n    return value\n",
             encoding="utf-8",
         )
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -312,13 +322,14 @@ class TestSuggestRefactorsOutput:
         assert "simple" not in result.output
 
     def test_plain_with_suggest_refactors_preserves_plain_output(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch
     ):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         without_flag = runner.invoke(
             main_module.app,
@@ -336,12 +347,15 @@ class TestSuggestRefactorsOutput:
 
 
 class TestPlainOutput:
-    def test_plain_outputs_one_line_per_function(self, tmp_path: Path):
+    def test_plain_outputs_one_line_per_function(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -358,12 +372,15 @@ class TestPlainOutput:
         assert parts[1] == "simple"
         assert parts[2] == "1"
 
-    def test_plain_with_failed_shows_only_failures(self, tmp_path: Path):
+    def test_plain_with_failed_shows_only_failures(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -377,12 +394,15 @@ class TestPlainOutput:
         assert len(lines) == 1
         assert "simple" in lines[0]
 
-    def test_plain_with_failed_no_failures_is_silent(self, tmp_path: Path):
+    def test_plain_with_failed_no_failures_is_silent(
+        self, tmp_path: Path, monkeypatch
+    ):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -395,12 +415,13 @@ class TestPlainOutput:
         ]
         assert len(lines) == 0
 
-    def test_plain_and_quiet_errors(self, tmp_path: Path):
+    def test_plain_and_quiet_errors(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -409,12 +430,13 @@ class TestPlainOutput:
 
         assert result.exit_code == 2
 
-    def test_plain_no_rich_decorations(self, tmp_path: Path):
+    def test_plain_no_rich_decorations(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,
@@ -611,12 +633,13 @@ class TestDiffCli:
         assert "Deprecated" in result.output
         assert "--ratchet" in result.output
 
-    def test_ratchet_without_diff_errors(self, tmp_path: Path):
+    def test_ratchet_without_diff_errors(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module
 
         runner = CliRunner()
         source_file = tmp_path / "sample.py"
         source_file.write_text(self._SIMPLE, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
 
         result = runner.invoke(
             main_module.app,

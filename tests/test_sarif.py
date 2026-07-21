@@ -7,7 +7,6 @@ import tempfile
 from complexipy._complexipy import main as _main
 from complexipy.utils.sarif import _RULE_ID, store_sarif
 
-# Minimal snippet with one complex and one simple function.
 _SNIPPET = """\
 def simple(x):
     return x + 1
@@ -32,7 +31,13 @@ class TestSarif:
             f.write(_SNIPPET)
             tmp_path = f.name
         try:
-            files, _ = _main([tmp_path], False, [])
+            inv_dir = os.path.dirname(tmp_path)
+            files, _ = _main(
+                [tmp_path],
+                False,
+                [],
+                invocation_path=inv_dir,
+            )
         finally:
             os.unlink(tmp_path)
         return files, max_complexity
