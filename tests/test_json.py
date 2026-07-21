@@ -17,7 +17,12 @@ def simple(value):
 
 
 def _build_file_complexity(source_file: Path):
-    files, _ = _main([source_file.as_posix()], False, [])
+    files, _ = _main(
+        [source_file.as_posix()],
+        False,
+        [],
+        invocation_path=str(source_file.parent),
+    )
     return files
 
 

@@ -59,7 +59,7 @@ pub fn main(
             no_ignore,
         };
 
-        match process_path(&path, is_dir, is_url, &opts) {
+        match process_path(&path, is_dir, is_url, &opts, invocation_path) {
             Ok((mut complexities, mut f_paths)) => {
                 successful.append(&mut complexities);
                 failed_paths.append(&mut f_paths);
@@ -76,6 +76,7 @@ fn process_path(
     is_dir: bool,
     is_url: bool,
     opts: &ProcessOptions,
+    invocation_path: &str,
 ) -> Result<ComplexitiesAndFailedPaths, PyErr> {
     let mut file_complexities = Vec::new();
     let mut failed_paths = Vec::new();
@@ -129,21 +130,30 @@ fn process_path(
         }
 
         let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
-        let (complexities, f_paths) = evaluate_dir(&repo_path, opts);
+        let (complexities, f_paths) = evaluate_dir(&repo_path, opts, invocation_path);
         dir.close()?;
         file_complexities = complexities;
         failed_paths = f_paths;
     } else if is_dir {
-        let (complexities, f_paths) = evaluate_dir(path, opts);
+        let (complexities, f_paths) = evaluate_dir(path, opts, invocation_path);
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
-        let parent_dir = path::Path::new(path)
-            .parent()
+        let inv_abs = path::Path::new(invocation_path)
+            .canonicalize()
+            .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+        let inv_str = inv_abs.to_string_lossy().replace('\\', "/");
+        let file_abs = path::Path::new(path)
+            .canonicalize()
+            .unwrap_or_else(|_| path::Path::new(path).to_path_buf());
+        let rel = file_abs
+            .strip_prefix(&inv_abs)
+            .ok()
             .and_then(|p| p.to_str())
-            .unwrap_or(".");
-        if let Ok(complexity) = file_complexity(path, parent_dir, opts.check_script, opts.no_ignore)
-        {
+            .unwrap_or(path);
+        if let Ok(complexity) = file_complexity(path, &inv_str, opts.check_script, opts.no_ignore) {
+            let mut complexity = complexity;
+            complexity.path = rel.to_string();
             file_complexities.push(complexity);
         } else {
             failed_paths.push(path.to_string());
@@ -157,14 +167,15 @@ fn process_path(
     Ok((file_complexities, failed_paths))
 }
 
-fn evaluate_dir(path: &str, opts: &ProcessOptions) -> ComplexitiesAndFailedPaths {
-    let base_dir = path::Path::new(path)
+fn evaluate_dir(
+    path: &str,
+    opts: &ProcessOptions,
+    invocation_path: &str,
+) -> ComplexitiesAndFailedPaths {
+    let inv_abs = path::Path::new(invocation_path)
         .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
-        .parent()
-        .unwrap_or(path::Path::new("."))
-        .to_string_lossy()
-        .replace('\\', "/");
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    let base_dir = inv_abs.to_string_lossy().replace('\\', "/");
     let files_paths_to_process = match get_paths_to_process(path, opts.exclude.clone()) {
         Ok(paths) => paths,
         Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
