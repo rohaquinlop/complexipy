@@ -1,6 +1,7 @@
 import sys
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, MutableMapping, TypeVar
+from typing import Dict, List, MutableMapping, Optional, TypeVar
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -41,3 +42,29 @@ TOMLTypes = TypeVar(
 TOMLType: TypeAlias = MutableMapping[str, TOMLTypes]
 TOMLConfig: TypeAlias = MutableMapping[str, TOMLTypes]
 TOMLBase = MutableMapping[str, TOMLConfig]
+
+
+@dataclass
+class RunConfig:
+    paths: List[str]
+    max_complexity_allowed: int
+    snapshot_create: bool
+    snapshot_ignore: bool
+    quiet: bool
+    ignore_complexity: bool
+    failed: bool
+    color: ColorTypes
+    sort: Sort
+    output_format: List[str]
+    output: Optional[str]
+    exclude: List[str]
+    check_script: bool
+    no_ignore: bool
+    report_ignored: bool
+    ratchet: bool
+    plain: bool
+    suggest_refactors: bool
+    top: Optional[int]
+    diff: Optional[str]
+    diff_only: Optional[str]
+    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]]

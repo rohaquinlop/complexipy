@@ -26,6 +26,7 @@ from complexipy._complexipy import FileComplexity
 from complexipy.types import (
     ColorTypes,
     OutputFormat,
+    RunConfig,
     Sort,
 )
 from complexipy.utils.cache import remember_previous_functions
@@ -65,6 +66,116 @@ app = typer.Typer(name="complexipy")
 console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
+
+
+def resolve_config(
+    paths,
+    max_complexity_allowed,
+    snapshot_create,
+    snapshot_ignore,
+    quiet,
+    ignore_complexity,
+    failed,
+    color,
+    sort,
+    output_format,
+    output,
+    output_csv,
+    output_json,
+    output_gitlab,
+    output_sarif,
+    diff,
+    diff_only,
+    ratchet,
+    top,
+    plain,
+    suggest_refactors,
+    exclude,
+    check_script,
+    no_ignore,
+    report_ignored,
+    version,
+) -> RunConfig:
+    legacy_cli_output_flags = {
+        OutputFormat.csv: output_csv,
+        OutputFormat.json: output_json,
+        OutputFormat.gitlab: output_gitlab,
+        OutputFormat.sarif: output_sarif,
+    }
+
+    (
+        paths,
+        max_complexity_allowed,
+        snapshot_create,
+        snapshot_ignore,
+        quiet,
+        ignore_complexity,
+        failed,
+        color,
+        sort,
+        output_format,
+        output,
+        exclude,
+        check_script,
+        no_ignore,
+        report_ignored,
+    ) = get_arguments_value(
+        TOML_CONFIG,
+        paths,
+        max_complexity_allowed,
+        snapshot_create,
+        snapshot_ignore,
+        quiet,
+        ignore_complexity,
+        failed,
+        color,
+        sort,
+        output_format,
+        output,
+        output_csv,
+        output_json,
+        output_gitlab,
+        output_sarif,
+        exclude,
+        check_script,
+        no_ignore,
+        report_ignored,
+    )
+
+    no_ignore = bool(no_ignore)
+    report_ignored = bool(report_ignored)
+    ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
+
+    plain, suggest_refactors = validate_cli_arguments(
+        plain, suggest_refactors, top, quiet
+    )
+
+    diff, diff_only = resolve_diff_flags(diff, diff_only, ratchet)
+
+    return RunConfig(
+        paths=paths,
+        max_complexity_allowed=max_complexity_allowed,
+        snapshot_create=snapshot_create,
+        snapshot_ignore=snapshot_ignore,
+        quiet=quiet,
+        ignore_complexity=ignore_complexity,
+        failed=failed,
+        color=color,
+        sort=sort,
+        output_format=output_format,
+        output=output,
+        exclude=exclude,
+        check_script=check_script,
+        no_ignore=no_ignore,
+        report_ignored=report_ignored,
+        ratchet=ratchet,
+        plain=plain,
+        suggest_refactors=suggest_refactors,
+        top=top,
+        diff=diff,
+        diff_only=diff_only,
+        legacy_cli_output_flags=legacy_cli_output_flags,
+    )
 
 
 def _version_callback(value: bool):
@@ -250,31 +361,7 @@ def main(
 ):
     global console
 
-    legacy_cli_output_flags = {
-        OutputFormat.csv: output_csv,
-        OutputFormat.json: output_json,
-        OutputFormat.gitlab: output_gitlab,
-        OutputFormat.sarif: output_sarif,
-    }
-
-    (
-        paths,
-        max_complexity_allowed,
-        snapshot_create,
-        snapshot_ignore,
-        quiet,
-        ignore_complexity,
-        failed,
-        color,
-        sort,
-        output_format,
-        output,
-        exclude,
-        check_script,
-        no_ignore,
-        report_ignored,
-    ) = get_arguments_value(
-        TOML_CONFIG,
+    cfg = resolve_config(
         paths,
         max_complexity_allowed,
         snapshot_create,
@@ -290,48 +377,53 @@ def main(
         output_json,
         output_gitlab,
         output_sarif,
+        diff,
+        diff_only,
+        ratchet,
+        top,
+        plain,
+        suggest_refactors,
         exclude,
         check_script,
         no_ignore,
         report_ignored,
+        version,
     )
 
-    no_ignore = bool(no_ignore)
-    report_ignored = bool(report_ignored)
-    ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
-
-    plain, suggest_refactors = validate_cli_arguments(
-        plain, suggest_refactors, top, quiet
-    )
-
-    handle_console_settings(color, quiet, plain)
-    diff, diff_only = resolve_diff_flags(diff, diff_only, ratchet)
+    handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script, no_ignore, INVOCATION_PATH
+        cfg.paths,
+        cfg.quiet,
+        cfg.exclude,
+        cfg.check_script,
+        cfg.no_ignore,
+        INVOCATION_PATH,
     )
     files_complexities, failed_paths = result
     emit_deprecated_output_warnings(
-        legacy_cli_output_flags,
+        cfg.legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_formats = resolve_output_formats(
-        output_format,
-        legacy_cli_output_flags,
+        cfg.output_format,
+        cfg.legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
     handle_snapshot_file_creation(
-        snapshot_create,
+        cfg.snapshot_create,
         output_snapshot_path,
-        max_complexity_allowed,
+        cfg.max_complexity_allowed,
         files_complexities,
     )
 
     snapshot_file_exists = os.path.exists(output_snapshot_path)
     snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
-    should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
+    should_run_snapshot_watermark = (
+        snapshot_file_exists and not cfg.snapshot_ignore
+    )
     active_snapshot_map = (
         build_snapshot_map(snapshot_files)
         if should_run_snapshot_watermark
@@ -343,40 +435,45 @@ def main(
         output_snapshot_path,
         files_complexities,
         snapshot_files,
-        max_complexity_allowed,
+        cfg.max_complexity_allowed,
     )
 
     handle_results_storage(
         output_formats,
-        output,
+        cfg.output,
         files_complexities,
-        sort.value,
-        not failed,
-        max_complexity_allowed,
+        cfg.sort.value,
+        not cfg.failed,
+        cfg.max_complexity_allowed,
     )
 
     has_success = handle_display(
         console,
         files_complexities,
-        paths,
-        failed,
-        sort,
-        ignore_complexity,
-        max_complexity_allowed,
+        cfg.paths,
+        cfg.failed,
+        cfg.sort,
+        cfg.ignore_complexity,
+        cfg.max_complexity_allowed,
         active_snapshot_map,
-        quiet,
-        plain,
-        top,
-        suggest_refactors,
+        cfg.quiet,
+        cfg.plain,
+        cfg.top,
+        cfg.suggest_refactors,
     )
 
     handle_report_ignored(
-        report_ignored, paths, exclude, output_formats, output, no_ignore
+        cfg.report_ignored,
+        cfg.paths,
+        cfg.exclude,
+        output_formats,
+        cfg.output,
+        cfg.no_ignore,
     )
 
     snapshot_result = handle_snapshot(
         should_run_snapshot_watermark,
-        quiet,
+        cfg.quiet,
         watermark_messages,
         output_snapshot_path,
         watermark_success,
@@ -386,19 +483,19 @@ def main(
     else:
         has_success = has_success and snapshot_result
 
-    valid_paths = print_invalid_paths(console, quiet, failed_paths)
-    diff_ref = diff or diff_only
-    diff_entries = handle_diff_output(diff_ref, files_complexities, quiet)
+    valid_paths = print_invalid_paths(console, cfg.quiet, failed_paths)
+    diff_ref = cfg.diff or cfg.diff_only
+    diff_entries = handle_diff_output(diff_ref, files_complexities, cfg.quiet)
     has_success = resolve_final_success(
         has_success,
         valid_paths,
         snapshot_result,
-        bool(diff),
+        bool(cfg.diff),
         diff_entries,
-        max_complexity_allowed,
+        cfg.max_complexity_allowed,
     )
 
-    if not quiet and not plain:
+    if not cfg.quiet and not cfg.plain:
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
         else:
