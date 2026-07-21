@@ -51,10 +51,7 @@ from complexipy.utils.output import (
 )
 from complexipy.utils.sarif import store_sarif
 from complexipy.utils.snapshot import (
-    build_snapshot_map,
-    handle_snapshot_file_creation,
-    handle_snapshot_functions_load,
-    handle_snapshot_watermark,
+    evaluate_snapshot,
 )
 from complexipy.utils.toml import (
     get_argument_value,
@@ -412,30 +409,12 @@ def main(
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
-    handle_snapshot_file_creation(
+    snap = evaluate_snapshot(
         cfg.snapshot_create,
+        cfg.snapshot_ignore,
         output_snapshot_path,
         cfg.max_complexity_allowed,
         files_complexities,
-    )
-
-    snapshot_file_exists = os.path.exists(output_snapshot_path)
-    snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
-    should_run_snapshot_watermark = (
-        snapshot_file_exists and not cfg.snapshot_ignore
-    )
-    active_snapshot_map = (
-        build_snapshot_map(snapshot_files)
-        if should_run_snapshot_watermark
-        else None
-    )
-    watermark_success, watermark_messages = handle_snapshot_watermark(
-        should_run_snapshot_watermark,
-        snapshot_file_exists,
-        output_snapshot_path,
-        files_complexities,
-        snapshot_files,
-        cfg.max_complexity_allowed,
     )
 
     handle_results_storage(
@@ -455,7 +434,7 @@ def main(
         cfg.sort,
         cfg.ignore_complexity,
         cfg.max_complexity_allowed,
-        active_snapshot_map,
+        snap.active_snapshot_map,
         cfg.quiet,
         cfg.plain,
         cfg.top,
@@ -472,16 +451,13 @@ def main(
     )
 
     snapshot_result = handle_snapshot(
-        should_run_snapshot_watermark,
+        snap.should_run,
         cfg.quiet,
-        watermark_messages,
+        snap.watermark_messages,
         output_snapshot_path,
-        watermark_success,
+        snap.watermark_success,
     )
-    if should_run_snapshot_watermark:
-        has_success = snapshot_result
-    else:
-        has_success = has_success and snapshot_result
+    has_success = has_success and snapshot_result
 
     valid_paths = print_invalid_paths(console, cfg.quiet, failed_paths)
     diff_ref = cfg.diff or cfg.diff_only
