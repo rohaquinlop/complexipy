@@ -73,44 +73,45 @@ def resolve_config(
         OutputFormat.sarif: output_sarif,
     }
 
-    (
-        paths,
-        max_complexity_allowed,
-        snapshot_create,
-        snapshot_ignore,
-        quiet,
-        ignore_complexity,
-        failed,
-        color,
-        sort,
-        output_format,
-        output,
-        exclude,
-        check_script,
-        no_ignore,
-        report_ignored,
-    ) = get_arguments_value(
-        toml_config,
-        paths,
-        max_complexity_allowed,
-        snapshot_create,
-        snapshot_ignore,
-        quiet,
-        ignore_complexity,
-        failed,
-        color,
-        sort,
-        output_format,
-        output,
-        output_csv,
-        output_json,
-        output_gitlab,
-        output_sarif,
-        exclude,
-        check_script,
-        no_ignore,
-        report_ignored,
-    )
+    cli_args = {
+        "paths": paths,
+        "max_complexity_allowed": max_complexity_allowed,
+        "snapshot_create": snapshot_create,
+        "snapshot_ignore": snapshot_ignore,
+        "quiet": quiet,
+        "ignore_complexity": ignore_complexity,
+        "failed": failed,
+        "color": color,
+        "sort": sort,
+        "output_format": output_format,
+        "output": output,
+        "output_csv": output_csv,
+        "output_json": output_json,
+        "output_gitlab": output_gitlab,
+        "output_sarif": output_sarif,
+        "exclude": exclude,
+        "check_script": check_script,
+        "no_ignore": no_ignore,
+        "report_ignored": report_ignored,
+    }
+
+    resolved = get_arguments_value(toml_config, cli_args)
+
+    paths = resolved["paths"]
+    max_complexity_allowed = resolved["max_complexity_allowed"]
+    snapshot_create = resolved["snapshot_create"]
+    snapshot_ignore = resolved["snapshot_ignore"]
+    quiet = resolved["quiet"]
+    ignore_complexity = resolved["ignore_complexity"]
+    failed = resolved["failed"]
+    color = resolved["color"]
+    sort = resolved["sort"]
+    output_format = resolved["output_format"]
+    output = resolved["output"]
+    exclude = resolved["exclude"]
+    check_script = resolved["check_script"]
+    no_ignore = resolved["no_ignore"]
+    report_ignored = resolved["report_ignored"]
 
     exclude = _flatten_lists(exclude)
     output_format = _flatten_lists(output_format)

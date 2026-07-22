@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sys
 from typing import (
+    Any,
+    Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
     Optional,
@@ -148,28 +150,6 @@ def get_complexipy_toml_config(
     return load_toml_config(invocation_path, "pyproject.toml")
 
 
-def template_getter(
-    toml_config: TOMLConfig | None,
-    arg_name: str,
-    default_value: TOMLTypes,
-) -> TOMLTypes:
-    if toml_config is None:
-        print(
-            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
-        )
-        raise Exit(code=1)
-
-    arg_value = toml_config.get(arg_name, default_value)
-
-    if arg_value is None:
-        print(
-            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
-        )
-        raise Exit(code=1)
-
-    return arg_value
-
-
 def get_argument_value(
     toml_config: TOMLConfig | None,
     arg_name: str,
@@ -187,70 +167,64 @@ def get_argument_value(
         )
         raise Exit(code=1)
 
-    return template_getter(toml_config, arg_name, default_value)
+    if toml_config is None:
+        print(
+            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
+        )
+        raise Exit(code=1)
+
+    arg_resolved = toml_config.get(arg_name, default_value)
+
+    if arg_resolved is None:
+        print(
+            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
+        )
+        raise Exit(code=1)
+
+    return arg_resolved
+
+
+BOOLEAN_FIELDS: List[Tuple[str, str, bool]] = [
+    ("snapshot_create", "snapshot-create", False),
+    ("snapshot_ignore", "snapshot-ignore", False),
+    ("quiet", "quiet", False),
+    ("ignore_complexity", "ignore-complexity", False),
+    ("check_script", "check-script", False),
+    ("no_ignore", "no-ignore", False),
+    ("report_ignored", "report-ignored", False),
+    ("output_csv", "output-csv", False),
+    ("output_json", "output-json", False),
+    ("output_gitlab", "output-gitlab", False),
+    ("output_sarif", "output-sarif", False),
+]
 
 
 def get_arguments_value(
     toml_config: TOMLConfig | None,
-    paths: List[str] | None,
-    max_complexity_allowed: int | None,
-    snapshot_create: bool | None,
-    snapshot_ignore: bool | None,
-    quiet: bool | None,
-    ignore_complexity: bool | None,
-    failed: bool | None,
-    color: ColorTypes | None,
-    sort_arg: Sort | None,
-    output_format: List[str] | None,
-    output: str | None,
-    output_csv: bool | None,
-    output_json: bool | None,
-    output_gitlab: bool | None,
-    output_sarif: bool | None,
-    exclude: List[str] | None,
-    check_script: bool | None,
-    no_ignore: bool | None,
-    report_ignored: bool | None,
-) -> Tuple[
-    List[str],
-    int,
-    bool,
-    bool,
-    bool,
-    bool,
-    bool,
-    ColorTypes,
-    Sort,
-    List[str],
-    str | None,
-    List[str],
-    bool,
-    bool,
-    bool,
-]:
+    cli_args: Dict[str, Any],
+) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+
+    paths = cli_args.get("paths")
     paths = get_argument_value(toml_config, "paths", paths, [])
-    max_complexity_allowed = get_argument_value(
-        toml_config, "max-complexity-allowed", max_complexity_allowed, 15
+    result["paths"] = paths
+
+    result["max_complexity_allowed"] = get_argument_value(
+        toml_config,
+        "max-complexity-allowed",
+        cli_args.get("max_complexity_allowed"),
+        15,
     )
-    snapshot_create = cast(
-        bool,
-        get_argument_value(
-            toml_config, "snapshot-create", snapshot_create, False
-        ),
-    )
-    snapshot_ignore = cast(
-        bool,
-        get_argument_value(
-            toml_config, "snapshot-ignore", snapshot_ignore, False
-        ),
-    )
-    quiet = cast(bool, get_argument_value(toml_config, "quiet", quiet, False))
-    ignore_complexity = cast(
-        bool,
-        get_argument_value(
-            toml_config, "ignore-complexity", ignore_complexity, False
-        ),
-    )
+
+    for field_name, toml_key, default in BOOLEAN_FIELDS:
+        result[field_name] = cast(
+            bool,
+            get_argument_value(
+                toml_config, toml_key, cli_args.get(field_name), default
+            ),
+        )
+
+    failed = cli_args.get("failed")
     if (
         failed is None
         and toml_config is not None
@@ -259,17 +233,23 @@ def get_arguments_value(
         legacy_details = toml_config.get("details")
         if legacy_details is not None:
             failed = str(legacy_details).lower() == "low"
-    failed = cast(
+    result["failed"] = cast(
         bool, get_argument_value(toml_config, "failed", failed, False)
     )
-    color = cast(
+
+    result["color"] = cast(
         ColorTypes,
-        get_argument_value(toml_config, "color", color, ColorTypes.auto),
+        get_argument_value(
+            toml_config, "color", cli_args.get("color"), ColorTypes.auto
+        ),
     )
-    sort_arg = cast(
+
+    result["sort"] = cast(
         Sort,
-        get_argument_value(toml_config, "sort", sort_arg, Sort.asc),
+        get_argument_value(toml_config, "sort", cli_args.get("sort"), Sort.asc),
     )
+
+    output_format = cli_args.get("output_format")
     if output_format is None:
         if toml_config is None:
             output_format = []
@@ -281,53 +261,15 @@ def get_arguments_value(
                     toml_config.get("output-format", []),
                 ),
             )
+    result["output_format"] = output_format
+
+    output = cli_args.get("output")
     if output is None and toml_config is not None:
         output = cast(Optional[str], toml_config.get("output"))
-    output_csv = cast(
-        bool,
-        get_argument_value(toml_config, "output-csv", output_csv, False),
+    result["output"] = output
+
+    result["exclude"] = get_argument_value(
+        toml_config, "exclude", cli_args.get("exclude"), []
     )
-    output_json = cast(
-        bool,
-        get_argument_value(toml_config, "output-json", output_json, False),
-    )
-    output_gitlab = cast(
-        bool,
-        get_argument_value(toml_config, "output-gitlab", output_gitlab, False),
-    )
-    output_sarif = cast(
-        bool,
-        get_argument_value(toml_config, "output-sarif", output_sarif, False),
-    )
-    exclude = get_argument_value(toml_config, "exclude", exclude, [])
-    check_script = cast(
-        bool,
-        get_argument_value(toml_config, "check-script", check_script, False),
-    )
-    no_ignore = cast(
-        bool,
-        get_argument_value(toml_config, "no-ignore", no_ignore, False),
-    )
-    report_ignored = cast(
-        bool,
-        get_argument_value(
-            toml_config, "report-ignored", report_ignored, False
-        ),
-    )
-    return (
-        paths,
-        max_complexity_allowed,
-        snapshot_create,
-        snapshot_ignore,
-        quiet,
-        ignore_complexity,
-        failed,
-        color,
-        sort_arg,
-        output_format,
-        output,
-        exclude,
-        check_script,
-        no_ignore,
-        report_ignored,
-    )
+
+    return result
