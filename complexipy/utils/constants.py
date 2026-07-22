@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from complexipy.types import OutputFormat
 
 DEFAULT_OUTPUT_FILENAMES = {

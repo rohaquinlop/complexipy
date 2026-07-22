@@ -23,10 +23,22 @@ complexipy/
 │   └── helpers/exclude.rs        # Glob-based file exclusion
 │
 ├── complexipy/                   # Python CLI + API wrapper
-│   ├── main.py                   # Typer CLI app (entrypoint)
+│   ├── main.py                   # Typer CLI app (entrypoint, pure orchestrator)
 │   ├── api.py                    # Python API (code_complexity, file_complexity)
-│   ├── types.py                  # Enums (ColorTypes, Sort, OutputFormat)
-│   ├── utils/                    # Output, diff, snapshot, config, export formats
+│   ├── types.py                  # Enums + dataclasses (RunConfig, ExitReport)
+│   ├── utils/                    # Utilities organized by domain
+│   │   ├── config.py             # CLI + TOML config resolution (resolve_config)
+│   │   ├── output.py             # Rich console display + formatting
+│   │   ├── paths.py              # Output path resolution for export formats
+│   │   ├── diff.py               # Git diff computation + flag resolution
+│   │   ├── snapshot.py           # Snapshot evaluation + watermark
+│   │   ├── ignored.py            # Ignored-location reporting
+│   │   ├── toml.py               # TOML loading + argument resolution
+│   │   ├── cache.py              # Previous-run caching for delta reporting
+│   │   ├── constants.py          # Output filenames, legacy flag maps
+│   │   ├── csv.py, json.py,      # Export format writers
+│   │   │   gitlab.py, sarif.py
+│   │   └── dataclasses.py        # FunctionRow, FileEntry display types
 │   └── _complexipy.pyi           # Type stubs for Rust extension
 │
 ├── tests/                        # pytest test suite
@@ -91,10 +103,14 @@ uv run mkdocs serve
 ## Key Files
 
 - `src/cognitive_complexity.rs` — Core algorithm: parses Python AST via ruff, computes cognitive complexity with nesting/structural/boolean increments
-- `complexipy/main.py` — CLI entrypoint: argument handling, TOML config, output formatting, snapshot, diff logic
-- `complexipy/utils/output.py` — Rich console output formatting
-- `complexipy/utils/diff.py` — Git-based complexity diff with `--diff` enforcement
-- `complexipy/utils/snapshot.py` — Baseline snapshot management for regression tracking
+- `complexipy/main.py` — CLI entrypoint: pure orchestrator that delegates to utils modules
+- `complexipy/types.py` — `RunConfig`, `ExitReport` dataclasses + enums (`ColorTypes`, `Sort`, `OutputFormat`)
+- `complexipy/utils/config.py` — `resolve_config()`: merges CLI args + TOML into `RunConfig`
+- `complexipy/utils/output.py` — Rich console display, `handle_display`, `handle_results_storage`
+- `complexipy/utils/paths.py` — Output path resolution for CSV/JSON/GitLab/SARIF exports
+- `complexipy/utils/diff.py` — Git diff computation, `resolve_diff_flags`, `handle_diff_output`
+- `complexipy/utils/snapshot.py` — `evaluate_snapshot()`, `SnapshotEvaluation`, watermark logic
+- `complexipy/utils/toml.py` — TOML loading, data-driven `get_arguments_value`
 - `complexipy/_complexipy.pyi` — Type stubs for the Rust extension module
 - `tests/main.py` — Core test suite including SonarSource paper conformance tests
 

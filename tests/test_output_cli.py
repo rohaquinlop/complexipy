@@ -685,32 +685,14 @@ class TestDiffCli:
 
 class TestOutputToml:
     def test_get_arguments_value_reads_new_output_keys(self):
-        values = get_arguments_value(
+        result = get_arguments_value(
             {
                 "paths": ["."],
                 "output-format": ["json", "gitlab"],
                 "output": "reports/",
             },
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            {},
         )
 
-        assert values[9] == ["json", "gitlab"]
-        assert values[10] == "reports/"
+        assert result["output_format"] == ["json", "gitlab"]
+        assert result["output"] == "reports/"

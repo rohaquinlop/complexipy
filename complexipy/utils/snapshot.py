@@ -1,5 +1,10 @@
+from __future__ import annotations
+
 import os
-from typing import Any, Dict, List, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+from rich.console import Console
 
 from complexipy._complexipy import (
     FileComplexity,
@@ -89,6 +94,60 @@ def handle_snapshot_watermark(
     return True, []
 
 
+@dataclass
+class SnapshotEvaluation:
+    should_run: bool
+    active_snapshot_map: Optional[Dict[Tuple[str, str, str], int]]
+    watermark_success: bool
+    watermark_messages: List[str]
+    snapshot_result: bool
+
+
+def evaluate_snapshot(
+    snapshot_create: bool,
+    snapshot_ignore: bool,
+    output_snapshot_path: str,
+    max_complexity_allowed: int,
+    files_complexities: List[FileComplexity],
+) -> SnapshotEvaluation:
+    handle_snapshot_file_creation(
+        snapshot_create,
+        output_snapshot_path,
+        max_complexity_allowed,
+        files_complexities,
+    )
+
+    snapshot_file_exists = os.path.exists(output_snapshot_path)
+    snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
+    should_run = snapshot_file_exists and not snapshot_ignore
+
+    active_snapshot_map = (
+        build_snapshot_map(snapshot_files) if should_run else None
+    )
+
+    watermark_success, watermark_messages = handle_snapshot_watermark(
+        should_run,
+        snapshot_file_exists,
+        output_snapshot_path,
+        files_complexities,
+        snapshot_files,
+        max_complexity_allowed,
+    )
+
+    if should_run:
+        snapshot_result = watermark_success
+    else:
+        snapshot_result = True
+
+    return SnapshotEvaluation(
+        should_run=should_run,
+        active_snapshot_map=active_snapshot_map,
+        watermark_success=watermark_success,
+        watermark_messages=watermark_messages,
+        snapshot_result=snapshot_result,
+    )
+
+
 def build_snapshot_map(
     snapshot_files: List[FileComplexity],
 ) -> Dict[Tuple[str, str, str], int]:
@@ -118,8 +177,28 @@ def _format_function_location(
     return f"{location}:{function_name}"
 
 
-def _is_legacy_snapshot(snapshot_files: List[Any]) -> bool:
+def _is_legacy_snapshot(snapshot_files: List[FileComplexity]) -> bool:
     return any(
         not hasattr(file_complexity, "functions")
         for file_complexity in snapshot_files
     )
+
+
+def handle_snapshot(
+    console: Console,
+    snap: SnapshotEvaluation,
+    output_snapshot_path: str,
+) -> bool:
+    if not snap.should_run:
+        return True
+
+    if not snap.watermark_messages:
+        console.print(
+            f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
+        )
+        return snap.watermark_success
+
+    for message in snap.watermark_messages:
+        console.print(f"[bold red]Snapshot watermark[/bold red]: {message}")
+
+    return snap.watermark_success

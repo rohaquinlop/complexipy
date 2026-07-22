@@ -1,4 +1,3 @@
-import json
 import os
 import platform
 from importlib.metadata import (
@@ -8,8 +7,7 @@ from importlib.metadata import (
     version as pkg_version,
 )
 from typing import (
-    Dict,
-    List,  # It's important to use this to make it compatible with python 3.8, don't remove it
+    List,
     Optional,
     Tuple,
 )
@@ -25,54 +23,48 @@ from complexipy import (
 from complexipy._complexipy import FileComplexity
 from complexipy.types import (
     ColorTypes,
+    ExitReport,
     OutputFormat,
     Sort,
 )
-from complexipy.utils.cache import remember_previous_functions
-from complexipy.utils.constants import (
-    DEFAULT_OUTPUT_FILENAMES,
-    LEGACY_OUTPUT_CONFIG_KEYS,
-    LEGACY_OUTPUT_FLAGS,
+from complexipy.utils.config import (
+    _comma_separated_list,
+    resolve_config,
 )
-from complexipy.utils.csv import store_csv
 from complexipy.utils.diff import (
-    DiffEntry,
-    compute_diff,
-    format_diff,
+    handle_diff_output,
     has_regressions,
+    resolve_diff_flags,
 )
-from complexipy.utils.gitlab import store_gitlab
-from complexipy.utils.json import store_json
+from complexipy.utils.ignored import handle_report_ignored
 from complexipy.utils.output import (
-    has_success_functions,
-    output_summary,
+    emit_deprecated_output_warnings,
+    handle_console_settings,
+    handle_display,
+    handle_results_storage,
     print_invalid_paths,
+    resolve_output_formats,
 )
-from complexipy.utils.sarif import store_sarif
 from complexipy.utils.snapshot import (
-    build_snapshot_map,
-    handle_snapshot_file_creation,
-    handle_snapshot_functions_load,
-    handle_snapshot_watermark,
+    evaluate_snapshot,
+    handle_snapshot,
 )
 from complexipy.utils.toml import (
-    get_argument_value,
-    get_arguments_value,
     get_complexipy_toml_config,
 )
 
 app = typer.Typer(name="complexipy")
-console = Console(color_system="auto")
 INVOCATION_PATH = os.getcwd()
 TOML_CONFIG = get_complexipy_toml_config(INVOCATION_PATH)
 
 
 def _version_callback(value: bool):
     if value:
+        version_console = Console(color_system="auto")
         try:
-            console.print(pkg_version("complexipy"))
+            version_console.print(pkg_version("complexipy"))
         except PackageNotFoundError:
-            console.print("Unknown version")
+            version_console.print("Unknown version")
         raise typer.Exit()
 
 
@@ -86,7 +78,13 @@ def main(
         None,
         "--exclude",
         "-e",
-        help="Paths to the directories or files to exclude.",
+        parser=_comma_separated_list,
+        help=(
+            "Paths to the directories or files to exclude. "
+            "Comma-separated or repeated flags. "
+            "Wrap glob patterns in quotes to prevent shell expansion: "
+            "--exclude 'tests/**' or --exclude=tests/**."
+        ),
     ),
     max_complexity_allowed: Optional[int] = typer.Option(
         None,
@@ -136,20 +134,21 @@ def main(
         "-s",
         help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
     ),
-    output_format: Optional[List[str]] = typer.Option(
-        None,
-        "--output-format",
-        help=(
-            "Output format to emit. Repeat the flag to request multiple formats: "
-            "csv, json, gitlab, sarif."
-        ),
-    ),
     output: Optional[str] = typer.Option(
         None,
         "--output",
         help=(
             "Destination file or directory for machine-readable output. "
             "Use a directory when emitting multiple formats."
+        ),
+    ),
+    output_format: Optional[List[str]] = typer.Option(
+        None,
+        "--output-format",
+        parser=_comma_separated_list,
+        help=(
+            "Output format to emit. Comma-separated or repeated flags: "
+            "csv, json, gitlab, sarif."
         ),
     ),
     output_csv: Optional[bool] = typer.Option(
@@ -168,6 +167,12 @@ def main(
         None,
         "--output-gitlab",
         help="Deprecated. Use `--output-format gitlab` instead. Output the results as a GitLab Code Quality JSON report.",
+    ),
+    output_sarif: Optional[bool] = typer.Option(
+        None,
+        "--output-sarif",
+        "-sr",
+        help="Deprecated. Use `--output-format sarif` instead. Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
     diff: Optional[str] = typer.Option(
         None,
@@ -192,12 +197,6 @@ def main(
         "--ratchet",
         "-R",
         help="Deprecated. --diff now enforces by default.",
-    ),
-    output_sarif: Optional[bool] = typer.Option(
-        None,
-        "--output-sarif",
-        "-sr",
-        help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
     top: Optional[int] = typer.Option(
         None,
@@ -248,32 +247,7 @@ def main(
         is_eager=True,
     ),
 ):
-    global console
-
-    legacy_cli_output_flags = {
-        OutputFormat.csv: output_csv,
-        OutputFormat.json: output_json,
-        OutputFormat.gitlab: output_gitlab,
-        OutputFormat.sarif: output_sarif,
-    }
-
-    (
-        paths,
-        max_complexity_allowed,
-        snapshot_create,
-        snapshot_ignore,
-        quiet,
-        ignore_complexity,
-        failed,
-        color,
-        sort,
-        output_format,
-        output,
-        exclude,
-        check_script,
-        no_ignore,
-        report_ignored,
-    ) = get_arguments_value(
+    cfg = resolve_config(
         TOML_CONFIG,
         paths,
         max_complexity_allowed,
@@ -290,510 +264,128 @@ def main(
         output_json,
         output_gitlab,
         output_sarif,
+        diff,
+        diff_only,
+        ratchet,
+        top,
+        plain,
+        suggest_refactors,
         exclude,
         check_script,
         no_ignore,
         report_ignored,
     )
 
-    no_ignore = bool(no_ignore)
-    report_ignored = bool(report_ignored)
-    ratchet = bool(get_argument_value(TOML_CONFIG, "ratchet", ratchet, False))
+    console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
 
-    plain, suggest_refactors = validate_cli_arguments(
-        plain, suggest_refactors, top, quiet
+    cfg.diff, cfg.diff_only = resolve_diff_flags(
+        console, cfg.diff, cfg.diff_only, cfg.ratchet
     )
-
-    handle_console_settings(color, quiet, plain)
-    diff, diff_only = resolve_diff_flags(diff, diff_only, ratchet)
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
-        paths, quiet, exclude, check_script, no_ignore, INVOCATION_PATH
+        cfg.paths,
+        cfg.quiet,
+        cfg.exclude,
+        cfg.check_script,
+        cfg.no_ignore,
+        INVOCATION_PATH,
     )
     files_complexities, failed_paths = result
+    legacy_cli_output_flags = {
+        OutputFormat.csv: output_csv,
+        OutputFormat.json: output_json,
+        OutputFormat.gitlab: output_gitlab,
+        OutputFormat.sarif: output_sarif,
+    }
     emit_deprecated_output_warnings(
+        console,
         legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_formats = resolve_output_formats(
-        output_format,
+        cfg.output_format,
         legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
-    handle_snapshot_file_creation(
-        snapshot_create,
+    snap = evaluate_snapshot(
+        cfg.snapshot_create,
+        cfg.snapshot_ignore,
         output_snapshot_path,
-        max_complexity_allowed,
+        cfg.max_complexity_allowed,
         files_complexities,
-    )
-
-    snapshot_file_exists = os.path.exists(output_snapshot_path)
-    snapshot_files = handle_snapshot_functions_load(output_snapshot_path)
-    should_run_snapshot_watermark = snapshot_file_exists and not snapshot_ignore
-    active_snapshot_map = (
-        build_snapshot_map(snapshot_files)
-        if should_run_snapshot_watermark
-        else None
-    )
-    watermark_success, watermark_messages = handle_snapshot_watermark(
-        should_run_snapshot_watermark,
-        snapshot_file_exists,
-        output_snapshot_path,
-        files_complexities,
-        snapshot_files,
-        max_complexity_allowed,
     )
 
     handle_results_storage(
+        console,
         output_formats,
-        output,
+        cfg.output,
         files_complexities,
-        sort.value,
-        not failed,
-        max_complexity_allowed,
+        cfg.sort.value,
+        not cfg.failed,
+        cfg.max_complexity_allowed,
+        INVOCATION_PATH,
     )
 
-    has_success = handle_display(
+    display_ok = handle_display(
         console,
         files_complexities,
-        paths,
-        failed,
-        sort,
-        ignore_complexity,
-        max_complexity_allowed,
-        active_snapshot_map,
-        quiet,
-        plain,
-        top,
-        suggest_refactors,
+        cfg.paths,
+        cfg.failed,
+        cfg.sort,
+        cfg.ignore_complexity,
+        cfg.max_complexity_allowed,
+        snap.active_snapshot_map,
+        cfg.quiet,
+        cfg.plain,
+        INVOCATION_PATH,
+        cfg.top,
+        cfg.suggest_refactors,
     )
 
     handle_report_ignored(
-        report_ignored, paths, exclude, output_formats, output, no_ignore
+        console,
+        cfg.report_ignored,
+        cfg.paths,
+        cfg.exclude,
+        output_formats,
+        cfg.output,
+        cfg.no_ignore,
+        INVOCATION_PATH,
     )
 
-    snapshot_result = handle_snapshot(
-        should_run_snapshot_watermark,
-        quiet,
-        watermark_messages,
-        output_snapshot_path,
-        watermark_success,
-    )
-    if should_run_snapshot_watermark:
-        has_success = snapshot_result
+    if cfg.quiet:
+        snapshot_ok = snap.watermark_success if snap.should_run else True
     else:
-        has_success = has_success and snapshot_result
-
-    valid_paths = print_invalid_paths(console, quiet, failed_paths)
-    diff_ref = diff or diff_only
-    diff_entries = handle_diff_output(diff_ref, files_complexities, quiet)
-    has_success = resolve_final_success(
-        has_success,
-        valid_paths,
-        snapshot_result,
-        bool(diff),
-        diff_entries,
-        max_complexity_allowed,
+        snapshot_ok = handle_snapshot(
+            console,
+            snap,
+            output_snapshot_path,
+        )
+    _ = print_invalid_paths(console, cfg.quiet, failed_paths)
+    paths_ok = not failed_paths
+    diff_ref = cfg.diff or cfg.diff_only
+    diff_entries = handle_diff_output(
+        console, diff_ref, files_complexities, cfg.quiet, INVOCATION_PATH
     )
-
-    if not quiet and not plain:
+    diff_ok = True
+    if cfg.diff and diff_entries is not None:
+        diff_ok = not has_regressions(diff_entries, cfg.max_complexity_allowed)
+    report = ExitReport(
+        display_ok=display_ok,
+        snapshot_ok=snapshot_ok,
+        paths_ok=paths_ok,
+        diff_ok=diff_ok,
+        enforce_diff=bool(cfg.diff),
+    )
+    if not cfg.quiet and not cfg.plain:
         if platform.system() == "Windows":
             console.rule("Analysis completed!")
         else:
             console.rule(":tada: Analysis completed! :tada:")
-
-    if not has_success:
+    if not report.success:
         raise typer.Exit(code=1)
-
-
-def handle_console_settings(
-    color: ColorTypes, quiet: bool, plain: bool = False
-):
-    global console
-    if plain:
-        console = Console(color_system=None, highlight=False)
-        return
-    if color == ColorTypes.no:
-        console = Console(color_system=None)
-    elif color == ColorTypes.yes:
-        console = Console(color_system="standard")
-
-    if not quiet:
-        if platform.system() == "Windows":
-            console.rule("complexipy")
-        else:
-            console.rule(":octopus: complexipy")
-
-
-def handle_display(
-    console: Console,
-    files_complexities: List[FileComplexity],
-    paths: List[str],
-    failed: bool,
-    sort: Sort,
-    ignore_complexity: bool,
-    max_complexity_allowed: int,
-    active_snapshot_map: Optional[Dict],
-    quiet: bool,
-    plain: bool,
-    top: Optional[int] = None,
-    suggest_refactors: bool = False,
-) -> bool:
-    if files_complexities:
-        previous_functions = remember_previous_functions(
-            INVOCATION_PATH, paths, files_complexities
-        )
-    else:
-        previous_functions = None
-
-    if quiet:
-        return has_success_functions(
-            files_complexities, max_complexity_allowed, active_snapshot_map
-        )
-
-    effective_sort = Sort.desc if top is not None else sort
-    has_success = output_summary(
-        console,
-        files_complexities,
-        failed,
-        effective_sort,
-        ignore_complexity,
-        max_complexity_allowed,
-        previous_functions,
-        active_snapshot_map,
-        plain,
-        top,
-        suggest_refactors,
-    )
-    return has_success
-
-
-def handle_results_storage(
-    output_formats: List[OutputFormat],
-    output: Optional[str],
-    files_complexities: List[FileComplexity],
-    sort: str,
-    show_details: bool,
-    max_complexity: int,
-) -> None:
-    global console
-
-    output_paths = resolve_output_paths(output_formats, output)
-
-    for output_format in output_formats:
-        output_path = output_paths[output_format]
-
-        if output_format == OutputFormat.csv:
-            store_csv(
-                output_path,
-                files_complexities,
-                sort,
-                show_details,
-                max_complexity,
-            )
-        elif output_format == OutputFormat.json:
-            store_json(
-                output_path,
-                files_complexities,
-                show_details,
-                max_complexity,
-            )
-        elif output_format == OutputFormat.gitlab:
-            store_gitlab(
-                output_path,
-                files_complexities,
-                max_complexity,
-            )
-        elif output_format == OutputFormat.sarif:
-            store_sarif(
-                output_path,
-                files_complexities,
-                max_complexity,
-            )
-
-        console.print(f"Results saved at {output_path}")
-
-
-def emit_deprecated_output_warnings(
-    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
-    toml_config,
-) -> None:
-    global console
-
-    for output_format, flag_name in LEGACY_OUTPUT_FLAGS.items():
-        if legacy_cli_output_flags[output_format]:
-            console.print(
-                f"[yellow]Deprecated:[/yellow] {flag_name} will be removed "
-                f"in a future release. Use `--output-format "
-                f"{output_format.value}` instead."
-            )
-
-    if toml_config is None:
-        return
-
-    for output_format, config_key in LEGACY_OUTPUT_CONFIG_KEYS.items():
-        if bool(toml_config.get(config_key, False)):
-            console.print(
-                f"[yellow]Deprecated:[/yellow] `{config_key}` in TOML will "
-                f"be removed in a future release. Use `output-format = "
-                f'["{output_format.value}"]` instead.'
-            )
-
-
-def resolve_output_formats(
-    output_format_values: List[str],
-    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
-    toml_config,
-) -> List[OutputFormat]:
-    output_formats = []
-
-    for value in output_format_values:
-        try:
-            normalized = OutputFormat(value)
-        except ValueError as exc:
-            valid_values = ", ".join(
-                available.value for available in OutputFormat
-            )
-            raise typer.BadParameter(
-                f"Invalid output format '{value}'. Expected one of: "
-                f"{valid_values}."
-            ) from exc
-
-        if normalized not in output_formats:
-            output_formats.append(normalized)
-
-    for output_format in OutputFormat:
-        if legacy_cli_output_flags[output_format]:
-            output_formats.append(output_format)
-            continue
-
-        config_key = LEGACY_OUTPUT_CONFIG_KEYS[output_format]
-        if toml_config is not None and bool(toml_config.get(config_key, False)):
-            output_formats.append(output_format)
-
-    return list(dict.fromkeys(output_formats))
-
-
-def resolve_output_paths(
-    output_formats: List[OutputFormat],
-    output: Optional[str],
-) -> Dict[OutputFormat, str]:
-    if not output_formats:
-        return {}
-
-    if output is None:
-        return build_output_paths(INVOCATION_PATH, output_formats)
-
-    if output == "-":
-        raise typer.BadParameter(
-            "Writing machine-readable output to stdout is not supported."
-        )
-
-    destination = os.path.abspath(output)
-    is_directory_hint = is_directory_output_hint(output)
-
-    if len(output_formats) > 1:
-        ensure_directory_destination(destination, is_directory_hint)
-        return build_output_paths(destination, output_formats)
-
-    output_format = output_formats[0]
-    if os.path.isdir(destination) or is_directory_hint:
-        os.makedirs(destination, exist_ok=True)
-        return build_output_paths(destination, [output_format])
-
-    parent_dir = os.path.dirname(destination)
-    if parent_dir:
-        os.makedirs(parent_dir, exist_ok=True)
-
-    return {output_format: destination}
-
-
-def build_output_paths(
-    destination: str, output_formats: List[OutputFormat]
-) -> Dict[OutputFormat, str]:
-    return {
-        output_format: os.path.join(
-            destination,
-            DEFAULT_OUTPUT_FILENAMES[output_format],
-        )
-        for output_format in output_formats
-    }
-
-
-def is_directory_output_hint(output: str) -> bool:
-    return output.endswith(os.sep) or (
-        os.altsep is not None and output.endswith(os.altsep)
-    )
-
-
-def ensure_directory_destination(
-    destination: str, is_directory_hint: bool
-) -> None:
-    if os.path.exists(destination):
-        if not os.path.isdir(destination):
-            raise typer.BadParameter(
-                "When multiple output formats are selected, --output "
-                "must point to a directory."
-            )
-    elif not is_directory_hint:
-        raise typer.BadParameter(
-            "When multiple output formats are selected, --output must "
-            "point to a directory or end with a path separator."
-        )
-
-    os.makedirs(destination, exist_ok=True)
-
-
-def handle_snapshot(
-    should_run_snapshot_watermark: bool,
-    quiet: bool,
-    watermark_messages: List[str],
-    output_snapshot_path: str,
-    watermark_success: bool,
-) -> bool:
-    global console
-
-    if should_run_snapshot_watermark:
-        if not quiet:
-            if watermark_messages:
-                for message in watermark_messages:
-                    console.print(
-                        f"[bold red]Snapshot watermark[/bold red]: {message}"
-                    )
-            else:
-                console.print(
-                    f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
-                )
-        return watermark_success
-    return True
-
-
-def handle_diff_output(
-    diff: Optional[str],
-    files_complexities: List[FileComplexity],
-    quiet: bool,
-) -> Optional[List[DiffEntry]]:
-    global console
-    if diff:
-        if files_complexities:
-            entries = compute_diff(files_complexities, diff, INVOCATION_PATH)
-            if not quiet:
-                format_diff(console, entries, diff)
-            return entries
-        return []
-    return None
-
-
-def handle_report_ignored(
-    report_ignored: bool,
-    paths: Optional[List[str]],
-    exclude: Optional[List[str]],
-    output_formats: List[OutputFormat],
-    output: Optional[str],
-    no_ignore: bool,
-) -> None:
-    """Print and optionally export ignored-location report."""
-    if not report_ignored:
-        return
-
-    global console
-    paths = paths or []
-    exclude = exclude or []
-    ignored_locations, _ = _complexipy.collect_all_ignored_locations(
-        paths, exclude, INVOCATION_PATH
-    )
-    if ignored_locations:
-        for loc in ignored_locations:
-            console.print(f"{loc.path}:{loc.line}  {loc.comment}")
-        console.print(
-            f"\nFound {len(ignored_locations)} suppressed location(s)."
-        )
-        if no_ignore:
-            console.print("(all markers ignored due to --no-ignore)")
-    else:
-        console.print("No ignore comments found.")
-
-    if OutputFormat.json in output_formats and ignored_locations:
-        ignored_output_paths = resolve_output_paths([OutputFormat.json], output)
-        ignored_json_path = os.path.join(
-            os.path.dirname(ignored_output_paths[OutputFormat.json]),
-            "complexipy-ignored.json",
-        )
-        ignored_data = [
-            {"path": loc.path, "line": loc.line, "comment": loc.comment}
-            for loc in ignored_locations
-        ]
-        with open(ignored_json_path, "w") as f:
-            json.dump(ignored_data, f, indent=2)
-            f.write("\n")
-        console.print(f"Ignored locations saved at {ignored_json_path}")
-
-
-def resolve_diff_flags(
-    diff: Optional[str],
-    diff_only: Optional[str],
-    ratchet: bool,
-) -> Tuple[Optional[str], Optional[str]]:
-    """Validate and resolve --diff, --diff-only, and deprecated --ratchet flags."""
-    global console
-
-    if ratchet and diff:
-        console.print(
-            "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "
-            "--diff now enforces by default. Remove --ratchet."
-        )
-    elif ratchet and not diff:
-        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
-        raise typer.Exit(code=2)
-
-    if diff_only and diff:
-        console.print(
-            "[yellow]Warning:[/yellow] --diff and --diff-only both set. "
-            "Using --diff-only (visual only, no enforcement)."
-        )
-        diff = None
-
-    return diff, diff_only
-
-
-def validate_cli_arguments(
-    plain: Optional[bool],
-    suggest_refactors: Optional[bool],
-    top: Optional[int],
-    quiet: bool,
-) -> Tuple[bool, bool]:
-    """Validate and normalize CLI arguments.
-
-    Returns (plain, suggest_refactors) with None resolved to False.
-    """
-    if plain is None:
-        plain = False
-    if suggest_refactors is None:
-        suggest_refactors = False
-
-    if plain and quiet:
-        raise typer.BadParameter("--plain and --quiet cannot be used together.")
-
-    if top is not None and top < 1:
-        raise typer.BadParameter("--top must be a positive integer.")
-
-    return plain, suggest_refactors
-
-
-def resolve_final_success(
-    has_success: bool,
-    valid_paths: bool,
-    snapshot_result: bool,
-    enforce: bool,
-    diff_entries: Optional[List[DiffEntry]],
-    max_complexity_allowed: int,
-) -> bool:
-    if enforce and diff_entries is not None:
-        ratchet_ok = not has_regressions(diff_entries, max_complexity_allowed)
-        return ratchet_ok and valid_paths and snapshot_result
-    return has_success and valid_paths
 
 
 if __name__ == "__main__":

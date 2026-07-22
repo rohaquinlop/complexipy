@@ -3,12 +3,17 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+import typer
 from rich.console import Console
 
-from complexipy import code_complexity as _code_complexity
-from complexipy._complexipy import FileComplexity
+from complexipy._complexipy import (
+    FileComplexity,
+)
+from complexipy._complexipy import (
+    code_complexity as _code_complexity,
+)
 
 _STATUS_REGRESSED = "REGRESSED"
 _STATUS_IMPROVED = "IMPROVED"
@@ -291,3 +296,45 @@ def format_diff(
     console.rule(f"Complexity diff (vs {git_ref})")
     console.print(table)
     console.print(f"\nNet: {_build_diff_summary(changed)}")
+
+
+def handle_diff_output(
+    console: Console,
+    diff: Optional[str],
+    files_complexities: List[FileComplexity],
+    quiet: bool,
+    invocation_path: str,
+) -> Optional[List[DiffEntry]]:
+    if diff:
+        if files_complexities:
+            entries = compute_diff(files_complexities, diff, invocation_path)
+            if not quiet:
+                format_diff(console, entries, diff)
+            return entries
+        return []
+    return None
+
+
+def resolve_diff_flags(
+    console: Console,
+    diff: Optional[str],
+    diff_only: Optional[str],
+    ratchet: bool,
+) -> Tuple[Optional[str], Optional[str]]:
+    if ratchet and diff:
+        console.print(
+            "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "
+            "--diff now enforces by default. Remove --ratchet."
+        )
+    elif ratchet and not diff:
+        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
+        raise typer.Exit(code=2)
+
+    if diff_only and diff:
+        console.print(
+            "[yellow]Warning:[/yellow] --diff and --diff-only both set. "
+            "Using --diff-only (visual only, no enforcement)."
+        )
+        diff = None
+
+    return diff, diff_only

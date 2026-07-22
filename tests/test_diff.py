@@ -5,7 +5,7 @@ import tempfile
 from unittest.mock import patch
 
 from complexipy._complexipy import main as _main
-from complexipy.main import resolve_final_success
+from complexipy.types import ExitReport
 from complexipy.utils.diff import (
     _STATUS_IMPROVED,
     _STATUS_NEW,
@@ -416,73 +416,124 @@ class TestResolveGitPath:
         assert result == "complexipy/main.py"
 
 
-class TestResolveFinalSuccess:
-    """Tests for the final exit-code decision logic.
-
-    When ``enforce`` is True (--diff), regressions above the threshold
-    cause failure.  When ``enforce`` is False (--diff-only), diff entries
-    are ignored and the normal has_success check applies.
-    """
-
+class TestExitReport:
     def test_enforce_true_regression_above_threshold_fails(self):
-        entries = [DiffEntry("f.py", "foo", 5, 20)]
-        assert (
-            resolve_final_success(True, True, True, True, entries, 15) is False
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=False,
+            enforce_diff=True,
         )
+        assert report.success is False
 
     def test_enforce_true_regression_within_threshold_passes(self):
-        entries = [DiffEntry("f.py", "foo", 5, 12)]
-        assert (
-            resolve_final_success(True, True, True, True, entries, 15) is True
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=True,
         )
+        assert report.success is True
 
     def test_enforce_true_new_above_threshold_fails(self):
-        entries = [DiffEntry("f.py", "foo", None, 20)]
-        assert (
-            resolve_final_success(True, True, True, True, entries, 15) is False
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=False,
+            enforce_diff=True,
         )
+        assert report.success is False
 
     def test_enforce_true_new_within_threshold_passes(self):
-        entries = [DiffEntry("f.py", "foo", None, 10)]
-        assert (
-            resolve_final_success(True, True, True, True, entries, 15) is True
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=True,
         )
+        assert report.success is True
 
     def test_enforce_true_no_regressions_passes(self):
-        entries = [DiffEntry("f.py", "foo", 5, 8)]
-        assert (
-            resolve_final_success(True, True, True, True, entries, 15) is True
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=True,
         )
+        assert report.success is True
 
-    def test_enforce_false_ignores_diff_entries(self):
-        """--diff-only: regression exists but enforce=False, so it passes."""
-        entries = [DiffEntry("f.py", "foo", 5, 20)]
-        assert (
-            resolve_final_success(True, True, True, False, entries, 15) is True
+    def test_enforce_false_ignores_diff(self):
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=False,
+            enforce_diff=False,
         )
+        assert report.success is True
 
-    def test_enforce_false_uses_has_success(self):
-        """--diff-only: falls back to has_success (threshold check)."""
-        assert (
-            resolve_final_success(False, True, True, False, None, 15) is False
+    def test_enforce_false_uses_display_ok(self):
+        report = ExitReport(
+            display_ok=False,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=False,
         )
+        assert report.success is False
 
     def test_enforce_true_invalid_paths_fails(self):
-        entries = [DiffEntry("f.py", "foo", 5, 8)]
-        assert (
-            resolve_final_success(True, False, True, True, entries, 15) is False
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=True,
+            paths_ok=False,
+            diff_ok=True,
+            enforce_diff=True,
         )
+        assert report.success is False
 
     def test_enforce_true_snapshot_failure_fails(self):
-        entries = [DiffEntry("f.py", "foo", 5, 8)]
-        assert (
-            resolve_final_success(True, True, False, True, entries, 15) is False
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=False,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=True,
         )
+        assert report.success is False
 
-    def test_enforce_true_no_entries_passes(self):
-        """No diff entries (empty diff) — enforce has nothing to check."""
-        assert resolve_final_success(True, True, True, True, [], 15) is True
+    def test_snapshot_counted_once_in_normal_mode(self):
+        report = ExitReport(
+            display_ok=True,
+            snapshot_ok=False,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=False,
+        )
+        assert report.success is False
 
-    def test_enforce_true_none_entries_passes(self):
-        """diff_entries is None when --diff was not used."""
-        assert resolve_final_success(True, True, True, True, None, 15) is True
+    def test_display_ok_ignored_in_diff_mode(self):
+        report = ExitReport(
+            display_ok=False,
+            snapshot_ok=True,
+            paths_ok=True,
+            diff_ok=True,
+            enforce_diff=True,
+        )
+        assert report.success is True
+
+    def test_paths_ok_required_in_both_modes(self):
+        for enforce in (True, False):
+            report = ExitReport(
+                display_ok=True,
+                snapshot_ok=True,
+                paths_ok=False,
+                diff_ok=True,
+                enforce_diff=enforce,
+            )
+            assert report.success is False

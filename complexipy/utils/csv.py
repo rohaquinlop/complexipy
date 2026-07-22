@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List
 
 from complexipy._complexipy import FileComplexity, output_csv
