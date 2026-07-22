@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from rich.console import Console
+
 from complexipy._complexipy import (
     FileComplexity,
     create_snapshot_file,
@@ -178,3 +180,29 @@ def _is_legacy_snapshot(snapshot_files: List[Any]) -> bool:
         not hasattr(file_complexity, "functions")
         for file_complexity in snapshot_files
     )
+
+
+def handle_snapshot(
+    console: Console,
+    should_run_snapshot_watermark: bool,
+    quiet: bool,
+    watermark_messages: List[str],
+    output_snapshot_path: str,
+    watermark_success: bool,
+) -> bool:
+    if not should_run_snapshot_watermark:
+        return True
+
+    if quiet:
+        return watermark_success
+
+    if not watermark_messages:
+        console.print(
+            f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
+        )
+        return watermark_success
+
+    for message in watermark_messages:
+        console.print(f"[bold red]Snapshot watermark[/bold red]: {message}")
+
+    return watermark_success
