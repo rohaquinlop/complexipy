@@ -133,6 +133,14 @@ def main(
         "-s",
         help="Sort the output by complexity, it can be 'asc', 'desc' or 'name'. Default is 'asc'.",
     ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        help=(
+            "Destination file or directory for machine-readable output. "
+            "Use a directory when emitting multiple formats."
+        ),
+    ),
     output_format: Optional[List[str]] = typer.Option(
         None,
         "--output-format",
@@ -140,14 +148,6 @@ def main(
         help=(
             "Output format to emit. Comma-separated or repeated flags: "
             "csv, json, gitlab, sarif."
-        ),
-    ),
-    output: Optional[str] = typer.Option(
-        None,
-        "--output",
-        help=(
-            "Destination file or directory for machine-readable output. "
-            "Use a directory when emitting multiple formats."
         ),
     ),
     output_csv: Optional[bool] = typer.Option(
@@ -166,6 +166,12 @@ def main(
         None,
         "--output-gitlab",
         help="Deprecated. Use `--output-format gitlab` instead. Output the results as a GitLab Code Quality JSON report.",
+    ),
+    output_sarif: Optional[bool] = typer.Option(
+        None,
+        "--output-sarif",
+        "-sr",
+        help="Deprecated. Use `--output-format sarif` instead. Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
     diff: Optional[str] = typer.Option(
         None,
@@ -190,12 +196,6 @@ def main(
         "--ratchet",
         "-R",
         help="Deprecated. --diff now enforces by default.",
-    ),
-    output_sarif: Optional[bool] = typer.Option(
-        None,
-        "--output-sarif",
-        "-sr",
-        help="Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
     ),
     top: Optional[int] = typer.Option(
         None,
