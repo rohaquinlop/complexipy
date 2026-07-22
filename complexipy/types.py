@@ -1,7 +1,7 @@
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, MutableMapping, Optional, TypeVar
+from typing import List, MutableMapping, Optional, TypeVar
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -67,7 +67,6 @@ class RunConfig:
     top: Optional[int]
     diff: Optional[str]
     diff_only: Optional[str]
-    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]]
 
 
 @dataclass

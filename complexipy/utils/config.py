@@ -9,8 +9,10 @@ from typing import (
 import typer
 
 from complexipy.types import (
-    OutputFormat,
+    ColorTypes,
     RunConfig,
+    Sort,
+    TOMLConfig,
 )
 from complexipy.utils.toml import (
     get_argument_value,
@@ -25,7 +27,7 @@ def _comma_separated_list(value: str) -> List[str]:
 _comma_separated_list.__name__ = "TEXT[,TEXT...]"
 
 
-def _flatten_lists(value) -> List[str]:
+def _flatten_lists(value: Optional[list]) -> List[str]:
     if not value:
         return []
     result = []
@@ -38,41 +40,33 @@ def _flatten_lists(value) -> List[str]:
 
 
 def resolve_config(
-    toml_config,
-    paths,
-    max_complexity_allowed,
-    snapshot_create,
-    snapshot_ignore,
-    quiet,
-    ignore_complexity,
-    failed,
-    color,
-    sort,
-    output_format,
-    output,
-    output_csv,
-    output_json,
-    output_gitlab,
-    output_sarif,
-    diff,
-    diff_only,
-    ratchet,
-    top,
-    plain,
-    suggest_refactors,
-    exclude,
-    check_script,
-    no_ignore,
-    report_ignored,
-    version,
+    toml_config: Optional[TOMLConfig],
+    paths: Optional[List[str]],
+    max_complexity_allowed: Optional[int],
+    snapshot_create: Optional[bool],
+    snapshot_ignore: Optional[bool],
+    quiet: Optional[bool],
+    ignore_complexity: Optional[bool],
+    failed: Optional[bool],
+    color: Optional[ColorTypes],
+    sort: Optional[Sort],
+    output_format: Optional[List[str]],
+    output: Optional[str],
+    output_csv: Optional[bool],
+    output_json: Optional[bool],
+    output_gitlab: Optional[bool],
+    output_sarif: Optional[bool],
+    diff: Optional[str],
+    diff_only: Optional[str],
+    ratchet: Optional[bool],
+    top: Optional[int],
+    plain: Optional[bool],
+    suggest_refactors: Optional[bool],
+    exclude: Optional[List[str]],
+    check_script: Optional[bool],
+    no_ignore: Optional[bool],
+    report_ignored: Optional[bool],
 ) -> RunConfig:
-    legacy_cli_output_flags = {
-        OutputFormat.csv: output_csv,
-        OutputFormat.json: output_json,
-        OutputFormat.gitlab: output_gitlab,
-        OutputFormat.sarif: output_sarif,
-    }
-
     cli_args = {
         "paths": paths,
         "max_complexity_allowed": max_complexity_allowed,
@@ -146,7 +140,6 @@ def resolve_config(
         top=top,
         diff=diff,
         diff_only=diff_only,
-        legacy_cli_output_flags=legacy_cli_output_flags,
     )
 
 

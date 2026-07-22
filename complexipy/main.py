@@ -24,6 +24,7 @@ from complexipy._complexipy import FileComplexity
 from complexipy.types import (
     ColorTypes,
     ExitReport,
+    OutputFormat,
     Sort,
 )
 from complexipy.utils.config import (
@@ -273,7 +274,6 @@ def main(
         check_script,
         no_ignore,
         report_ignored,
-        version,
     )
 
     console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
@@ -291,14 +291,20 @@ def main(
         INVOCATION_PATH,
     )
     files_complexities, failed_paths = result
+    legacy_cli_output_flags = {
+        OutputFormat.csv: output_csv,
+        OutputFormat.json: output_json,
+        OutputFormat.gitlab: output_gitlab,
+        OutputFormat.sarif: output_sarif,
+    }
     emit_deprecated_output_warnings(
         console,
-        cfg.legacy_cli_output_flags,
+        legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_formats = resolve_output_formats(
         cfg.output_format,
-        cfg.legacy_cli_output_flags,
+        legacy_cli_output_flags,
         TOML_CONFIG,
     )
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
@@ -349,14 +355,14 @@ def main(
         INVOCATION_PATH,
     )
 
-    snapshot_ok = handle_snapshot(
-        console,
-        snap.should_run,
-        cfg.quiet,
-        snap.watermark_messages,
-        output_snapshot_path,
-        snap.watermark_success,
-    )
+    if cfg.quiet:
+        snapshot_ok = snap.watermark_success if snap.should_run else True
+    else:
+        snapshot_ok = handle_snapshot(
+            console,
+            snap,
+            output_snapshot_path,
+        )
     _ = print_invalid_paths(console, cfg.quiet, failed_paths)
     paths_ok = not failed_paths
     diff_ref = cfg.diff or cfg.diff_only

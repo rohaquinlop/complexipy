@@ -8,7 +8,7 @@ from rich.console import Console
 
 from complexipy import _complexipy
 from complexipy.types import OutputFormat
-from complexipy.utils.output import resolve_output_paths
+from complexipy.utils.paths import resolve_output_paths
 
 
 def handle_report_ignored(

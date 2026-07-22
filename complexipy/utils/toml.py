@@ -13,6 +13,7 @@ from typing import (
     overload,
 )
 
+import typer
 from typer import Exit
 
 from complexipy.types import (
@@ -159,24 +160,18 @@ def get_argument_value(
     if arg_value is not None:
         return arg_value
 
-    if toml_config is None and arg_name != "paths":
-        return default_value
-    elif toml_config is None and arg_name == "paths" and arg_value is None:
-        print(
-            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
-        )
-        raise Exit(code=1)
-
     if toml_config is None:
-        print(
-            f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
-        )
-        raise Exit(code=1)
+        if arg_name == "paths":
+            typer.echo(
+                f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
+            )
+            raise Exit(code=1)
+        return default_value
 
     arg_resolved = toml_config.get(arg_name, default_value)
 
     if arg_resolved is None:
-        print(
+        typer.echo(
             f"You need to define {arg_name} in the CLI call arguments or in complexipy.toml file"
         )
         raise Exit(code=1)

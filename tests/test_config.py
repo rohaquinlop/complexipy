@@ -6,7 +6,7 @@ import pytest
 
 from complexipy.utils.config import resolve_config
 from complexipy.utils.diff import resolve_diff_flags
-from complexipy.types import ColorTypes, OutputFormat, Sort
+from complexipy.types import ColorTypes, Sort
 from rich.console import Console
 
 _console = Console(color_system=None)
@@ -41,7 +41,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.max_complexity_allowed == 15
 
@@ -73,7 +72,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.snapshot_create is False
         assert cfg.snapshot_ignore is False
@@ -113,7 +111,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.color == ColorTypes.auto
         assert cfg.sort == Sort.asc
@@ -146,7 +143,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.output is None
         assert cfg.diff is None
@@ -181,7 +177,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.output_format == []
         assert cfg.exclude == []
@@ -214,7 +209,6 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.plain is False
         assert cfg.suggest_refactors is False
@@ -249,7 +243,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.max_complexity_allowed == 25
 
@@ -281,7 +274,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.quiet is True
 
@@ -313,7 +305,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.color == ColorTypes.yes
 
@@ -345,7 +336,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.sort == Sort.desc
 
@@ -377,7 +367,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.exclude == ["tests/**"]
 
@@ -409,7 +398,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.output_format == ["csv", "json"]
 
@@ -441,7 +429,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.diff == "main"
         assert cfg.diff_only is None
@@ -474,7 +461,6 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.top == 10
 
@@ -508,7 +494,6 @@ class TestBooleanNormalization:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert isinstance(cfg.no_ignore, bool)
         assert cfg.no_ignore is False
@@ -541,7 +526,6 @@ class TestBooleanNormalization:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert isinstance(cfg.report_ignored, bool)
         assert cfg.report_ignored is False
@@ -574,82 +558,9 @@ class TestBooleanNormalization:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert isinstance(cfg.ratchet, bool)
         assert cfg.ratchet is False
-
-
-class TestLegacyOutputFlags:
-    def test_all_none_by_default(self):
-        cfg = resolve_config(
-            None,
-            paths=["."],
-            max_complexity_allowed=None,
-            snapshot_create=None,
-            snapshot_ignore=None,
-            quiet=None,
-            ignore_complexity=None,
-            failed=None,
-            color=None,
-            sort=None,
-            output_format=None,
-            output=None,
-            output_csv=None,
-            output_json=None,
-            output_gitlab=None,
-            output_sarif=None,
-            diff=None,
-            diff_only=None,
-            ratchet=None,
-            top=None,
-            plain=None,
-            suggest_refactors=None,
-            exclude=None,
-            check_script=None,
-            no_ignore=None,
-            report_ignored=None,
-            version=False,
-        )
-        assert cfg.legacy_cli_output_flags == {
-            OutputFormat.csv: None,
-            OutputFormat.json: None,
-            OutputFormat.gitlab: None,
-            OutputFormat.sarif: None,
-        }
-
-    def test_csv_flag_stored(self):
-        cfg = resolve_config(
-            None,
-            paths=["."],
-            max_complexity_allowed=None,
-            snapshot_create=None,
-            snapshot_ignore=None,
-            quiet=None,
-            ignore_complexity=None,
-            failed=None,
-            color=None,
-            sort=None,
-            output_format=None,
-            output=None,
-            output_csv=True,
-            output_json=None,
-            output_gitlab=None,
-            output_sarif=None,
-            diff=None,
-            diff_only=None,
-            ratchet=None,
-            top=None,
-            plain=None,
-            suggest_refactors=None,
-            exclude=None,
-            check_script=None,
-            no_ignore=None,
-            report_ignored=None,
-            version=False,
-        )
-        assert cfg.legacy_cli_output_flags[OutputFormat.csv] is True
-        assert cfg.legacy_cli_output_flags[OutputFormat.json] is None
 
 
 class TestPlainAndSuggestRefactors:
@@ -681,7 +592,6 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.plain is False
 
@@ -713,7 +623,6 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.suggest_refactors is False
 
@@ -745,7 +654,6 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.plain is True
 
@@ -778,7 +686,6 @@ class TestPlainAndSuggestRefactors:
                 check_script=None,
                 no_ignore=None,
                 report_ignored=None,
-                version=False,
             )
 
 
@@ -816,7 +723,6 @@ class TestDiffFlagResolution:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.diff == "main"
         assert cfg.diff_only is None
@@ -851,7 +757,6 @@ class TestCheckScriptAndNoIgnore:
             check_script=True,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.check_script is True
 
@@ -883,7 +788,6 @@ class TestCheckScriptAndNoIgnore:
             check_script=None,
             no_ignore=True,
             report_ignored=None,
-            version=False,
         )
         assert cfg.no_ignore is True
 
@@ -917,7 +821,6 @@ class TestOutputDir:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.output == "/tmp/results"
 
@@ -951,7 +854,6 @@ class TestRatchetFromToml:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.ratchet is True
 
@@ -987,7 +889,6 @@ class TestRatchetFromToml:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.ratchet is False
 
@@ -1021,7 +922,6 @@ class TestTomlOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.max_complexity_allowed == 30
 
@@ -1053,6 +953,5 @@ class TestTomlOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
-            version=False,
         )
         assert cfg.max_complexity_allowed == 10

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from rich.console import Console
 
@@ -175,7 +177,7 @@ def _format_function_location(
     return f"{location}:{function_name}"
 
 
-def _is_legacy_snapshot(snapshot_files: List[Any]) -> bool:
+def _is_legacy_snapshot(snapshot_files: List[FileComplexity]) -> bool:
     return any(
         not hasattr(file_complexity, "functions")
         for file_complexity in snapshot_files
@@ -184,25 +186,19 @@ def _is_legacy_snapshot(snapshot_files: List[Any]) -> bool:
 
 def handle_snapshot(
     console: Console,
-    should_run_snapshot_watermark: bool,
-    quiet: bool,
-    watermark_messages: List[str],
+    snap: SnapshotEvaluation,
     output_snapshot_path: str,
-    watermark_success: bool,
 ) -> bool:
-    if not should_run_snapshot_watermark:
+    if not snap.should_run:
         return True
 
-    if quiet:
-        return watermark_success
-
-    if not watermark_messages:
+    if not snap.watermark_messages:
         console.print(
             f"Snapshot watermark passed. Baseline stored at {output_snapshot_path}"
         )
-        return watermark_success
+        return snap.watermark_success
 
-    for message in watermark_messages:
+    for message in snap.watermark_messages:
         console.print(f"[bold red]Snapshot watermark[/bold red]: {message}")
 
-    return watermark_success
+    return snap.watermark_success

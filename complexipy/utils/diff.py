@@ -8,8 +8,12 @@ from typing import Dict, List, Optional, Tuple
 import typer
 from rich.console import Console
 
-from complexipy import code_complexity as _code_complexity
-from complexipy._complexipy import FileComplexity
+from complexipy._complexipy import (
+    FileComplexity,
+)
+from complexipy._complexipy import (
+    code_complexity as _code_complexity,
+)
 
 _STATUS_REGRESSED = "REGRESSED"
 _STATUS_IMPROVED = "IMPROVED"
