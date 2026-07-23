@@ -285,6 +285,7 @@ jobs:
         with:
           packages-dir: dist/
           skip-existing: true
+          attestations: false
 
   notify-downstream:
     name: Notify downstream repos
