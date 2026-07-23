@@ -1,6 +1,11 @@
-______________________________________________________________________
+---
+name: Feature request
+about: Suggest a new feature or improvement
+title: "[FEATURE REQUEST] ''"
+labels: enhancement
+assignees: ''
 
-## name: Feature Request about: Suggest a new feature or improvement title: '' labels: enhancement assignees: ''
+---
 
 ## Is your feature request related to a problem?
 

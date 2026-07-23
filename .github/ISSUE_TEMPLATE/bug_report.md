@@ -1,6 +1,11 @@
-______________________________________________________________________
+---
+name: Bug report
+about: Report a bug in complexipy
+title: "[BUG] ''"
+labels: bug
+assignees: ''
 
-## name: Bug Report about: Report a bug in complexipy title: '' labels: bug assignees: ''
+---
 
 ## Describe the bug
 
