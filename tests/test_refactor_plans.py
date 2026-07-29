@@ -8,8 +8,14 @@ from complexipy import Applicability, RefactorPlan, code_complexity
 
 
 def load_source(filename: str) -> str:
-    """Load Python source from tests/src/refactor_plans/."""
-    path = Path(__file__).parent / "src" / "refactor_plans" / filename
+    """Load Python source from tests/fixtures/refactor_plans/.
+
+    These fixtures live outside tests/src on purpose: tests/src is the
+    corpus that tests/main.py aggregates complexity totals over, and
+    these deliberately-complex fixtures would otherwise inflate those
+    hardcoded totals.
+    """
+    path = Path(__file__).parent / "fixtures" / "refactor_plans" / filename
     return path.read_text()
 
 
@@ -27,7 +33,9 @@ def test_nested_if_creates_flatten_condition_plan() -> None:
     assert func.complexity == 7
     # C007 (collapsible_if) and C001 (flatten_condition) fire on overlapping regions.
     # With region overlap dedup, C007 wins (same priority & reduction, first in sort order).
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "collapsible_if")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "collapsible_if"
+    )
     assert plan.rule_id == "C007"
     assert plan.estimated_reduction >= 2
     assert plan.applicability == Applicability.MachineApplicable
@@ -58,7 +66,9 @@ def test_high_complexity_region_creates_extract_helper_plan() -> None:
 def test_long_elif_chain_creates_dispatcher_plan() -> None:
     func = first_func(load_source("split_dispatcher_elif_chain.py"))
 
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "split_dispatcher")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "split_dispatcher"
+    )
     assert plan.line_start == 2
     assert plan.line_end == 9
     assert plan.applicability == Applicability.Informational
@@ -76,7 +86,9 @@ def test_match_dispatcher_creates_dispatcher_plan() -> None:
 def test_boolean_heavy_condition_creates_predicate_plan() -> None:
     func = first_func(load_source("extract_predicate_boolean.py"))
 
-    plan = next(plan for plan in func.refactor_plans if plan.kind == "extract_predicate")
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "extract_predicate"
+    )
     assert plan.line_start == 2
     assert plan.line_end == 2
     assert plan.applicability == Applicability.MachineApplicable
@@ -126,9 +138,17 @@ def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(
     assert plan["title"] == func.refactor_plans[0].title
     assert plan["line_start"] == func.refactor_plans[0].line_start
     assert plan["line_end"] == func.refactor_plans[0].line_end
-    assert plan["current_complexity"] == func.refactor_plans[0].current_complexity
-    assert plan["estimated_reduction"] == func.refactor_plans[0].estimated_reduction
-    assert plan["estimated_complexity_after"] == func.refactor_plans[0].estimated_complexity_after
+    assert (
+        plan["current_complexity"] == func.refactor_plans[0].current_complexity
+    )
+    assert (
+        plan["estimated_reduction"]
+        == func.refactor_plans[0].estimated_reduction
+    )
+    assert (
+        plan["estimated_complexity_after"]
+        == func.refactor_plans[0].estimated_complexity_after
+    )
 
     assert "rule_id" in plan
     assert "category" in plan
@@ -188,8 +208,7 @@ def test_rule_metadata_has_doc_url() -> None:
 def test_code_generation_produces_nonempty_snippets() -> None:
     func = first_func(load_source("code_generation_flatten.py"))
     flatten_plan = next(
-        (p for p in func.refactor_plans if p.kind == "flatten_condition"),
-        None
+        (p for p in func.refactor_plans if p.kind == "flatten_condition"), None
     )
     if flatten_plan:
         assert flatten_plan.suggestion is None
@@ -246,7 +265,9 @@ def test_loop_guard_preserves_inner_if_else() -> None:
     assert "if not item.active:" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
     # The inner if/else should be preserved
-    assert "if item.value > threshold:" in loop_guard_plan.suggestion.replacement
+    assert (
+        "if item.value > threshold:" in loop_guard_plan.suggestion.replacement
+    )
     assert "else:" in loop_guard_plan.suggestion.replacement
 
 
@@ -272,7 +293,10 @@ def test_loop_guard_three_levels_generates_multiple_guards() -> None:
     assert plan is not None
     assert plan.suggestion is not None
     # All 3 conditions should be merged
-    assert "item.active and item.ready and item.valid" in plan.suggestion.replacement
+    assert (
+        "item.active and item.ready and item.valid"
+        in plan.suggestion.replacement
+    )
     assert "total += item.value" in plan.suggestion.replacement
 
 
