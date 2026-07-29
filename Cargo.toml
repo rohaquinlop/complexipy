@@ -45,6 +45,9 @@ wasm = [
     "serde-wasm-bindgen",
     "console_error_panic_hook",
     "web-sys",
+    "regex",
+    "ruff_python_ast",
+    "ruff_python_parser",
 ]
 
 [dependencies]
