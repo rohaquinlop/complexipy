@@ -3,7 +3,7 @@ from __future__ import annotations
 from complexipy._complexipy import (
     Applicability,
     CodeComplexity,
-    CodeSnippet,
+    CodeSuggestion,
     FileComplexity,
     FunctionComplexity,
     IgnoredLocation,
@@ -20,7 +20,7 @@ from complexipy.api import (
 __all__ = [
     "Applicability",
     "CodeComplexity",
-    "CodeSnippet",
+    "CodeSuggestion",
     "FileComplexity",
     "FunctionComplexity",
     "IgnoredLocation",

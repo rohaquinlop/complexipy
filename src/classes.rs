@@ -27,21 +27,6 @@ pub struct LineComplexity {
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
-pub struct CodeSnippet {
-    pub text: String,
-    pub line_start: u64,
-    pub line_end: u64,
-}
-
-#[cfg_attr(
-    feature = "python",
-    pyclass(module = "complexipy", get_all, from_py_object)
-)]
-#[cfg_attr(
-    any(feature = "python", feature = "wasm"),
-    derive(Serialize, Deserialize)
-)]
-#[derive(Clone)]
 pub struct CodeSuggestion {
     pub replacement: String,
     pub applicability: Applicability,

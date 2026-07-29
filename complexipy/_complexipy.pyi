@@ -34,20 +34,6 @@ class Applicability(Enum):
     Informational = "Informational"
     """Informational only, not directly actionable."""
 
-class CodeSnippet:
-    """A snippet of source code with line information."""
-
-    text: str
-    """The source code text."""
-
-    line_start: int
-    """Starting line number (1-indexed)."""
-
-    line_end: int
-    """Ending line number (1-indexed)."""
-
-    def __init__(self, text: str, line_start: int, line_end: int) -> None: ...
-
 class CodeSuggestion:
     """A concrete code suggestion with replacement text and applicability."""
 

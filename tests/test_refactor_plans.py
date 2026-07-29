@@ -4,7 +4,12 @@ import json
 from pathlib import Path
 
 import complexipy
-from complexipy import Applicability, RefactorPlan, code_complexity
+from complexipy import (
+    Applicability,
+    CodeSuggestion,
+    RefactorPlan,
+    code_complexity,
+)
 
 
 def load_source(filename: str) -> str:
@@ -304,6 +309,18 @@ def test_collapsible_if_skips_when_multiple_children() -> None:
     """C007 should not fire when outer if has multiple children."""
     func = first_func(load_source("collapsible_if_skips_multiple_children.py"))
     assert "collapsible_if" not in [p.kind for p in func.refactor_plans]
+
+
+def test_code_suggestion_is_importable_and_used_by_refactor_plan() -> None:
+    """CodeSuggestion must be importable and be the actual type of plan.suggestion."""
+    func = first_func(load_source("collapsible_if_simple.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    assert plan.suggestion is not None
+    assert isinstance(plan.suggestion, CodeSuggestion)
+    assert isinstance(plan.suggestion.replacement, str)
+    assert plan.suggestion.applicability == Applicability.MachineApplicable
+    assert isinstance(plan.suggestion.description, str)
 
 
 def test_overlapping_regions_show_only_best_suggestion() -> None:

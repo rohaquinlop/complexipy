@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 #[pyo3(name = "_complexipy")]
 mod _complexipy {
     use super::classes::{
-        Applicability, CodeComplexity, CodeSnippet, FileComplexity, FunctionComplexity,
+        Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
         IgnoredLocation, LineComplexity, RefactorPlan, RuleCategory,
     };
     use super::cognitive_complexity::code_complexity;
@@ -40,7 +40,7 @@ mod _complexipy {
         m.add_function(wrap_pyfunction!(load_snapshot_file, m)?)?;
         m.add_class::<Applicability>()?;
         m.add_class::<CodeComplexity>()?;
-        m.add_class::<CodeSnippet>()?;
+        m.add_class::<CodeSuggestion>()?;
         m.add_class::<FileComplexity>()?;
         m.add_class::<FunctionComplexity>()?;
         m.add_class::<IgnoredLocation>()?;
