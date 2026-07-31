@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import json
+import textwrap
 from pathlib import Path
 
 import complexipy
@@ -321,6 +323,130 @@ def test_code_suggestion_is_importable_and_used_by_refactor_plan() -> None:
     assert isinstance(plan.suggestion.replacement, str)
     assert plan.suggestion.applicability == Applicability.MachineApplicable
     assert isinstance(plan.suggestion.description, str)
+
+
+def test_trailing_comment_with_colon_does_not_corrupt_suggestion() -> None:
+    """Regression test for the extract_condition_from_line rfind(':') bug.
+
+    `if a:  # gate: primary` used to have its condition extracted via
+    `rfind(':')`, which matched the colon inside the trailing comment instead
+    of the statement colon, corrupting the merged condition into invalid
+    Python (`if a:  # gate and b:`). The suggestion must either be a correct,
+    parseable merge, or absent with help text -- never invalid.
+    """
+    func = first_func(load_source("collapsible_if_comment_colon.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+    assert plan.rule_id == "C007"
+
+    if plan.suggestion is not None:
+        assert "gate" not in plan.suggestion.replacement
+        assert "#" not in plan.suggestion.replacement
+        assert "a and b" in plan.suggestion.replacement
+        ast.parse(textwrap.dedent(plan.suggestion.replacement))
+    else:
+        assert plan.help is not None
+
+
+def test_multiline_condition_produces_no_suggestion_but_keeps_help() -> None:
+    """A condition spanning multiple lines via an unclosed '(' can't be safely
+    read from a single line, so no machine-applicable suggestion should be
+    emitted -- the plan must still carry help text and complexity numbers.
+    """
+    func = first_func(load_source("collapsible_if_multiline_condition.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+    assert plan.rule_id == "C007"
+    assert plan.suggestion is None
+    assert plan.help is not None
+    assert plan.current_complexity == func.complexity
+    assert plan.estimated_complexity_after <= plan.current_complexity
+
+
+def test_walrus_condition_keeps_its_assignment_in_the_merge() -> None:
+    """An unparenthesized walrus must survive condition extraction.
+
+    The `:` in `:=` sits at bracket depth 0, so a scanner that takes the first
+    depth-0 colon as the statement colon extracted just `n` from
+    `if n := len(items):` and emitted `if n and n < 9:` -- valid Python that
+    silently drops the assignment, which no parse check can detect.
+    """
+    func = first_func(load_source("collapsible_if_walrus.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+    assert plan.rule_id == "C007"
+
+    if plan.suggestion is not None:
+        replacement = plan.suggestion.replacement
+        assert ":=" in replacement
+        assert "len(items)" in replacement
+        assert "n < 9" in replacement
+        ast.parse(textwrap.dedent(replacement))
+
+        # `:=` binds looser than `and`, so the walrus must be parenthesized:
+        # bare `n := len(items) and n < 9` parses but assigns the *conjunction*.
+        merged = ast.parse(
+            replacement.strip().splitlines()[0] + "\n    pass"
+        ).body[0]
+        assert isinstance(merged, ast.If)
+        assert isinstance(merged.test, ast.BoolOp), (
+            f"merged condition must be a boolean AND, got "
+            f"{type(merged.test).__name__}: {ast.unparse(merged.test)}"
+        )
+        assert isinstance(merged.test.op, ast.And)
+        assert isinstance(merged.test.values[0], ast.NamedExpr)
+    else:
+        assert plan.help is not None
+
+
+def test_all_refactor_plan_suggestions_are_parseable_python() -> None:
+    """Global safety net over every fixture: a `suggestion.replacement` must be
+    valid Python, and must never carry a `#` comment.
+
+    What this catches: replacements that don't parse (it found a real dangling
+    `if _check_condition_L2():` with no body in the predicate rule), and any
+    comment text leaking into a generated condition.
+
+    What it deliberately does NOT claim to catch: semantic corruption that still
+    parses. The original rfind(':') bug emitted `if a:  # gate and b:`, which is
+    *valid* Python -- the dropped `b` condition hides inside a comment -- so an
+    ast.parse check alone accepts it. The `#` assertion below is what closes that
+    specific hole; corruption that neither breaks parsing nor leaves a comment
+    behind is covered only by the per-rule tests above, not here.
+    """
+    fixtures_dir = Path(__file__).parent / "fixtures" / "refactor_plans"
+    checked = 0
+    for fixture_path in sorted(fixtures_dir.glob("*.py")):
+        source = fixture_path.read_text()
+        result = code_complexity(source)
+        for func in result.functions:
+            for plan in func.refactor_plans:
+                if plan.suggestion is None:
+                    # Design constraint: a missing suggestion is fine as long as
+                    # help text explains what to do instead.
+                    assert plan.help is not None, (
+                        f"{fixture_path.name}: plan {plan.rule_id} ({plan.kind}) "
+                        "has neither a suggestion nor help text"
+                    )
+                    continue
+
+                replacement = plan.suggestion.replacement
+                checked += 1
+                try:
+                    ast.parse(textwrap.dedent(replacement))
+                except SyntaxError as exc:
+                    raise AssertionError(
+                        f"{fixture_path.name}: plan {plan.rule_id} ({plan.kind}) "
+                        f"produced a suggestion.replacement that is not valid "
+                        f"Python after dedenting: {exc}\n--- replacement ---\n"
+                        f"{replacement}\n--------------------"
+                    ) from exc
+
+                assert "#" not in replacement, (
+                    f"{fixture_path.name}: plan {plan.rule_id} ({plan.kind}) "
+                    f"leaked a comment into its replacement -- a generated "
+                    f"condition must never contain '#'\n--- replacement ---\n"
+                    f"{replacement}\n--------------------"
+                )
+
+    assert checked > 0, "expected at least one fixture to produce a suggestion"
 
 
 def test_overlapping_regions_show_only_best_suggestion() -> None:
