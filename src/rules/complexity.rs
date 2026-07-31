@@ -102,6 +102,16 @@ impl RefactorRule for LoopGuardsRule {
         }
 
         let suggestion = generate_loop_guard_suggestion(region, source);
+        let help = if suggestion.is_none() {
+            Some(
+                "Add `if not <condition>: continue` guards at the top of the loop body \
+                 for each nested if condition, then dedent the remaining logic by one \
+                 level per guard."
+                    .to_string(),
+            )
+        } else {
+            None
+        };
 
         Some(RefactorPlan {
             kind: "loop_guards".to_string(),
@@ -120,8 +130,8 @@ impl RefactorRule for LoopGuardsRule {
                          and makes the loop easier to follow."
                 .to_string(),
             references: vec![],
-            suggestion: Some(suggestion),
-            help: None,
+            suggestion,
+            help,
         })
     }
 }
@@ -278,6 +288,15 @@ impl RefactorRule for ExtractPredicateRule {
         }
 
         let suggestion = generate_predicate_suggestion(region, source);
+        let help = if suggestion.is_none() {
+            Some(
+                "Extract this boolean condition into a small named function that returns \
+                 a bool, then call that function in place of the inline expression."
+                    .to_string(),
+            )
+        } else {
+            None
+        };
 
         Some(RefactorPlan {
             kind: "extract_predicate".to_string(),
@@ -297,8 +316,8 @@ impl RefactorRule for ExtractPredicateRule {
                          and easier to test."
                 .to_string(),
             references: vec![],
-            suggestion: Some(suggestion),
-            help: None,
+            suggestion,
+            help,
         })
     }
 }
@@ -438,10 +457,13 @@ impl RefactorRule for CollapsibleIfRule {
             id: "C007".to_string(),
             name: "collapsible_if".to_string(),
             category: RuleCategory::Readability,
-            description: "Merge nested if statements into a single if with combined conditions".to_string(),
+            description: "Merge nested if statements into a single if with combined conditions"
+                .to_string(),
             applicability: Applicability::MachineApplicable,
             priority: 4,
-            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if".to_string(),
+            doc_url:
+                "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
+                    .to_string(),
         })
     }
 
@@ -467,24 +489,34 @@ impl RefactorRule for CollapsibleIfRule {
         // Get the innermost if (last in chain)
         let innermost = chain.last().unwrap();
 
-        // Extract conditions from all ifs in the chain
+        // Extract conditions from all ifs in the chain. If any condition can't be
+        // extracted with confidence, we still emit the plan (the diagnosis itself —
+        // "these nested ifs can be merged" — is still valid) but fall back to `help`
+        // text instead of a machine-applicable `suggestion` we can't stand behind.
         let mut conditions = Vec::new();
+        let mut conditions_extracted = true;
         for r in &chain {
             let line_idx = (r.line_start.saturating_sub(1)) as usize;
             if line_idx >= lines.len() {
                 return None;
             }
-            let cond = extract_condition_from_line(lines[line_idx].trim_start());
-            if cond.is_empty() {
-                return None;
+            match extract_condition_from_line(lines[line_idx].trim_start()) {
+                Some(cond) => conditions.push(cond),
+                None => {
+                    conditions_extracted = false;
+                    break;
+                }
             }
-            conditions.push(cond);
         }
 
         // Verify each region in the chain (except the last) has only the nested if as its child
         let outermost = chain[0];
-        let outer_indent = get_indentation_from_str(lines[(outermost.line_start.saturating_sub(1)) as usize]);
-        let indent_step = detect_indent_step(&lines[(outermost.line_start.saturating_sub(1)) as usize..((outermost.line_end as usize).min(lines.len()))]);
+        let outer_indent =
+            get_indentation_from_str(lines[(outermost.line_start.saturating_sub(1)) as usize]);
+        let indent_step = detect_indent_step(
+            &lines[(outermost.line_start.saturating_sub(1)) as usize
+                ..((outermost.line_end as usize).min(lines.len()))],
+        );
         let body_indent = outer_indent + indent_step;
 
         for (i, r) in chain.iter().enumerate() {
@@ -505,12 +537,37 @@ impl RefactorRule for CollapsibleIfRule {
             }
         }
 
-        // Generate suggestion with all conditions merged
-        let suggestion = generate_collapsible_if_suggestion_chain(outermost, innermost, &conditions, &lines);
+        // Generate a suggestion with all conditions merged, but only when every
+        // condition in the chain was extracted with confidence. Otherwise fall back
+        // to help text rather than emitting a snippet built from an incomplete
+        // condition list.
+        let suggestion = if conditions_extracted {
+            Some(generate_collapsible_if_suggestion_chain(
+                outermost,
+                innermost,
+                &conditions,
+                &lines,
+            ))
+        } else {
+            None
+        };
+        let help = if conditions_extracted {
+            None
+        } else {
+            Some(
+                "Merge the nested if statements into a single `if <outer> and <inner>:` \
+                 block. The exact condition text could not be extracted automatically \
+                 (it may span multiple lines or contain content the parser could not \
+                 confidently isolate) — combine the conditions with `and` manually."
+                    .to_string(),
+            )
+        };
 
-        // Calculate reduction based on chain depth
+        // Calculate reduction based on chain depth. Use `chain.len()` (not
+        // `conditions.len()`) so the reduction estimate is unaffected by whether the
+        // condition *text* could be extracted for the suggestion above.
         let old_complexity = region.total;
-        let boolean_count = conditions.len() - 1; // one 'and' per pair
+        let boolean_count = chain.len().saturating_sub(1); // one 'and' per pair
         let new_complexity = 1 + region.nesting + boolean_count as u64;
         let reduction = old_complexity.saturating_sub(new_complexity).max(2);
 
@@ -530,8 +587,8 @@ impl RefactorRule for CollapsibleIfRule {
             category: RuleCategory::Readability,
             applicability: Applicability::MachineApplicable,
             description: "Merge nested if statements into a single if with combined conditions".to_string(),
-            suggestion: Some(suggestion),
-            help: None,
+            suggestion,
+            help,
             explanation: "Nested if statements with a single body can be merged into a single if \
                          with combined conditions using 'and'. This reduces nesting and improves readability."
                 .to_string(),
@@ -543,17 +600,16 @@ impl RefactorRule for CollapsibleIfRule {
 /// Generate a concrete suggestion for loop guards by inverting nested if
 /// conditions and using continue. Uses the region tree to collect guards,
 /// similar to how C007 uses `collect_if_chain`.
-fn generate_loop_guard_suggestion(region: &ComplexityRegion, source: &str) -> CodeSuggestion {
+fn generate_loop_guard_suggestion(
+    region: &ComplexityRegion,
+    source: &str,
+) -> Option<CodeSuggestion> {
     let lines: Vec<&str> = source.lines().collect();
     let start = (region.line_start.saturating_sub(1)) as usize;
     let end = (region.line_end as usize).min(lines.len());
 
     if start >= lines.len() {
-        return CodeSuggestion {
-            replacement: String::new(),
-            applicability: Applicability::MachineApplicable,
-            description: "Invert the guard condition and use continue".to_string(),
-        };
+        return None;
     }
 
     let base_indent = get_indentation_from_str(lines[start]);
@@ -578,10 +634,10 @@ fn generate_loop_guard_suggestion(region: &ComplexityRegion, source: &str) -> Co
         if line_idx >= lines.len() {
             break;
         }
-        let condition = extract_condition_from_line(lines[line_idx].trim_start());
-        if condition.is_empty() {
-            break;
-        }
+        let condition = match extract_condition_from_line(lines[line_idx].trim_start()) {
+            Some(cond) => cond,
+            None => break,
+        };
         guards.push((r, condition));
 
         // Check for next single-child If
@@ -595,11 +651,7 @@ fn generate_loop_guard_suggestion(region: &ComplexityRegion, source: &str) -> Co
     }
 
     if guards.is_empty() {
-        return CodeSuggestion {
-            replacement: String::new(),
-            applicability: Applicability::MachineApplicable,
-            description: "No guard conditions found".to_string(),
-        };
+        return None;
     }
 
     // Get the innermost region (last guard)
@@ -613,7 +665,10 @@ fn generate_loop_guard_suggestion(region: &ComplexityRegion, source: &str) -> Co
     // Emit all guards
     for (_, guard) in &guards {
         result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
-        result.push(format!("{}continue", " ".repeat(loop_body_indent + indent_step)));
+        result.push(format!(
+            "{}continue",
+            " ".repeat(loop_body_indent + indent_step)
+        ));
     }
 
     // Emit remaining body (from after the innermost if's condition line)
@@ -630,11 +685,14 @@ fn generate_loop_guard_suggestion(region: &ComplexityRegion, source: &str) -> Co
         result.push(format!("{}{}", padding, trimmed));
     }
 
-    CodeSuggestion {
+    Some(CodeSuggestion {
         replacement: result.join("\n"),
         applicability: Applicability::MachineApplicable,
-        description: format!("Convert {} nested conditions to continue guards", guards.len()),
-    }
+        description: format!(
+            "Convert {} nested conditions to continue guards",
+            guards.len()
+        ),
+    })
 }
 
 /// Detect the indentation step (spaces per level) from a block of code.
@@ -651,66 +709,158 @@ fn detect_indent_step(lines: &[&str]) -> usize {
 
 /// Generate a concrete suggestion for extracting a complex boolean condition
 /// into a named predicate function.
-fn generate_predicate_suggestion(region: &ComplexityRegion, source: &str) -> CodeSuggestion {
+fn generate_predicate_suggestion(
+    region: &ComplexityRegion,
+    source: &str,
+) -> Option<CodeSuggestion> {
     let lines: Vec<&str> = source.lines().collect();
     let start = (region.line_start.saturating_sub(1)) as usize;
 
     if start >= lines.len() {
-        return CodeSuggestion {
-            replacement: String::new(),
-            applicability: Applicability::MachineApplicable,
-            description: "Extract condition into a named predicate function".to_string(),
-        };
+        return None;
     }
 
     let line = lines[start];
-    let condition = extract_condition_from_line(line.trim_start());
+    let condition = extract_condition_from_line(line.trim_start())?;
     let base_indent = get_indentation_from_str(line);
 
     let predicate_indent = " ".repeat(base_indent);
-    let call_indent = " ".repeat(base_indent + 4);
+    let body_indent = " ".repeat(base_indent + 4);
     let func_name = format!("_check_condition_L{}", region.line_start);
 
+    // The rewritten `if` replaces the original one, so it sits at the original
+    // statement's indentation — not nested inside the helper, which would make it
+    // unreachable code after the `return`. The `...` stands in for the caller's
+    // existing body, and also keeps the snippet parseable on its own.
     let replacement = format!(
         "{predicate_indent}def {func_name}() -> bool:\n\
-         {predicate_indent}    return {condition}\n\
+         {body_indent}return {condition}\n\
          \n\
-         {call_indent}if {func_name}():"
+         {predicate_indent}if {func_name}():\n\
+         {body_indent}..."
     );
 
-    CodeSuggestion {
+    Some(CodeSuggestion {
         replacement,
         applicability: Applicability::MachineApplicable,
         description: format!("Extract condition into named predicate function `{func_name}`"),
-    }
+    })
 }
 
 fn get_indentation_from_str(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
 
-/// Best-effort heuristic to extract the condition text from an `if`/`elif`/`while`
-/// line by finding the last `:` delimiter. Using rfind ensures we match the statement
-/// delimiter even when the condition contains a colon inside a string literal.
-fn extract_condition_from_line(line: &str) -> String {
+/// Extract the boolean condition text from an `if` / `elif` / `while` statement line.
+///
+/// Returns `None` when the condition cannot be extracted with confidence — for example
+/// when brackets are left unbalanced on this line (the condition continues on a
+/// following line), when the line doesn't start with a recognized keyword, or when no
+/// statement-terminating colon can be found. Callers must treat `None` as "no
+/// machine-applicable suggestion available" and fall back to `help` text rather than
+/// guessing at a replacement.
+///
+/// The previous implementation located the statement colon with `str::rfind(':')` and
+/// claimed (incorrectly) that this correctly handled a colon inside a string literal.
+/// It did not: a trailing `# comment: like this` colon, or any colon after the real
+/// one, would corrupt the extracted condition. This implementation instead walks the
+/// line once, tracking bracket depth (`(`, `[`, `{`) and string-literal state (single
+/// and double quotes, triple-quoted strings, backslash escapes) so that colons inside
+/// strings, f-string format specs (e.g. `f"{x:>3}"`), and container literals (e.g.
+/// `{1: 2}`) are never mistaken for the statement colon. The statement colon is the
+/// first `:` found at bracket depth 0 outside of any string literal. A `#` reached
+/// outside a string ends the scan (nothing after it can contain the statement colon).
+fn extract_condition_from_line(line: &str) -> Option<String> {
     let trimmed = line.trim_start();
-    if let Some(pos) = trimmed.find("if ") {
-        let cond_start = pos + 3;
-        if let Some(end) = trimmed[cond_start..].rfind(':') {
-            return trimmed[cond_start..cond_start + end].trim().to_string();
+
+    let keyword_len = if trimmed.starts_with("elif ") {
+        5
+    } else if trimmed.starts_with("if ") {
+        3
+    } else if trimmed.starts_with("while ") {
+        6
+    } else {
+        return None;
+    };
+
+    let chars: Vec<(usize, char)> = trimmed.char_indices().collect();
+    let mut i = 0;
+    let mut depth: i32 = 0;
+    // (quote character, is_triple_quoted)
+    let mut string_state: Option<(char, bool)> = None;
+    let mut colon_byte: Option<usize> = None;
+
+    while i < chars.len() {
+        let (byte_idx, c) = chars[i];
+
+        if let Some((quote, triple)) = string_state {
+            if c == '\\' {
+                // Skip the escaped character (works for both plain and triple-quoted
+                // strings; harmless if this is technically a raw string).
+                i += 2;
+                continue;
+            }
+            if c == quote {
+                let closes_triple = triple
+                    && i + 2 < chars.len()
+                    && chars[i + 1].1 == quote
+                    && chars[i + 2].1 == quote;
+                if triple {
+                    if closes_triple {
+                        string_state = None;
+                        i += 3;
+                    } else {
+                        i += 1;
+                    }
+                } else {
+                    string_state = None;
+                    i += 1;
+                }
+                continue;
+            }
+            i += 1;
+            continue;
         }
-    } else if let Some(pos) = trimmed.find("elif ") {
-        let cond_start = pos + 5;
-        if let Some(end) = trimmed[cond_start..].rfind(':') {
-            return trimmed[cond_start..cond_start + end].trim().to_string();
-        }
-    } else if let Some(pos) = trimmed.find("while ") {
-        let cond_start = pos + 6;
-        if let Some(end) = trimmed[cond_start..].rfind(':') {
-            return trimmed[cond_start..cond_start + end].trim().to_string();
+
+        match c {
+            '#' => break,
+            '\'' | '"' => {
+                let is_triple = i + 2 < chars.len() && chars[i + 1].1 == c && chars[i + 2].1 == c;
+                string_state = Some((c, is_triple));
+                i += if is_triple { 3 } else { 1 };
+            }
+            '(' | '[' | '{' => {
+                depth += 1;
+                i += 1;
+            }
+            ')' | ']' | '}' => {
+                depth -= 1;
+                i += 1;
+            }
+            ':' if depth == 0 => {
+                // `:=` is the walrus operator, not the statement colon. Treating it
+                // as the terminator would silently drop the assignment (`if n :=
+                // len(items):` would yield the condition `n`), producing a merged
+                // condition that still parses but means something different.
+                if i + 1 < chars.len() && chars[i + 1].1 == '=' {
+                    i += 2;
+                    continue;
+                }
+                colon_byte = Some(byte_idx);
+                break;
+            }
+            _ => {
+                i += 1;
+            }
         }
     }
-    trimmed.to_string()
+
+    let colon_byte = colon_byte?;
+    let condition = trimmed[keyword_len..colon_byte].trim();
+    if condition.is_empty() {
+        return None;
+    }
+    Some(condition.to_string())
 }
 
 fn has_else_branch(region: &ComplexityRegion, lines: &[&str]) -> bool {
@@ -780,11 +930,102 @@ fn generate_collapsible_if_suggestion_chain(
 }
 
 /// Combine multiple conditions with 'and', wrapping 'or' conditions in parens.
+/// Returns a copy of `condition` with the contents of string literals and of
+/// bracketed groups replaced by `x`, preserving the top-level structure.
+///
+/// This lets callers look for top-level operators with plain substring checks
+/// without being fooled by `" or "` inside a string literal or a `:=` nested
+/// inside a call.
+fn mask_nested(condition: &str) -> String {
+    let chars: Vec<char> = condition.chars().collect();
+    let mut out = String::with_capacity(chars.len());
+    let mut i = 0;
+    let mut depth: i32 = 0;
+    let mut string_state: Option<(char, bool)> = None;
+
+    while i < chars.len() {
+        let c = chars[i];
+
+        if let Some((quote, triple)) = string_state {
+            out.push('x');
+            if c == '\\' {
+                if i + 1 < chars.len() {
+                    out.push('x');
+                }
+                i += 2;
+                continue;
+            }
+            if c == quote {
+                let closes_triple =
+                    triple && i + 2 < chars.len() && chars[i + 1] == quote && chars[i + 2] == quote;
+                if triple {
+                    if closes_triple {
+                        out.push('x');
+                        out.push('x');
+                        string_state = None;
+                        i += 3;
+                    } else {
+                        i += 1;
+                    }
+                } else {
+                    string_state = None;
+                    i += 1;
+                }
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+
+        match c {
+            '\'' | '"' => {
+                let is_triple = i + 2 < chars.len() && chars[i + 1] == c && chars[i + 2] == c;
+                string_state = Some((c, is_triple));
+                out.push('x');
+                if is_triple {
+                    out.push('x');
+                    out.push('x');
+                    i += 3;
+                } else {
+                    i += 1;
+                }
+            }
+            '(' | '[' | '{' => {
+                depth += 1;
+                out.push('x');
+                i += 1;
+            }
+            ')' | ']' | '}' => {
+                depth -= 1;
+                out.push('x');
+                i += 1;
+            }
+            _ => {
+                out.push(if depth > 0 { 'x' } else { c });
+                i += 1;
+            }
+        }
+    }
+
+    out
+}
+
+/// True when `condition` must be parenthesized before being joined with `and`.
+///
+/// `or`, conditional expressions (`x if c else y`) and assignment expressions
+/// (`:=`) all bind more loosely than `and`, so merging them unparenthesized
+/// silently changes what the condition means while still parsing:
+/// `n := len(items)` joined bare becomes `n := (len(items) and ...)`.
+fn needs_parens_for_and(condition: &str) -> bool {
+    let masked = mask_nested(condition);
+    masked.contains(" or ") || masked.contains(" if ") || masked.contains(":=")
+}
+
 fn combine_conditions_chain(conditions: &[String]) -> String {
     conditions
         .iter()
         .map(|c| {
-            if c.contains(" or ") {
+            if needs_parens_for_and(c) {
                 format!("({})", c)
             } else {
                 c.clone()
@@ -834,3 +1075,11 @@ fn sum_if_nesting(regions: &[ComplexityRegion]) -> u64 {
         })
         .sum()
 }
+
+// Unit tests live outside the implementation file, under `src/tests/`, mirroring
+// the module path. The `#[path]` attribute keeps them a child module of this one
+// so they can exercise the private helpers above through `super::` without
+// making any of them `pub(crate)` just for the sake of testing.
+#[cfg(test)]
+#[path = "../tests/rules/complexity.rs"]
+mod tests;
