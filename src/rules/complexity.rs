@@ -14,7 +14,7 @@ impl RefactorRule for FlattenConditionRule {
             category: RuleCategory::Complexity,
             description: "Flatten nested condition blocks by using guard clauses with early returns".to_string(),
             applicability: Applicability::Informational,
-            priority: 4,
+            effectiveness: 4,
             doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions".to_string(),
         })
     }
@@ -30,30 +30,22 @@ impl RefactorRule for FlattenConditionRule {
         }
 
         Some(RefactorPlan {
-            kind: "flatten_condition".to_string(),
             title: "Flatten nested condition block with guard clauses".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
             estimated_reduction: region.nesting,
             estimated_complexity_after: function_complexity.saturating_sub(region.nesting),
-            rule_id: "C001".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::Informational,
-            description:
-                "Flatten nested condition blocks by using guard clauses with early returns"
-                    .to_string(),
             explanation: "Deeply nested conditions are hard to follow. Using guard clauses \
                          with early returns reduces cognitive load by keeping the main path \
                          at a lower indentation level."
                 .to_string(),
-            references: vec![],
-            suggestion: None,
             help: Some(
                 "Invert the outer condition and return early. Move the main success path \
                         one indentation level left. Repeat for inner nested conditions where safe."
                     .to_string(),
             ),
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -69,7 +61,7 @@ impl RefactorRule for LoopGuardsRule {
             category: RuleCategory::Complexity,
             description: "Use continue guards at the top of loops to reduce nesting".to_string(),
             applicability: Applicability::MachineApplicable,
-            priority: 3,
+            effectiveness: 3,
             doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c002-loop-guards"
                 .to_string(),
         })
@@ -114,24 +106,19 @@ impl RefactorRule for LoopGuardsRule {
         };
 
         Some(RefactorPlan {
-            kind: "loop_guards".to_string(),
             title: "Flatten loop body with continue guards".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
             estimated_reduction: reduction,
             estimated_complexity_after: function_complexity.saturating_sub(reduction),
-            rule_id: "C002".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::MachineApplicable,
-            description: "Use continue guards at the top of loops to reduce nesting".to_string(),
             explanation: "Nested conditions inside loops add unnecessary indentation. \
                          Using continue guards keeps the main logic at a lower nesting level \
                          and makes the loop easier to follow."
                 .to_string(),
-            references: vec![],
             suggestion,
             help,
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -147,7 +134,7 @@ impl RefactorRule for ExtractHelperRule {
             category: RuleCategory::Complexity,
             description: "Extract complex code blocks into separate helper functions".to_string(),
             applicability: Applicability::Informational,
-            priority: 3,
+            effectiveness: 2,
             doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c003-extract-helper-function".to_string(),
         })
     }
@@ -165,7 +152,6 @@ impl RefactorRule for ExtractHelperRule {
         }
 
         Some(RefactorPlan {
-            kind: "extract_helper".to_string(),
             title: "Extract complex block into helper function".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
@@ -173,21 +159,16 @@ impl RefactorRule for ExtractHelperRule {
             estimated_reduction: region.total.saturating_sub(1),
             estimated_complexity_after: function_complexity
                 .saturating_sub(region.total.saturating_sub(1)),
-            rule_id: "C003".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::Informational,
-            description: "Extract complex code blocks into separate helper functions".to_string(),
             explanation: "Complex code blocks should be extracted into named functions \
                          to improve readability and testability. The extracted function \
                          can be given a descriptive name that explains its purpose."
                 .to_string(),
-            references: vec![],
-            suggestion: None,
             help: Some(format!(
                 "Extract lines {}-{} into a named helper function. Pass required \
                               values as parameters and return the result needed by the caller.",
                 region.line_start, region.line_end
             )),
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -204,7 +185,7 @@ impl RefactorRule for SplitDispatcherRule {
             description: "Split long elif chains or match statements into separate handlers"
                 .to_string(),
             applicability: Applicability::Informational,
-            priority: 2,
+            effectiveness: 2,
             doc_url:
                 "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c004-split-dispatcher"
                     .to_string(),
@@ -231,29 +212,22 @@ impl RefactorRule for SplitDispatcherRule {
             .max(2);
 
         Some(RefactorPlan {
-            kind: "split_dispatcher".to_string(),
             title: "Split conditional dispatcher into handlers".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
             estimated_reduction: reduction,
             estimated_complexity_after: function_complexity.saturating_sub(reduction),
-            rule_id: "C004".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::Informational,
-            description: "Split long elif chains or match statements into separate handlers"
-                .to_string(),
             explanation: "Long conditional chains are hard to maintain and extend. \
                          Splitting them into separate handlers makes each case \
                          independently testable and the dispatch logic clearer."
                 .to_string(),
-            references: vec![],
-            suggestion: None,
             help: Some(format!(
                 "Replace the {}-branch chain with a dispatch dictionary mapping \
                               cases to handler functions. Each handler becomes independently testable.",
                 region.elif_count.max(region.case_count)
             )),
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -270,7 +244,7 @@ impl RefactorRule for ExtractPredicateRule {
             description: "Extract complex boolean conditions into named predicate functions"
                 .to_string(),
             applicability: Applicability::MachineApplicable,
-            priority: 3,
+            effectiveness: 2,
             doc_url:
                 "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c005-extract-predicate"
                     .to_string(),
@@ -299,25 +273,19 @@ impl RefactorRule for ExtractPredicateRule {
         };
 
         Some(RefactorPlan {
-            kind: "extract_predicate".to_string(),
             title: "Extract complex condition into named predicate".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
             estimated_reduction: region.bool_op_count,
             estimated_complexity_after: function_complexity.saturating_sub(region.bool_op_count),
-            rule_id: "C005".to_string(),
-            category: RuleCategory::Readability,
-            applicability: Applicability::MachineApplicable,
-            description: "Extract complex boolean conditions into named predicate functions"
-                .to_string(),
             explanation: "Complex boolean expressions are hard to understand at a glance. \
                          Extracting them into named predicates makes the code self-documenting \
                          and easier to test."
                 .to_string(),
-            references: vec![],
             suggestion,
             help,
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -333,7 +301,7 @@ impl RefactorRule for ReduceNestingRule {
             category: RuleCategory::Complexity,
             description: "Reduce nesting depth by using early returns and guard clauses".to_string(),
             applicability: Applicability::Informational,
-            priority: 4,
+            effectiveness: 4,
             doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c006-reduce-nesting-depth".to_string(),
         })
     }
@@ -353,7 +321,6 @@ impl RefactorRule for ReduceNestingRule {
         }
 
         Some(RefactorPlan {
-            kind: "reduce_nesting".to_string(),
             title: "Reduce nesting depth".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
@@ -361,22 +328,17 @@ impl RefactorRule for ReduceNestingRule {
             estimated_reduction: region.nesting.saturating_sub(1),
             estimated_complexity_after: function_complexity
                 .saturating_sub(region.nesting.saturating_sub(1)),
-            rule_id: "C006".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::Informational,
-            description: "Reduce nesting depth by using early returns and guard clauses"
-                .to_string(),
             explanation: "Deep nesting (3+ levels) makes code hard to follow. \
                          Consider extracting inner blocks or using guard clauses \
                          to keep indentation shallow."
                 .to_string(),
-            references: vec![],
             suggestion: None,
             help: Some(
                 "Identify the deepest nesting level. Extract inner logic into a \
                         separate function or use early returns to reduce indentation."
                     .to_string(),
             ),
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -393,7 +355,7 @@ impl RefactorRule for FlattenTryRule {
             description: "Flatten nested try/except blocks by combining or restructuring"
                 .to_string(),
             applicability: Applicability::Informational,
-            priority: 2,
+            effectiveness: 2,
             doc_url:
                 "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c011-flatten-tryexcept"
                     .to_string(),
@@ -420,23 +382,16 @@ impl RefactorRule for FlattenTryRule {
         }
 
         Some(RefactorPlan {
-            kind: "flatten_try".to_string(),
             title: "Flatten nested try/except blocks".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
             estimated_reduction: 2,
             estimated_complexity_after: function_complexity.saturating_sub(2),
-            rule_id: "C011".to_string(),
-            category: RuleCategory::Complexity,
-            applicability: Applicability::Informational,
-            description: "Flatten nested try/except blocks by combining or restructuring"
-                .to_string(),
             explanation: "Nested try/except blocks are confusing and hard to maintain. \
                          Consider merging them or extracting the inner block into \
                          a separate function with its own error handling."
                 .to_string(),
-            references: vec![],
             suggestion: None,
             help: Some(
                 "Review if inner try/except can be merged with outer. Consider using \
@@ -444,6 +399,7 @@ impl RefactorRule for FlattenTryRule {
                         into a helper function."
                     .to_string(),
             ),
+            ..self.metadata().new_plan()
         })
     }
 }
@@ -460,7 +416,7 @@ impl RefactorRule for CollapsibleIfRule {
             description: "Merge nested if statements into a single if with combined conditions"
                 .to_string(),
             applicability: Applicability::MachineApplicable,
-            priority: 4,
+            effectiveness: 5,
             doc_url:
                 "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
                     .to_string(),
@@ -572,7 +528,6 @@ impl RefactorRule for CollapsibleIfRule {
         let reduction = old_complexity.saturating_sub(new_complexity).max(2);
 
         Some(RefactorPlan {
-            kind: "collapsible_if".to_string(),
             title: if chain.len() == 2 {
                 "Merge nested if statements".to_string()
             } else {
@@ -583,16 +538,12 @@ impl RefactorRule for CollapsibleIfRule {
             current_complexity: function_complexity,
             estimated_reduction: reduction,
             estimated_complexity_after: function_complexity.saturating_sub(reduction),
-            rule_id: "C007".to_string(),
-            category: RuleCategory::Readability,
-            applicability: Applicability::MachineApplicable,
-            description: "Merge nested if statements into a single if with combined conditions".to_string(),
             suggestion,
             help,
             explanation: "Nested if statements with a single body can be merged into a single if \
                          with combined conditions using 'and'. This reduces nesting and improves readability."
                 .to_string(),
-            references: vec![],
+            ..self.metadata().new_plan()
         })
     }
 }

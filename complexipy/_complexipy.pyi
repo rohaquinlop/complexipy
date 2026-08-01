@@ -138,6 +138,9 @@ class RefactorPlan:
     help: Optional[str]
     """Help text with actionable guidance for informational rules."""
 
+    doc_url: str
+    """URL to the documentation page for this rule."""
+
     def __init__(
         self,
         kind: str,
@@ -155,6 +158,7 @@ class RefactorPlan:
         references: List[str],
         suggestion: Optional[CodeSuggestion],
         help: Optional[str],
+        doc_url: str,
     ) -> None: ...
 
 class FunctionComplexity:

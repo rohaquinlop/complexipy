@@ -91,6 +91,7 @@ pub struct RefactorPlan {
     pub references: Vec<String>,
     pub suggestion: Option<CodeSuggestion>,
     pub help: Option<String>,
+    pub doc_url: String,
 }
 
 #[cfg_attr(

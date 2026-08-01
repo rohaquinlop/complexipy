@@ -1,29 +1,7 @@
 use super::types::RefactorRule;
 use crate::classes::RefactorPlan;
 use crate::refactor_plans::ComplexityRegion;
-
-/// Returns a numeric effectiveness score for different refactor types.
-/// Higher scores indicate refactors that produce better code quality.
-///
-/// Effectiveness tiers:
-/// - 5: Condition merging (C007) — reduces number of conditions, best readability
-/// - 4: Nesting flattening (C001, C006) — reduces indentation depth
-/// - 3: Guard clauses (C002) — reduces nesting but adds negation/continue
-/// - 2: Extraction (C003, C004, C005, C011) — moves complexity elsewhere
-/// - 1: Default fallback
-fn refactor_effectiveness(rule_id: &str) -> u8 {
-    match rule_id {
-        "C007" => 5, // Condition merging — highest effectiveness
-        "C001" => 4, // Flatten condition — nesting reduction
-        "C006" => 4, // Reduce nesting — nesting reduction
-        "C002" => 3, // Loop guards — nesting reduction with negation
-        "C003" => 2, // Extract helper — complexity reduction
-        "C004" => 2, // Split dispatcher — complexity reduction
-        "C005" => 2, // Extract predicate — readability
-        "C011" => 2, // Flatten try — complexity reduction
-        _ => 1,
-    }
-}
+use std::collections::HashMap;
 
 pub struct RuleRegistry {
     rules: Vec<Box<dyn RefactorRule>>,
@@ -53,6 +31,24 @@ impl RuleRegistry {
         self.rules.push(rule);
     }
 
+    /// Build a `rule_id -> effectiveness` lookup from the currently registered
+    /// rules. `RefactorPlan`s are plain data decoupled from the `RefactorRule`
+    /// objects that produced them (see `collect_plans`), so ordering can't read
+    /// effectiveness off the rule directly once we're holding a `Vec<RefactorPlan>` --
+    /// this map is what lets us look it up by `rule_id` without hardcoding a
+    /// `match rule_id` here. Adding a 9th rule only requires registering it in
+    /// `register_defaults` and giving it an `effectiveness` in its own metadata;
+    /// nothing in this file needs to change.
+    fn effectiveness_by_rule_id(&self) -> HashMap<&str, u8> {
+        self.rules
+            .iter()
+            .map(|rule| {
+                let meta = rule.metadata();
+                (meta.id.as_str(), meta.effectiveness)
+            })
+            .collect()
+    }
+
     #[must_use]
     pub fn analyze(
         &self,
@@ -68,12 +64,16 @@ impl RuleRegistry {
         // improve readability or maintainability, so we only surface plans with reduction >= 2.
         plans.retain(|plan| plan.estimated_reduction >= 2);
 
+        let effectiveness = self.effectiveness_by_rule_id();
+        let effectiveness_of = |rule_id: &str| *effectiveness.get(rule_id).unwrap_or(&1);
+
         plans.sort_by(|a, b| {
-            let eff_a = refactor_effectiveness(&a.rule_id);
-            let eff_b = refactor_effectiveness(&b.rule_id);
+            let eff_a = effectiveness_of(&a.rule_id);
+            let eff_b = effectiveness_of(&b.rule_id);
 
             // 1. Higher effectiveness first (condition merging > nesting flattening > guard clauses > extraction)
-            eff_b.cmp(&eff_a)
+            eff_b
+                .cmp(&eff_a)
                 // 2. Higher reduction within same effectiveness tier
                 .then_with(|| b.estimated_reduction.cmp(&a.estimated_reduction))
                 // 3. Earlier line number for same effectiveness and reduction
@@ -91,8 +91,8 @@ impl RuleRegistry {
             match overlapping_idx {
                 Some(idx) => {
                     let existing = &selected[idx];
-                    let eff_existing = refactor_effectiveness(&existing.rule_id);
-                    let eff_plan = refactor_effectiveness(&plan.rule_id);
+                    let eff_existing = effectiveness_of(&existing.rule_id);
+                    let eff_plan = effectiveness_of(&plan.rule_id);
 
                     // Keep the one with higher effectiveness, then higher reduction
                     if eff_plan > eff_existing
@@ -142,3 +142,7 @@ impl Default for RuleRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/rules/registry.rs"]
+mod tests;

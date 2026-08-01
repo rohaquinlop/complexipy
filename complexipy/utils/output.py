@@ -368,7 +368,7 @@ def _output_single_plan(
     elif plan.help:
         _output_help(console, plan.help)
 
-    _output_plan_references(console, plan.rule_id, plan.references)
+    _output_plan_references(console, plan.doc_url, plan.references)
 
 
 def _get_category_icon(category: Union[str, RuleCategory]) -> str:
@@ -416,9 +416,8 @@ def _get_applicability_name(applicability: Union[str, Applicability]) -> str:
 
 
 def _output_plan_references(
-    console: Console, rule_id: str, references: list
+    console: Console, doc_url: str, references: list
 ) -> None:
-    doc_url = _get_doc_url(rule_id)
     if doc_url or references:
         console.print("\n          [dim]References:[/dim]")
         if doc_url:
@@ -427,22 +426,6 @@ def _output_plan_references(
             )
         for ref in references:
             console.print(f"            [blue underline]{ref}[/blue underline]")
-
-
-def _get_doc_url(rule_id: str) -> str:
-    doc_anchors = {
-        "C001": "c001-flatten-nested-conditions",
-        "C002": "c002-loop-guards",
-        "C003": "c003-extract-helper-function",
-        "C004": "c004-split-dispatcher",
-        "C005": "c005-extract-predicate",
-        "C006": "c006-reduce-nesting-depth",
-        "C011": "c011-flatten-tryexcept",
-    }
-    anchor = doc_anchors.get(rule_id)
-    if anchor:
-        return f"https://rohaquinlop.github.io/complexipy/refactoring-rules/#{anchor}"
-    return ""
 
 
 import re as _re
@@ -507,7 +490,7 @@ def _output_suggestion(console: Console, suggestion) -> None:
 
 def _output_help(console: Console, help_text: str) -> None:
     """Output help text with actionable guidance."""
-    console.print(f"\n          [bold]Help:[/bold]")
+    console.print("\n          [bold]Help:[/bold]")
     console.print(f"          {help_text}")
 
 
