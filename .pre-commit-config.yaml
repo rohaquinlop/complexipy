@@ -11,6 +11,10 @@ repos:
       - id: mdformat
         additional_dependencies:
           - mdformat-mkdocs>=0.2.1
+        # mdformat has no frontmatter support: it rewrites a skill's opening `---` as a
+        # thematic break and its closing `---` as a setext heading, destroying the YAML
+        # that makes the skill loadable.
+        exclude: (^|/)SKILL\.md$
 
   - repo: https://github.com/lyz-code/yamlfix
     rev: 1.19.1
