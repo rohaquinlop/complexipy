@@ -1,6 +1,11 @@
-______________________________________________________________________
-
-## name: git-commit description: > Generic git commit workflow and commit message conventions. MUST be loaded before running any git commit command. Invoke whenever the user asks to inspect, stage, split, or commit changes — even without an explicit slash command.
+---
+name: git-commit
+description: >
+    Generic git commit workflow and commit message conventions. MUST be loaded
+    before running any git commit command. Invoke whenever the user asks to
+    inspect, stage, split, or commit changes — even without an explicit slash
+    command.
+---
 
 # Git Commits
 

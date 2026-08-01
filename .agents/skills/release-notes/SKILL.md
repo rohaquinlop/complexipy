@@ -1,6 +1,11 @@
-______________________________________________________________________
-
-## name: release-notes description: > Generate polished release notes for a new version by inspecting git history and past release formats. Supports creating the git tag and publishing the release via `gh release create`. Invoke when the user asks to write release notes, publish a release, or draft a changelog entry for a new version.
+---
+name: release-notes
+description: >
+    Generate polished release notes for a new version by inspecting git history
+    and past release formats. Supports creating the git tag and publishing the
+    release via `gh release create`. Invoke when the user asks to write release
+    notes, publish a release, or draft a changelog entry for a new version.
+---
 
 # Release Notes
 

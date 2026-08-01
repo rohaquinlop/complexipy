@@ -1,6 +1,10 @@
-______________________________________________________________________
-
-## name: create-pr description: > Create a GitHub Pull Request with generated title/body from git diff. Supports optional target branch (defaults to main). Invoke when the user asks to create a PR, open a pull request, or submit changes via GitHub CLI.
+---
+name: create-pr
+description: >
+    Create a GitHub Pull Request with generated title/body from git diff.
+    Supports optional target branch (defaults to main). Invoke when the user
+    asks to create a PR, open a pull request, or submit changes via GitHub CLI.
+---
 
 # Create PR
 
