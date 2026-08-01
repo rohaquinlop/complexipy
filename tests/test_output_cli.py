@@ -308,6 +308,40 @@ class TestSuggestRefactorsOutput:
             result.output,
         )
 
+    def test_suggest_refactors_renders_rule_doc_url(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """The rendered report must carry each rule's documentation link.
+
+        This is the end-to-end half of the doc_url guard: the Rust test proves
+        `plan.doc_url` matches the rule's metadata, and
+        `test_rule_metadata_has_doc_url` proves the value crosses into Python,
+        but only this asserts it actually reaches the terminal. C007 is the
+        regression case -- it previously rendered no `References:` section
+        because output.py resolved links from a hardcoded map that omitted it.
+        """
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "References:" in result.output
+        # Whitespace is collapsed before matching because the renderer wraps
+        # long lines mid-token -- the anchor really does arrive as
+        # "#c007-col\nlapsible-if". That wrapping is a separate known defect;
+        # normalizing here keeps this test about the link's presence rather
+        # than making it fail for the wrong reason.
+        collapsed = re.sub(r"\s+", "", result.output)
+        assert "#c007-collapsible-if" in collapsed
+
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path, monkeypatch
     ):

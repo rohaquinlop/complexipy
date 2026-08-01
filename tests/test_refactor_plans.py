@@ -203,13 +203,31 @@ def test_rule_priority_ordering() -> None:
 
 
 def test_rule_metadata_has_doc_url() -> None:
+    """Every plan must carry the metadata a clippy-style report needs, `doc_url`
+    included.
+
+    The `doc_url` assertions are the point of this test and were missing until
+    the metadata layer was wired in: the field existed on `RuleMetadata` but
+    never reached `RefactorPlan`, so Python rendered links from a hardcoded
+    duplicate map that had no entry for C007 -- C007 plans showed no
+    `References:` section at all. This fixture yields exactly one plan, C007,
+    so it guards that regression directly.
+    """
     func = first_func(load_source("metadata_validation.py"))
+    # Without this the loop below is vacuous: a fixture that stops producing
+    # plans would let every assertion pass by never running.
+    assert func.refactor_plans, "fixture produced no plans to validate"
     for plan in func.refactor_plans:
         assert plan.rule_id.startswith("C")
         assert plan.category is not None
         assert plan.applicability is not None
         assert plan.description
         assert plan.explanation
+        assert plan.doc_url, f"{plan.rule_id} carries no doc_url"
+        assert plan.doc_url.startswith("https://")
+        # Ties the URL to its own rule, so a copy-pasted link from a
+        # neighbouring rule fails rather than passing a generic prefix check.
+        assert plan.rule_id.lower() in plan.doc_url
 
 
 def test_code_generation_produces_nonempty_snippets() -> None:
