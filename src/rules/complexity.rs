@@ -648,6 +648,7 @@ fn generate_loop_guard_suggestion(
     for line in &lines[body_start..end] {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
+            result.push(String::new());
             continue;
         }
         let current_indent = get_indentation_from_str(line);
@@ -882,6 +883,7 @@ fn generate_collapsible_if_suggestion_chain(
     for line in &lines[body_start..inner_end] {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
+            body_lines.push(String::new());
             continue;
         }
         let current_indent = get_indentation_from_str(line);

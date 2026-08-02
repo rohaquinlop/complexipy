@@ -11,10 +11,14 @@ from typing import (
 
 import typer
 from rich.console import Console
+from rich.markup import escape
+from rich.padding import Padding
+from rich.syntax import Syntax
 from rich.text import Text
 
 from complexipy._complexipy import (
     Applicability,
+    CodeSuggestion,
     FileComplexity,
     FunctionComplexity,
     RefactorPlan,
@@ -96,6 +100,7 @@ def handle_display(
         plain,
         top,
         suggest_refactors,
+        invocation_path,
     )
     return has_success
 
@@ -225,6 +230,7 @@ def output_summary(
     plain: bool = False,
     top: Optional[int] = None,
     suggest_refactors: bool = False,
+    invocation_path: str = "",
 ) -> bool:
     file_entries, total_functions, all_pass = build_output_rows(
         files, failed_only, sort, max_complexity, snapshot_map
@@ -253,6 +259,7 @@ def output_summary(
             previous_functions,
             max_complexity,
             suggest_refactors,
+            invocation_path,
         )
     return has_success
 
@@ -294,6 +301,7 @@ def output_file_entries(
     previous_functions: Optional[Dict[Tuple[str, str, str], int]],
     max_complexity: int,
     suggest_refactors: bool = False,
+    invocation_path: str = "",
 ) -> None:
     for i, entry in enumerate(file_entries):
         console.print(f"[bold]{entry.path}[/bold]")
@@ -309,7 +317,7 @@ def output_file_entries(
                 f"    {function.name} {complexity_text}{delta_text} {status_text}"
             )
             if suggest_refactors:
-                output_refactor_plans(console, function)
+                output_refactor_plans(console, function, invocation_path)
         if i < len(file_entries) - 1:
             console.print()
 
@@ -326,9 +334,15 @@ def output_file_entries(
         )
 
 
-def output_refactor_plans(console: Console, function: FunctionRow) -> None:
+def output_refactor_plans(
+    console: Console, function: FunctionRow, invocation_path: str = ""
+) -> None:
     if not function.refactor_plans:
         return
+
+    source_lines = _read_source_lines(
+        invocation_path, function.path, function.file_name
+    )
 
     console.print("\n      [bold]Refactor Suggestions:[/bold]")
     if len(function.refactor_plans) > 1:
@@ -337,11 +351,27 @@ def output_refactor_plans(console: Console, function: FunctionRow) -> None:
             "that suggestion alone -- they don't sum.[/dim]"
         )
     for index, plan in enumerate(function.refactor_plans, start=1):
-        _output_single_plan(console, plan, index)
+        _output_single_plan(console, plan, index, source_lines)
+
+
+def _read_source_lines(
+    invocation_path: str, path: str, file_name: str
+) -> Optional[List[str]]:
+    full_path = normalize_path(path, file_name)
+    if invocation_path and not full_path.startswith("/"):
+        full_path = f"{invocation_path.rstrip('/')}/{full_path}"
+    try:
+        with open(full_path, "r", encoding="utf-8") as source_file:
+            return source_file.read().splitlines()
+    except OSError:
+        return None
 
 
 def _output_single_plan(
-    console: Console, plan: RefactorPlan, index: int
+    console: Console,
+    plan: RefactorPlan,
+    index: int,
+    source_lines: Optional[List[str]],
 ) -> None:
     category_icon = _get_category_icon(plan.category)
     category_name = _get_category_name(plan.category)
@@ -349,7 +379,7 @@ def _output_single_plan(
     applicability_name = _get_applicability_name(plan.applicability)
 
     console.print(
-        f"\n      [{index}] [bold cyan]{plan.rule_id}[/bold cyan] {plan.title}"
+        f"\n      [{index}] [bold cyan]{plan.rule_id}[/bold cyan] {escape(plan.title)}"
     )
     console.print(
         f"          Category: {category_icon} {category_name} "
@@ -362,13 +392,14 @@ def _output_single_plan(
     )
 
     if plan.description:
-        console.print(f"\n          [dim]{plan.description}[/dim]")
+        console.print(f"\n          [dim]{escape(plan.description)}[/dim]")
 
     if plan.explanation:
-        console.print(f"\n          [bold]>[/bold] {plan.explanation}")
+        console.print(f"\n          [bold]>[/bold] {escape(plan.explanation)}")
 
-    if plan.suggestion:
-        _output_suggestion(console, plan.suggestion)
+    suggestion = plan.suggestion
+    if suggestion:
+        _output_suggestion(console, plan, suggestion, source_lines)
     elif plan.help:
         _output_help(console, plan.help)
 
@@ -426,58 +457,22 @@ def _output_plan_references(
         console.print("\n          [dim]References:[/dim]")
         if doc_url:
             console.print(
-                f"            [blue underline]{doc_url}[/blue underline]"
+                Text(f"            {doc_url}", style="blue underline"),
+                soft_wrap=True,
             )
         for ref in references:
-            console.print(f"            [blue underline]{ref}[/blue underline]")
+            console.print(
+                Text(f"            {ref}", style="blue underline"),
+                soft_wrap=True,
+            )
 
 
-import re as _re
-
-_STRING_PATTERN = _re.compile(
-    r'("""[^"]*"""|\'\'\'[^\']*\'\'\'|"[^"]*"|\'[^\']*\')'
-)
-_COMMENT_PATTERN = _re.compile(r"(\s*#.*)$")
-_NUMBER_PATTERN = _re.compile(r"\b(\d+)\b")
-
-_KEYWORD_PATTERNS = {
-    kw: _re.compile(rf"\b{kw}\b")
-    for kw in [
-        "def",
-        "class",
-        "if",
-        "elif",
-        "else",
-        "for",
-        "while",
-        "return",
-        "import",
-        "from",
-        "try",
-        "except",
-        "finally",
-        "with",
-        "as",
-        "raise",
-        "pass",
-        "break",
-        "continue",
-        "yield",
-        "lambda",
-    ]
-}
-
-_BOOL_OP_PATTERNS = {
-    op: _re.compile(rf"\b{op}\b") for op in ["and", "or", "not", "in", "is"]
-}
-
-_CONSTANT_PATTERNS = {
-    const: _re.compile(rf"\b{const}\b") for const in ["True", "False", "None"]
-}
-
-
-def _output_suggestion(console: Console, suggestion) -> None:
-    """Output a concrete code suggestion."""
+def _output_suggestion(
+    console: Console,
+    plan: RefactorPlan,
+    suggestion: CodeSuggestion,
+    source_lines: Optional[List[str]],
+) -> None:
     applicability_icon = _get_applicability_icon(suggestion.applicability)
     applicability_name = _get_applicability_name(suggestion.applicability)
 
@@ -485,53 +480,43 @@ def _output_suggestion(console: Console, suggestion) -> None:
         f"\n          [bold]Suggestion:[/bold] {applicability_icon} {applicability_name}"
     )
     if suggestion.description:
-        console.print(f"          [dim]{suggestion.description}[/dim]")
+        console.print(f"          [dim]{escape(suggestion.description)}[/dim]")
+
+    if source_lines:
+        original_start = plan.line_start
+        original_end = min(plan.line_end, len(source_lines))
+        original_code = "\n".join(
+            source_lines[original_start - 1 : original_end]
+        )
+        if original_code:
+            console.print("\n          [dim]Original:[/dim]")
+            _output_code_snippet(console, original_code, original_start)
 
     if suggestion.replacement:
         console.print("\n          [dim]Replacement:[/dim]")
-        _output_code_snippet(console, suggestion.replacement, indent=12)
+        _output_code_snippet(console, suggestion.replacement, plan.line_start)
 
 
 def _output_help(console: Console, help_text: str) -> None:
-    """Output help text with actionable guidance."""
     console.print("\n          [bold]Help:[/bold]")
     console.print(f"          {help_text}")
 
 
-def _output_code_snippet(console, code: str, indent: int = 8) -> None:
+def _output_code_snippet(
+    console: Console, code: str, start_line: int, indent: int = 12
+) -> None:
     if not code:
         return
 
-    lines = code.split("\n")
-    for i, line in enumerate(lines):
-        highlighted = _highlight_python_line(line)
-        console.print(f"{' ' * indent}{i + 1:4d} | {highlighted}")
-
-
-def _highlight_python_line(line: str) -> str:
-    result = line
-
-    result = _STRING_PATTERN.sub(r"[green]\1[/green]", result)
-    result = _COMMENT_PATTERN.sub(r"[dim]\1[/dim]", result)
-
-    for pattern in _KEYWORD_PATTERNS.values():
-        result = pattern.sub(
-            lambda m: f"[bold blue]{m.group()}[/bold blue]", result
-        )
-
-    for pattern in _BOOL_OP_PATTERNS.values():
-        result = pattern.sub(
-            lambda m: f"[bold magenta]{m.group()}[/bold magenta]", result
-        )
-
-    for pattern in _CONSTANT_PATTERNS.values():
-        result = pattern.sub(
-            lambda m: f"[bold cyan]{m.group()}[/bold cyan]", result
-        )
-
-    result = _NUMBER_PATTERN.sub(r"[yellow]\1[/yellow]", result)
-
-    return result
+    syntax = Syntax(
+        code,
+        "python",
+        line_numbers=True,
+        start_line=start_line,
+        dedent=False,
+        word_wrap=False,
+    )
+    console.print(Padding(syntax, (0, 0, 0, indent)))
 
 
 def format_status_text(passed: bool) -> str:
