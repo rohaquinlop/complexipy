@@ -25,7 +25,7 @@ pub struct RuleMetadata {
     ///
     /// Effectiveness tiers:
     /// - 5: Condition merging (C007) -- reduces number of conditions, best readability
-    /// - 4: Nesting flattening (C001, C006) -- reduces indentation depth
+    /// - 4: Nesting flattening (C001) -- reduces indentation depth
     /// - 3: Guard clauses (C002) -- reduces nesting but adds negation/continue
     /// - 2: Extraction (C003, C004, C005, C011) -- moves complexity elsewhere
     /// - 1: Default fallback

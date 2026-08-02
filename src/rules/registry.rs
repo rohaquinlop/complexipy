@@ -22,7 +22,6 @@ impl RuleRegistry {
         self.register(Box::new(ExtractHelperRule));
         self.register(Box::new(SplitDispatcherRule));
         self.register(Box::new(ExtractPredicateRule));
-        self.register(Box::new(ReduceNestingRule));
         self.register(Box::new(FlattenTryRule));
         self.register(Box::new(CollapsibleIfRule));
     }

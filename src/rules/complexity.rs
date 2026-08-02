@@ -304,59 +304,6 @@ impl RefactorRule for ExtractPredicateRule {
     }
 }
 
-pub struct ReduceNestingRule;
-
-impl RefactorRule for ReduceNestingRule {
-    fn metadata(&self) -> &'static RuleMetadata {
-        static META: OnceLock<RuleMetadata> = OnceLock::new();
-        META.get_or_init(|| RuleMetadata {
-            id: "C006".to_string(),
-            name: "reduce_nesting".to_string(),
-            category: RuleCategory::Complexity,
-            description: "Reduce nesting depth by using early returns and guard clauses".to_string(),
-            applicability: Applicability::Informational,
-            effectiveness: 4,
-            doc_url: "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c006-reduce-nesting-depth".to_string(),
-        })
-    }
-
-    fn check(
-        &self,
-        region: &ComplexityRegion,
-        _source: &str,
-        function_complexity: u64,
-    ) -> Option<RefactorPlan> {
-        if region.nesting < 3 || region.total < 5 {
-            return None;
-        }
-
-        if region.kind == RegionKind::If && region.nesting >= 2 && region.total >= 4 {
-            return None;
-        }
-
-        Some(RefactorPlan {
-            title: "Reduce nesting depth".to_string(),
-            line_start: region.line_start,
-            line_end: region.line_end,
-            current_complexity: function_complexity,
-            estimated_reduction: region.nesting.saturating_sub(1),
-            estimated_complexity_after: function_complexity
-                .saturating_sub(region.nesting.saturating_sub(1)),
-            explanation: "Deep nesting (3+ levels) makes code hard to follow. \
-                         Consider extracting inner blocks or using guard clauses \
-                         to keep indentation shallow."
-                .to_string(),
-            suggestion: None,
-            help: Some(
-                "Identify the deepest nesting level. Extract inner logic into a \
-                        separate function or use early returns to reduce indentation."
-                    .to_string(),
-            ),
-            ..self.metadata().new_plan()
-        })
-    }
-}
-
 pub struct FlattenTryRule;
 
 impl RefactorRule for FlattenTryRule {
@@ -386,22 +333,16 @@ impl RefactorRule for FlattenTryRule {
             return None;
         }
 
-        let has_nested_try = region
-            .children
-            .iter()
-            .any(|child| child.kind == RegionKind::Try);
-
-        if !has_nested_try || region.total < 4 {
-            return None;
-        }
+        let nested_try = find_nested_try(region)?;
+        let estimated_reduction = nested_try.structural.max(1);
 
         Some(RefactorPlan {
             title: "Flatten nested try/except blocks".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
-            estimated_reduction: 2,
-            estimated_complexity_after: function_complexity.saturating_sub(2),
+            estimated_reduction,
+            estimated_complexity_after: function_complexity.saturating_sub(estimated_reduction),
             explanation: "Nested try/except blocks are confusing and hard to maintain. \
                          Consider merging them or extracting the inner block into \
                          a separate function with its own error handling."
@@ -416,6 +357,18 @@ impl RefactorRule for FlattenTryRule {
             ..self.metadata().new_plan()
         })
     }
+}
+
+fn find_nested_try(region: &ComplexityRegion) -> Option<&ComplexityRegion> {
+    for child in &region.children {
+        if child.kind == RegionKind::Try {
+            return Some(child);
+        }
+        if let Some(found) = find_nested_try(child) {
+            return Some(found);
+        }
+    }
+    None
 }
 
 pub struct CollapsibleIfRule;

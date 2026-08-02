@@ -80,17 +80,6 @@ fn fixture_for(rule_id: &str) -> (ComplexityRegion, String) {
             },
             "if a and b:\n    pass\n".to_string(),
         ),
-        "C006" => (
-            ComplexityRegion {
-                kind: RegionKind::Loop,
-                line_start: 1,
-                line_end: 5,
-                nesting: 3,
-                total: 5,
-                ..Default::default()
-            },
-            "for x in y:\n    pass\n".to_string(),
-        ),
         "C011" => (
             ComplexityRegion {
                 kind: RegionKind::Try,
@@ -186,8 +175,8 @@ fn every_registered_rule_produces_a_plan_consistent_with_its_own_metadata() {
     // rule is added without a fixture, `fixture_for` panics before this line
     // is ever reached, so this count is a floor, not a ceiling.
     assert_eq!(
-        checked, 8,
-        "expected all 8 registered rules to be exercised by a fixture"
+        checked, 7,
+        "expected all 7 registered rules to be exercised by a fixture"
     );
 }
 
@@ -204,7 +193,6 @@ fn effectiveness_matches_documented_tiers() {
         ("C003", 2),
         ("C004", 2),
         ("C005", 2),
-        ("C006", 4),
         ("C007", 5),
         ("C011", 2),
     ];
