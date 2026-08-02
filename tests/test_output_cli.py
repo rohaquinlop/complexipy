@@ -110,6 +110,18 @@ def sample(a, b, c, d):
     return 0
 """
 
+_MARKUP_LIKE_SNIPPET = """\
+def process(rows, a, b, flag):
+    if flag:
+        if rows:
+            if a:
+                if b:
+                    msg = "[bold red]danger[/bold red]"
+                    note = ["x", "y"]
+                    return rows[a][b], msg, note
+    return None
+"""
+
 _MULTI_SNIPPET = """\
 def simple(x):
     return x
@@ -332,13 +344,34 @@ class TestSuggestRefactorsOutput:
 
         assert result.exit_code == 0, result.output
         assert "References:" in result.output
-        # Whitespace is collapsed before matching because the renderer wraps
-        # long lines mid-token -- the anchor really does arrive as
-        # "#c007-col\nlapsible-if". That wrapping is a separate known defect;
-        # normalizing here keeps this test about the link's presence rather
-        # than making it fail for the wrong reason.
-        collapsed = re.sub(r"\s+", "", result.output)
-        assert "#c007-collapsible-if" in collapsed
+        assert "#c007-collapsible-if" in result.output
+
+    def test_suggest_refactors_renders_source_verbatim(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Rich markup in user source must never be interpreted or stripped.
+
+        Regression test for a bug where `console.print` fed raw source
+        through Rich's markup parser, silently deleting subscripts, list
+        literals, and anything resembling a `[tag]` from the suggestion the
+        user is told to copy.
+        """
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MARKUP_LIKE_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "rows[a][b]" in result.output
+        assert '["x", "y"]' in result.output
+        assert "[bold red]danger[/bold red]" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path, monkeypatch
