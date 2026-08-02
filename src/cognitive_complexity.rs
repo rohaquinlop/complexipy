@@ -551,7 +551,6 @@ fn statement_cognitive_complexity_shared(
                     structural: 1,
                     nesting: nesting_level,
                     total: own,
-                    case_count: m.cases.len() as u64,
                     children,
                     ..Default::default()
                 },

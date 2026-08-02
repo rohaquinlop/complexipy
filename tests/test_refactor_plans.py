@@ -70,7 +70,12 @@ def test_high_complexity_region_creates_extract_helper_plan() -> None:
     assert "collapsible_if" in plan_kinds(func)
 
 
-def test_long_elif_chain_creates_dispatcher_plan() -> None:
+def test_long_elif_chain_on_single_variable_recommends_match() -> None:
+    """Every branch compares `kind` against a literal, so a `match` statement
+    is the honest recommendation here: unlike a dispatch dict, it requires no
+    extra indirection, and complexipy's own complexity model charges `match` a
+    flat cost regardless of case count -- converting genuinely reduces the
+    measured complexity, which a dispatch dict wouldn't."""
     func = first_func(load_source("split_dispatcher_elif_chain.py"))
 
     plan = next(
@@ -81,13 +86,35 @@ def test_long_elif_chain_creates_dispatcher_plan() -> None:
     assert plan.applicability == Applicability.Informational
     assert plan.suggestion is None
     assert plan.help is not None
+    assert "match kind:" in plan.help
+
+
+def test_long_elif_chain_on_ranges_recommends_dispatch_dict() -> None:
+    """The branches test ranges on the same variable, not equality against
+    literals, so this shape can't become a `match` with plain `case <value>:`
+    arms -- the dispatch-dict suggestion still applies here."""
+    func = first_func(load_source("split_dispatcher_range_chain.py"))
+
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "split_dispatcher"
+    )
+    assert plan.applicability == Applicability.Informational
+    assert plan.suggestion is None
+    assert plan.help is not None
     assert "dispatch dictionary" in plan.help
+    assert "match" not in plan.help
 
 
-def test_match_dispatcher_creates_dispatcher_plan() -> None:
-    func = first_func(load_source("split_dispatcher_match.py"))
+def test_match_statement_never_creates_dispatcher_plan() -> None:
+    """`match` costs a flat `1 + nesting` regardless of case count, so
+    "split this dispatcher" is never an honest suggestion for a `match` --
+    unlike an `elif` chain, splitting it wouldn't reduce the measured
+    complexity. C004 fires on `elif` chains only; a `match` with many
+    cases and no other nested complexity gets no dispatcher suggestion,
+    even though it has the same shape an `elif` chain would trigger on."""
+    func = first_func(load_source("match_statement_no_dispatcher_plan.py"))
 
-    assert "split_dispatcher" in plan_kinds(func)
+    assert "split_dispatcher" not in plan_kinds(func)
 
 
 def test_boolean_heavy_condition_creates_predicate_plan() -> None:
@@ -539,30 +566,16 @@ def test_collapsible_if_or_mixing_does_not_overstate_reduction() -> None:
 
 
 def test_split_dispatcher_elif_reduction_does_not_overstate() -> None:
-    """C004 (Informational, help-only) estimates a lower bound. The refactor a
-    competent developer would write from the help text -- a dispatch dict --
-    is interpreted, not machine-generated, so this only checks the estimate
-    never exceeds what that interpreted refactor actually achieves."""
+    """C004 (Informational, help-only) estimates a lower bound. A dispatch
+    dict is one valid interpreted (not machine-generated) refactor of this
+    chain, achieving at least as much reduction as the estimate -- this holds
+    regardless of which concrete refactor the help text ends up recommending
+    for a given chain's shape."""
     func = first_func(load_source("split_dispatcher_elif_chain.py"))
     plan = next(p for p in func.refactor_plans if p.kind == "split_dispatcher")
 
     real_reduction = measured_reduction(
         "reduction_math_dispatcher_elif_after.py", func.complexity
-    )
-    assert plan.estimated_reduction <= real_reduction
-
-
-def test_split_dispatcher_match_reduction_does_not_overstate() -> None:
-    """A `match` costs a flat `1 + nesting` regardless of case count, so a
-    branch-count-based estimate can wildly overstate what's actually there to
-    reduce. This asserts the rule's cap by the region's real local cost holds:
-    the estimate must never exceed what the interpreted dispatch-dict refactor
-    actually achieves."""
-    func = first_func(load_source("split_dispatcher_match.py"))
-    plan = next(p for p in func.refactor_plans if p.kind == "split_dispatcher")
-
-    real_reduction = measured_reduction(
-        "reduction_math_dispatcher_match_after.py", func.complexity
     )
     assert plan.estimated_reduction <= real_reduction
 

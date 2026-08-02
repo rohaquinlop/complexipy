@@ -2,6 +2,7 @@ use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::utils::count_bool_ops;
+use ruff_python_ast::{CmpOp, Expr};
 use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
 
@@ -192,8 +193,7 @@ impl RefactorRule for SplitDispatcherRule {
             id: "C004".to_string(),
             name: "split_dispatcher".to_string(),
             category: RuleCategory::Complexity,
-            description: "Split long elif chains or match statements into separate handlers"
-                .to_string(),
+            description: "Split long elif chains into separate handlers".to_string(),
             applicability: Applicability::Informational,
             effectiveness: 2,
             doc_url:
@@ -205,28 +205,37 @@ impl RefactorRule for SplitDispatcherRule {
     fn check(
         &self,
         region: &ComplexityRegion,
-        _source: &str,
+        source: &str,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
-        let is_long_elif = region.kind == RegionKind::ElifChain && region.elif_count >= 3;
-        let is_long_match = region.kind == RegionKind::Match && region.case_count >= 4;
-
-        if !is_long_elif && !is_long_match {
+        if region.kind != RegionKind::ElifChain || region.elif_count < 3 {
             return None;
         }
 
-        let elif_clause_cost = if region.kind == RegionKind::ElifChain {
-            region.elif_count
-        } else {
-            0
-        };
-        let region_true_total = region.total + elif_clause_cost;
-        let branch_estimate = region.elif_count.max(region.case_count).saturating_sub(1);
+        let region_true_total = region.total + region.elif_count;
+        let branch_estimate = region.elif_count.saturating_sub(1);
         let reduction = branch_estimate.min(region_true_total.saturating_sub(1));
 
         if reduction == 0 {
             return None;
         }
+
+        let lines: Vec<&str> = source.lines().collect();
+        let help = if let Some(subject) = single_variable_equality_subject(region, &lines) {
+            format!(
+                "This chain only compares `{subject}` against literal values, so it can \
+                 become `match {subject}:` with one `case <value>:` per branch. Unlike an \
+                 elif chain, a match statement's cost doesn't grow with the number of \
+                 cases, so this actually reduces the measured complexity -- a dispatch \
+                 dictionary would not."
+            )
+        } else {
+            format!(
+                "Replace the {}-branch chain with a dispatch dictionary mapping \
+                 cases to handler functions. Each handler becomes independently testable.",
+                region.elif_count
+            )
+        };
 
         Some(RefactorPlan {
             title: "Split conditional dispatcher into handlers".to_string(),
@@ -240,13 +249,82 @@ impl RefactorRule for SplitDispatcherRule {
                          Splitting them into separate handlers makes each case \
                          independently testable and the dispatch logic clearer."
                 .to_string(),
-            help: Some(format!(
-                "Replace the {}-branch chain with a dispatch dictionary mapping \
-                              cases to handler functions. Each handler becomes independently testable.",
-                region.elif_count.max(region.case_count)
-            )),
+            help: Some(help),
             ..self.metadata().new_plan()
         })
+    }
+}
+
+fn single_variable_equality_subject(region: &ComplexityRegion, lines: &[&str]) -> Option<String> {
+    let start = (region.line_start.saturating_sub(1)) as usize;
+    let end = (region.line_end as usize).min(lines.len());
+    if start >= end {
+        return None;
+    }
+
+    let base_indent = get_indentation_from_str(lines[start]);
+    let mut subject: Option<String> = None;
+    let mut clause_count = 0;
+
+    for line in &lines[start..end] {
+        if get_indentation_from_str(line) != base_indent {
+            continue;
+        }
+        let trimmed = line.trim_start();
+        if !trimmed.starts_with("if ") && !trimmed.starts_with("elif ") {
+            continue;
+        }
+
+        let condition = extract_condition_from_line(trimmed)?;
+        let clause_subject = equality_dispatch_subject(&condition)?;
+        clause_count += 1;
+
+        match &subject {
+            Some(existing) if *existing != clause_subject => return None,
+            Some(_) => {}
+            None => subject = Some(clause_subject),
+        }
+    }
+
+    if clause_count >= 3 { subject } else { None }
+}
+
+fn equality_dispatch_subject(condition: &str) -> Option<String> {
+    let parsed = parse_expression(condition).ok()?;
+    let expr = *parsed.into_syntax().body;
+    let Expr::Compare(compare) = expr else {
+        return None;
+    };
+    if compare.ops.as_ref() != [CmpOp::Eq] {
+        return None;
+    }
+    let [comparator] = compare.comparators.as_ref() else {
+        return None;
+    };
+    if !is_literal_expr(comparator) {
+        return None;
+    }
+    simple_reference_text(&compare.left)
+}
+
+fn is_literal_expr(expr: &Expr) -> bool {
+    matches!(
+        expr,
+        Expr::StringLiteral(_)
+            | Expr::NumberLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+    )
+}
+
+fn simple_reference_text(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Name(n) => Some(n.id.to_string()),
+        Expr::Attribute(a) => {
+            let base = simple_reference_text(&a.value)?;
+            Some(format!("{base}.{}", a.attr.id))
+        }
+        _ => None,
     }
 }
 
