@@ -104,6 +104,19 @@ def test_boolean_heavy_condition_creates_predicate_plan() -> None:
     assert plan.help is None
 
 
+def test_try_nested_through_with_creates_flatten_try_plan() -> None:
+    func = first_func(load_source("flatten_try_with_nested.py"))
+
+    plan = next(
+        plan for plan in func.refactor_plans if plan.kind == "flatten_try"
+    )
+    assert plan.rule_id == "C011"
+    assert plan.applicability == Applicability.Informational
+    assert plan.suggestion is None
+    assert plan.help is not None
+    assert plan.estimated_reduction >= 1
+
+
 def test_simple_function_creates_no_refactor_plans() -> None:
     func = first_func(load_source("simple_function_no_plans.py"))
 
