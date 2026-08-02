@@ -428,7 +428,7 @@ CodeSuggestion:
   ├─ applicability: Applicability
   └─ description: str
 
-RuleCategory: Complexity | Readability | Maintainability
+RuleCategory: Complexity | Readability
 Applicability: MachineApplicable | MaybeIncorrect | Informational
 
 LineComplexity:

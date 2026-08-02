@@ -134,10 +134,21 @@ complexipy . --output-format gitlab
 
 # SARIF output
 complexipy . --output-format sarif
+
+# Add --suggest-refactors to any of the above to also carry refactor rule
+# findings (C001, C007, ...) as their own SARIF/GitLab rule IDs, alongside
+# the always-present cognitive-complexity findings.
+complexipy . --output-format sarif --suggest-refactors
 ```
 
 Legacy flags such as `--output-json` and TOML keys such as `output-json = true`
 still work as deprecated aliases for one release cycle.
+
+JSON, SARIF, and GitLab Code Quality all follow the same rule: refactor plan
+data (`refactor_plans` in JSON, per-rule findings in SARIF/GitLab) is only
+emitted when `--suggest-refactors` is also passed. Without it, only the
+cognitive-complexity threshold findings appear -- matching the CLI's rich
+output, which also hides refactor suggestions unless the flag is set.
 
 ### Complexity Diff
 
@@ -221,10 +232,10 @@ Sample output (abbreviated -- the real output also shows a caret-underlined span
 ```text
       [1] C007 Merge nested if statements
           --> sample.py:4:9
-          Category: • Readability | Applicability: * Auto-applicable
+          Category: • Readability | Applicability: * Safe to apply
           Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
 
-          Suggestion: * Auto-applicable
+          Suggestion: * Safe to apply
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
@@ -268,7 +279,7 @@ Plans are based on the Rust AST analysis only; no AI is used and no code is rewr
 ]
 ```
 
-JSON output contains one entry per emitted function and includes `refactor_plans` (or `[]` when no plan exists). CSV output is unchanged and does not include plans. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
+JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output is unchanged and does not include plans. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
 
 ### Color Output
 

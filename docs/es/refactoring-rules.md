@@ -4,19 +4,18 @@ complexipy incluye un sistema de refactorización inspirado en clippy que propor
 
 ## Categorías de Reglas
 
-| Categoría          | Icono | Descripción                                              |
-| ------------------ | ----- | -------------------------------------------------------- |
-| **Complejidad**    | •     | Reglas que reducen directamente la complejidad cognitiva |
-| **Legibilidad**    | •     | Reglas que mejoran la legibilidad del código             |
-| **Mantenibilidad** | •     | Reglas que mejoran la mantenibilidad a largo plazo       |
+| Categoría       | Icono | Descripción                                              |
+| --------------- | ----- | -------------------------------------------------------- |
+| **Complejidad** | ▲     | Reglas que reducen directamente la complejidad cognitiva |
+| **Legibilidad** | ◆     | Reglas que mejoran la legibilidad del código             |
 
 ## Niveles de Aplicabilidad
 
-| Nivel                 | Icono | Descripción                                                     |
-| --------------------- | ----- | --------------------------------------------------------------- |
-| **Auto-aplicable**    | \*    | Seguro de aplicar automáticamente sin revisión humana           |
-| **Necesita revisión** | !     | Puede ser incorrecto en algunos casos, necesita revisión humana |
-| **Informativo**       | i     | Solo orientación, no es directamente accionable                 |
+| Nivel                 | Icono | Descripción                                                                                                                                                        |
+| --------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Seguro de aplicar** | \*    | Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización |
+| **Necesita revisión** | !     | Puede ser incorrecto en algunos casos, necesita revisión humana                                                                                                    |
+| **Informativo**       | i     | Solo orientación, no es directamente accionable                                                                                                                    |
 
 ______________________________________________________________________
 
@@ -24,7 +23,7 @@ ______________________________________________________________________
 
 ### C001: Aplanar Condiciones Anidadas
 
-- **Categoría:** • Complejidad
+- **Categoría:** ▲ Complejidad
 - **Aplicabilidad:** i Informativo
 - **Prioridad:** Alta (4/5)
 
@@ -68,8 +67,8 @@ ______________________________________________________________________
 
 ### C002: Guardas de Bucles
 
-- **Categoría:** • Complejidad
-- **Aplicabilidad:** * Auto-aplicable
+- **Categoría:** ▲ Complejidad
+- **Aplicabilidad:** * Seguro de aplicar
 - **Prioridad:** Media (3/5)
 
 Usa guardas `continue` al inicio de los bucles para reducir el anidamiento.
@@ -114,7 +113,7 @@ ______________________________________________________________________
 
 ### C003: Extraer Función Auxiliar
 
-- **Categoría:** • Complejidad
+- **Categoría:** ▲ Complejidad
 - **Aplicabilidad:** i Informativo
 - **Prioridad:** Baja (2/5)
 
@@ -167,7 +166,7 @@ ______________________________________________________________________
 
 ### C004: Dividir Despachador
 
-- **Categoría:** • Complejidad
+- **Categoría:** ▲ Complejidad
 - **Aplicabilidad:** i Informativo
 - **Prioridad:** Baja (2/5)
 
@@ -260,7 +259,7 @@ ______________________________________________________________________
 
 ### C011: Aplanar Try/Except
 
-- **Categoría:** • Complejidad
+- **Categoría:** ▲ Complejidad
 - **Aplicabilidad:** i Informativo
 - **Prioridad:** Baja (2/5)
 
@@ -307,8 +306,8 @@ ______________________________________________________________________
 
 ### C005: Extraer Predicado
 
-- **Categoría:** • Legibilidad
-- **Aplicabilidad:** * Auto-aplicable
+- **Categoría:** ◆ Legibilidad
+- **Aplicabilidad:** * Seguro de aplicar
 - **Prioridad:** Baja (2/5)
 
 Extrae condiciones booleanas complejas en funciones predicado con nombre.
@@ -349,8 +348,8 @@ ______________________________________________________________________
 
 ### C007: Aplanar If Anidados
 
-- **Categoría:** • Legibilidad
-- **Aplicabilidad:** * Auto-aplicable
+- **Categoría:** ◆ Legibilidad
+- **Aplicabilidad:** * Seguro de aplicar
 - **Prioridad:** Máxima (5/5)
 
 Combina sentencias `if` anidadas en un único `if` con las condiciones combinadas.
@@ -462,12 +461,12 @@ ______________________________________________________________________
 
 ## Referencia de IDs de Reglas
 
-| ID                                         | Nombre                       | Categoría     | Aplicabilidad     | Prioridad |
-| ------------------------------------------ | ---------------------------- | ------------- | ----------------- | --------- |
-| [C001](#c001-aplanar-condiciones-anidadas) | Aplanar Condiciones Anidadas | • Complejidad | i Informativo     | Alta      |
-| [C002](#c002-guardas-de-bucles)            | Guardas de Bucles            | • Complejidad | \* Auto-aplicable | Media     |
-| [C003](#c003-extraer-funcion-auxiliar)     | Extraer Función Auxiliar     | • Complejidad | i Informativo     | Baja      |
-| [C004](#c004-dividir-despachador)          | Dividir Despachador          | • Complejidad | i Informativo     | Baja      |
-| [C005](#c005-extraer-predicado)            | Extraer Predicado            | • Legibilidad | \* Auto-aplicable | Baja      |
-| [C007](#c007-aplanar-if-anidados)          | Aplanar If Anidados          | • Legibilidad | \* Auto-aplicable | Máxima    |
-| [C011](#c011-aplanar-tryexcept)            | Aplanar Try/Except           | • Complejidad | i Informativo     | Baja      |
+| ID                                         | Nombre                       | Categoría     | Aplicabilidad        | Prioridad |
+| ------------------------------------------ | ---------------------------- | ------------- | -------------------- | --------- |
+| [C001](#c001-aplanar-condiciones-anidadas) | Aplanar Condiciones Anidadas | ▲ Complejidad | i Informativo        | Alta      |
+| [C002](#c002-guardas-de-bucles)            | Guardas de Bucles            | ▲ Complejidad | \* Seguro de aplicar | Media     |
+| [C003](#c003-extraer-funcion-auxiliar)     | Extraer Función Auxiliar     | ▲ Complejidad | i Informativo        | Baja      |
+| [C004](#c004-dividir-despachador)          | Dividir Despachador          | ▲ Complejidad | i Informativo        | Baja      |
+| [C005](#c005-extraer-predicado)            | Extraer Predicado            | ◆ Legibilidad | \* Seguro de aplicar | Baja      |
+| [C007](#c007-aplanar-if-anidados)          | Aplanar If Anidados          | ◆ Legibilidad | \* Seguro de aplicar | Máxima    |
+| [C011](#c011-aplanar-tryexcept)            | Aplanar Try/Except           | ▲ Complejidad | i Informativo        | Baja      |

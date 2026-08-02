@@ -4,19 +4,18 @@ complexipy includes a clippy-inspired refactoring system that provides actionabl
 
 ## Rule Categories
 
-| Category            | Icon | Description                                     |
-| ------------------- | ---- | ----------------------------------------------- |
-| **Complexity**      | •    | Rules that directly reduce cognitive complexity |
-| **Readability**     | •    | Rules that improve code readability             |
-| **Maintainability** | •    | Rules that improve long-term maintainability    |
+| Category        | Icon | Description                                     |
+| --------------- | ---- | ----------------------------------------------- |
+| **Complexity**  | ▲    | Rules that directly reduce cognitive complexity |
+| **Readability** | ◆    | Rules that improve code readability             |
 
 ## Applicability Levels
 
-| Level               | Icon | Description                                        |
-| ------------------- | ---- | -------------------------------------------------- |
-| **Auto-applicable** | \*   | Safe to apply automatically without human review   |
-| **Needs review**    | !    | May be incorrect in some cases, needs human review |
-| **Informational**   | i    | Just guidance, not directly actionable             |
+| Level             | Icon | Description                                                                                                                                        |
+| ----------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Safe to apply** | \*   | High confidence the generated code is correct as written -- no automatic application yet, this is a confidence signal, not a promise of automation |
+| **Needs review**  | !    | May be incorrect in some cases, needs human review                                                                                                 |
+| **Informational** | i    | Just guidance, not directly actionable                                                                                                             |
 
 ______________________________________________________________________
 
@@ -24,7 +23,7 @@ ______________________________________________________________________
 
 ### C001: Flatten Nested Conditions
 
-- **Category:** • Complexity
+- **Category:** ▲ Complexity
 - **Applicability:** i Informational
 - **Priority:** High (4/5)
 
@@ -68,8 +67,8 @@ ______________________________________________________________________
 
 ### C002: Loop Guards
 
-- **Category:** • Complexity
-- **Applicability:** * Auto-applicable
+- **Category:** ▲ Complexity
+- **Applicability:** * Safe to apply
 - **Priority:** Medium (3/5)
 
 Use continue guards at the top of loops to reduce nesting.
@@ -114,7 +113,7 @@ ______________________________________________________________________
 
 ### C003: Extract Helper Function
 
-- **Category:** • Complexity
+- **Category:** ▲ Complexity
 - **Applicability:** i Informational
 - **Priority:** Low (2/5)
 
@@ -167,7 +166,7 @@ ______________________________________________________________________
 
 ### C004: Split Dispatcher
 
-- **Category:** • Complexity
+- **Category:** ▲ Complexity
 - **Applicability:** i Informational
 - **Priority:** Low (2/5)
 
@@ -260,7 +259,7 @@ ______________________________________________________________________
 
 ### C011: Flatten Try/Except
 
-- **Category:** • Complexity
+- **Category:** ▲ Complexity
 - **Applicability:** i Informational
 - **Priority:** Low (2/5)
 
@@ -307,8 +306,8 @@ ______________________________________________________________________
 
 ### C005: Extract Predicate
 
-- **Category:** • Readability
-- **Applicability:** * Auto-applicable
+- **Category:** ◆ Readability
+- **Applicability:** * Safe to apply
 - **Priority:** Low (2/5)
 
 Extract complex boolean conditions into named predicate functions.
@@ -349,8 +348,8 @@ ______________________________________________________________________
 
 ### C007: Collapsible If
 
-- **Category:** • Readability
-- **Applicability:** * Auto-applicable
+- **Category:** ◆ Readability
+- **Applicability:** * Safe to apply
 - **Priority:** Highest (5/5)
 
 Merge nested if statements into a single if with combined conditions.
@@ -462,12 +461,12 @@ ______________________________________________________________________
 
 ## Rule ID Reference
 
-| ID                                      | Name                      | Category      | Applicability      | Priority |
-| --------------------------------------- | ------------------------- | ------------- | ------------------ | -------- |
-| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | • Complexity  | i Informational    | High     |
-| [C002](#c002-loop-guards)               | Loop Guards               | • Complexity  | \* Auto-applicable | Medium   |
-| [C003](#c003-extract-helper-function)   | Extract Helper Function   | • Complexity  | i Informational    | Low      |
-| [C004](#c004-split-dispatcher)          | Split Dispatcher          | • Complexity  | i Informational    | Low      |
-| [C005](#c005-extract-predicate)         | Extract Predicate         | • Readability | \* Auto-applicable | Low      |
-| [C007](#c007-collapsible-if)            | Collapsible If            | • Readability | \* Auto-applicable | Highest  |
-| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | • Complexity  | i Informational    | Low      |
+| ID                                      | Name                      | Category      | Applicability    | Priority |
+| --------------------------------------- | ------------------------- | ------------- | ---------------- | -------- |
+| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | ▲ Complexity  | i Informational  | High     |
+| [C002](#c002-loop-guards)               | Loop Guards               | ▲ Complexity  | \* Safe to apply | Medium   |
+| [C003](#c003-extract-helper-function)   | Extract Helper Function   | ▲ Complexity  | i Informational  | Low      |
+| [C004](#c004-split-dispatcher)          | Split Dispatcher          | ▲ Complexity  | i Informational  | Low      |
+| [C005](#c005-extract-predicate)         | Extract Predicate         | ◆ Readability | \* Safe to apply | Low      |
+| [C007](#c007-collapsible-if)            | Collapsible If            | ◆ Readability | \* Safe to apply | Highest  |
+| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | ▲ Complexity  | i Informational  | Low      |

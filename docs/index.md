@@ -263,10 +263,10 @@ Sample output (abbreviated -- the real output also shows a caret-underlined span
 ```text
       [1] C007 Merge nested if statements
           --> sample.py:4:9
-          Category: • Readability | Applicability: * Auto-applicable
+          Category: • Readability | Applicability: * Safe to apply
           Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
 
-          Suggestion: * Auto-applicable
+          Suggestion: * Safe to apply
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
@@ -427,7 +427,7 @@ CodeSuggestion:
   ├─ applicability: Applicability
   └─ description: str
 
-RuleCategory: Complexity | Readability | Maintainability
+RuleCategory: Complexity | Readability
 Applicability: MachineApplicable | MaybeIncorrect | Informational
 
 LineComplexity:

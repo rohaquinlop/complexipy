@@ -128,11 +128,24 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Varios formatos escritos en un directorio
 complexipy . --output-format json --output-format sarif --output reports/
+
+# Añade --suggest-refactors a cualquiera de los anteriores para incluir
+# también los hallazgos de las reglas de refactorización (C001, C007, ...)
+# como sus propios IDs de regla SARIF/GitLab, junto a los hallazgos de
+# complejidad cognitiva que siempre están presentes.
+complexipy . --output-format sarif --suggest-refactors
 ```
 
 Las flags heredadas como `--output-json` y las claves TOML como
 `output-json = true` siguen funcionando como alias deprecados por un ciclo de
 release.
+
+JSON, SARIF y GitLab Code Quality siguen la misma regla: los datos de los
+planes de refactorización (`refactor_plans` en JSON, hallazgos por regla en
+SARIF/GitLab) solo se emiten cuando también se pasa `--suggest-refactors`.
+Sin esa flag, solo aparecen los hallazgos del umbral de complejidad
+cognitiva -- igual que la salida enriquecida de la CLI, que también oculta
+las sugerencias de refactorización a menos que se active la flag.
 
 ### Diff de Complejidad
 
@@ -264,7 +277,7 @@ Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reesc
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida e incluye `refactor_plans` (o `[]` cuando no existe ningún plan). La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 
