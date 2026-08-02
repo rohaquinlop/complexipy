@@ -479,3 +479,107 @@ def test_overlapping_regions_show_only_best_suggestion() -> None:
     assert plan.rule_id == "C007"
     assert plan.kind == "collapsible_if"
     assert plan.estimated_reduction >= 2
+
+
+# --- Reduction-math ground truth ------------------------------------------
+#
+# Each case below measures a fixture's real complexity, measures the real
+# complexity of the actual refactored code the rule's suggestion describes,
+# and asserts the rule's `estimated_reduction` against that measured delta --
+# the only acceptable ground truth (see AGENTS.md / rules/registry.rs). A
+# rule may UNDERstate (an honest, conservative estimate) but must never
+# OVERstate: the tool must never claim more reduction than the refactor
+# actually delivers.
+
+
+def measured_reduction(after_filename: str, before_complexity: int) -> int:
+    after_source = load_source(after_filename)
+    after_complexity = code_complexity(after_source).functions[0].complexity
+    return before_complexity - after_complexity
+
+
+def test_collapsible_if_reduction_is_not_floored_to_two() -> None:
+    """Regression test for the `.max(2)` floor: a 2-level merge whose honest
+    reduction is 1 must report 1, not a fabricated 2."""
+    func = first_func(load_source("reduction_math_two_level.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    real_reduction = measured_reduction(
+        "reduction_math_two_level_after.py", func.complexity
+    )
+    assert real_reduction == 1
+    assert plan.estimated_reduction == real_reduction
+
+
+def test_collapsible_if_or_mixing_does_not_overstate_reduction() -> None:
+    """Regression test for undercounted booleans: merging an `or`-condition
+    with another `if` forces parens, which is real complexity the naive
+    "one operator per pair" estimate ignored, overstating the reduction."""
+    func = first_func(load_source("collapsible_if_with_or.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    real_reduction = measured_reduction(
+        "reduction_math_or_mixing_after.py", func.complexity
+    )
+    assert real_reduction == 1
+    assert plan.estimated_reduction == real_reduction
+
+
+def test_split_dispatcher_elif_reduction_does_not_overstate() -> None:
+    """C004 (Informational, help-only) estimates a lower bound. The refactor a
+    competent developer would write from the help text -- a dispatch dict --
+    is interpreted, not machine-generated, so this only checks the estimate
+    never exceeds what that interpreted refactor actually achieves."""
+    func = first_func(load_source("split_dispatcher_elif_chain.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "split_dispatcher")
+
+    real_reduction = measured_reduction(
+        "reduction_math_dispatcher_elif_after.py", func.complexity
+    )
+    assert plan.estimated_reduction <= real_reduction
+
+
+def test_split_dispatcher_match_reduction_does_not_overstate() -> None:
+    """A `match` costs a flat `1 + nesting` regardless of case count, so a
+    branch-count-based estimate can wildly overstate what's actually there to
+    reduce. This asserts the rule's cap by the region's real local cost holds:
+    the estimate must never exceed what the interpreted dispatch-dict refactor
+    actually achieves."""
+    func = first_func(load_source("split_dispatcher_match.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "split_dispatcher")
+
+    real_reduction = measured_reduction(
+        "reduction_math_dispatcher_match_after.py", func.complexity
+    )
+    assert plan.estimated_reduction <= real_reduction
+
+
+def test_collapsible_if_with_unabsorbed_tail_does_not_overstate_reduction() -> None:
+    """Regression test: when the if-chain doesn't reach all the way down to a
+    leaf statement (here, a `for` loop the chain can't absorb), that tail
+    survives the merge -- just dedented -- so it must still be charged
+    against `new_complexity`. Before this fix, `old_complexity` (which rolls
+    up the whole subtree) was compared against only the merged if's own cost,
+    silently dropping the tail and overstating the reduction 2x."""
+    func = first_func(load_source("reduction_math_collapsible_if_remaining_subtree.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    real_reduction = measured_reduction(
+        "reduction_math_collapsible_if_remaining_subtree_after.py", func.complexity
+    )
+    assert real_reduction == 2
+    assert 1 <= plan.estimated_reduction <= real_reduction
+
+
+def test_loop_guard_with_else_reduction_matches_measured_delta() -> None:
+    """C002's reduction now comes from the actual nesting delta of hoisting a
+    guard chain (plus the tail that gets dedented along with it), not from
+    summing every nested if's raw nesting value regardless of chain shape."""
+    func = first_func(load_source("loop_guard_with_else.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    real_reduction = measured_reduction(
+        "reduction_math_loop_guard_with_else_after.py", func.complexity
+    )
+    assert real_reduction == 1
+    assert plan.estimated_reduction == real_reduction
