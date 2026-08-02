@@ -24,9 +24,9 @@ ______________________________________________________________________
 
 ### C001: Flatten Nested Conditions
 
-**Category:** • Complexity\
-**Applicability:** ! Needs review\
-**Priority:** High (4/5)
+- **Category:** • Complexity
+- **Applicability:** i Informational
+- **Priority:** High (4/5)
 
 Flatten nested condition blocks by using guard clauses with early returns.
 
@@ -68,9 +68,9 @@ ______________________________________________________________________
 
 ### C002: Loop Guards
 
-**Category:** • Complexity\
-**Applicability:** ! Needs review\
-**Priority:** Medium (3/5)
+- **Category:** • Complexity
+- **Applicability:** * Auto-applicable
+- **Priority:** Medium (3/5)
 
 Use continue guards at the top of loops to reduce nesting.
 
@@ -114,9 +114,9 @@ ______________________________________________________________________
 
 ### C003: Extract Helper Function
 
-**Category:** • Complexity\
-**Applicability:** ! Needs review\
-**Priority:** Medium (3/5)
+- **Category:** • Complexity
+- **Applicability:** i Informational
+- **Priority:** Low (2/5)
 
 Extract complex code blocks into separate helper functions.
 
@@ -167,20 +167,31 @@ ______________________________________________________________________
 
 ### C004: Split Dispatcher
 
-**Category:** • Complexity\
-**Applicability:** ! Needs review\
-**Priority:** Low (2/5)
+- **Category:** • Complexity
+- **Applicability:** i Informational
+- **Priority:** Low (2/5)
 
-Split long elif chains or match statements into separate handlers.
+Split long elif chains into separate handlers.
 
 #### When does it trigger?
 
-This rule triggers when:
+This rule triggers when an `if/elif` chain has 3+ branches. `match` statements are
+intentionally excluded: complexipy's cognitive complexity model charges a `match` a flat
+cost regardless of how many `case` clauses it has (unlike an `elif` chain, where every
+additional branch adds to the score), so splitting a `match` into separate handlers would
+not actually reduce the measured complexity.
 
-- An `if/elif` chain has 3+ branches
-- A `match` statement has 4+ cases
+The suggested refactor depends on the chain's shape:
 
-#### Example
+- If every branch compares the **same variable** against a **literal** with `==`, the
+  chain can become a `match` statement -- this is recommended over a dispatch dict,
+  since it needs no extra indirection and complexipy's own model scores it as free of
+  the per-branch cost the `elif` chain has.
+- Otherwise (ranges, multiple variables, non-equality comparisons -- anything a plain
+  `match case <value>:` can't express) a dispatch dictionary mapping cases to handler
+  functions is suggested instead.
+
+#### Example: single-variable equality → `match`
 
 **Before:**
 
@@ -201,71 +212,57 @@ def handle_action(action):
 
 ```python
 def handle_action(action):
-    handlers = {
-        "create": create_resource,
-        "read": read_resource,
-        "update": update_resource,
-        "delete": delete_resource,
-    }
-    handler = handlers.get(action)
-    return handler() if handler else None
+    match action:
+        case "create":
+            return create_resource()
+        case "read":
+            return read_resource()
+        case "update":
+            return update_resource()
+        case "delete":
+            return delete_resource()
+    return None
 ```
 
-#### Why this helps
-
-Long conditional chains are hard to maintain and extend. Splitting them into separate handlers makes each case independently testable and the dispatch logic clearer.
-
-______________________________________________________________________
-
-### C006: Reduce Nesting Depth
-
-**Category:** • Complexity\
-**Applicability:** * Auto-applicable\
-**Priority:** High (4/5)
-
-Reduce nesting depth by using early returns and guard clauses.
-
-#### When does it trigger?
-
-This rule triggers when code has deep nesting (3+ levels) that makes it hard to follow.
-
-#### Example
+#### Example: ranges → dispatch dictionary
 
 **Before:**
 
 ```python
-def validate(user):
-    if user.is_active:
-        if user.has_permission:
-            if user.is_verified:
-                return check_access(user)
-    return False
+def classify(score):
+    if score < 60:
+        return "fail"
+    elif score < 70:
+        return "d"
+    elif score < 85:
+        return "b"
+    elif score < 95:
+        return "a"
+    return "a+"
 ```
 
 **After:**
 
 ```python
-def validate(user):
-    if not user.is_active:
-        return False
-    if not user.has_permission:
-        return False
-    if not user.is_verified:
-        return False
-    return check_access(user)
+def classify(score):
+    thresholds = [(60, "fail"), (70, "d"), (85, "b"), (95, "a")]
+    for limit, grade in thresholds:
+        if score < limit:
+            return grade
+    return "a+"
 ```
 
 #### Why this helps
 
-Deep nesting (3+ levels) makes code hard to follow. Consider extracting inner blocks or using guard clauses to keep indentation shallow.
+Long conditional chains are hard to maintain and extend. Splitting them into separate handlers -- a `match` statement when the chain is a simple equality dispatch, a dispatch dictionary otherwise -- makes each case independently testable and the dispatch logic clearer.
 
 ______________________________________________________________________
 
 ### C011: Flatten Try/Except
 
-**Category:** • Complexity\
-**Applicability:** ! Needs review\
-**Priority:** Low (2/5)
+- **Category:** • Complexity
+- **Applicability:** i Informational
+- **Priority:** Low (2/5)
 
 Flatten nested try/except blocks by combining or restructuring.
 
@@ -310,9 +307,9 @@ ______________________________________________________________________
 
 ### C005: Extract Predicate
 
-**Category:** • Readability\
-**Applicability:** ! Needs review\
-**Priority:** Medium (3/5)
+- **Category:** • Readability
+- **Applicability:** * Auto-applicable
+- **Priority:** Low (2/5)
 
 Extract complex boolean conditions into named predicate functions.
 
@@ -347,6 +344,45 @@ def is_qualifying_order(order):
 #### Why this helps
 
 Complex boolean expressions are hard to understand at a glance. Extracting them into named predicates makes the code self-documenting and easier to test.
+
+______________________________________________________________________
+
+### C007: Collapsible If
+
+- **Category:** • Readability
+- **Applicability:** * Auto-applicable
+- **Priority:** Highest (5/5)
+
+Merge nested if statements into a single if with combined conditions.
+
+#### When does it trigger?
+
+This rule triggers when an `if` statement's entire body is a single nested `if` with no `else` branch, for a chain of two or more such levels.
+
+#### Example
+
+**Before:**
+
+```python
+def check_eligibility(user):
+    if user.is_active:
+        if user.has_permission:
+            return True
+    return False
+```
+
+**After:**
+
+```python
+def check_eligibility(user):
+    if user.is_active and user.has_permission:
+        return True
+    return False
+```
+
+#### Why this helps
+
+Nested if statements with a single body can be merged into a single if with combined conditions using `and`. This reduces nesting and improves readability.
 
 ______________________________________________________________________
 
@@ -385,10 +421,11 @@ for func in result.functions:
         print(f"  Category: {plan.category}")
         print(f"  Applicability: {plan.applicability}")
         print(f"  Reduction: -{plan.estimated_reduction} complexity")
-        if plan.before_code:
-            print(f"  Before:\n{plan.before_code.text}")
-        if plan.after_code:
-            print(f"  After:\n{plan.after_code.text}")
+        if plan.suggestion:
+            print(f"  Suggested replacement:\n{plan.suggestion.replacement}")
+        elif plan.help:
+            print(f"  Help: {plan.help}")
+        print(f"  Docs: {plan.doc_url}")
 ```
 
 ### JSON Output
@@ -397,31 +434,27 @@ The JSON output includes all rule metadata for programmatic consumption:
 
 ```json
 {
-  "rule_id": "C001",
-  "kind": "flatten_condition",
-  "title": "Flatten nested condition block with guard clauses",
-  "category": "Complexity",
+  "rule_id": "C007",
+  "kind": "collapsible_if",
+  "title": "Merge nested if statements",
+  "category": "Readability",
   "applicability": "MachineApplicable",
-  "description": "Flatten nested condition blocks by using guard clauses with early returns",
-  "line_start": 10,
-  "line_end": 15,
-  "current_complexity": 12,
-  "estimated_reduction": 4,
-  "estimated_complexity_after": 8,
-  "before_code": {
-    "text": "if data:\n    if data.is_valid():\n        return process(data)",
-    "line_start": 10,
-    "line_end": 12
+  "description": "Merge nested if statements into a single if with combined conditions",
+  "line_start": 3,
+  "line_end": 5,
+  "column_start": 5,
+  "current_complexity": 4,
+  "estimated_reduction": 1,
+  "estimated_complexity_after": 3,
+  "suggestion": {
+    "replacement": "    if data and data.is_valid():\n        return process(data)",
+    "applicability": "MachineApplicable",
+    "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
-  "after_code": {
-    "text": "if not data:\n    return None\nif not data.is_valid():\n    return None\nreturn process(data)",
-    "line_start": 10,
-    "line_end": 14
-  },
-  "explanation": "Deeply nested conditions are hard to follow...",
-  "references": [
-    "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions"
-  ]
+  "help": null,
+  "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
+  "references": [],
+  "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
 }
 ```
 
@@ -431,10 +464,10 @@ ______________________________________________________________________
 
 | ID                                      | Name                      | Category      | Applicability      | Priority |
 | --------------------------------------- | ------------------------- | ------------- | ------------------ | -------- |
-| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | • Complexity  | ! Needs review     | High     |
-| [C002](#c002-loop-guards)               | Loop Guards               | • Complexity  | ! Needs review     | Medium   |
-| [C003](#c003-extract-helper-function)   | Extract Helper Function   | • Complexity  | ! Needs review     | Medium   |
-| [C004](#c004-split-dispatcher)          | Split Dispatcher          | • Complexity  | ! Needs review     | Low      |
-| [C005](#c005-extract-predicate)         | Extract Predicate         | • Readability | ! Needs review     | Medium   |
-| [C006](#c006-reduce-nesting-depth)      | Reduce Nesting Depth      | • Complexity  | \* Auto-applicable | High     |
-| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | • Complexity  | ! Needs review     | Low      |
+| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | • Complexity  | i Informational    | High     |
+| [C002](#c002-loop-guards)               | Loop Guards               | • Complexity  | \* Auto-applicable | Medium   |
+| [C003](#c003-extract-helper-function)   | Extract Helper Function   | • Complexity  | i Informational    | Low      |
+| [C004](#c004-split-dispatcher)          | Split Dispatcher          | • Complexity  | i Informational    | Low      |
+| [C005](#c005-extract-predicate)         | Extract Predicate         | • Readability | \* Auto-applicable | Low      |
+| [C007](#c007-collapsible-if)            | Collapsible If            | • Readability | \* Auto-applicable | Highest  |
+| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | • Complexity  | i Informational    | Low      |

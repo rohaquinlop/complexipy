@@ -24,9 +24,9 @@ ______________________________________________________________________
 
 ### C001: Aplanar Condiciones Anidadas
 
-**Categoría:** • Complejidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Alta (4/5)
+- **Categoría:** • Complejidad
+- **Aplicabilidad:** i Informativo
+- **Prioridad:** Alta (4/5)
 
 Aplana bloques de condiciones anidadas usando cláusulas de guarda con retornos anticipados.
 
@@ -68,9 +68,9 @@ ______________________________________________________________________
 
 ### C002: Guardas de Bucles
 
-**Categoría:** • Complejidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Media (3/5)
+- **Categoría:** • Complejidad
+- **Aplicabilidad:** * Auto-aplicable
+- **Prioridad:** Media (3/5)
 
 Usa guardas `continue` al inicio de los bucles para reducir el anidamiento.
 
@@ -114,9 +114,9 @@ ______________________________________________________________________
 
 ### C003: Extraer Función Auxiliar
 
-**Categoría:** • Complejidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Media (3/5)
+- **Categoría:** • Complejidad
+- **Aplicabilidad:** i Informativo
+- **Prioridad:** Baja (2/5)
 
 Extrae bloques de código complejos en funciones auxiliares separadas.
 
@@ -167,20 +167,31 @@ ______________________________________________________________________
 
 ### C004: Dividir Despachador
 
-**Categoría:** • Complejidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Baja (2/5)
+- **Categoría:** • Complejidad
+- **Aplicabilidad:** i Informativo
+- **Prioridad:** Baja (2/5)
 
-Divide cadenas largas de `elif` o sentencias `match` en manejadores separados.
+Divide cadenas largas de `elif` en manejadores separados.
 
 #### ¿Cuándo se activa?
 
-Esta regla se activa cuando:
+Esta regla se activa cuando una cadena `if/elif` tiene 3+ ramas. Las sentencias `match`
+se excluyen intencionalmente: el modelo de complejidad cognitiva de complexipy asigna a
+un `match` un costo fijo sin importar cuántas cláusulas `case` tenga (a diferencia de
+una cadena `elif`, donde cada rama adicional suma a la puntuación), así que dividir un
+`match` en manejadores separados no reduciría realmente la complejidad medida.
 
-- Una cadena `if/elif` tiene 3+ ramas
-- Una sentencia `match` tiene 4+ casos
+El refactor sugerido depende de la forma de la cadena:
 
-#### Ejemplo
+- Si todas las ramas comparan la **misma variable** contra un **literal** con `==`, la
+  cadena puede convertirse en una sentencia `match` -- esto se recomienda por encima de
+  un diccionario de despacho, ya que no necesita indirección adicional y el propio
+  modelo de complexipy la puntúa sin el costo por rama que tiene la cadena `elif`.
+- En caso contrario (rangos, varias variables, comparaciones que no son de igualdad --
+  cualquier cosa que un simple `match case <valor>:` no pueda expresar), se sugiere en
+  su lugar un diccionario de despacho que asigna casos a funciones manejadoras.
+
+#### Ejemplo: igualdad de una sola variable → `match`
 
 **Antes:**
 
@@ -201,71 +212,57 @@ def handle_action(action):
 
 ```python
 def handle_action(action):
-    handlers = {
-        "create": create_resource,
-        "read": read_resource,
-        "update": update_resource,
-        "delete": delete_resource,
-    }
-    handler = handlers.get(action)
-    return handler() if handler else None
+    match action:
+        case "create":
+            return create_resource()
+        case "read":
+            return read_resource()
+        case "update":
+            return update_resource()
+        case "delete":
+            return delete_resource()
+    return None
 ```
 
-#### Por qué esto ayuda
-
-Las cadenas condicionales largas son difíciles de mantener y extender. Dividirlas en manejadores separados hace que cada caso sea independientemente testeable y la lógica de despacho más clara.
-
-______________________________________________________________________
-
-### C006: Reducir Profundidad de Anidamiento
-
-**Categoría:** • Complejidad\
-**Aplicabilidad:** * Auto-aplicable\
-**Prioridad:** Alta (4/5)
-
-Reduce la profundidad de anidamiento usando retornos anticipados y cláusulas de guarda.
-
-#### ¿Cuándo se activa?
-
-Esta regla se activa cuando el código tiene anidamiento profundo (3+ niveles) que dificulta su seguimiento.
-
-#### Ejemplo
+#### Ejemplo: rangos → diccionario de despacho
 
 **Antes:**
 
 ```python
-def validate(user):
-    if user.is_active:
-        if user.has_permission:
-            if user.is_verified:
-                return check_access(user)
-    return False
+def classify(score):
+    if score < 60:
+        return "fail"
+    elif score < 70:
+        return "d"
+    elif score < 85:
+        return "b"
+    elif score < 95:
+        return "a"
+    return "a+"
 ```
 
 **Después:**
 
 ```python
-def validate(user):
-    if not user.is_active:
-        return False
-    if not user.has_permission:
-        return False
-    if not user.is_verified:
-        return False
-    return check_access(user)
+def classify(score):
+    thresholds = [(60, "fail"), (70, "d"), (85, "b"), (95, "a")]
+    for limit, grade in thresholds:
+        if score < limit:
+            return grade
+    return "a+"
 ```
 
 #### Por qué esto ayuda
 
-El anidamiento profundo (3+ niveles) hace que el código sea difícil de seguir. Considera extraer los bloques internos o usar cláusulas de guarda para mantener la indentación superficial.
+Las cadenas condicionales largas son difíciles de mantener y extender. Dividirlas en manejadores separados -- una sentencia `match` cuando la cadena es un despacho simple por igualdad, un diccionario de despacho en caso contrario -- hace que cada caso sea independientemente testeable y la lógica de despacho más clara.
 
 ______________________________________________________________________
 
 ### C011: Aplanar Try/Except
 
-**Categoría:** • Complejidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Baja (2/5)
+- **Categoría:** • Complejidad
+- **Aplicabilidad:** i Informativo
+- **Prioridad:** Baja (2/5)
 
 Aplana bloques try/except anidados combinándolos o reestructurándolos.
 
@@ -310,9 +307,9 @@ ______________________________________________________________________
 
 ### C005: Extraer Predicado
 
-**Categoría:** • Legibilidad\
-**Aplicabilidad:** ! Necesita revisión\
-**Prioridad:** Media (3/5)
+- **Categoría:** • Legibilidad
+- **Aplicabilidad:** * Auto-aplicable
+- **Prioridad:** Baja (2/5)
 
 Extrae condiciones booleanas complejas en funciones predicado con nombre.
 
@@ -347,6 +344,45 @@ def is_qualifying_order(order):
 #### Por qué esto ayuda
 
 Las expresiones booleanas complejas son difíciles de entender a simple vista. Extraerlas en predicados con nombre hace que el código sea autoexplicativo y más fácil de probar.
+
+______________________________________________________________________
+
+### C007: Aplanar If Anidados
+
+- **Categoría:** • Legibilidad
+- **Aplicabilidad:** * Auto-aplicable
+- **Prioridad:** Máxima (5/5)
+
+Combina sentencias `if` anidadas en un único `if` con las condiciones combinadas.
+
+#### ¿Cuándo se activa?
+
+Esta regla se activa cuando el cuerpo completo de una sentencia `if` es un único `if` anidado sin rama `else`, para una cadena de dos o más niveles de este tipo.
+
+#### Ejemplo
+
+**Antes:**
+
+```python
+def check_eligibility(user):
+    if user.is_active:
+        if user.has_permission:
+            return True
+    return False
+```
+
+**Después:**
+
+```python
+def check_eligibility(user):
+    if user.is_active and user.has_permission:
+        return True
+    return False
+```
+
+#### Por qué esto ayuda
+
+Las sentencias `if` anidadas con un único cuerpo pueden combinarse en un único `if` con las condiciones unidas mediante `and`. Esto reduce el anidamiento y mejora la legibilidad.
 
 ______________________________________________________________________
 
@@ -385,10 +421,11 @@ for func in result.functions:
         print(f"  Category: {plan.category}")
         print(f"  Applicability: {plan.applicability}")
         print(f"  Reduction: -{plan.estimated_reduction} complexity")
-        if plan.before_code:
-            print(f"  Before:\n{plan.before_code.text}")
-        if plan.after_code:
-            print(f"  After:\n{plan.after_code.text}")
+        if plan.suggestion:
+            print(f"  Suggested replacement:\n{plan.suggestion.replacement}")
+        elif plan.help:
+            print(f"  Help: {plan.help}")
+        print(f"  Docs: {plan.doc_url}")
 ```
 
 ### Salida JSON
@@ -397,31 +434,27 @@ La salida JSON incluye todos los metadatos de las reglas para consumo programát
 
 ```json
 {
-  "rule_id": "C001",
-  "kind": "flatten_condition",
-  "title": "Flatten nested condition block with guard clauses",
-  "category": "Complexity",
+  "rule_id": "C007",
+  "kind": "collapsible_if",
+  "title": "Merge nested if statements",
+  "category": "Readability",
   "applicability": "MachineApplicable",
-  "description": "Flatten nested condition blocks by using guard clauses with early returns",
-  "line_start": 10,
-  "line_end": 15,
-  "current_complexity": 12,
-  "estimated_reduction": 4,
-  "estimated_complexity_after": 8,
-  "before_code": {
-    "text": "if data:\n    if data.is_valid():\n        return process(data)",
-    "line_start": 10,
-    "line_end": 12
+  "description": "Merge nested if statements into a single if with combined conditions",
+  "line_start": 3,
+  "line_end": 5,
+  "column_start": 5,
+  "current_complexity": 4,
+  "estimated_reduction": 1,
+  "estimated_complexity_after": 3,
+  "suggestion": {
+    "replacement": "    if data and data.is_valid():\n        return process(data)",
+    "applicability": "MachineApplicable",
+    "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
-  "after_code": {
-    "text": "if not data:\n    return None\nif not data.is_valid():\n    return None\nreturn process(data)",
-    "line_start": 10,
-    "line_end": 14
-  },
-  "explanation": "Deeply nested conditions are hard to follow...",
-  "references": [
-    "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c001-flatten-nested-conditions"
-  ]
+  "help": null,
+  "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
+  "references": [],
+  "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
 }
 ```
 
@@ -429,12 +462,12 @@ ______________________________________________________________________
 
 ## Referencia de IDs de Reglas
 
-| ID                                               | Nombre                             | Categoría     | Aplicabilidad       | Prioridad |
-| ------------------------------------------------ | ---------------------------------- | ------------- | ------------------- | --------- |
-| [C001](#c001-aplanar-condiciones-anidadas)       | Aplanar Condiciones Anidadas       | • Complejidad | ! Necesita revisión | Alta      |
-| [C002](#c002-guardas-de-bucles)                  | Guardas de Bucles                  | • Complejidad | ! Necesita revisión | Media     |
-| [C003](#c003-extraer-funcion-auxiliar)           | Extraer Función Auxiliar           | • Complejidad | ! Necesita revisión | Media     |
-| [C004](#c004-dividir-despachador)                | Dividir Despachador                | • Complejidad | ! Necesita revisión | Baja      |
-| [C005](#c005-extraer-predicado)                  | Extraer Predicado                  | • Legibilidad | ! Necesita revisión | Media     |
-| [C006](#c006-reducir-profundidad-de-anidamiento) | Reducir Profundidad de Anidamiento | • Complejidad | \* Auto-aplicable   | Alta      |
-| [C011](#c011-aplanar-tryexcept)                  | Aplanar Try/Except                 | • Complejidad | ! Necesita revisión | Baja      |
+| ID                                         | Nombre                       | Categoría     | Aplicabilidad     | Prioridad |
+| ------------------------------------------ | ---------------------------- | ------------- | ----------------- | --------- |
+| [C001](#c001-aplanar-condiciones-anidadas) | Aplanar Condiciones Anidadas | • Complejidad | i Informativo     | Alta      |
+| [C002](#c002-guardas-de-bucles)            | Guardas de Bucles            | • Complejidad | \* Auto-aplicable | Media     |
+| [C003](#c003-extraer-funcion-auxiliar)     | Extraer Función Auxiliar     | • Complejidad | i Informativo     | Baja      |
+| [C004](#c004-dividir-despachador)          | Dividir Despachador          | • Complejidad | i Informativo     | Baja      |
+| [C005](#c005-extraer-predicado)            | Extraer Predicado            | • Legibilidad | \* Auto-aplicable | Baja      |
+| [C007](#c007-aplanar-if-anidados)          | Aplanar If Anidados          | • Legibilidad | \* Auto-aplicable | Máxima    |
+| [C011](#c011-aplanar-tryexcept)            | Aplanar Try/Except           | • Complejidad | i Informativo     | Baja      |
