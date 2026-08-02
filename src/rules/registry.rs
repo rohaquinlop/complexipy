@@ -60,9 +60,7 @@ impl RuleRegistry {
 
         self.collect_plans(regions, source, function_complexity, &mut plans);
 
-        // Filter out low-impact plans: a reduction of 1 is noise — it doesn't meaningfully
-        // improve readability or maintainability, so we only surface plans with reduction >= 2.
-        plans.retain(|plan| plan.estimated_reduction >= 2);
+        plans.retain(|plan| plan.estimated_reduction >= 1);
 
         let effectiveness = self.effectiveness_by_rule_id();
         let effectiveness_of = |rule_id: &str| *effectiveness.get(rule_id).unwrap_or(&1);

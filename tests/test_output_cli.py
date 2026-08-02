@@ -297,12 +297,10 @@ class TestSuggestRefactorsOutput:
         # because they fire on overlapping regions with equal priority and reduction.
         assert "Merge nested if statements" in result.output
         assert "C007" in result.output
-        # The exact reduction magnitude is intentionally NOT asserted here: the
-        # C007 reduction math (src/rules/complexity.rs) has a known bug where
-        # `.max(2)` fabricates a minimum reduction and boolean operators are
-        # undercounted, so the emitted numbers are expected to change once
-        # that's fixed. Dedicated reduction-math tests cover the magnitude;
-        # this test only guards the output *format*.
+        # The exact reduction magnitude is intentionally NOT asserted here --
+        # dedicated reduction-math tests in test_refactor_plans.py cover the
+        # magnitude against measured ground truth; this test only guards the
+        # output *format*.
         assert re.search(
             r"Estimated reduction: -\d+ complexity \(\d+ -> \d+\)",
             result.output,

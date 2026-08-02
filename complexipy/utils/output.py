@@ -331,6 +331,11 @@ def output_refactor_plans(console: Console, function: FunctionRow) -> None:
         return
 
     console.print("\n      [bold]Refactor Suggestions:[/bold]")
+    if len(function.refactor_plans) > 1:
+        console.print(
+            "      [dim]Each estimate is independent and assumes applying "
+            "that suggestion alone -- they don't sum.[/dim]"
+        )
     for index, plan in enumerate(function.refactor_plans, start=1):
         _output_single_plan(console, plan, index)
 
@@ -362,7 +367,6 @@ def _output_single_plan(
     if plan.explanation:
         console.print(f"\n          [bold]>[/bold] {plan.explanation}")
 
-    # Output suggestion or help text
     if plan.suggestion:
         _output_suggestion(console, plan.suggestion)
     elif plan.help:

@@ -29,16 +29,25 @@ fn fixture_for(rule_id: &str) -> (ComplexityRegion, String) {
             ComplexityRegion {
                 kind: RegionKind::Loop,
                 line_start: 1,
-                line_end: 2,
+                line_end: 3,
                 total: 5,
                 children: vec![ComplexityRegion {
                     kind: RegionKind::If,
+                    line_start: 2,
+                    line_end: 3,
                     nesting: 1,
+                    children: vec![ComplexityRegion {
+                        kind: RegionKind::If,
+                        line_start: 3,
+                        line_end: 3,
+                        nesting: 2,
+                        ..Default::default()
+                    }],
                     ..Default::default()
                 }],
                 ..Default::default()
             },
-            "for x in y:\n    pass\n".to_string(),
+            "for x in y:\n    if a:\n        if b:\n            pass\n".to_string(),
         ),
         "C003" => (
             ComplexityRegion {

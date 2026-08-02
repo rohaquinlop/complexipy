@@ -1,6 +1,8 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
+use crate::utils::count_bool_ops;
+use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
 
 pub struct FlattenConditionRule;
@@ -77,17 +79,20 @@ impl RefactorRule for LoopGuardsRule {
             return None;
         }
 
-        let has_nested_if = region
-            .children
-            .iter()
-            .any(|child| child.kind == RegionKind::If && child.nesting >= 1);
+        let lines: Vec<&str> = source.lines().collect();
+        let chain = collect_loop_if_chain(region, &lines);
 
-        if !has_nested_if {
+        if chain.is_empty() {
             return None;
         }
 
-        let reduction =
-            sum_if_nesting(&region.children).min(region.total.saturating_sub(region.structural));
+        let base_nesting = chain[0].nesting;
+        let guard_savings: u64 = chain
+            .iter()
+            .map(|r| r.nesting.saturating_sub(base_nesting))
+            .sum();
+        let remaining_bonus = chain.len() as u64 * chain.last().unwrap().children.len() as u64;
+        let reduction = guard_savings + remaining_bonus;
 
         if reduction == 0 {
             return None;
@@ -151,14 +156,16 @@ impl RefactorRule for ExtractHelperRule {
             return None;
         }
 
+        let region_own_cost = region.structural + region.nesting + region.boolean;
+        let reduction = region.total.saturating_sub(region_own_cost);
+
         Some(RefactorPlan {
             title: "Extract complex block into helper function".to_string(),
             line_start: region.line_start,
             line_end: region.line_end,
             current_complexity: function_complexity,
-            estimated_reduction: region.total.saturating_sub(1),
-            estimated_complexity_after: function_complexity
-                .saturating_sub(region.total.saturating_sub(1)),
+            estimated_reduction: reduction,
+            estimated_complexity_after: function_complexity.saturating_sub(reduction),
             explanation: "Complex code blocks should be extracted into named functions \
                          to improve readability and testability. The extracted function \
                          can be given a descriptive name that explains its purpose."
@@ -205,11 +212,18 @@ impl RefactorRule for SplitDispatcherRule {
             return None;
         }
 
-        let reduction = region
-            .elif_count
-            .max(region.case_count)
-            .saturating_sub(1)
-            .max(2);
+        let elif_clause_cost = if region.kind == RegionKind::ElifChain {
+            region.elif_count
+        } else {
+            0
+        };
+        let region_true_total = region.total + elif_clause_cost;
+        let branch_estimate = region.elif_count.max(region.case_count).saturating_sub(1);
+        let reduction = branch_estimate.min(region_true_total.saturating_sub(1));
+
+        if reduction == 0 {
+            return None;
+        }
 
         Some(RefactorPlan {
             title: "Split conditional dispatcher into handlers".to_string(),
@@ -519,13 +533,20 @@ impl RefactorRule for CollapsibleIfRule {
             )
         };
 
-        // Calculate reduction based on chain depth. Use `chain.len()` (not
-        // `conditions.len()`) so the reduction estimate is unaffected by whether the
-        // condition *text* could be extracted for the suggestion above.
         let old_complexity = region.total;
-        let boolean_count = chain.len().saturating_sub(1); // one 'and' per pair
-        let new_complexity = 1 + region.nesting + boolean_count as u64;
-        let reduction = old_complexity.saturating_sub(new_complexity).max(2);
+        let boolean_count = if conditions_extracted {
+            let combined = combine_conditions_chain(&conditions);
+            match parse_expression(&combined) {
+                Ok(parsed) => count_bool_ops(*parsed.into_syntax().body, region.nesting),
+                Err(_) => fallback_boolean_count(&chain),
+            }
+        } else {
+            fallback_boolean_count(&chain)
+        };
+        let innermost_own = innermost.structural + innermost.nesting + innermost.boolean;
+        let remaining_cost = innermost.total.saturating_sub(innermost_own);
+        let new_complexity = 1 + region.nesting + boolean_count + remaining_cost;
+        let reduction = old_complexity.saturating_sub(new_complexity);
 
         Some(RefactorPlan {
             title: if chain.len() == 2 {
@@ -1013,18 +1034,37 @@ fn collect_if_chain<'a>(region: &'a ComplexityRegion, lines: &[&str]) -> Vec<&'a
     chain
 }
 
-fn sum_if_nesting(regions: &[ComplexityRegion]) -> u64 {
-    regions
-        .iter()
-        .map(|region| {
-            let own = if region.kind == RegionKind::If {
-                region.nesting
-            } else {
-                0
-            };
-            own + sum_if_nesting(&region.children)
-        })
-        .sum()
+/// Boolean-operator estimate for when the merged condition text isn't
+/// available. Sums each chain element's own `bool_op_count` plus one join per
+/// merge.
+fn fallback_boolean_count(chain: &[&ComplexityRegion]) -> u64 {
+    chain.iter().map(|r| r.bool_op_count).sum::<u64>() + chain.len().saturating_sub(1) as u64
+}
+
+/// Walk the linear chain of single-child If regions starting from a loop's
+/// first If child, stopping at the same boundaries `collect_if_chain` does
+/// (a branch, an else/elif, or the end of the nesting).
+fn collect_loop_if_chain<'a>(
+    region: &'a ComplexityRegion,
+    lines: &[&str],
+) -> Vec<&'a ComplexityRegion> {
+    let mut chain = Vec::new();
+    let mut current = region.children.iter().find(|c| c.kind == RegionKind::If);
+
+    while let Some(r) = current {
+        chain.push(r);
+        current = if r.children.len() == 1
+            && r.children[0].kind == RegionKind::If
+            && !has_else_branch(r, lines)
+            && !has_else_branch(&r.children[0], lines)
+        {
+            Some(&r.children[0])
+        } else {
+            None
+        };
+    }
+
+    chain
 }
 
 // Unit tests live outside the implementation file, under `src/tests/`, mirroring

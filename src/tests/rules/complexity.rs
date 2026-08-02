@@ -4,7 +4,11 @@
 //! so this stays a child module of the code it tests and can reach that module's
 //! private helpers through `super::` without widening their visibility.
 
-use super::{combine_conditions_chain, extract_condition_from_line, needs_parens_for_and};
+use super::{
+    collect_loop_if_chain, combine_conditions_chain, extract_condition_from_line,
+    fallback_boolean_count, needs_parens_for_and,
+};
+use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
 fn combine(parts: &[&str]) -> String {
     let owned: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
@@ -159,4 +163,106 @@ fn returns_none_when_no_colon_present() {
 #[test]
 fn returns_none_when_condition_text_would_be_empty() {
     assert_eq!(extract_condition_from_line("if :"), None);
+}
+
+fn if_region(nesting: u64, children: Vec<ComplexityRegion>) -> ComplexityRegion {
+    ComplexityRegion {
+        kind: RegionKind::If,
+        line_start: nesting + 1,
+        line_end: nesting + 1,
+        nesting,
+        children,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn collect_loop_if_chain_walks_a_pure_nested_chain() {
+    let lines = [
+        "for x in y:",
+        "    if a:",
+        "        if b:",
+        "            pass",
+    ];
+    let loop_region = ComplexityRegion {
+        kind: RegionKind::Loop,
+        children: vec![if_region(1, vec![if_region(2, vec![])])],
+        ..Default::default()
+    };
+
+    let chain = collect_loop_if_chain(&loop_region, &lines);
+
+    assert_eq!(chain.len(), 2);
+    assert_eq!(chain[0].nesting, 1);
+    assert_eq!(chain[1].nesting, 2);
+}
+
+#[test]
+fn collect_loop_if_chain_stops_at_an_else_branch() {
+    let lines = [
+        "for x in y:",
+        "    if a:",
+        "        if b:",
+        "            pass",
+        "        else:",
+        "            pass",
+    ];
+    let loop_region = ComplexityRegion {
+        kind: RegionKind::Loop,
+        children: vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 6,
+            nesting: 1,
+            children: vec![ComplexityRegion {
+                kind: RegionKind::If,
+                line_start: 3,
+                line_end: 6,
+                nesting: 2,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+
+    let chain = collect_loop_if_chain(&loop_region, &lines);
+
+    // The inner if has an else, so only the outer if is hoistable -- the
+    // else-bearing if stays behind as the chain's untouched tail.
+    assert_eq!(chain.len(), 1);
+    assert_eq!(chain[0].nesting, 1);
+}
+
+#[test]
+fn collect_loop_if_chain_is_empty_without_a_nested_if() {
+    let lines = ["for x in y:", "    pass"];
+    let loop_region = ComplexityRegion {
+        kind: RegionKind::Loop,
+        ..Default::default()
+    };
+
+    assert!(collect_loop_if_chain(&loop_region, &lines).is_empty());
+}
+
+#[test]
+fn fallback_boolean_count_sums_known_booleans_plus_one_join_per_merge() {
+    let chain = vec![
+        ComplexityRegion {
+            bool_op_count: 1,
+            ..Default::default()
+        },
+        ComplexityRegion {
+            bool_op_count: 2,
+            ..Default::default()
+        },
+        ComplexityRegion {
+            bool_op_count: 0,
+            ..Default::default()
+        },
+    ];
+    let refs: Vec<&ComplexityRegion> = chain.iter().collect();
+
+    // 1 + 2 + 0 known booleans, plus (3 - 1) joins from merging 3 conditions.
+    assert_eq!(fallback_boolean_count(&refs), 5);
 }

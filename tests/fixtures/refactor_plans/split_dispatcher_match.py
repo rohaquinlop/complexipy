@@ -1,4 +1,4 @@
-def sample(kind):
+def sample(kind, data):
     match kind:
         case "a":
             return 1
@@ -7,5 +7,7 @@ def sample(kind):
         case "c":
             return 3
         case "d":
-            return 4
+            if data:
+                return 4
+            return 0
     return 0
