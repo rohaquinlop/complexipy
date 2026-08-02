@@ -73,7 +73,6 @@ pub enum Applicability {
 )]
 #[derive(Clone)]
 pub struct RefactorPlan {
-    // Existing fields (backward compatible)
     pub kind: String,
     pub title: String,
     pub line_start: u64,
@@ -82,7 +81,6 @@ pub struct RefactorPlan {
     pub estimated_reduction: u64,
     pub estimated_complexity_after: u64,
 
-    // Clippy-style fields
     pub rule_id: String,
     pub category: RuleCategory,
     pub applicability: Applicability,

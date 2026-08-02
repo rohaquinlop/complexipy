@@ -7,7 +7,6 @@ mod rules;
 mod runner;
 mod utils;
 
-// Add WASM support when wasm feature is enabled
 #[cfg(feature = "wasm")]
 mod wasm;
 
