@@ -45,7 +45,6 @@ pub struct CodeSuggestion {
 pub enum RuleCategory {
     Complexity,
     Readability,
-    Maintainability,
 }
 
 #[cfg_attr(
@@ -113,6 +112,8 @@ pub struct FunctionComplexity {
     pub line_complexities: Vec<LineComplexity>,
     #[cfg_attr(feature = "python", serde(skip))]
     pub refactor_plans: Vec<RefactorPlan>,
+    #[cfg_attr(feature = "python", serde(skip))]
+    pub additional_refactor_plans: u64,
 }
 
 #[cfg_attr(

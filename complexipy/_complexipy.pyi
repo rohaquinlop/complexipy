@@ -19,9 +19,6 @@ class RuleCategory(Enum):
     Readability = "Readability"
     """Rules that improve code readability."""
 
-    Maintainability = "Maintainability"
-    """Rules that improve long-term maintainability."""
-
 class Applicability(Enum):
     """Applicability level for refactoring suggestions."""
 
@@ -118,7 +115,7 @@ class RefactorPlan:
 
     # Clippy-style fields
     rule_id: str
-    """Unique identifier for the rule (e.g., 'C001', 'R002')."""
+    """Unique identifier for the rule (e.g., 'C001', 'C007')."""
 
     category: RuleCategory
     """Category of the refactoring rule."""
@@ -242,7 +239,10 @@ class FunctionComplexity:
     """
 
     refactor_plans: List[RefactorPlan]
-    """Ranked deterministic refactoring plans for this function."""
+    """Ranked deterministic refactoring plans for this function, capped at 5."""
+
+    additional_refactor_plans: int
+    """Count of further plans that survived dedup but were dropped by the cap."""
 
     def __init__(
         self,
@@ -252,6 +252,7 @@ class FunctionComplexity:
         line_end: int,
         line_complexities: List[LineComplexity],
         refactor_plans: List[RefactorPlan],
+        additional_refactor_plans: int,
     ) -> None: ...
 
 class FileComplexity:
@@ -628,6 +629,7 @@ def output_json(
     files_complexities: List[FileComplexity],
     show_details: bool,
     max_complexity: int,
+    suggest_refactors: bool = False,
 ) -> None:
     """
     Export complexity analysis results to a JSON file for programmatic consumption.
@@ -654,6 +656,11 @@ def output_json(
         max_complexity: Functions with complexity above this threshold may
                         be flagged or filtered in the output. Use 0 to include
                         all functions regardless of complexity.
+        suggest_refactors: If True, each function entry's `refactor_plans`
+                           is populated with its ranked suggestions. If
+                           False (the default), `refactor_plans` is an
+                           empty list, mirroring `--suggest-refactors` in
+                           the CLI.
 
     Raises:
         PermissionError: If the output path is not writable.

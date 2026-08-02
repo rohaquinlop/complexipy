@@ -4,8 +4,83 @@
 //! so this stays a child module of the code it tests and can reach the private
 //! `RuleRegistry.rules` field through `super::` without widening its visibility.
 
-use super::RuleRegistry;
+use super::{RuleRegistry, select_non_overlapping};
+use crate::classes::{Applicability, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
+use std::collections::HashMap;
+
+fn plan(rule_id: &str, line_start: u64, line_end: u64, estimated_reduction: u64) -> RefactorPlan {
+    RefactorPlan {
+        kind: rule_id.to_string(),
+        title: String::new(),
+        line_start,
+        line_end,
+        column_start: 1,
+        current_complexity: 10,
+        estimated_reduction,
+        estimated_complexity_after: 10u64.saturating_sub(estimated_reduction),
+        rule_id: rule_id.to_string(),
+        category: RuleCategory::Complexity,
+        applicability: Applicability::Informational,
+        description: String::new(),
+        explanation: String::new(),
+        references: vec![],
+        suggestion: None,
+        help: None,
+        doc_url: String::new(),
+    }
+}
+
+fn plans_overlap(a: &RefactorPlan, b: &RefactorPlan) -> bool {
+    a.line_start <= b.line_end && a.line_end >= b.line_start
+}
+
+/// The core soundness property of overlap dedup: whatever survives, no two
+/// selected plans may overlap each other. This is a regression test for a
+/// prior version that only checked the *first* overlapping already-selected
+/// plan (via `Vec::position`) instead of every one a candidate might touch.
+#[test]
+fn select_non_overlapping_never_returns_overlapping_plans() {
+    let candidates = vec![
+        plan("A", 1, 10, 3),
+        plan("B", 5, 15, 3),
+        plan("C", 20, 30, 3),
+        plan("D", 25, 35, 2),
+        plan("E", 1, 100, 1),
+    ];
+    let effectiveness: HashMap<&str, u8> = [("A", 2), ("B", 2), ("C", 2), ("D", 2), ("E", 5)]
+        .into_iter()
+        .collect();
+
+    let (selected, _) = select_non_overlapping(candidates, &effectiveness);
+
+    for i in 0..selected.len() {
+        for j in (i + 1)..selected.len() {
+            assert!(
+                !plans_overlap(&selected[i], &selected[j]),
+                "{} and {} overlap in the final selection",
+                selected[i].rule_id,
+                selected[j].rule_id
+            );
+        }
+    }
+}
+
+#[test]
+fn select_non_overlapping_caps_at_five_and_reports_the_rest() {
+    let ids = ["R0", "R1", "R2", "R3", "R4", "R5", "R6"];
+    let candidates: Vec<RefactorPlan> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| plan(id, (i * 10 + 1) as u64, (i * 10 + 5) as u64, 1))
+        .collect();
+    let effectiveness: HashMap<&str, u8> = ids.iter().map(|&id| (id, 2)).collect();
+
+    let (selected, additional) = select_non_overlapping(candidates, &effectiveness);
+
+    assert_eq!(selected.len(), 5);
+    assert_eq!(additional, 2);
+}
 
 /// Build the minimal `(region, source)` pair that makes a given rule's
 /// `check()` return `Some(..)`. Each fixture is deliberately as small as

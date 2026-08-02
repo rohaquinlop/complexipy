@@ -16,6 +16,7 @@ class FunctionRow:
     path: str
     file_name: str
     refactor_plans: List[RefactorPlan]
+    additional_refactor_plans: int
 
 
 @dataclass

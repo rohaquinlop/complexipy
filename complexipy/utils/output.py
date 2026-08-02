@@ -114,6 +114,7 @@ def handle_results_storage(
     show_details: bool,
     max_complexity: int,
     invocation_path: str,
+    suggest_refactors: bool = False,
 ) -> None:
     output_paths = resolve_output_paths(output_formats, output, invocation_path)
 
@@ -138,6 +139,7 @@ def handle_results_storage(
                 files_complexities,
                 show_details,
                 max_complexity,
+                suggest_refactors,
             )
         elif output_format == OutputFormat.gitlab:
             from complexipy.utils.gitlab import store_gitlab
@@ -146,6 +148,7 @@ def handle_results_storage(
                 output_path,
                 files_complexities,
                 max_complexity,
+                suggest_refactors,
             )
         elif output_format == OutputFormat.sarif:
             from complexipy.utils.sarif import store_sarif
@@ -154,6 +157,7 @@ def handle_results_storage(
                 output_path,
                 files_complexities,
                 max_complexity,
+                suggest_refactors,
             )
 
         console.print(f"Results saved at {output_path}")
@@ -354,6 +358,13 @@ def output_refactor_plans(
     for index, plan in enumerate(function.refactor_plans, start=1):
         _output_single_plan(console, plan, index, display_path, source_lines)
 
+    if function.additional_refactor_plans:
+        suffix = "s" if function.additional_refactor_plans != 1 else ""
+        console.print(
+            f"\n      [dim]... and {function.additional_refactor_plans} "
+            f"more suggestion{suffix}[/dim]"
+        )
+
 
 def _read_source_lines(
     invocation_path: str, path: str, file_name: str
@@ -415,11 +426,9 @@ def _output_single_plan(
 def _get_category_icon(category: Union[str, RuleCategory]) -> str:
     category_str = str(category)
     if "Complexity" in category_str:
-        return "[bold]\u2022[/bold]"
+        return "[bold]\u25b2[/bold]"
     elif "Readability" in category_str:
-        return "[bold]\u2022[/bold]"
-    elif "Maintainability" in category_str:
-        return "[bold]\u2022[/bold]"
+        return "[bold]\u25c6[/bold]"
     return "[bold]\u2022[/bold]"
 
 
@@ -429,8 +438,6 @@ def _get_category_name(category: Union[str, RuleCategory]) -> str:
         return "Complexity"
     elif "Readability" in category_str:
         return "Readability"
-    elif "Maintainability" in category_str:
-        return "Maintainability"
     return category_str
 
 
@@ -448,7 +455,7 @@ def _get_applicability_icon(applicability: Union[str, Applicability]) -> str:
 def _get_applicability_name(applicability: Union[str, Applicability]) -> str:
     applicability_str = str(applicability)
     if "MachineApplicable" in applicability_str:
-        return "Auto-applicable"
+        return "Safe to apply"
     elif "MaybeIncorrect" in applicability_str:
         return "Needs review"
     elif "Informational" in applicability_str:
@@ -529,7 +536,9 @@ def _output_caret_span(
         Text(f"          {gutter}") + Text(source_line), soft_wrap=True
     )
     console.print(
-        Text(f"          {blank_gutter}{' ' * column_index}{'^' * caret_width}"),
+        Text(
+            f"          {blank_gutter}{' ' * column_index}{'^' * caret_width}"
+        ),
         soft_wrap=True,
     )
     console.print(Text(f"          {blank_gutter}"), soft_wrap=True)
@@ -638,6 +647,7 @@ def build_output_rows(
                     path=file.path,
                     file_name=file.file_name,
                     refactor_plans=function.refactor_plans,
+                    additional_refactor_plans=function.additional_refactor_plans,
                 )
             )
 

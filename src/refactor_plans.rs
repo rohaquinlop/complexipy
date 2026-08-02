@@ -45,7 +45,7 @@ pub fn build_refactor_plans(
     function_complexity: u64,
     regions: &[ComplexityRegion],
     source: &str,
-) -> Vec<RefactorPlan> {
+) -> (Vec<RefactorPlan>, u64) {
     static REGISTRY: OnceLock<RuleRegistry> = OnceLock::new();
     let registry = REGISTRY.get_or_init(RuleRegistry::new);
     registry.analyze(regions, source, function_complexity)

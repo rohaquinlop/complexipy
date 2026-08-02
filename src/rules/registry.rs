@@ -48,13 +48,17 @@ impl RuleRegistry {
             .collect()
     }
 
+    /// Returns the selected plans (capped at 5) plus a count of additional
+    /// plans that survived dedup but were dropped purely by the cap, so
+    /// callers can render "... and N more suggestions" instead of silently
+    /// truncating.
     #[must_use]
     pub fn analyze(
         &self,
         regions: &[ComplexityRegion],
         source: &str,
         function_complexity: u64,
-    ) -> Vec<RefactorPlan> {
+    ) -> (Vec<RefactorPlan>, u64) {
         let mut plans = Vec::new();
 
         self.collect_plans(regions, source, function_complexity, &mut plans);
@@ -62,57 +66,7 @@ impl RuleRegistry {
         plans.retain(|plan| plan.estimated_reduction >= 1);
 
         let effectiveness = self.effectiveness_by_rule_id();
-        let effectiveness_of = |rule_id: &str| *effectiveness.get(rule_id).unwrap_or(&1);
-
-        plans.sort_by(|a, b| {
-            let eff_a = effectiveness_of(&a.rule_id);
-            let eff_b = effectiveness_of(&b.rule_id);
-
-            // 1. Higher effectiveness first (condition merging > nesting flattening > guard clauses > extraction)
-            eff_b
-                .cmp(&eff_a)
-                // 2. Higher reduction within same effectiveness tier
-                .then_with(|| b.estimated_reduction.cmp(&a.estimated_reduction))
-                // 3. Earlier line number for same effectiveness and reduction
-                .then_with(|| a.line_start.cmp(&b.line_start))
-        });
-
-        let mut selected: Vec<RefactorPlan> = Vec::new();
-
-        for plan in plans {
-            // Find any overlapping plan in selected
-            let overlapping_idx = selected.iter().position(|existing| {
-                plan.line_start <= existing.line_end && plan.line_end >= existing.line_start
-            });
-
-            match overlapping_idx {
-                Some(idx) => {
-                    let existing = &selected[idx];
-                    let eff_existing = effectiveness_of(&existing.rule_id);
-                    let eff_plan = effectiveness_of(&plan.rule_id);
-
-                    // Keep the one with higher effectiveness, then higher reduction
-                    if eff_plan > eff_existing
-                        || (eff_plan == eff_existing
-                            && plan.estimated_reduction > existing.estimated_reduction)
-                    {
-                        selected[idx] = plan;
-                    }
-                    // If equal effectiveness and reduction, keep existing (first wins due to sort order)
-                }
-                None => {
-                    // No overlap — add to selected
-                    selected.push(plan);
-                }
-            }
-
-            // Cap at 5 plans per function
-            if selected.len() == 5 {
-                break;
-            }
-        }
-
-        selected
+        select_non_overlapping(plans, &effectiveness)
     }
 
     fn collect_plans(
@@ -138,6 +92,74 @@ impl Default for RuleRegistry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Sorts by effectiveness/reduction/line, then keeps only non-overlapping
+/// plans (highest effectiveness/reduction wins any overlap), capped at 5.
+/// Split out from `RuleRegistry::analyze` so the selection logic can be unit
+/// tested directly against hand-built plans, without needing real rules to
+/// organically produce a given overlap shape.
+fn select_non_overlapping(
+    mut plans: Vec<RefactorPlan>,
+    effectiveness: &HashMap<&str, u8>,
+) -> (Vec<RefactorPlan>, u64) {
+    let effectiveness_of = |rule_id: &str| *effectiveness.get(rule_id).unwrap_or(&1);
+
+    plans.sort_by(|a, b| {
+        let eff_a = effectiveness_of(&a.rule_id);
+        let eff_b = effectiveness_of(&b.rule_id);
+
+        // 1. Higher effectiveness first (condition merging > nesting flattening > guard clauses > extraction)
+        eff_b
+            .cmp(&eff_a)
+            // 2. Higher reduction within same effectiveness tier
+            .then_with(|| b.estimated_reduction.cmp(&a.estimated_reduction))
+            // 3. Earlier line number for same effectiveness and reduction
+            .then_with(|| a.line_start.cmp(&b.line_start))
+    });
+
+    let mut selected: Vec<RefactorPlan> = Vec::new();
+
+    for plan in plans {
+        // A plan can overlap more than one already-selected plan (e.g. a wide
+        // extract_helper span covering two smaller, already-selected
+        // regions) -- collect every overlap, not just the first.
+        let overlapping: Vec<usize> = selected
+            .iter()
+            .enumerate()
+            .filter(|(_, existing)| {
+                plan.line_start <= existing.line_end && plan.line_end >= existing.line_start
+            })
+            .map(|(idx, _)| idx)
+            .collect();
+
+        if overlapping.is_empty() {
+            selected.push(plan);
+            continue;
+        }
+
+        let eff_plan = effectiveness_of(&plan.rule_id);
+        let beats_all_overlaps = overlapping.iter().all(|&idx| {
+            let existing = &selected[idx];
+            let eff_existing = effectiveness_of(&existing.rule_id);
+            eff_plan > eff_existing
+                || (eff_plan == eff_existing
+                    && plan.estimated_reduction > existing.estimated_reduction)
+        });
+
+        if beats_all_overlaps {
+            for &idx in overlapping.iter().rev() {
+                selected.remove(idx);
+            }
+            selected.push(plan);
+        }
+        // Otherwise `plan` loses to at least one existing overlap and is dropped.
+    }
+
+    let additional = selected.len().saturating_sub(5) as u64;
+    selected.truncate(5);
+
+    (selected, additional)
 }
 
 #[cfg(test)]

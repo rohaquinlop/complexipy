@@ -287,6 +287,29 @@ def b_mid(x):
         assert result.exit_code == 2
 
 
+_MANY_INDEPENDENT_PAIRS_SNIPPET = """\
+def f(a, b, c, d, e, g, h, i, j, k, m, n):
+    if a:
+        if b:
+            print(a)
+    if c:
+        if d:
+            print(c)
+    if e:
+        if g:
+            print(e)
+    if h:
+        if i:
+            print(h)
+    if j:
+        if k:
+            print(j)
+    if m:
+        if n:
+            print(m)
+"""
+
+
 class TestSuggestRefactorsOutput:
     def test_suggest_refactors_prints_plan_fragments(
         self, tmp_path: Path, monkeypatch
@@ -394,6 +417,32 @@ class TestSuggestRefactorsOutput:
         assert "rows[a][b]" in result.output
         assert '["x", "y"]' in result.output
         assert "[bold red]danger[/bold red]" in result.output
+
+    def test_suggest_refactors_reports_count_of_plans_dropped_by_the_cap(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            _MANY_INDEPENDENT_PAIRS_SNIPPET, encoding="utf-8"
+        )
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            [
+                "--suggest-refactors",
+                "--max-complexity-allowed",
+                "100",
+                str(source_file),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert len(re.findall(r"\[\d+\] C\d+", result.output)) == 5
+        assert "... and 1 more suggestion" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path, monkeypatch
