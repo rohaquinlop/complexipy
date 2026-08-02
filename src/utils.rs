@@ -381,6 +381,16 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
     (newline_count + 1) as u64
 }
 
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn get_column_number(byte_index: usize, code: &str) -> u64 {
+    let before_slice = &code[..byte_index];
+    let column_start = match before_slice.rfind('\n') {
+        Some(newline_index) => newline_index + 1,
+        None => 0,
+    };
+    (before_slice[column_start..].chars().count() + 1) as u64
+}
+
 /// Extract a canonical ignore comment marker from a line.
 ///
 /// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`

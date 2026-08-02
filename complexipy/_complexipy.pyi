@@ -104,6 +104,9 @@ class RefactorPlan:
     line_end: int
     """Ending line number of the code region to refactor."""
 
+    column_start: int
+    """1-indexed starting column of the offending construct on `line_start`."""
+
     current_complexity: int
     """Current cognitive complexity of the function."""
 
@@ -147,6 +150,7 @@ class RefactorPlan:
         title: str,
         line_start: int,
         line_end: int,
+        column_start: int,
         current_complexity: int,
         estimated_reduction: int,
         estimated_complexity_after: int,

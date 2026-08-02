@@ -45,6 +45,7 @@ impl RuleMetadata {
             title: String::new(),
             line_start: 0,
             line_end: 0,
+            column_start: 0,
             current_complexity: 0,
             estimated_reduction: 0,
             estimated_complexity_after: 0,

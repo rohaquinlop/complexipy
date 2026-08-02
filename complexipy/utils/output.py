@@ -340,6 +340,7 @@ def output_refactor_plans(
     if not function.refactor_plans:
         return
 
+    display_path = normalize_path(function.path, function.file_name)
     source_lines = _read_source_lines(
         invocation_path, function.path, function.file_name
     )
@@ -351,7 +352,7 @@ def output_refactor_plans(
             "that suggestion alone -- they don't sum.[/dim]"
         )
     for index, plan in enumerate(function.refactor_plans, start=1):
-        _output_single_plan(console, plan, index, source_lines)
+        _output_single_plan(console, plan, index, display_path, source_lines)
 
 
 def _read_source_lines(
@@ -371,6 +372,7 @@ def _output_single_plan(
     console: Console,
     plan: RefactorPlan,
     index: int,
+    display_path: str,
     source_lines: Optional[List[str]],
 ) -> None:
     category_icon = _get_category_icon(plan.category)
@@ -381,6 +383,10 @@ def _output_single_plan(
     console.print(
         f"\n      [{index}] [bold cyan]{plan.rule_id}[/bold cyan] {escape(plan.title)}"
     )
+    anchor = Text("          --> ", style="dim")
+    anchor.append(f"{display_path}:{plan.line_start}:{plan.column_start}")
+    console.print(anchor, soft_wrap=True)
+    _output_caret_span(console, plan, source_lines)
     console.print(
         f"          Category: {category_icon} {category_name} "
         f"| Applicability: {applicability_icon} {applicability_name}"
@@ -495,6 +501,38 @@ def _output_suggestion(
     if suggestion.replacement:
         console.print("\n          [dim]Replacement:[/dim]")
         _output_code_snippet(console, suggestion.replacement, plan.line_start)
+
+
+def _output_caret_span(
+    console: Console, plan: RefactorPlan, source_lines: Optional[List[str]]
+) -> None:
+    if not source_lines or plan.column_start <= 0:
+        return
+
+    line_index = plan.line_start - 1
+    if line_index < 0 or line_index >= len(source_lines):
+        return
+
+    source_line = source_lines[line_index]
+    column_index = plan.column_start - 1
+    if column_index >= len(source_line):
+        return
+
+    caret_width = len(source_line[column_index:].rstrip())
+    if caret_width <= 0:
+        return
+
+    gutter = f"{plan.line_start:>5} | "
+    blank_gutter = " " * (len(gutter) - 2) + "| "
+    console.print(Text(f"          {blank_gutter}"), soft_wrap=True)
+    console.print(
+        Text(f"          {gutter}") + Text(source_line), soft_wrap=True
+    )
+    console.print(
+        Text(f"          {blank_gutter}{' ' * column_index}{'^' * caret_width}"),
+        soft_wrap=True,
+    )
+    console.print(Text(f"          {blank_gutter}"), soft_wrap=True)
 
 
 def _output_help(console: Console, help_text: str) -> None:

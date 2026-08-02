@@ -77,6 +77,7 @@ pub struct RefactorPlan {
     pub title: String,
     pub line_start: u64,
     pub line_end: u64,
+    pub column_start: u64,
     pub current_complexity: u64,
     pub estimated_reduction: u64,
     pub estimated_complexity_after: u64,

@@ -23,6 +23,7 @@ pub struct ComplexityRegion {
     pub kind: RegionKind,
     pub line_start: u64,
     pub line_end: u64,
+    pub column_start: u64,
     pub structural: u64,
     pub nesting: u64,
     pub boolean: u64,
