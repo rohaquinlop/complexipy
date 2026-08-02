@@ -98,11 +98,13 @@ pub fn output_csv(
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (invocation_path, functions_complexity, show_detailed_results, max_complexity, suggest_refactors=false))]
 pub fn output_json(
     invocation_path: &str,
     functions_complexity: Vec<FileComplexity>,
     show_detailed_results: bool,
     max_complexity: i32,
+    suggest_refactors: bool,
 ) -> PyResult<()> {
     let mut json_data = Vec::new();
     let max_complexity_limit = u64::try_from(max_complexity)
@@ -111,12 +113,17 @@ pub fn output_json(
     for file in functions_complexity {
         for function in file.functions {
             if show_detailed_results || function.complexity > max_complexity_limit {
+                let refactor_plans = if suggest_refactors {
+                    function.refactor_plans
+                } else {
+                    Vec::new()
+                };
                 let entry = serde_json::json!({
                     "path": file.path,
                     "file_name": file.file_name,
                     "function_name": function.name,
                     "complexity": function.complexity,
-                    "refactor_plans": function.refactor_plans
+                    "refactor_plans": refactor_plans
                 });
                 json_data.push(entry);
             }

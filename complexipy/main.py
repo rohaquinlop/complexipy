@@ -326,6 +326,7 @@ def main(
         not cfg.failed,
         cfg.max_complexity_allowed,
         INVOCATION_PATH,
+        cfg.suggest_refactors,
     )
 
     display_ok = handle_display(

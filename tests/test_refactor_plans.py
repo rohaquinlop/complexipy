@@ -168,7 +168,9 @@ def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(
     func = file_result.functions[0]
     output_path = tmp_path / "complexity.json"
 
-    complexipy._complexipy.output_json(str(output_path), [file_result], True, 0)
+    complexipy._complexipy.output_json(
+        str(output_path), [file_result], True, 0, suggest_refactors=True
+    )
 
     json_data = json.loads(output_path.read_text())
     # Check that the JSON contains the expected structure with new fields
@@ -212,6 +214,23 @@ def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(
     )
     snapshot_data = json.loads(snapshot_path.read_text())
     assert "refactor_plans" not in snapshot_data[0]["functions"][0]
+
+
+def test_manual_cli_json_omits_refactor_plans_without_suggest_refactors(
+    tmp_path,
+) -> None:
+    """`suggest_refactors` defaults to False, matching `--suggest-refactors`
+    being opt-in on the CLI -- JSON should not carry plan data a caller never
+    asked for."""
+    source = tmp_path / "sample.py"
+    source.write_text(load_source("extract_predicate_boolean.py"))
+    file_result = complexipy.file_complexity(str(source))
+    output_path = tmp_path / "complexity.json"
+
+    complexipy._complexipy.output_json(str(output_path), [file_result], True, 0)
+
+    json_data = json.loads(output_path.read_text())
+    assert json_data[0]["refactor_plans"] == []
 
 
 def test_single_line_function_creates_no_plans() -> None:
