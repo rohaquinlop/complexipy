@@ -318,6 +318,28 @@ class TestSuggestRefactorsOutput:
             result.output,
         )
 
+    def test_suggest_refactors_renders_path_line_col_anchor(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        # `if a:` is line 2, indented 4 spaces, so the outer `if` keyword
+        # starts at column 5.
+        assert re.search(r"--> .*sample\.py:2:5", result.output)
+        # `if a:` is 5 characters -- the caret underline should match exactly.
+        assert "^^^^^" in result.output
+
     def test_suggest_refactors_renders_rule_doc_url(
         self, tmp_path: Path, monkeypatch
     ):
