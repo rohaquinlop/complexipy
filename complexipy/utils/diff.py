@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 import typer
@@ -15,11 +16,15 @@ from complexipy._complexipy import (
     code_complexity as _code_complexity,
 )
 
-_STATUS_REGRESSED = "REGRESSED"
-_STATUS_IMPROVED = "IMPROVED"
-_STATUS_UNCHANGED = "UNCHANGED"
-_STATUS_NEW = "NEW"
-_STATUS_REMOVED = "REMOVED"
+
+class DiffStatus(str, Enum):
+    """Comparison status of a function between two analyzed versions."""
+
+    REGRESSED = "REGRESSED"
+    IMPROVED = "IMPROVED"
+    UNCHANGED = "UNCHANGED"
+    NEW = "NEW"
+    REMOVED = "REMOVED"
 
 
 @dataclass
@@ -30,16 +35,16 @@ class DiffEntry:
     new_complexity: Optional[int]
 
     @property
-    def status(self) -> str:
+    def status(self) -> DiffStatus:
         if self.old_complexity is None:
-            return _STATUS_NEW
+            return DiffStatus.NEW
         if self.new_complexity is None:
-            return _STATUS_REMOVED
+            return DiffStatus.REMOVED
         if self.new_complexity > self.old_complexity:
-            return _STATUS_REGRESSED
+            return DiffStatus.REGRESSED
         if self.new_complexity < self.old_complexity:
-            return _STATUS_IMPROVED
-        return _STATUS_UNCHANGED
+            return DiffStatus.IMPROVED
+        return DiffStatus.UNCHANGED
 
     @property
     def delta(self) -> Optional[int]:
@@ -88,6 +93,23 @@ def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
 
 
+def _git_tracked_paths(cwd: str) -> List[str]:
+    """Return repo-root-relative paths of tracked files, or [] on error."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--full-name"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout.splitlines()
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return []
+
+
 def _resolve_git_path(
     file_path: str, git_ref: str, invocation_path: str
 ) -> str:
@@ -100,7 +122,10 @@ def _resolve_git_path(
     ``complexipy/main.py``.
 
     We fix this by trying the path as-is first, then progressively stripping
-    leading components until ``git show`` can locate the file.
+    leading components until ``git show`` can locate the file.  As a last
+    resort the basename is looked up among tracked files: a unique match is
+    returned, an ambiguous one keeps the original path (the file then
+    reports as NEW).
     """
     normalized = file_path.replace(os.sep, "/").replace("\\", "/")
     parts = normalized.split("/")
@@ -113,13 +138,22 @@ def _resolve_git_path(
         ):
             return candidate
 
+    basename = parts[-1]
+    matches = [
+        tracked
+        for tracked in _git_tracked_paths(invocation_path)
+        if tracked == basename or tracked.endswith("/" + basename)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+
     return normalized
 
 
 def compute_diff(
     current_files: List[FileComplexity],
     git_ref: str,
-    invocation_path: str,
+    invocation_path: Optional[str] = None,
 ) -> List[DiffEntry]:
     """Compare the current complexity results against *git_ref*.
 
@@ -129,12 +163,15 @@ def compute_diff(
     only in the historical version are marked NEW / REMOVED respectively.
 
     The *invocation_path* is used as the ``cwd`` for git commands and to
-    resolve file paths relative to the repository root.
+    resolve file paths relative to the repository root.  It defaults to the
+    current working directory.
 
     Returns a list of :class:`DiffEntry` objects, one per function that
     either changed or is new/removed.  Unchanged functions are included so
     callers can choose how to filter.
     """
+    if invocation_path is None:
+        invocation_path = os.getcwd()
     entries: List[DiffEntry] = []
 
     for file in current_files:
@@ -170,48 +207,48 @@ def compute_diff(
 
 def _status_style(status: str) -> str:
     """Return Rich markup for a diff status label."""
-    if status == _STATUS_REGRESSED:
+    if status == DiffStatus.REGRESSED:
         return "[bold red]REGRESSED[/bold red]"
-    if status == _STATUS_IMPROVED:
+    if status == DiffStatus.IMPROVED:
         return "[bold green]IMPROVED[/bold green]"
-    if status == _STATUS_NEW:
+    if status == DiffStatus.NEW:
         return "[bold yellow]NEW[/bold yellow]"
-    if status == _STATUS_REMOVED:
+    if status == DiffStatus.REMOVED:
         return "[dim]REMOVED[/dim]"
     return status
 
 
 def _format_change(e: DiffEntry) -> str:
     """Return the change column value for a diff entry."""
-    if e.status == _STATUS_NEW:
+    if e.status == DiffStatus.NEW:
         return f"[bold yellow]{e.new_complexity}[/bold yellow]  (new)"
-    if e.status == _STATUS_REMOVED:
+    if e.status == DiffStatus.REMOVED:
         return f"[dim]{e.old_complexity}[/dim]  (removed)"
     delta = e.delta
     sign = "+" if delta and delta > 0 else ""
-    if e.status == _STATUS_REGRESSED:
+    if e.status == DiffStatus.REGRESSED:
         return f"[red]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/red]"
-    if e.status == _STATUS_IMPROVED:
+    if e.status == DiffStatus.IMPROVED:
         return f"[green]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/green]"
     return f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
 
 
 def _build_diff_summary(changed: List[DiffEntry]) -> str:
     counts = {
-        _STATUS_REGRESSED: 0,
-        _STATUS_IMPROVED: 0,
-        _STATUS_NEW: 0,
-        _STATUS_REMOVED: 0,
+        DiffStatus.REGRESSED: 0,
+        DiffStatus.IMPROVED: 0,
+        DiffStatus.NEW: 0,
+        DiffStatus.REMOVED: 0,
     }
     for e in changed:
         if e.status in counts:
             counts[e.status] += 1
 
     labels = [
-        (_STATUS_REGRESSED, "regressed", "red"),
-        (_STATUS_IMPROVED, "improved", "green"),
-        (_STATUS_NEW, "new", "yellow"),
-        (_STATUS_REMOVED, "removed", "dim"),
+        (DiffStatus.REGRESSED, "regressed", "red"),
+        (DiffStatus.IMPROVED, "improved", "green"),
+        (DiffStatus.NEW, "new", "yellow"),
+        (DiffStatus.REMOVED, "removed", "dim"),
     ]
     parts = [
         f"[{style}]{counts[s]} {label}[/{style}]"
@@ -236,13 +273,13 @@ def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
     """
     for e in entries:
         if (
-            e.status == _STATUS_REGRESSED
+            e.status == DiffStatus.REGRESSED
             and e.new_complexity is not None
             and e.new_complexity > max_complexity
         ):
             return True
         if (
-            e.status == _STATUS_NEW
+            e.status == DiffStatus.NEW
             and e.new_complexity is not None
             and e.new_complexity > max_complexity
         ):
@@ -262,7 +299,12 @@ def format_diff(
         e
         for e in entries
         if e.status
-        in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
+        in (
+            DiffStatus.REGRESSED,
+            DiffStatus.IMPROVED,
+            DiffStatus.NEW,
+            DiffStatus.REMOVED,
+        )
     ]
 
     if not changed:

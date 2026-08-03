@@ -16,11 +16,19 @@ from complexipy.api import (
     code_complexity,
     file_complexity,
 )
+from complexipy.utils.diff import (
+    DiffEntry,
+    DiffStatus,
+    compute_diff,
+    has_regressions,
+)
 
 __all__ = [
     "Applicability",
     "CodeComplexity",
     "CodeSuggestion",
+    "DiffEntry",
+    "DiffStatus",
     "FileComplexity",
     "FunctionComplexity",
     "IgnoredLocation",
@@ -29,5 +37,7 @@ __all__ = [
     "RuleCategory",
     "code_complexity",
     "collect_all_ignored_locations",
+    "compute_diff",
     "file_complexity",
+    "has_regressions",
 ]

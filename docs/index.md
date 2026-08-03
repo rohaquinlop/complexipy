@@ -387,10 +387,12 @@ When `--output-format json` is also active, ignored locations are exported to `c
 file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
 code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
 collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
+compute_diff(files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
+has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool
 
 # Return types
 FileComplexity:
-  ├─ path: str
+  ├─ path: str (relative to the working directory, or absolute when outside it)
   ├─ file_name: str
   ├─ complexity: int
   └─ functions: List[FunctionComplexity]
@@ -442,6 +444,16 @@ IgnoredLocation:
 CodeComplexity:
   ├─ complexity: int
   └─ functions: List[FunctionComplexity]
+
+DiffEntry:
+  ├─ file_path: str
+  ├─ func_name: str
+  ├─ old_complexity: Optional[int]
+  ├─ new_complexity: Optional[int]
+  ├─ status: DiffStatus (property)
+  └─ delta: Optional[int] (property)
+
+DiffStatus: REGRESSED | IMPROVED | UNCHANGED | NEW | REMOVED
 ```
 
 ______________________________________________________________________
