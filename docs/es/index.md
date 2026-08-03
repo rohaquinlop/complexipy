@@ -264,10 +264,10 @@ Salida de ejemplo (abreviada -- la salida real también muestra un tramo subraya
 ```text
       [1] C007 Merge nested if statements
           --> sample.py:4:9
-          Category: • Readability | Applicability: * Auto-applicable
+          Category: ◆ Readability | Applicability: * Safe to apply
           Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
 
-          Suggestion: * Auto-applicable
+          Suggestion: * Safe to apply
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
