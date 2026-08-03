@@ -121,10 +121,7 @@ pub struct FunctionComplexity {
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
-#[cfg_attr(
-    any(feature = "python", feature = "wasm"),
-    derive(Serialize, Deserialize, Clone)
-)]
+#[cfg_attr(feature = "python", derive(Serialize, Deserialize, Clone))]
 pub struct FileComplexity {
     pub path: String,
     pub file_name: String,
@@ -154,10 +151,7 @@ pub struct CodeComplexity {
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
-#[cfg_attr(
-    any(feature = "python", feature = "wasm"),
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "python", derive(Serialize, Deserialize))]
 #[derive(Clone)]
 pub struct IgnoredLocation {
     pub path: String,
