@@ -415,6 +415,45 @@ class IgnoredLocation:
 
     def __init__(self, path: str, line: int, comment: str) -> None: ...
 
+class RemovableIgnore:
+    """
+    Represents an ignore comment that is no longer necessary because the
+    suppressed function's complexity is within the allowed limit.
+
+    This class backs the automatic report of stale ignore comments shown
+    at the end of every analysis run, and the
+    `collect_removable_ignored_locations()` API.
+
+    Example:
+        >>> rem = RemovableIgnore(
+        ...     path="src/legacy.py",
+        ...     line=42,
+        ...     comment="# complexipy: ignore",
+        ...     function="parse_legacy_config",
+        ...     complexity=8
+        ... )
+        >>> print(f"{rem.path}:{rem.line}  {rem.comment} can be removed")
+    """
+
+    path: str
+    """Relative path to the file containing the ignore comment."""
+
+    line: int
+    """Line number (1-indexed) of the function the ignore comment suppresses."""
+
+    comment: str
+    """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
+
+    function: str
+    """Name of the function the ignore comment suppresses."""
+
+    complexity: int
+    """The function's cognitive complexity measured without the ignore comment."""
+
+    def __init__(
+        self, path: str, line: int, comment: str, function: str, complexity: int
+    ) -> None: ...
+
 def main(
     paths: List[str],
     quiet: bool,
@@ -725,5 +764,46 @@ def collect_all_ignored_locations(
         ... )
         >>> for loc in locations:
         ...     print(f"{loc.path}:{loc.line}  {loc.comment}")
+    """
+    ...
+
+def collect_removable_ignored_locations(
+    paths: List[str],
+    exclude: List[str],
+    max_complexity_allowed: int,
+    invocation_path: str = ".",
+) -> Tuple[List[RemovableIgnore], List[str]]:
+    """
+    Scan all processed Python files for ignore comments that are no longer
+    necessary because the suppressed function's complexity is within the
+    allowed limit.
+
+    This is the backend for the automatic stale-ignore report shown at the
+    end of every analysis run. It discovers the same set of files as the
+    main analysis (respecting --exclude and .gitignore), computes each
+    suppressed function's complexity as if the ignore comment were absent,
+    and keeps only the markers whose function complexity is less than or
+    equal to `max_complexity_allowed`.
+
+    Args:
+        paths: List of file paths, directory paths, or Git repository URLs.
+        exclude: List of file/directory paths or globs to exclude from scanning.
+        max_complexity_allowed: Complexity threshold; markers suppressing
+            functions at or below this value are reported as removable.
+        invocation_path: Working directory for resolving relative paths.
+
+    Returns:
+        A tuple of (removable_ignores, failed_paths) where:
+        - removable_ignores: List of RemovableIgnore objects, sorted by (path, line).
+        - failed_paths: List of paths that could not be processed.
+
+    Example:
+        >>> removable, failed = collect_removable_ignored_locations(
+        ...     paths=["/project/src"],
+        ...     exclude=["tests/"],
+        ...     max_complexity_allowed=15,
+        ... )
+        >>> for rem in removable:
+        ...     print(f"{rem.path}:{rem.line}  function={rem.function} complexity={rem.complexity}")
     """
     ...

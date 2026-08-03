@@ -555,3 +555,36 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
 
     results
 }
+
+/// Keep only the ignored locations whose containing function no longer
+/// exceeds the allowed complexity threshold.
+///
+/// Returns `(line, comment, function_name, complexity)` for each removable
+/// marker; the function's complexity is measured without the marker applied.
+#[cfg(feature = "python")]
+pub fn filter_removable_ignores(
+    locations: &[(u64, String)],
+    functions: &[FunctionComplexity],
+    max_complexity_allowed: u64,
+) -> Vec<(u64, String, String, u64)> {
+    let mut removable = Vec::new();
+    for (line, comment) in locations {
+        if let Some(function) = functions
+            .iter()
+            .find(|f| *line >= f.line_start && *line <= f.line_end)
+            && function.complexity <= max_complexity_allowed
+        {
+            removable.push((
+                *line,
+                comment.clone(),
+                function.name.clone(),
+                function.complexity,
+            ));
+        }
+    }
+    removable
+}
+
+#[cfg(test)]
+#[path = "tests/removable.rs"]
+mod tests;

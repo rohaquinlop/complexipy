@@ -20,10 +20,12 @@ use pyo3::prelude::*;
 mod _complexipy {
     use super::classes::{
         Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
-        IgnoredLocation, LineComplexity, RefactorPlan, RuleCategory,
+        IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
     };
     use super::cognitive_complexity::code_complexity;
-    use super::runner::{collect_all_ignored_locations, file_complexity, main};
+    use super::runner::{
+        collect_all_ignored_locations, collect_removable_ignored_locations, file_complexity, main,
+    };
     use super::utils::{create_snapshot_file, load_snapshot_file, output_csv, output_json};
     use pyo3::prelude::*;
 
@@ -33,6 +35,7 @@ mod _complexipy {
         m.add_function(wrap_pyfunction!(file_complexity, m)?)?;
         m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
         m.add_function(wrap_pyfunction!(collect_all_ignored_locations, m)?)?;
+        m.add_function(wrap_pyfunction!(collect_removable_ignored_locations, m)?)?;
         m.add_function(wrap_pyfunction!(output_csv, m)?)?;
         m.add_function(wrap_pyfunction!(output_json, m)?)?;
         m.add_function(wrap_pyfunction!(create_snapshot_file, m)?)?;
@@ -45,6 +48,7 @@ mod _complexipy {
         m.add_class::<IgnoredLocation>()?;
         m.add_class::<LineComplexity>()?;
         m.add_class::<RefactorPlan>()?;
+        m.add_class::<RemovableIgnore>()?;
         m.add_class::<RuleCategory>()?;
         Ok(())
     }

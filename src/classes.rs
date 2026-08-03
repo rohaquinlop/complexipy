@@ -158,3 +158,18 @@ pub struct IgnoredLocation {
     pub line: u64,
     pub comment: String,
 }
+
+#[cfg(feature = "python")]
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[cfg_attr(feature = "python", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+pub struct RemovableIgnore {
+    pub path: String,
+    pub line: u64,
+    pub comment: String,
+    pub function: String,
+    pub complexity: u64,
+}

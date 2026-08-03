@@ -1,16 +1,17 @@
-use crate::classes::{FileComplexity, IgnoredLocation};
-use crate::cognitive_complexity::code_complexity;
+use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
+use crate::cognitive_complexity::{code_complexity, function_level_cognitive_complexity_shared};
 use crate::helpers::exclude::get_paths_to_process;
-use crate::utils::{collect_ignored_locations, get_repo_name};
+use crate::utils::{collect_ignored_locations, filter_removable_ignores, get_repo_name};
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use regex::Regex;
+use ruff_python_parser::parse_module;
 use std::env;
 use std::path;
 use std::process;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tempfile::tempdir;
 
@@ -35,14 +36,11 @@ pub fn main(
 ) -> PyResult<ComplexitiesAndFailedPaths> {
     let _ = invocation_path;
 
-    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
-
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
 
     for path in paths {
-        let is_url = re.is_match(&path);
+        let is_url = is_repo_url(&path);
         let path_obj = path::Path::new(&path);
         let exists = path_obj.exists();
         let is_dir = path_obj.is_dir();
@@ -306,24 +304,63 @@ pub fn collect_all_ignored_locations(
     let _invocation_dir = path::Path::new(invocation_path)
         .canonicalize()
         .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    collect_locations(&paths, &exclude, collect_file_ignored_locations)
+}
 
+#[pyfunction]
+#[pyo3(signature = (paths, exclude, max_complexity_allowed, invocation_path="."))]
+pub fn collect_removable_ignored_locations(
+    paths: Vec<String>,
+    exclude: Vec<String>,
+    max_complexity_allowed: u64,
+    invocation_path: &str,
+) -> PyResult<(Vec<RemovableIgnore>, Vec<String>)> {
+    let _invocation_dir = path::Path::new(invocation_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    collect_locations(&paths, &exclude, |file_path, base_dir| {
+        collect_removable_ignores_from_file(file_path, base_dir, max_complexity_allowed)
+    })
+}
+
+trait Located {
+    fn sort_key(&self) -> (String, u64);
+}
+
+impl Located for IgnoredLocation {
+    fn sort_key(&self) -> (String, u64) {
+        (self.path.clone(), self.line)
+    }
+}
+
+impl Located for RemovableIgnore {
+    fn sort_key(&self) -> (String, u64) {
+        (self.path.clone(), self.line)
+    }
+}
+
+fn collect_locations<T, F>(
+    paths: &[String],
+    exclude: &[String],
+    collect_file: F,
+) -> PyResult<(Vec<T>, Vec<String>)>
+where
+    T: Located,
+    F: Fn(&str, &str) -> PyResult<Vec<T>> + Copy,
+{
     let mut all_locations = Vec::new();
     let mut failed_paths = Vec::new();
 
-    let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
-
-    for path_str in &paths {
+    for path_str in paths {
         let path_obj = path::Path::new(path_str);
-        let is_url = re.is_match(path_str);
 
-        if is_url {
-            match collect_ignored_locations_from_url(path_str, &exclude) {
+        if is_repo_url(path_str) {
+            match collect_from_url(path_str, exclude, collect_file) {
                 Ok(locs) => all_locations.extend(locs),
                 Err(_) => failed_paths.push(path_str.to_string()),
             }
         } else if path_obj.is_dir() {
-            let files = match get_paths_to_process(path_str, exclude.clone()) {
+            let files = match get_paths_to_process(path_str, exclude.to_vec()) {
                 Ok(paths) => paths,
                 Err(e) => {
                     failed_paths.push(format!("{}: {}", path_str, e));
@@ -338,13 +375,13 @@ pub fn collect_all_ignored_locations(
                 .to_string_lossy()
                 .replace('\\', "/");
             for file_path in &files {
-                if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
+                if let Ok(locs) = collect_file(file_path, &base_dir) {
                     all_locations.extend(locs)
                 }
             }
         } else if path_obj.is_file() {
             let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");
-            if let Ok(locs) = collect_file_ignored_locations(path_str, parent_dir) {
+            if let Ok(locs) = collect_file(path_str, parent_dir) {
                 all_locations.extend(locs)
             }
         } else {
@@ -352,14 +389,20 @@ pub fn collect_all_ignored_locations(
         }
     }
 
-    all_locations.sort_by_key(|loc| (loc.path.clone(), loc.line));
+    all_locations.sort_by_key(Located::sort_key);
     Ok((all_locations, failed_paths))
 }
 
-fn collect_ignored_locations_from_url(
-    url: &str,
-    exclude: &[String],
-) -> PyResult<Vec<IgnoredLocation>> {
+fn is_repo_url(path: &str) -> bool {
+    static REPO_URL_RE: OnceLock<Regex> = OnceLock::new();
+    let re = REPO_URL_RE.get_or_init(|| {
+        Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
+            .expect("valid repository pattern")
+    });
+    re.is_match(path)
+}
+
+fn clone_repo_to_tempdir(url: &str) -> PyResult<(tempfile::TempDir, String)> {
     let dir = tempdir()?;
     let repo_name = get_repo_name(url)?;
     env::set_current_dir(&dir)?;
@@ -389,6 +432,14 @@ fn collect_ignored_locations_from_url(
     }
 
     let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
+    Ok((dir, repo_path))
+}
+
+fn collect_from_url<T, F>(url: &str, exclude: &[String], collect_file: F) -> PyResult<Vec<T>>
+where
+    F: Fn(&str, &str) -> PyResult<Vec<T>>,
+{
+    let (dir, repo_path) = clone_repo_to_tempdir(url)?;
     let files =
         get_paths_to_process(&repo_path, exclude.to_vec()).map_err(PyValueError::new_err)?;
     let base_dir = path::Path::new(&repo_path)
@@ -401,11 +452,46 @@ fn collect_ignored_locations_from_url(
 
     let mut locations = Vec::new();
     for file_path in &files {
-        if let Ok(locs) = collect_file_ignored_locations(file_path, &base_dir) {
+        if let Ok(locs) = collect_file(file_path, &base_dir) {
             locations.extend(locs);
         }
     }
 
     dir.close()?;
     Ok(locations)
+}
+
+fn collect_removable_ignores_from_file(
+    file_path: &str,
+    base_path: &str,
+    max_complexity_allowed: u64,
+) -> PyResult<Vec<RemovableIgnore>> {
+    let path = path::Path::new(file_path);
+    let relative_path = path
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path);
+    let code = std::fs::read_to_string(file_path).map_err(|e| {
+        PyValueError::new_err(format!("Failed to read file '{}': {}", file_path, e))
+    })?;
+    let locations = collect_ignored_locations(&code);
+    if locations.is_empty() {
+        return Ok(vec![]);
+    }
+    let parsed = parse_module(&code)
+        .map_err(|e| PyValueError::new_err(format!("Failed to parse code: {}", e)))?;
+    let ast_body = parsed.into_suite();
+    let (functions, _) = function_level_cognitive_complexity_shared(&ast_body, &code, false, true);
+    let removable = filter_removable_ignores(&locations, &functions, max_complexity_allowed);
+    Ok(removable
+        .into_iter()
+        .map(|(line, comment, function, complexity)| RemovableIgnore {
+            path: relative_path.to_string(),
+            line,
+            comment,
+            function,
+            complexity,
+        })
+        .collect())
 }

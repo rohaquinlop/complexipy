@@ -9,8 +9,10 @@ from complexipy._complexipy import (
     IgnoredLocation,
     LineComplexity,
     RefactorPlan,
+    RemovableIgnore,
     RuleCategory,
     collect_all_ignored_locations,
+    collect_removable_ignored_locations,
 )
 from complexipy.api import (
     code_complexity,
@@ -34,9 +36,11 @@ __all__ = [
     "IgnoredLocation",
     "LineComplexity",
     "RefactorPlan",
+    "RemovableIgnore",
     "RuleCategory",
     "code_complexity",
     "collect_all_ignored_locations",
+    "collect_removable_ignored_locations",
     "compute_diff",
     "file_complexity",
     "has_regressions",

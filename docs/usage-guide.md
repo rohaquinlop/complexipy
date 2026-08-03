@@ -703,6 +703,40 @@ for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
 ```
 
+### Removing Stale Ignore Comments
+
+An ignore comment is only necessary while the suppressed function's complexity
+exceeds `--max-complexity-allowed`. Once the function's complexity drops to or
+below the limit, the comment is stale and can be removed. complexipy detects
+this automatically on every run and reports the locations to clean up:
+
+```bash
+complexipy .
+```
+
+Example output:
+
+```text
+The following ignore comment(s) are no longer necessary (complexity is within the allowed limit) and can be removed:
+src/legacy.py:42  function=parse_legacy_config complexity=8  # complexipy: ignore
+```
+
+The report is purely informational: it never affects the exit code, and it is
+suppressed under `--quiet`. The same detection is available programmatically
+via `collect_removable_ignored_locations()`:
+
+```python
+from complexipy import collect_removable_ignored_locations
+
+removable, failed = collect_removable_ignored_locations(
+    paths=["src"],
+    exclude=["tests/"],
+    max_complexity_allowed=15,
+)
+for rem in removable:
+    print(f"{rem.path}:{rem.line}  function={rem.function} complexity={rem.complexity}")
+```
+
 ## CI/CD Integration
 
 ### GitHub Actions
