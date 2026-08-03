@@ -599,18 +599,23 @@ def test_split_dispatcher_elif_reduction_does_not_overstate() -> None:
     assert plan.estimated_reduction <= real_reduction
 
 
-def test_collapsible_if_with_unabsorbed_tail_does_not_overstate_reduction() -> None:
+def test_collapsible_if_with_unabsorbed_tail_does_not_overstate_reduction() -> (
+    None
+):
     """Regression test: when the if-chain doesn't reach all the way down to a
     leaf statement (here, a `for` loop the chain can't absorb), that tail
     survives the merge -- just dedented -- so it must still be charged
     against `new_complexity`. Before this fix, `old_complexity` (which rolls
     up the whole subtree) was compared against only the merged if's own cost,
     silently dropping the tail and overstating the reduction 2x."""
-    func = first_func(load_source("reduction_math_collapsible_if_remaining_subtree.py"))
+    func = first_func(
+        load_source("reduction_math_collapsible_if_remaining_subtree.py")
+    )
     plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
 
     real_reduction = measured_reduction(
-        "reduction_math_collapsible_if_remaining_subtree_after.py", func.complexity
+        "reduction_math_collapsible_if_remaining_subtree_after.py",
+        func.complexity,
     )
     assert real_reduction == 2
     assert 1 <= plan.estimated_reduction <= real_reduction
