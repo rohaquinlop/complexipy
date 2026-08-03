@@ -56,3 +56,26 @@ def handle_report_ignored(
             json.dump(ignored_data, f, indent=2)
             f.write("\n")
         console.print(f"Ignored locations saved at {ignored_json_path}")
+
+
+def handle_removable_ignores(
+    console: Console,
+    paths: Optional[List[str]],
+    exclude: Optional[List[str]],
+    max_complexity_allowed: int,
+    invocation_path: str,
+) -> None:
+    removable_ignores, _ = _complexipy.collect_removable_ignored_locations(
+        paths or [], exclude or [], max_complexity_allowed, invocation_path
+    )
+    if not removable_ignores:
+        return
+    console.print(
+        "\nThe following ignore comment(s) are no longer necessary "
+        "(complexity is within the allowed limit) and can be removed:"
+    )
+    for rem in removable_ignores:
+        console.print(
+            f"{rem.path}:{rem.line}  function={rem.function} "
+            f"complexity={rem.complexity}  {rem.comment}"
+        )

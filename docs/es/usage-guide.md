@@ -701,6 +701,41 @@ for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
 ```
 
+### Eliminar Comentarios de Ignore Obsoletos
+
+Un comentario de ignore solo es necesario mientras la complejidad de la función
+suprimida supere `--max-complexity-allowed`. Cuando la complejidad de la función
+baje al límite o por debajo de él, el comentario queda obsoleto y puede
+eliminarse. complexipy detecta esto automáticamente en cada ejecución e informa
+las ubicaciones que puedes limpiar:
+
+```bash
+complexipy .
+```
+
+Ejemplo de salida:
+
+```text
+The following ignore comment(s) are no longer necessary (complexity is within the allowed limit) and can be removed:
+src/legacy.py:42  function=parse_legacy_config complexity=8  # complexipy: ignore
+```
+
+El informe es puramente informativo: nunca afecta al código de salida y se
+suprime bajo `--quiet`. La misma detección está disponible programáticamente vía
+`collect_removable_ignored_locations()`:
+
+```python
+from complexipy import collect_removable_ignored_locations
+
+removable, failed = collect_removable_ignored_locations(
+    paths=["src"],
+    exclude=["tests/"],
+    max_complexity_allowed=15,
+)
+for rem in removable:
+    print(f"{rem.path}:{rem.line}  function={rem.function} complexity={rem.complexity}")
+```
+
 ## Integración con CI/CD
 
 ### GitHub Actions

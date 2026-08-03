@@ -36,7 +36,10 @@ from complexipy.utils.diff import (
     has_regressions,
     resolve_diff_flags,
 )
-from complexipy.utils.ignored import handle_report_ignored
+from complexipy.utils.ignored import (
+    handle_removable_ignores,
+    handle_report_ignored,
+)
 from complexipy.utils.output import (
     emit_deprecated_output_warnings,
     handle_console_settings,
@@ -355,6 +358,15 @@ def main(
         cfg.no_ignore,
         INVOCATION_PATH,
     )
+
+    if not cfg.quiet:
+        handle_removable_ignores(
+            console,
+            cfg.paths,
+            cfg.exclude,
+            cfg.max_complexity_allowed,
+            INVOCATION_PATH,
+        )
 
     if cfg.quiet:
         snapshot_ok = snap.watermark_success if snap.should_run else True

@@ -159,13 +159,15 @@ complexipy/main.py       Typer CLI — pure orchestrator, no logic of its own
 
 Every Rust-side type crosses into Python through `src/classes.rs` (`FileComplexity`,
 `FunctionComplexity`, `LineComplexity`, `RefactorPlan`, `CodeSuggestion`,
-`RuleCategory`, `Applicability`, `IgnoredLocation`, `CodeComplexity`). Changing one of
+`RuleCategory`, `Applicability`, `IgnoredLocation`, `RemovableIgnore`,
+`CodeComplexity`). Changing one of
 those structs means updating **three** places in lockstep: `src/classes.rs` → the
 `#[pymodule]` export list in `src/lib.rs` → the stubs in `complexipy/_complexipy.pyi`.
 
 `complexipy/__init__.py` is the public Python API surface: `code_complexity`,
-`file_complexity`, `collect_all_ignored_locations`, `compute_diff`, `has_regressions`,
-and the `DiffEntry` / `DiffStatus` types. Those exports, their signatures, and the
+`file_complexity`, `collect_all_ignored_locations`,
+`collect_removable_ignored_locations`, `compute_diff`, `has_regressions`, and the
+`DiffEntry` / `DiffStatus` types. Those exports, their signatures, and the
 `DiffStatus` values are a compatibility promise — internal refactors must keep them
 stable, and new exports belong in `__init__.py` + `__all__` with docs in `docs/` (EN + ES).
 
@@ -181,7 +183,8 @@ stable, and new exports belong in `__init__.py` + `__all__` with docs in `docs/`
   structure, they consume regions.
 - `src/rules/` — the refactor rule system (see below).
 - `src/runner.rs` — path/dir/git-URL expansion, exclusion globs, progress bar, and the
-  `#[pyfunction]`s (`main`, `file_complexity`, `collect_all_ignored_locations`).
+  `#[pyfunction]`s (`main`, `file_complexity`, `collect_all_ignored_locations`,
+  `collect_removable_ignored_locations`).
 - `src/utils.rs` — CSV/JSON writers, snapshot file I/O, and AST helpers
   (`count_bool_ops`, noqa/ignore-comment scanning).
 - `src/wasm.rs` — the browser entry point; calls the same

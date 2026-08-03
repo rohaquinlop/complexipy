@@ -436,6 +436,196 @@ def hello_world(s: str) -> str:
         assert "sample.py:1" in result.output
         assert "Found 1 suppressed location(s)" in result.output
 
+    # ── Removable ignore comments tests ──────────────────────────────
+
+    def test_removable_ignores_reported_automatically(
+        self, tmp_path, monkeypatch
+    ):
+        """Runs report ignore comments whose function is within the limit."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def simple(a):  # complexipy: ignore\n"
+            "    return a\n"
+            "\n"
+            "def complex_fn(a, b):  # complexipy: ignore\n"
+            "    if a and b:\n"
+            "        return a + b\n"
+            "    elif a or b:\n"
+            "        return a or b\n"
+            "    else:\n"
+            "        return 0\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--max-complexity-allowed", "5", str(source_file)],
+        )
+        assert result.exit_code == 0
+        assert "sample.py:1" in result.output
+        assert "function=simple" in result.output
+        assert "complexity=0" in result.output
+        assert "function=complex_fn" not in result.output
+
+    def test_removable_ignores_at_threshold(self, tmp_path, monkeypatch):
+        """A marker is removable when complexity equals the allowed limit."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def simple(a):  # complexipy: ignore\n    return a\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--max-complexity-allowed", "0", str(source_file)],
+        )
+        assert result.exit_code == 0
+        assert "function=simple" in result.output
+        assert "complexity=0" in result.output
+
+    def test_removable_ignores_legacy_noqa_and_decorated(
+        self, tmp_path, monkeypatch
+    ):
+        """Line-above markers, decorators, and legacy noqa are reported."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "# complexipy: ignore\n"
+            "def above(a):\n"
+            "    return a\n"
+            "\n"
+            "@staticmethod\n"
+            "def decorated(a):  # noqa: complexipy\n"
+            "    return a\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main_module.app, [str(source_file)])
+        assert result.exit_code == 0
+        assert "function=above" in result.output
+        assert "function=decorated" in result.output
+        assert "# noqa: complexipy" in result.output
+
+    def test_removable_ignores_no_markers(self, tmp_path, monkeypatch):
+        """A clean file produces no removable-ignore report."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "clean.py"
+        source_file.write_text("def foo():\n    return 1\n", encoding="utf-8")
+
+        result = runner.invoke(main_module.app, [str(source_file)])
+        assert result.exit_code == 0
+        assert "can be removed" not in result.output
+
+    def test_removable_ignores_suppressed_under_quiet(
+        self, tmp_path, monkeypatch
+    ):
+        """--quiet suppresses the automatic removable-ignore report."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def simple(a):  # complexipy: ignore\n    return a\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main_module.app, ["--quiet", str(source_file)])
+        assert result.exit_code == 0
+        assert "can be removed" not in result.output
+
+    def test_removable_ignores_respects_exclude(self, tmp_path, monkeypatch):
+        """The removable-ignore report only scans files not excluded."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "a.py").write_text(
+            "def foo():  # complexipy: ignore\n    pass\n", encoding="utf-8"
+        )
+        (tmp_path / "src" / "b.py").write_text(
+            "def bar():  # complexipy: ignore\n    pass\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--exclude", "b.py", str(tmp_path / "src")],
+        )
+        assert result.exit_code == 0
+        assert "function=foo" in result.output
+        assert "function=bar" not in result.output
+
+    def test_removable_ignores_printed_with_failed(self, tmp_path, monkeypatch):
+        """The report still prints when --failed filters the display."""
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            "def simple(a):  # complexipy: ignore\n"
+            "    return a\n"
+            "\n"
+            "def no_marker(a, b):\n"
+            "    if a and b:\n"
+            "        return a + b\n"
+            "    elif a or b:\n"
+            "        return a or b\n"
+            "    else:\n"
+            "        return 0\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            main_module.app,
+            ["--failed", "--max-complexity-allowed", "5", str(source_file)],
+        )
+        assert result.exit_code == 1
+        assert "no_marker" in result.output
+        assert "function=simple" in result.output
+
+    def test_collect_removable_ignored_locations_api(self, tmp_path):
+        """Python API: collect_removable_ignored_locations returns removable markers."""
+        from complexipy import collect_removable_ignored_locations
+
+        source = tmp_path / "app.py"
+        source.write_text(
+            "def simple(a):  # complexipy: ignore\n    return a\n",
+            encoding="utf-8",
+        )
+        removable, failed = collect_removable_ignored_locations(
+            [str(source)], [], 15
+        )
+        assert failed == []
+        assert len(removable) == 1
+        assert removable[0].path == "app.py"
+        assert removable[0].line == 1
+        assert removable[0].function == "simple"
+        assert removable[0].complexity == 0
+        assert removable[0].comment == "# complexipy: ignore"
+
     def test_exclude(self):
         path = self.local_path / "src"
         files, _ = _complexipy.main(
