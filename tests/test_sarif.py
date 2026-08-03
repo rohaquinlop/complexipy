@@ -104,3 +104,36 @@ class TestSarif:
         rules = doc["runs"][0]["tool"]["driver"]["rules"]
         assert len(rules) == 1
         assert rules[0]["id"] == _RULE_ID
+
+    def test_sarif_omits_refactor_plan_results_by_default(self):
+        files, max_complexity = self._build_file_complexity(5)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "results.sarif")
+            store_sarif(out, files, max_complexity)
+            with open(out) as f:
+                doc = json.load(f)
+        results = doc["runs"][0]["results"]
+        assert all(r["ruleId"] == _RULE_ID for r in results)
+
+    def test_sarif_includes_refactor_plan_rules_when_requested(self):
+        files, max_complexity = self._build_file_complexity(5)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "results.sarif")
+            store_sarif(out, files, max_complexity, suggest_refactors=True)
+            with open(out) as f:
+                doc = json.load(f)
+
+        rules = doc["runs"][0]["tool"]["driver"]["rules"]
+        rule_ids = {rule["id"] for rule in rules}
+        assert _RULE_ID in rule_ids
+        refactor_rule_ids = rule_ids - {_RULE_ID}
+        assert refactor_rule_ids
+        assert all(rid.startswith("C") for rid in refactor_rule_ids)
+
+        results = doc["runs"][0]["results"]
+        refactor_results = [r for r in results if r["ruleId"] != _RULE_ID]
+        assert refactor_results
+        result = refactor_results[0]
+        region = result["locations"][0]["physicalLocation"]["region"]
+        assert region["startLine"] >= 1
+        assert region["startColumn"] >= 1

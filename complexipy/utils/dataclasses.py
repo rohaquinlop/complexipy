@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from complexipy._complexipy import RefactorPlan
+from complexipy._complexipy import (
+    RefactorPlan,
+)
 
 
 @dataclass
@@ -14,6 +16,7 @@ class FunctionRow:
     path: str
     file_name: str
     refactor_plans: List[RefactorPlan]
+    additional_refactor_plans: int
 
 
 @dataclass

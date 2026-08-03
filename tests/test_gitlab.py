@@ -90,6 +90,46 @@ class TestGitlabOutput:
         report = json.loads(output_file.read_text(encoding="utf-8"))
         assert report == []
 
+    def test_gitlab_report_omits_refactor_plans_by_default(
+        self, tmp_path: Path
+    ):
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+        output_file = tmp_path / "results.gitlab.json"
+
+        store_gitlab(
+            output_file.as_posix(),
+            _build_file_complexity(source_file),
+            max_complexity=5,
+        )
+
+        report = json.loads(output_file.read_text(encoding="utf-8"))
+        assert all(entry["check_name"] == _CHECK_NAME for entry in report)
+
+    def test_gitlab_report_includes_refactor_plans_when_requested(
+        self, tmp_path: Path
+    ):
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_SNIPPET, encoding="utf-8")
+        output_file = tmp_path / "results.gitlab.json"
+
+        store_gitlab(
+            output_file.as_posix(),
+            _build_file_complexity(source_file),
+            max_complexity=5,
+            suggest_refactors=True,
+        )
+
+        report = json.loads(output_file.read_text(encoding="utf-8"))
+        refactor_entries = [
+            entry for entry in report if entry["check_name"] != _CHECK_NAME
+        ]
+        assert refactor_entries
+        entry = refactor_entries[0]
+        assert entry["check_name"].startswith("complexipy/c")
+        assert entry["severity"] in {"info", "minor", "major"}
+        assert entry["location"]["lines"]["begin"] >= 1
+
     def test_cli_output_gitlab_creates_expected_file(
         self, tmp_path: Path, monkeypatch
     ):

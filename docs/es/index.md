@@ -259,12 +259,16 @@ Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de plane
 complexipy . --failed --suggest-refactors
 ```
 
-Salida de ejemplo:
+Salida de ejemplo (abreviada -- la salida real también muestra un tramo subrayado con acentos circunflejos, el código fuente circundante y un enlace a la documentación):
 
 ```text
-Refactor plans:
-  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
-    - invert the outer condition and return early
+      [1] C007 Merge nested if statements
+          --> sample.py:4:9
+          Category: ◆ Readability | Applicability: * Safe to apply
+          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
+
+          Suggestion: * Safe to apply
+          Merge nested conditions into `if item.active and item.ready:`
 ```
 
 Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
@@ -379,7 +383,7 @@ Cuando `--output-format json` también está activo, las ubicaciones ignoradas s
 
 ## Referencia de la API
 
-```python
+```text
 # Funciones principales
 file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
 code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
@@ -405,10 +409,27 @@ RefactorPlan:
   ├─ title: str
   ├─ line_start: int
   ├─ line_end: int
+  ├─ column_start: int
   ├─ current_complexity: int
   ├─ estimated_reduction: int
   ├─ estimated_complexity_after: int
-  └─ steps: List[str]
+  ├─ rule_id: str
+  ├─ category: RuleCategory
+  ├─ applicability: Applicability
+  ├─ description: str
+  ├─ explanation: str
+  ├─ references: List[str]
+  ├─ suggestion: Optional[CodeSuggestion]
+  ├─ help: Optional[str]
+  └─ doc_url: str
+
+CodeSuggestion:
+  ├─ replacement: str
+  ├─ applicability: Applicability
+  └─ description: str
+
+RuleCategory: Complexity | Readability
+Applicability: MachineApplicable | MaybeIncorrect | Informational
 
 LineComplexity:
   ├─ line: int

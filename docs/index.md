@@ -258,12 +258,16 @@ Use `--suggest-refactors` to print a small, ranked set of deterministic refactor
 complexipy . --failed --suggest-refactors
 ```
 
-Sample output:
+Sample output (abbreviated -- the real output also shows a caret-underlined span, the surrounding source, and a documentation link):
 
 ```text
-Refactor plans:
-  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
-    - invert the outer condition and return early
+      [1] C007 Merge nested if statements
+          --> sample.py:4:9
+          Category: ◆ Readability | Applicability: * Safe to apply
+          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
+
+          Suggestion: * Safe to apply
+          Merge nested conditions into `if item.active and item.ready:`
 ```
 
 Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
@@ -378,7 +382,7 @@ When `--output-format json` is also active, ignored locations are exported to `c
 
 ## API Reference
 
-```python
+```text
 # Core functions
 file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
 code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
@@ -404,10 +408,27 @@ RefactorPlan:
   ├─ title: str
   ├─ line_start: int
   ├─ line_end: int
+  ├─ column_start: int
   ├─ current_complexity: int
   ├─ estimated_reduction: int
   ├─ estimated_complexity_after: int
-  └─ steps: List[str]
+  ├─ rule_id: str
+  ├─ category: RuleCategory
+  ├─ applicability: Applicability
+  ├─ description: str
+  ├─ explanation: str
+  ├─ references: List[str]
+  ├─ suggestion: Optional[CodeSuggestion]
+  ├─ help: Optional[str]
+  └─ doc_url: str
+
+CodeSuggestion:
+  ├─ replacement: str
+  ├─ applicability: Applicability
+  └─ description: str
+
+RuleCategory: Complexity | Readability
+Applicability: MachineApplicable | MaybeIncorrect | Informational
 
 LineComplexity:
   ├─ line: int

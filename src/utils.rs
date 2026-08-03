@@ -98,11 +98,13 @@ pub fn output_csv(
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (invocation_path, functions_complexity, show_detailed_results, max_complexity, suggest_refactors=false))]
 pub fn output_json(
     invocation_path: &str,
     functions_complexity: Vec<FileComplexity>,
     show_detailed_results: bool,
     max_complexity: i32,
+    suggest_refactors: bool,
 ) -> PyResult<()> {
     let mut json_data = Vec::new();
     let max_complexity_limit = u64::try_from(max_complexity)
@@ -111,12 +113,17 @@ pub fn output_json(
     for file in functions_complexity {
         for function in file.functions {
             if show_detailed_results || function.complexity > max_complexity_limit {
+                let refactor_plans = if suggest_refactors {
+                    function.refactor_plans
+                } else {
+                    Vec::new()
+                };
                 let entry = serde_json::json!({
                     "path": file.path,
                     "file_name": file.file_name,
                     "function_name": function.name,
                     "complexity": function.complexity,
-                    "refactor_plans": function.refactor_plans
+                    "refactor_plans": refactor_plans
                 });
                 json_data.push(entry);
             }
@@ -381,6 +388,16 @@ pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
     (newline_count + 1) as u64
 }
 
+#[cfg(any(feature = "python", feature = "wasm"))]
+pub fn get_column_number(byte_index: usize, code: &str) -> u64 {
+    let before_slice = &code[..byte_index];
+    let column_start = match before_slice.rfind('\n') {
+        Some(newline_index) => newline_index + 1,
+        None => 0,
+    };
+    (before_slice[column_start..].chars().count() + 1) as u64
+}
+
 /// Extract a canonical ignore comment marker from a line.
 ///
 /// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
@@ -478,7 +495,7 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
 /// Collect ignored locations from code, only reporting markers that
 /// actually suppress a function definition (i.e., are adjacent to `def`
 /// or `@decorator` lines).
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(feature = "python")]
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     let mut results = Vec::new();
     let lines: Vec<&str> = code.lines().collect();
@@ -494,8 +511,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
             }
             idx += 1;
         } else if trimmed.starts_with('@') {
-            // Scan forward to find the def line, use its line number for
-            // both the comment lookup and the reported location.
             let max_scan = (idx + 10).min(lines.len());
             let mut def_line_number = None;
             for (inner_idx, inner_line) in lines
@@ -520,8 +535,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
                 results.push((dln, comment));
                 reported = true;
             }
-            // Skip remaining decorators in the chain so they don't
-            // re-scan and produce duplicate entries.
             while idx + 1 < lines.len() {
                 let next = lines[idx + 1].trim_start();
                 if next.starts_with('@') || next.is_empty() {
@@ -530,7 +543,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
                     break;
                 }
             }
-            // Skip the def line too if we already reported from this chain
             if reported && idx + 1 < lines.len() && lines[idx + 1].trim_start().starts_with("def ")
             {
                 idx += 1;

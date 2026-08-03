@@ -7,7 +7,45 @@ understand and maintain, focusing on control flow structures that make code
 harder to reason about.
 """
 
-from typing import List, Tuple
+from enum import Enum
+from typing import List, Optional, Tuple
+
+class RuleCategory(Enum):
+    """Category of a refactoring rule."""
+
+    Complexity = "Complexity"
+    """Rules that reduce cognitive complexity."""
+
+    Readability = "Readability"
+    """Rules that improve code readability."""
+
+class Applicability(Enum):
+    """Applicability level for refactoring suggestions."""
+
+    MachineApplicable = "MachineApplicable"
+    """Safe to apply automatically without human review."""
+
+    MaybeIncorrect = "MaybeIncorrect"
+    """May be incorrect in some cases, needs human review."""
+
+    Informational = "Informational"
+    """Informational only, not directly actionable."""
+
+class CodeSuggestion:
+    """A concrete code suggestion with replacement text and applicability."""
+
+    replacement: str
+    """The suggested replacement code."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Description of what this suggestion does."""
+
+    def __init__(
+        self, replacement: str, applicability: Applicability, description: str
+    ) -> None: ...
 
 class LineComplexity:
     """
@@ -43,16 +81,63 @@ class LineComplexity:
     def __init__(self, line: int, complexity: int) -> None: ...
 
 class RefactorPlan:
-    """Deterministic refactoring plan for reducing one function's complexity."""
+    """Deterministic refactoring plan for reducing one function's complexity.
+
+    This plan includes clippy-style metadata with rule information,
+    concrete suggestions or help text, and detailed explanations to help
+    developers and AI agents understand and apply the refactoring.
+    """
 
     kind: str
+    """Type of refactoring (e.g., 'flatten_condition', 'extract_helper')."""
+
     title: str
+    """Human-readable title of the refactoring suggestion."""
+
     line_start: int
+    """Starting line number of the code region to refactor."""
+
     line_end: int
+    """Ending line number of the code region to refactor."""
+
+    column_start: int
+    """1-indexed starting column of the offending construct on `line_start`."""
+
     current_complexity: int
+    """Current cognitive complexity of the function."""
+
     estimated_reduction: int
+    """Estimated complexity reduction from applying this refactoring."""
+
     estimated_complexity_after: int
-    steps: List[str]
+    """Estimated complexity after applying this refactoring."""
+
+    rule_id: str
+    """Unique identifier for the rule (e.g., 'C001', 'C007')."""
+
+    category: RuleCategory
+    """Category of the refactoring rule."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Detailed description of what the rule checks for."""
+
+    explanation: str
+    """Explanation of why this refactoring helps."""
+
+    references: List[str]
+    """Links to documentation and examples."""
+
+    suggestion: Optional[CodeSuggestion]
+    """Concrete code suggestion for machine-applicable rules."""
+
+    help: Optional[str]
+    """Help text with actionable guidance for informational rules."""
+
+    doc_url: str
+    """URL to the documentation page for this rule."""
 
     def __init__(
         self,
@@ -60,10 +145,19 @@ class RefactorPlan:
         title: str,
         line_start: int,
         line_end: int,
+        column_start: int,
         current_complexity: int,
         estimated_reduction: int,
         estimated_complexity_after: int,
-        steps: List[str],
+        rule_id: str,
+        category: RuleCategory,
+        applicability: Applicability,
+        description: str,
+        explanation: str,
+        references: List[str],
+        suggestion: Optional[CodeSuggestion],
+        help: Optional[str],
+        doc_url: str,
     ) -> None: ...
 
 class FunctionComplexity:
@@ -143,7 +237,10 @@ class FunctionComplexity:
     """
 
     refactor_plans: List[RefactorPlan]
-    """Ranked deterministic refactoring plans for this function."""
+    """Ranked deterministic refactoring plans for this function, capped at 5."""
+
+    additional_refactor_plans: int
+    """Count of further plans that survived dedup but were dropped by the cap."""
 
     def __init__(
         self,
@@ -153,6 +250,7 @@ class FunctionComplexity:
         line_end: int,
         line_complexities: List[LineComplexity],
         refactor_plans: List[RefactorPlan],
+        additional_refactor_plans: int,
     ) -> None: ...
 
 class FileComplexity:
@@ -529,6 +627,7 @@ def output_json(
     files_complexities: List[FileComplexity],
     show_details: bool,
     max_complexity: int,
+    suggest_refactors: bool = False,
 ) -> None:
     """
     Export complexity analysis results to a JSON file for programmatic consumption.
@@ -555,6 +654,11 @@ def output_json(
         max_complexity: Functions with complexity above this threshold may
                         be flagged or filtered in the output. Use 0 to include
                         all functions regardless of complexity.
+        suggest_refactors: If True, each function entry's `refactor_plans`
+                           is populated with its ranked suggestions. If
+                           False (the default), `refactor_plans` is an
+                           empty list, mirroring `--suggest-refactors` in
+                           the CLI.
 
     Raises:
         PermissionError: If the output path is not writable.

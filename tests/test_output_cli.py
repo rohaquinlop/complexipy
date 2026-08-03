@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -107,6 +108,18 @@ def sample(a, b, c, d):
             if c and d:
                 return 1
     return 0
+"""
+
+_MARKUP_LIKE_SNIPPET = """\
+def process(rows, a, b, flag):
+    if flag:
+        if rows:
+            if a:
+                if b:
+                    msg = "[bold red]danger[/bold red]"
+                    note = ["x", "y"]
+                    return rows[a][b], msg, note
+    return None
 """
 
 _MULTI_SNIPPET = """\
@@ -274,6 +287,29 @@ def b_mid(x):
         assert result.exit_code == 2
 
 
+_MANY_INDEPENDENT_PAIRS_SNIPPET = """\
+def f(a, b, c, d, e, g, h, i, j, k, m, n):
+    if a:
+        if b:
+            print(a)
+    if c:
+        if d:
+            print(c)
+    if e:
+        if g:
+            print(e)
+    if h:
+        if i:
+            print(h)
+    if j:
+        if k:
+            print(j)
+    if m:
+        if n:
+            print(m)
+"""
+
+
 class TestSuggestRefactorsOutput:
     def test_suggest_refactors_prints_plan_fragments(
         self, tmp_path: Path, monkeypatch
@@ -291,12 +327,122 @@ class TestSuggestRefactorsOutput:
         )
 
         assert result.exit_code == 0, result.output
-        assert "Refactor plans:" in result.output
-        assert (
-            "Flatten nested condition block with guard clauses" in result.output
+        assert "Refactor Suggestions:" in result.output
+        # With region overlap dedup, C007 (collapsible_if) wins over C001 (flatten_condition)
+        # because they fire on overlapping regions with equal priority and reduction.
+        assert "Merge nested if statements" in result.output
+        assert "C007" in result.output
+        # The exact reduction magnitude is intentionally NOT asserted here --
+        # dedicated reduction-math tests in test_refactor_plans.py cover the
+        # magnitude against measured ground truth; this test only guards the
+        # output *format*.
+        assert re.search(
+            r"Estimated reduction: -\d+ complexity \(\d+ -> \d+\)",
+            result.output,
         )
-        assert "estimated: 7 -> 5 (-2)" in result.output
-        assert "invert the outer condition" in result.output
+
+    def test_suggest_refactors_renders_path_line_col_anchor(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        # `if a:` is line 2, indented 4 spaces, so the outer `if` keyword
+        # starts at column 5.
+        assert re.search(r"--> .*sample\.py:2:5", result.output)
+        # `if a:` is 5 characters -- the caret underline should match exactly.
+        assert "^^^^^" in result.output
+
+    def test_suggest_refactors_renders_rule_doc_url(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """The rendered report must carry each rule's documentation link.
+
+        This is the end-to-end half of the doc_url guard: the Rust test proves
+        `plan.doc_url` matches the rule's metadata, and
+        `test_rule_metadata_has_doc_url` proves the value crosses into Python,
+        but only this asserts it actually reaches the terminal. C007 is the
+        regression case -- it previously rendered no `References:` section
+        because output.py resolved links from a hardcoded map that omitted it.
+        """
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_REFACTOR_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "References:" in result.output
+        assert "#c007-collapsible-if" in result.output
+
+    def test_suggest_refactors_renders_source_verbatim(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Rich markup in user source must never be interpreted or stripped.
+
+        Regression test for a bug where `console.print` fed raw source
+        through Rich's markup parser, silently deleting subscripts, list
+        literals, and anything resembling a `[tag]` from the suggestion the
+        user is told to copy.
+        """
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(_MARKUP_LIKE_SNIPPET, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            ["--suggest-refactors", str(source_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "rows[a][b]" in result.output
+        assert '["x", "y"]' in result.output
+        assert "[bold red]danger[/bold red]" in result.output
+
+    def test_suggest_refactors_reports_count_of_plans_dropped_by_the_cap(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(
+            _MANY_INDEPENDENT_PAIRS_SNIPPET, encoding="utf-8"
+        )
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        result = runner.invoke(
+            main_module.app,
+            [
+                "--suggest-refactors",
+                "--max-complexity-allowed",
+                "100",
+                str(source_file),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert len(re.findall(r"\[\d+\] C\d+", result.output)) == 5
+        assert "... and 1 more suggestion" in result.output
 
     def test_failed_with_suggest_refactors_only_shows_displayed_failures(
         self, tmp_path: Path, monkeypatch
@@ -318,7 +464,7 @@ class TestSuggestRefactorsOutput:
 
         assert result.exit_code == 1, result.output
         assert "sample 7" in result.output
-        assert "Refactor plans:" in result.output
+        assert "Refactor Suggestions:" in result.output
         assert "simple" not in result.output
 
     def test_plain_with_suggest_refactors_preserves_plain_output(

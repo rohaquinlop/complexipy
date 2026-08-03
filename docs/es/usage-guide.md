@@ -128,11 +128,24 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Varios formatos escritos en un directorio
 complexipy . --output-format json --output-format sarif --output reports/
+
+# Añade --suggest-refactors a cualquiera de los anteriores para incluir
+# también los hallazgos de las reglas de refactorización (C001, C007, ...)
+# como sus propios IDs de regla SARIF/GitLab, junto a los hallazgos de
+# complejidad cognitiva que siempre están presentes.
+complexipy . --output-format sarif --suggest-refactors
 ```
 
 Las flags heredadas como `--output-json` y las claves TOML como
 `output-json = true` siguen funcionando como alias deprecados por un ciclo de
 release.
+
+JSON, SARIF y GitLab Code Quality siguen la misma regla: los datos de los
+planes de refactorización (`refactor_plans` en JSON, hallazgos por regla en
+SARIF/GitLab) solo se emiten cuando también se pasa `--suggest-refactors`.
+Sin esa flag, solo aparecen los hallazgos del umbral de complejidad
+cognitiva -- igual que la salida enriquecida de la CLI, que también oculta
+las sugerencias de refactorización a menos que se active la flag.
 
 ### Diff de Complejidad
 
@@ -212,12 +225,16 @@ Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de plane
 complexipy . --failed --suggest-refactors
 ```
 
-Salida de ejemplo:
+Salida de ejemplo (abreviada -- la salida real también muestra un tramo subrayado con acentos circunflejos, el código fuente circundante y un enlace a la documentación):
 
 ```text
-Refactor plans:
-  • Flatten nested condition block with guard clauses (lines 3-8, estimated: 7 -> 5 (-2))
-    - invert the outer condition and return early
+      [1] C007 Merge nested if statements
+          --> sample.py:4:9
+          Category: ◆ Readability | Applicability: * Safe to apply
+          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
+
+          Suggestion: * Safe to apply
+          Merge nested conditions into `if item.active and item.ready:`
 ```
 
 Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
@@ -229,27 +246,38 @@ Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reesc
     {
         "path": "src",
         "file_name": "main.py",
-        "function_name": "process_data",
-        "complexity": 18,
+        "function_name": "process_items",
+        "complexity": 6,
         "refactor_plans": [
             {
-                "kind": "flatten_condition",
-                "title": "Flatten nested condition block with guard clauses",
-                "line_start": 12,
-                "line_end": 18,
-                "current_complexity": 18,
-                "estimated_reduction": 3,
-                "estimated_complexity_after": 15,
-                "steps": [
-                    "invert the outer condition and return early"
-                ]
+                "rule_id": "C007",
+                "kind": "collapsible_if",
+                "title": "Merge nested if statements",
+                "line_start": 4,
+                "line_end": 6,
+                "column_start": 9,
+                "current_complexity": 6,
+                "estimated_reduction": 2,
+                "estimated_complexity_after": 4,
+                "category": "Readability",
+                "applicability": "MachineApplicable",
+                "description": "Merge nested if statements into a single if with combined conditions",
+                "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
+                "references": [],
+                "suggestion": {
+                    "replacement": "        if item.active and item.ready:\n            total += item.value",
+                    "applicability": "MachineApplicable",
+                    "description": "Merge nested conditions into `if item.active and item.ready:`"
+                },
+                "help": null,
+                "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
             }
         ]
     }
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida e incluye `refactor_plans` (o `[]` cuando no existe ningún plan). La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 

@@ -10,10 +10,12 @@ def store_json(
     files_complexities: List[FileComplexity],
     show_details: bool,
     max_complexity: int,
+    suggest_refactors: bool = False,
 ) -> None:
     output_json(
         output_path,
         files_complexities,
         show_details,
         max_complexity,
+        suggest_refactors,
     )
