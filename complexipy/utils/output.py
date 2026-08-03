@@ -546,7 +546,7 @@ def _output_caret_span(
 
 def _output_help(console: Console, help_text: str) -> None:
     console.print("\n          [bold]Help:[/bold]")
-    console.print(f"          {help_text}")
+    console.print(f"          {escape(help_text)}")
 
 
 def _output_code_snippet(
