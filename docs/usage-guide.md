@@ -395,6 +395,53 @@ for func in result.functions:
     print(f"{func.name}: {func.complexity}")
 ```
 
+### Comparing Against a Git Reference
+
+`compute_diff` compares current complexity results against a git reference
+(commit, tag, or branch) and returns `DiffEntry` objects — one per function
+that changed, appeared, or disappeared. `has_regressions` reports whether any
+entry breaches a complexity threshold (a REGRESSED or NEW function above
+*max_complexity*).
+
+```python
+from complexipy import (
+    compute_diff,
+    has_regressions,
+    file_complexity,
+    DiffEntry,
+    DiffStatus,
+)
+
+# Analyze the current state of the files you care about
+current = [file_complexity(p) for p in changed_files]
+
+# Compare against a git reference (the working directory is the default cwd)
+entries = compute_diff(current, "origin/main")
+
+# Filter for regressions above your threshold
+regressions = [
+    e
+    for e in entries
+    if e.status == DiffStatus.REGRESSED and e.new_complexity > 15
+]
+
+# Or use the ratchet gate directly (fails on REGRESSED/NEW above threshold)
+if has_regressions(entries, 15):
+    raise SystemExit("Complexity regressions detected")
+```
+
+`DiffEntry` exposes `file_path`, `func_name`, `old_complexity`, and
+`new_complexity` (either may be `None` for NEW / REMOVED functions), plus the
+`status` and `delta` properties. `status` is a `DiffStatus` member — a
+`str`-based enum, so it compares equal to its string value (e.g.
+`DiffStatus.REGRESSED == "REGRESSED"`).
+
+```python
+for e in entries:
+    if e.status != DiffStatus.UNCHANGED:
+        print(f"{e.file_path}::{e.func_name}: {e.status} {e.delta}")
+```
+
 ### Practical API Usage
 
 **Example: Pre-commit Hook**

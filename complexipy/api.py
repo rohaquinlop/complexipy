@@ -84,11 +84,17 @@ def file_complexity(
         ...     if func.complexity > 10:
         ...         print(f"Complex function: {func.name} ({func.complexity})")
     """
-    path = Path(file_path)
-    base_path = path.parent
+    path = Path(file_path).resolve()
+    cwd = Path.cwd().resolve()
+    try:
+        path.relative_to(cwd)
+    except ValueError:
+        base_path = path.parent
+    else:
+        base_path = cwd
     return _complexipy.file_complexity(
-        path.resolve().as_posix(),
-        base_path.resolve().as_posix(),
+        path.as_posix(),
+        base_path.as_posix(),
         check_script,
         no_ignore,
     )

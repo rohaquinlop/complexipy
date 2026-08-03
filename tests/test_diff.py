@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 from unittest.mock import patch
 
+from complexipy import DiffStatus, file_complexity
 from complexipy._complexipy import main as _main
 from complexipy.types import ExitReport
 from complexipy.utils.diff import (
-    _STATUS_IMPROVED,
-    _STATUS_NEW,
-    _STATUS_REGRESSED,
-    _STATUS_REMOVED,
-    _STATUS_UNCHANGED,
     DiffEntry,
     _resolve_git_path,
     compute_diff,
@@ -68,23 +65,23 @@ def _make_file_complexity(code: str, path: str = "src/example.py"):
 class TestDiffEntry:
     def test_status_new(self):
         e = DiffEntry("f.py", "foo", None, 5)
-        assert e.status == _STATUS_NEW
+        assert e.status == DiffStatus.NEW
 
     def test_status_removed(self):
         e = DiffEntry("f.py", "foo", 5, None)
-        assert e.status == _STATUS_REMOVED
+        assert e.status == DiffStatus.REMOVED
 
     def test_status_regressed(self):
         e = DiffEntry("f.py", "foo", 3, 7)
-        assert e.status == _STATUS_REGRESSED
+        assert e.status == DiffStatus.REGRESSED
 
     def test_status_improved(self):
         e = DiffEntry("f.py", "foo", 7, 3)
-        assert e.status == _STATUS_IMPROVED
+        assert e.status == DiffStatus.IMPROVED
 
     def test_status_unchanged(self):
         e = DiffEntry("f.py", "foo", 4, 4)
-        assert e.status == _STATUS_UNCHANGED
+        assert e.status == DiffStatus.UNCHANGED
 
     def test_delta_change(self):
         e = DiffEntry("f.py", "foo", 3, 7)
@@ -111,7 +108,7 @@ class TestComputeDiff:
         ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
             entries = compute_diff(current, "HEAD~1", "/repo")
 
-        assert all(e.status == _STATUS_NEW for e in entries)
+        assert all(e.status == DiffStatus.NEW for e in entries)
         assert any(e.func_name == "with_if" for e in entries)
 
     def test_unchanged_function(self):
@@ -123,7 +120,7 @@ class TestComputeDiff:
             entries = compute_diff(current, "HEAD~1", "/repo")
 
         simple_entry = next(e for e in entries if e.func_name == "simple")
-        assert simple_entry.status == _STATUS_UNCHANGED
+        assert simple_entry.status == DiffStatus.UNCHANGED
 
     def test_regressed_function(self):
         current = [self._file(_COMPLEX)]
@@ -137,7 +134,7 @@ class TestComputeDiff:
             (e for e in entries if e.func_name == "complex_func"), None
         )
         assert complex_entry is not None
-        assert complex_entry.status == _STATUS_NEW  # not in old version
+        assert complex_entry.status == DiffStatus.NEW  # not in old version
 
     def test_improved_function(self):
         current = [self._file(_SIMPLE)]
@@ -152,7 +149,7 @@ class TestComputeDiff:
         )
         # simple didn't exist in old (complex) version → appears as new
         assert simple_entry is not None
-        assert simple_entry.status == _STATUS_NEW
+        assert simple_entry.status == DiffStatus.NEW
 
     def test_removed_function_appears_in_entries(self):
         # Current file has only `simple`; old had `simple` + `with_if`
@@ -165,7 +162,7 @@ class TestComputeDiff:
 
         removed = next((e for e in entries if e.func_name == "with_if"), None)
         assert removed is not None
-        assert removed.status == _STATUS_REMOVED
+        assert removed.status == DiffStatus.REMOVED
 
     def test_multiple_files(self):
         f1 = self._file(_SIMPLE, "a.py")
@@ -415,6 +412,54 @@ class TestResolveGitPath:
             )
         assert result == "complexipy/main.py"
 
+    def test_basename_fallback_unique_match(self):
+        """Bare basename resolves to the unique tracked file with that name."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=None,
+        ), patch(
+            "complexipy.utils.diff._git_tracked_paths",
+            return_value=["src/app.py", "complexipy/main.py"],
+        ):
+            result = _resolve_git_path("app.py", "main", "/repo")
+        assert result == "src/app.py"
+
+    def test_basename_fallback_exact_match(self):
+        """A tracked path equal to the bare basename is a match."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=None,
+        ), patch(
+            "complexipy.utils.diff._git_tracked_paths",
+            return_value=["app.py"],
+        ):
+            result = _resolve_git_path("app.py", "main", "/repo")
+        assert result == "app.py"
+
+    def test_basename_fallback_ambiguous_returns_original(self):
+        """Several tracked files share the basename — keep the original."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=None,
+        ), patch(
+            "complexipy.utils.diff._git_tracked_paths",
+            return_value=["src/app.py", "lib/app.py"],
+        ):
+            result = _resolve_git_path("app.py", "main", "/repo")
+        assert result == "app.py"
+
+    def test_basename_fallback_no_match_returns_original(self):
+        """No tracked file matches the basename — keep the original."""
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=None,
+        ), patch(
+            "complexipy.utils.diff._git_tracked_paths",
+            return_value=["src/app.py"],
+        ):
+            result = _resolve_git_path("other.py", "main", "/repo")
+        assert result == "other.py"
+
 
 class TestExitReport:
     def test_enforce_true_regression_above_threshold_fails(self):
@@ -537,3 +582,128 @@ class TestExitReport:
                 enforce_diff=enforce,
             )
             assert report.success is False
+
+
+class TestPublicApi:
+    def _file(self, code: str, path: str = "src/example.py"):
+        return _make_file_complexity(code, path)
+
+    def test_exported_names_are_public(self):
+        import complexipy
+
+        for name in (
+            "compute_diff",
+            "has_regressions",
+            "DiffEntry",
+            "DiffStatus",
+        ):
+            assert name in complexipy.__all__
+            assert getattr(complexipy, name) is not None
+
+    def test_reexports_are_the_same_objects(self):
+        import complexipy
+
+        from complexipy.utils.diff import DiffEntry as _DiffEntry
+        from complexipy.utils.diff import DiffStatus as _DiffStatus
+        from complexipy.utils.diff import compute_diff as _compute_diff
+        from complexipy.utils.diff import has_regressions as _has_regressions
+
+        assert complexipy.DiffEntry is _DiffEntry
+        assert complexipy.DiffStatus is _DiffStatus
+        assert complexipy.compute_diff is _compute_diff
+        assert complexipy.has_regressions is _has_regressions
+
+    def test_status_enum_is_str_comparable(self):
+        assert DiffStatus.REGRESSED == "REGRESSED"
+        assert DiffStatus.IMPROVED == "IMPROVED"
+        assert DiffStatus.UNCHANGED == "UNCHANGED"
+        assert DiffStatus.NEW == "NEW"
+        assert DiffStatus.REMOVED == "REMOVED"
+
+    def test_status_is_enum_member(self):
+        e = DiffEntry("f.py", "foo", 3, 7)
+        assert e.status is DiffStatus.REGRESSED
+
+    def test_issue_example_works_through_public_api(self):
+        current = [self._file(_WITH_IF)]
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch("complexipy.utils.diff._git_root", return_value="/repo"):
+            entries = compute_diff(current, "origin/main", ".")
+
+        regressions = [
+            e
+            for e in entries
+            if e.status == DiffStatus.REGRESSED
+            and e.new_complexity is not None
+            and e.new_complexity > 15
+        ]
+        assert isinstance(entries, list)
+        assert all(isinstance(e, DiffEntry) for e in entries)
+        assert isinstance(regressions, list)
+        assert has_regressions(entries, 15) is False
+
+    def test_compute_diff_defaults_to_cwd(self, monkeypatch):
+        monkeypatch.setattr("complexipy.utils.diff.os.getcwd", lambda: "/cwd")
+        current = [self._file(_SIMPLE)]
+        with patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch("complexipy.utils.diff._git_root", return_value="/cwd"):
+            entries = compute_diff(current, "HEAD~1")
+        assert entries[0].status == DiffStatus.UNCHANGED
+
+    def test_file_complexity_path_is_cwd_relative(self, tmp_path, monkeypatch):
+        repo = tmp_path / "repo"
+        pkg = repo / "pkg"
+        pkg.mkdir(parents=True)
+        target = pkg / "calc.py"
+        target.write_text("def calc(x):\n    return x + 1\n")
+        monkeypatch.chdir(repo)
+
+        result = file_complexity(str(target))
+        assert result.path == "pkg/calc.py"
+
+    def test_issue_flow_real_git_repo(self, tmp_path):
+        """The issue's CI flow end to end against a real git repository.
+
+        ``file_complexity`` on a changed file, ``compute_diff`` against a
+        git ref, then status filtering and the ratchet gate — the exact
+        scenario from issue #202, without mocks.
+        """
+        repo = tmp_path / "repo"
+        pkg = repo / "pkg"
+        pkg.mkdir(parents=True)
+        target = pkg / "calc.py"
+        target.write_text("def calc(x):\n    return x + 1\n")
+
+        def _git(*args):
+            return subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        assert _git("init", "-q").returncode == 0
+        assert _git("add", ".").returncode == 0
+        assert _git("commit", "-q", "-m", "v1").returncode == 0
+
+        target.write_text(
+            "def calc(x):\n"
+            "    if x:\n"
+            "        for i in range(x):\n"
+            "            if i:\n"
+            "                return i\n"
+            "    return x + 1\n"
+        )
+
+        current = [file_complexity(str(target))]
+        entries = compute_diff(current, "HEAD", str(repo))
+
+        entry = next(e for e in entries if e.func_name == "calc")
+        assert entry.status == DiffStatus.REGRESSED
+        assert entry.old_complexity == 0
+        assert entry.new_complexity > 1
+        assert has_regressions(entries, 15) is False
+        assert has_regressions(entries, 5) is True

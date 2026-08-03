@@ -163,6 +163,12 @@ Every Rust-side type crosses into Python through `src/classes.rs` (`FileComplexi
 those structs means updating **three** places in lockstep: `src/classes.rs` → the
 `#[pymodule]` export list in `src/lib.rs` → the stubs in `complexipy/_complexipy.pyi`.
 
+`complexipy/__init__.py` is the public Python API surface: `code_complexity`,
+`file_complexity`, `collect_all_ignored_locations`, `compute_diff`, `has_regressions`,
+and the `DiffEntry` / `DiffStatus` types. Those exports, their signatures, and the
+`DiffStatus` values are a compatibility promise — internal refactors must keep them
+stable, and new exports belong in `__init__.py` + `__all__` with docs in `docs/` (EN + ES).
+
 ### Rust core
 
 - `src/cognitive_complexity.rs` — the algorithm. Parses with `ruff_python_parser`,
