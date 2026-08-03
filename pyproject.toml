@@ -81,6 +81,9 @@ indent-width = 4
 [tool.ruff.lint]
 exclude = ["tests/**"]
 
+[tool.ruff.format]
+exclude = ["tests/fixtures/**", "tests/src/**"]
+
 [tool.yamlfix]
 explicit_start = true
 line_length = 120
