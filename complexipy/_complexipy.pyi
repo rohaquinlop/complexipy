@@ -88,7 +88,6 @@ class RefactorPlan:
     developers and AI agents understand and apply the refactoring.
     """
 
-    # Existing fields (backward compatible)
     kind: str
     """Type of refactoring (e.g., 'flatten_condition', 'extract_helper')."""
 
@@ -113,7 +112,6 @@ class RefactorPlan:
     estimated_complexity_after: int
     """Estimated complexity after applying this refactoring."""
 
-    # Clippy-style fields
     rule_id: str
     """Unique identifier for the rule (e.g., 'C001', 'C007')."""
 

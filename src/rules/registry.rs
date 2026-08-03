@@ -109,21 +109,15 @@ fn select_non_overlapping(
         let eff_a = effectiveness_of(&a.rule_id);
         let eff_b = effectiveness_of(&b.rule_id);
 
-        // 1. Higher effectiveness first (condition merging > nesting flattening > guard clauses > extraction)
         eff_b
             .cmp(&eff_a)
-            // 2. Higher reduction within same effectiveness tier
             .then_with(|| b.estimated_reduction.cmp(&a.estimated_reduction))
-            // 3. Earlier line number for same effectiveness and reduction
             .then_with(|| a.line_start.cmp(&b.line_start))
     });
 
     let mut selected: Vec<RefactorPlan> = Vec::new();
 
     for plan in plans {
-        // A plan can overlap more than one already-selected plan (e.g. a wide
-        // extract_helper span covering two smaller, already-selected
-        // regions) -- collect every overlap, not just the first.
         let overlapping: Vec<usize> = selected
             .iter()
             .enumerate()
@@ -153,7 +147,6 @@ fn select_non_overlapping(
             }
             selected.push(plan);
         }
-        // Otherwise `plan` loses to at least one existing overlap and is dropped.
     }
 
     let additional = selected.len().saturating_sub(5) as u64;

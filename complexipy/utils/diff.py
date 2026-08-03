@@ -138,9 +138,6 @@ def compute_diff(
     entries: List[DiffEntry] = []
 
     for file in current_files:
-        # file.path is relative to the parent of invocation_path (the Rust
-        # runner's base_dir).  Resolve it to a git-root-relative path so
-        # ``git show`` can find the file at the reference.
         path_from_root = _resolve_git_path(file.path, git_ref, invocation_path)
 
         old_content = _file_content_at_ref(

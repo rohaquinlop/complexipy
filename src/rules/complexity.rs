@@ -484,22 +484,15 @@ impl RefactorRule for CollapsibleIfRule {
             return None;
         }
 
-        // Collect chain of nested ifs
         let lines: Vec<&str> = source.lines().collect();
         let chain = collect_if_chain(region, &lines);
 
-        // Need at least 2 ifs to merge
         if chain.len() < 2 {
             return None;
         }
 
-        // Get the innermost if (last in chain)
         let innermost = chain.last().unwrap();
 
-        // Extract conditions from all ifs in the chain. If any condition can't be
-        // extracted with confidence, we still emit the plan (the diagnosis itself —
-        // "these nested ifs can be merged" — is still valid) but fall back to `help`
-        // text instead of a machine-applicable `suggestion` we can't stand behind.
         let mut conditions = Vec::new();
         let mut conditions_extracted = true;
         for r in &chain {
@@ -516,7 +509,6 @@ impl RefactorRule for CollapsibleIfRule {
             }
         }
 
-        // Verify each region in the chain (except the last) has only the nested if as its child
         let outermost = chain[0];
         let outer_indent =
             get_indentation_from_str(lines[(outermost.line_start.saturating_sub(1)) as usize]);
@@ -528,13 +520,12 @@ impl RefactorRule for CollapsibleIfRule {
 
         for (i, r) in chain.iter().enumerate() {
             if i == chain.len() - 1 {
-                break; // Last if doesn't need checking
+                break;
             }
             let next = chain[i + 1];
             let r_end = (r.line_end as usize).min(lines.len());
             let next_end = (next.line_end as usize).min(lines.len());
 
-            // Check that there are no non-empty statements at body indent level after the inner if
             for line in &lines[next_end..r_end] {
                 let trimmed = line.trim_start();
                 let indent = get_indentation_from_str(line);
@@ -544,10 +535,6 @@ impl RefactorRule for CollapsibleIfRule {
             }
         }
 
-        // Generate a suggestion with all conditions merged, but only when every
-        // condition in the chain was extracted with confidence. Otherwise fall back
-        // to help text rather than emitting a snippet built from an incomplete
-        // condition list.
         let suggestion = if conditions_extracted {
             Some(generate_collapsible_if_suggestion_chain(
                 outermost,
@@ -626,11 +613,9 @@ fn generate_loop_guard_suggestion(
     let indent_step = detect_indent_step(&lines[start..end]);
     let loop_body_indent = base_indent + indent_step;
 
-    // Collect chain of single-child If regions inside the loop
     let mut guards = Vec::new();
     let mut current_region: Option<&ComplexityRegion> = None;
 
-    // Find the first If child of the loop
     for child in &region.children {
         if child.kind == RegionKind::If {
             current_region = Some(child);
@@ -638,7 +623,6 @@ fn generate_loop_guard_suggestion(
         }
     }
 
-    // Walk the chain
     while let Some(r) = current_region {
         let line_idx = (r.line_start.saturating_sub(1)) as usize;
         if line_idx >= lines.len() {
@@ -650,7 +634,6 @@ fn generate_loop_guard_suggestion(
         };
         guards.push((r, condition));
 
-        // Check for next single-child If
         if r.children.len() == 1
             && r.children[0].kind == RegionKind::If
             && !has_else_branch(r, &lines)
@@ -666,15 +649,12 @@ fn generate_loop_guard_suggestion(
         return None;
     }
 
-    // Get the innermost region (last guard)
     let innermost = guards.last().unwrap().0;
     let innermost_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
 
-    // Build replacement
     let mut result = Vec::new();
-    result.push(lines[start].to_string()); // Keep the `for` line
+    result.push(lines[start].to_string());
 
-    // Emit all guards
     for (_, guard) in &guards {
         result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
         result.push(format!(
@@ -683,7 +663,6 @@ fn generate_loop_guard_suggestion(
         ));
     }
 
-    // Emit remaining body (from after the innermost if's condition line)
     let body_start = innermost_line_idx + 1;
     for line in &lines[body_start..end] {
         let trimmed = line.trim_start();
@@ -692,7 +671,6 @@ fn generate_loop_guard_suggestion(
             continue;
         }
         let current_indent = get_indentation_from_str(line);
-        // Shift body up by number of guard levels
         let shifted = current_indent.saturating_sub(indent_step * guards.len());
         let padding = " ".repeat(shifted);
         result.push(format!("{}{}", padding, trimmed));
@@ -721,7 +699,10 @@ fn detect_indent_step(lines: &[&str]) -> usize {
 }
 
 /// Generate a concrete suggestion for extracting a complex boolean condition
-/// into a named predicate function.
+/// into a named predicate function. The rewritten `if` replaces the original
+/// statement at its own indentation (nesting it inside the helper would make it
+/// unreachable after the `return`); the `...` stands in for the caller's body and
+/// keeps the snippet parseable on its own.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -741,10 +722,6 @@ fn generate_predicate_suggestion(
     let body_indent = " ".repeat(base_indent + 4);
     let func_name = format!("_check_condition_L{}", region.line_start);
 
-    // The rewritten `if` replaces the original one, so it sits at the original
-    // statement's indentation — not nested inside the helper, which would make it
-    // unreachable code after the `return`. The `...` stands in for the caller's
-    // existing body, and also keeps the snippet parseable on its own.
     let replacement = format!(
         "{predicate_indent}def {func_name}() -> bool:\n\
          {body_indent}return {condition}\n\
@@ -773,14 +750,11 @@ fn get_indentation_from_str(line: &str) -> usize {
 /// machine-applicable suggestion available" and fall back to `help` text rather than
 /// guessing at a replacement.
 ///
-/// The previous implementation located the statement colon with `str::rfind(':')` and
-/// claimed (incorrectly) that this correctly handled a colon inside a string literal.
-/// It did not: a trailing `# comment: like this` colon, or any colon after the real
-/// one, would corrupt the extracted condition. This implementation instead walks the
-/// line once, tracking bracket depth (`(`, `[`, `{`) and string-literal state (single
-/// and double quotes, triple-quoted strings, backslash escapes) so that colons inside
-/// strings, f-string format specs (e.g. `f"{x:>3}"`), and container literals (e.g.
-/// `{1: 2}`) are never mistaken for the statement colon. The statement colon is the
+/// It walks the line once, tracking bracket depth (`(`, `[`, `{`) and string-literal
+/// state (single and double quotes, triple-quoted strings, backslash escapes) so that
+/// colons inside strings, f-string format specs (e.g. `f"{x:>3}"`), and container
+/// literals (e.g. `{1: 2}`) are never mistaken for the statement colon, and `:=`
+/// walrus operators are not treated as terminators either. The statement colon is the
 /// first `:` found at bracket depth 0 outside of any string literal. A `#` reached
 /// outside a string ends the scan (nothing after it can contain the statement colon).
 fn extract_condition_from_line(line: &str) -> Option<String> {
@@ -799,7 +773,6 @@ fn extract_condition_from_line(line: &str) -> Option<String> {
     let chars: Vec<(usize, char)> = trimmed.char_indices().collect();
     let mut i = 0;
     let mut depth: i32 = 0;
-    // (quote character, is_triple_quoted)
     let mut string_state: Option<(char, bool)> = None;
     let mut colon_byte: Option<usize> = None;
 
@@ -808,8 +781,6 @@ fn extract_condition_from_line(line: &str) -> Option<String> {
 
         if let Some((quote, triple)) = string_state {
             if c == '\\' {
-                // Skip the escaped character (works for both plain and triple-quoted
-                // strings; harmless if this is technically a raw string).
                 i += 2;
                 continue;
             }
@@ -851,10 +822,6 @@ fn extract_condition_from_line(line: &str) -> Option<String> {
                 i += 1;
             }
             ':' if depth == 0 => {
-                // `:=` is the walrus operator, not the statement colon. Treating it
-                // as the terminator would silently drop the assignment (`if n :=
-                // len(items):` would yield the condition `n`), producing a merged
-                // condition that still parses but means something different.
                 if i + 1 < chars.len() && chars[i + 1].1 == '=' {
                     i += 2;
                     continue;
@@ -913,10 +880,8 @@ fn generate_collapsible_if_suggestion_chain(
     let outer_indent = get_indentation_from_str(lines[outer_line_idx]);
     let indent_step = detect_indent_step(&lines[outer_line_idx..inner_end]);
 
-    // Combine all conditions with 'and', wrapping 'or' conditions in parens
     let combined = combine_conditions_chain(conditions);
 
-    // Extract inner body (lines after the innermost if)
     let body_start = inner_line_idx + 1;
     let chain_depth = conditions.len();
     let mut body_lines = Vec::new();
@@ -927,7 +892,6 @@ fn generate_collapsible_if_suggestion_chain(
             continue;
         }
         let current_indent = get_indentation_from_str(line);
-        // Shift body up by (chain_depth - 1) indent levels
         let shifted = current_indent.saturating_sub(indent_step * (chain_depth - 1));
         let padding = " ".repeat(shifted);
         body_lines.push(format!("{}{}", padding, trimmed));
@@ -1109,10 +1073,6 @@ fn collect_loop_if_chain<'a>(
     chain
 }
 
-// Unit tests live outside the implementation file, under `src/tests/`, mirroring
-// the module path. The `#[path]` attribute keeps them a child module of this one
-// so they can exercise the private helpers above through `super::` without
-// making any of them `pub(crate)` just for the sake of testing.
 #[cfg(test)]
 #[path = "../tests/rules/complexity.rs"]
 mod tests;

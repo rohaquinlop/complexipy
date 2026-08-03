@@ -512,8 +512,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
             }
             idx += 1;
         } else if trimmed.starts_with('@') {
-            // Scan forward to find the def line, use its line number for
-            // both the comment lookup and the reported location.
             let max_scan = (idx + 10).min(lines.len());
             let mut def_line_number = None;
             for (inner_idx, inner_line) in lines
@@ -538,8 +536,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
                 results.push((dln, comment));
                 reported = true;
             }
-            // Skip remaining decorators in the chain so they don't
-            // re-scan and produce duplicate entries.
             while idx + 1 < lines.len() {
                 let next = lines[idx + 1].trim_start();
                 if next.starts_with('@') || next.is_empty() {
@@ -548,7 +544,6 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
                     break;
                 }
             }
-            // Skip the def line too if we already reported from this chain
             if reported && idx + 1 < lines.len() && lines[idx + 1].trim_start().starts_with("def ")
             {
                 idx += 1;

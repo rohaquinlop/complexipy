@@ -1,4 +1,3 @@
-// Initialize CodeMirror
 let editor;
 let complexityModule;
 let analysisTimeout;
@@ -69,7 +68,6 @@ function analyzeCode() {
     const code = editor.getValue();
     const statusElement = document.getElementById('analysis-status');
 
-    // Clear previous widgets
     activeWidgets.forEach(widget => widget.clear());
     activeWidgets = [];
 

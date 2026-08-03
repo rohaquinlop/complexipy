@@ -272,7 +272,6 @@ def _persist_cache(cache_file: Path, payload: dict) -> bool:
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
         )
     except OSError:
-        # Failing to persist the cache should not break the main command.
         return False
 
     return True
@@ -283,7 +282,6 @@ def _remove_legacy_cache_files(cache_dir: Path) -> None:
         try:
             legacy_cache_file.unlink()
         except OSError:
-            # Failing to remove legacy cache files should not break the main command.
             pass
 
 
@@ -302,5 +300,4 @@ def _write_support_file(path: Path, content: str) -> None:
     try:
         path.write_text(content, encoding="utf-8")
     except OSError:
-        # Failing to create support files should not break the main command.
         pass

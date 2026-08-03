@@ -15,14 +15,6 @@ pub struct RuleMetadata {
     /// Ranking used to pick which refactor to surface when two rules fire on
     /// overlapping regions, and to order the plans that survive. Higher wins.
     ///
-    /// This is the single source of truth for that ordering: it replaced the
-    /// dead `priority` field that used to live here (never read by anything)
-    /// and the hardcoded `refactor_effectiveness()` match arm that used to
-    /// live in `registry.rs` (the thing that actually drove ordering). Values
-    /// below intentionally carry over the old *effectiveness* numbers, not
-    /// the old (unused) `priority` numbers -- the two disagreed, and
-    /// effectiveness is what real behaviour depended on.
-    ///
     /// Effectiveness tiers:
     /// - 5: Condition merging (C007) -- reduces number of conditions, best readability
     /// - 4: Nesting flattening (C001) -- reduces indentation depth
