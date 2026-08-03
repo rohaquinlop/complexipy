@@ -116,6 +116,7 @@ pub struct FunctionComplexity {
     pub additional_refactor_plans: u64,
 }
 
+#[cfg(feature = "python")]
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
@@ -148,6 +149,7 @@ pub struct CodeComplexity {
     pub version: String,
 }
 
+#[cfg(feature = "python")]
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)

@@ -535,9 +535,9 @@ impl RefactorRule for CollapsibleIfRule {
             let next_end = (next.line_end as usize).min(lines.len());
 
             // Check that there are no non-empty statements at body indent level after the inner if
-            for line_idx in next_end..r_end {
-                let trimmed = lines[line_idx].trim_start();
-                let indent = get_indentation_from_str(lines[line_idx]);
+            for line in &lines[next_end..r_end] {
+                let trimmed = line.trim_start();
+                let indent = get_indentation_from_str(line);
                 if !trimmed.is_empty() && indent == body_indent {
                     return None;
                 }
@@ -651,11 +651,13 @@ fn generate_loop_guard_suggestion(
         guards.push((r, condition));
 
         // Check for next single-child If
-        if r.children.len() == 1 && r.children[0].kind == RegionKind::If {
-            if !has_else_branch(r, &lines) && !has_else_branch(&r.children[0], &lines) {
-                current_region = Some(&r.children[0]);
-                continue;
-            }
+        if r.children.len() == 1
+            && r.children[0].kind == RegionKind::If
+            && !has_else_branch(r, &lines)
+            && !has_else_branch(&r.children[0], &lines)
+        {
+            current_region = Some(&r.children[0]);
+            continue;
         }
         break;
     }

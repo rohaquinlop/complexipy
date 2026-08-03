@@ -299,13 +299,15 @@ fn loop_complexity(
     control: ast::Expr,
     body: &ast::Suite,
     orelse: &ast::Suite,
-    line_start: u64,
-    line_end: u64,
-    column_start: u64,
+    range: (usize, usize),
     nesting_level: u64,
     code: &str,
 ) -> ComplexityResult {
     let mut result = empty_result();
+    let (range_start, range_end) = range;
+    let line_start = get_line_number(range_start, code);
+    let line_end = get_line_number(range_end, code);
+    let column_start = get_column_number(range_start, code);
     let boolean = count_bool_ops(control, nesting_level);
     let own = 1 + nesting_level + boolean;
     result.complexity += own;
@@ -394,31 +396,21 @@ fn statement_cognitive_complexity_shared(
             count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
         }
         Stmt::For(f) => {
-            let line_start = get_line_number(usize::from(f.range.start()), code);
-            let line_end = get_line_number(usize::from(f.range.end()), code);
-            let column_start = get_column_number(usize::from(f.range.start()), code);
             result = loop_complexity(
                 *f.iter.clone(),
                 &f.body,
                 &f.orelse,
-                line_start,
-                line_end,
-                column_start,
+                (usize::from(f.range.start()), usize::from(f.range.end())),
                 nesting_level,
                 code,
             );
         }
         Stmt::While(w) => {
-            let line_start = get_line_number(usize::from(w.range.start()), code);
-            let line_end = get_line_number(usize::from(w.range.end()), code);
-            let column_start = get_column_number(usize::from(w.range.start()), code);
             result = loop_complexity(
                 *w.test.clone(),
                 &w.body,
                 &w.orelse,
-                line_start,
-                line_end,
-                column_start,
+                (usize::from(w.range.start()), usize::from(w.range.end())),
                 nesting_level,
                 code,
             );
@@ -477,7 +469,6 @@ fn statement_cognitive_complexity_shared(
                     elif_count,
                     bool_op_count: boolean,
                     children,
-                    ..Default::default()
                 },
             );
         }

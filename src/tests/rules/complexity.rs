@@ -247,7 +247,7 @@ fn collect_loop_if_chain_is_empty_without_a_nested_if() {
 
 #[test]
 fn fallback_boolean_count_sums_known_booleans_plus_one_join_per_merge() {
-    let chain = vec![
+    let chain = [
         ComplexityRegion {
             bool_op_count: 1,
             ..Default::default()

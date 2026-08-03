@@ -496,6 +496,7 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
 /// actually suppress a function definition (i.e., are adjacent to `def`
 /// or `@decorator` lines).
 #[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(feature = "python")]
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     let mut results = Vec::new();
     let lines: Vec<&str> = code.lines().collect();
