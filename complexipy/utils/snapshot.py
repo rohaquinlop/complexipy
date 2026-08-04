@@ -20,8 +20,11 @@ def handle_snapshot_file_creation(
     files_complexities: List[FileComplexity],
 ) -> None:
     if create_snapshot:
+        snapshot_files = handle_snapshot_functions_load(snapshot_file_path)
         create_snapshot_file(
-            snapshot_file_path, max_complexity_allowed, files_complexities
+            snapshot_file_path,
+            max_complexity_allowed,
+            merge_snapshot_files(snapshot_files, files_complexities),
         )
 
 
@@ -32,6 +35,23 @@ def handle_snapshot_functions_load(
         return load_snapshot_file(snapshot_file_path)
     else:
         return []
+
+
+def merge_snapshot_files(
+    snapshot_files: List[FileComplexity],
+    files_complexities: List[FileComplexity],
+) -> List[FileComplexity]:
+    analyzed_keys = {
+        (file_complexity.path, file_complexity.file_name)
+        for file_complexity in files_complexities
+    }
+    preserved = [
+        file_complexity
+        for file_complexity in snapshot_files
+        if (file_complexity.path, file_complexity.file_name)
+        not in analyzed_keys
+    ]
+    return [*preserved, *files_complexities]
 
 
 def handle_snapshot_watermark(
@@ -88,7 +108,9 @@ def handle_snapshot_watermark(
         return False, violations
 
     create_snapshot_file(
-        snapshot_file_path, max_complexity_allowed, files_complexities
+        snapshot_file_path,
+        max_complexity_allowed,
+        merge_snapshot_files(snapshot_files, files_complexities),
     )
 
     return True, []
