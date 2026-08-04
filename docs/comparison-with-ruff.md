@@ -262,16 +262,16 @@ If you're already using Ruff and want to add complexipy:
 
 ## Summary
 
-| Feature               | Ruff PLR0912                        | complexipy                          |
-| --------------------- | ----------------------------------- | ----------------------------------- |
-| **Based on**          | Cyclomatic Complexity               | Cognitive Complexity                |
-| **Counts nesting**    | ❌ No                               | ✅ Yes                              |
-| **else penalty**      | ✅ Yes                              | ❌ No (only nesting)                |
-| **Boolean operators** | ✅ Yes                              | ✅ Yes                              |
-| **match statements**  | ✅ Yes                              | Partial (content only)              |
-| **Best for**          | Structural, testing, branch density | How difficult code is to understand |
-| **Threshold**         | ~12 branches                        | ~15 points                          |
-| **Performance**       | Fast (Rust)                         | Very fast (Rust)                    |
+| Feature | Ruff PLR0912 | complexipy |
+| -- | -- | -- |
+| **Based on** | Cyclomatic Complexity | Cognitive Complexity |
+| **Counts nesting** | ❌ No | ✅ Yes |
+| **else penalty** | ✅ Yes | ❌ No (only nesting) |
+| **Boolean operators** | ✅ Yes | ✅ Yes |
+| **match statements** | ✅ Yes | Partial (content only) |
+| **Best for** | Structural, testing, branch density | How difficult code is to understand |
+| **Threshold** | ~12 branches | ~15 points |
+| **Performance** | Fast (Rust) | Very fast (Rust) |
 
 **The Bottom Line**: Ruff's PLR0912 measures structural complexity and branch density (useful for testing and analysis), while complexipy measures how difficult code is for humans to understand and maintain by penalizing nesting and flow breaks. Both are valuable, and using them together provides the best coverage for code quality.
 

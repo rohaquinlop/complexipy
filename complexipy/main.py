@@ -201,6 +201,14 @@ def main(
         "-R",
         help="Deprecated. --diff now enforces by default.",
     ),
+    staged: Optional[bool] = typer.Option(
+        None,
+        "--staged",
+        help=(
+            "Compare staged (git index) changes against the --diff reference "
+            "(default: HEAD). Answers 'what complexity am I about to commit?'."
+        ),
+    ),
     top: Optional[int] = typer.Option(
         None,
         "--top",
@@ -270,6 +278,7 @@ def main(
         diff,
         diff_only,
         ratchet,
+        staged,
         top,
         plain,
         suggest_refactors,
@@ -282,7 +291,7 @@ def main(
     console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
 
     cfg.diff, cfg.diff_only = resolve_diff_flags(
-        console, cfg.diff, cfg.diff_only, cfg.ratchet
+        console, cfg.diff, cfg.diff_only, cfg.ratchet, cfg.staged
     )
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
@@ -380,7 +389,12 @@ def main(
     paths_ok = not failed_paths
     diff_ref = cfg.diff or cfg.diff_only
     diff_entries = handle_diff_output(
-        console, diff_ref, files_complexities, cfg.quiet, INVOCATION_PATH
+        console,
+        diff_ref,
+        files_complexities,
+        cfg.quiet,
+        INVOCATION_PATH,
+        staged=cfg.staged,
     )
     diff_ok = True
     if cfg.diff and diff_entries is not None:

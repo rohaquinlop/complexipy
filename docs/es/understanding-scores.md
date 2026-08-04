@@ -6,13 +6,13 @@ Las puntuaciones de complejidad cognitiva representan el esfuerzo mental requeri
 
 ### Umbrales Recomendados
 
-| Rango de Puntuación | Interpretación | Recomendación                                                      |
-| ------------------- | -------------- | ------------------------------------------------------------------ |
-| **0-5**             | Simple         | Fácil de entender, no se requiere acción                           |
-| **6-10**            | Moderado       | Generalmente aceptable, pero con vigilancia ante mayor crecimiento |
-| **11-15**           | Complejo       | Considerar refactorización si se está añadiendo funcionalidad      |
-| **16-25**           | Alto           | Refactorización recomendada                                        |
-| **26+**             | Muy Alto       | Refactorización fuertemente recomendada                            |
+| Rango de Puntuación | Interpretación | Recomendación |
+| -- | -- | -- |
+| **0-5** | Simple | Fácil de entender, no se requiere acción |
+| **6-10** | Moderado | Generalmente aceptable, pero con vigilancia ante mayor crecimiento |
+| **11-15** | Complejo | Considerar refactorización si se está añadiendo funcionalidad |
+| **16-25** | Alto | Refactorización recomendada |
+| **26+** | Muy Alto | Refactorización fuertemente recomendada |
 
 !!! note "Umbral Predeterminado"
 
@@ -26,16 +26,16 @@ La complejidad cognitiva se calcula analizando el Árbol de Sintaxis Abstracta (
 
 Cada estructura de flujo de control añade a la complejidad:
 
-| Estructura         | Puntuación | Ejemplo                       |
-| ------------------ | ---------- | ----------------------------- |
-| Sentencia `if`     | +1         | `if condition:`               |
-| Cláusula `elif`    | +1         | `elif other_condition:`       |
-| Cláusula `else`    | +0         | `else:` (solo anidamiento)    |
-| Bucle `for`        | +1         | `for item in items:`          |
-| Bucle `while`      | +1         | `while condition:`            |
-| Manejador `except` | +1         | `except ValueError:`          |
-| Cláusula `finally` | +0         | `finally:` (solo anidamiento) |
-| Operador ternario  | +1         | `x if condition else y`       |
+| Estructura | Puntuación | Ejemplo |
+| -- | -- | -- |
+| Sentencia `if` | +1 | `if condition:` |
+| Cláusula `elif` | +1 | `elif other_condition:` |
+| Cláusula `else` | +0 | `else:` (solo anidamiento) |
+| Bucle `for` | +1 | `for item in items:` |
+| Bucle `while` | +1 | `while condition:` |
+| Manejador `except` | +1 | `except ValueError:` |
+| Cláusula `finally` | +0 | `finally:` (solo anidamiento) |
+| Operador ternario | +1 | `x if condition else y` |
 
 ### 2. Multiplicador de Anidamiento
 

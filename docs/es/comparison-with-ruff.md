@@ -262,16 +262,16 @@ Si ya estás usando Ruff y quieres agregar complexipy:
 
 ## Resumen
 
-| Característica            | Ruff PLR0912                                        | complexipy                            |
-| ------------------------- | --------------------------------------------------- | ------------------------------------- |
-| **Basado en**             | Complejidad Ciclomática                             | Complejidad Cognitiva                 |
-| **Cuenta anidamiento**    | ❌ No                                               | ✅ Sí                                 |
-| **Penalización por else** | ✅ Sí                                               | ❌ No (solo anidamiento)              |
-| **Operadores booleanos**  | ✅ Sí                                               | ✅ Sí                                 |
-| **Sentencias match**      | ✅ Sí                                               | Parcial (solo contenido)              |
-| **Ideal para**            | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
-| **Umbral**                | ~12 ramas                                           | ~15 puntos                            |
-| **Rendimiento**           | Rápido (Rust)                                       | Muy rápido (Rust)                     |
+| Característica | Ruff PLR0912 | complexipy |
+| -- | -- | -- |
+| **Basado en** | Complejidad Ciclomática | Complejidad Cognitiva |
+| **Cuenta anidamiento** | ❌ No | ✅ Sí |
+| **Penalización por else** | ✅ Sí | ❌ No (solo anidamiento) |
+| **Operadores booleanos** | ✅ Sí | ✅ Sí |
+| **Sentencias match** | ✅ Sí | Parcial (solo contenido) |
+| **Ideal para** | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
+| **Umbral** | ~12 ramas | ~15 puntos |
+| **Rendimiento** | Rápido (Rust) | Muy rápido (Rust) |
 
 **En Conclusión**: PLR0912 de Ruff mide la complejidad estructural y la densidad de ramas (útil para pruebas y análisis), mientras que complexipy mide qué tan difícil es el código para que los seres humanos lo entiendan y mantengan, penalizando el anidamiento y las interrupciones de flujo. Ambas son valiosas, y usarlas juntas proporciona la mejor cobertura para la calidad del código.
 

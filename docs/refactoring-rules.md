@@ -4,18 +4,18 @@ complexipy includes a clippy-inspired refactoring system that provides actionabl
 
 ## Rule Categories
 
-| Category        | Icon | Description                                     |
-| --------------- | ---- | ----------------------------------------------- |
-| **Complexity**  | ▲    | Rules that directly reduce cognitive complexity |
-| **Readability** | ◆    | Rules that improve code readability             |
+| Category | Icon | Description |
+| -- | -- | -- |
+| **Complexity** | ▲ | Rules that directly reduce cognitive complexity |
+| **Readability** | ◆ | Rules that improve code readability |
 
 ## Applicability Levels
 
-| Level             | Icon | Description                                                                                                                                        |
-| ----------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Safe to apply** | \*   | High confidence the generated code is correct as written -- no automatic application yet, this is a confidence signal, not a promise of automation |
-| **Needs review**  | !    | May be incorrect in some cases, needs human review                                                                                                 |
-| **Informational** | i    | Just guidance, not directly actionable                                                                                                             |
+| Level | Icon | Description |
+| -- | -- | -- |
+| **Safe to apply** | \* | High confidence the generated code is correct as written -- no automatic application yet, this is a confidence signal, not a promise of automation |
+| **Needs review** | ! | May be incorrect in some cases, needs human review |
+| **Informational** | i | Just guidance, not directly actionable |
 
 ______________________________________________________________________
 
@@ -461,12 +461,12 @@ ______________________________________________________________________
 
 ## Rule ID Reference
 
-| ID                                      | Name                      | Category      | Applicability    | Priority |
-| --------------------------------------- | ------------------------- | ------------- | ---------------- | -------- |
-| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | ▲ Complexity  | i Informational  | High     |
-| [C002](#c002-loop-guards)               | Loop Guards               | ▲ Complexity  | \* Safe to apply | Medium   |
-| [C003](#c003-extract-helper-function)   | Extract Helper Function   | ▲ Complexity  | i Informational  | Low      |
-| [C004](#c004-split-dispatcher)          | Split Dispatcher          | ▲ Complexity  | i Informational  | Low      |
-| [C005](#c005-extract-predicate)         | Extract Predicate         | ◆ Readability | \* Safe to apply | Low      |
-| [C007](#c007-collapsible-if)            | Collapsible If            | ◆ Readability | \* Safe to apply | Highest  |
-| [C011](#c011-flatten-tryexcept)         | Flatten Try/Except        | ▲ Complexity  | i Informational  | Low      |
+| ID | Name | Category | Applicability | Priority |
+| -- | -- | -- | -- | -- |
+| [C001](#c001-flatten-nested-conditions) | Flatten Nested Conditions | ▲ Complexity | i Informational | High |
+| [C002](#c002-loop-guards) | Loop Guards | ▲ Complexity | \* Safe to apply | Medium |
+| [C003](#c003-extract-helper-function) | Extract Helper Function | ▲ Complexity | i Informational | Low |
+| [C004](#c004-split-dispatcher) | Split Dispatcher | ▲ Complexity | i Informational | Low |
+| [C005](#c005-extract-predicate) | Extract Predicate | ◆ Readability | \* Safe to apply | Low |
+| [C007](#c007-collapsible-if) | Collapsible If | ◆ Readability | \* Safe to apply | Highest |
+| [C011](#c011-flatten-tryexcept) | Flatten Try/Except | ▲ Complexity | i Informational | Low |
