@@ -6,13 +6,13 @@ Cognitive complexity scores represent the mental effort required to understand a
 
 ### Recommended Thresholds
 
-| Score Range | Interpretation | Recommendation                                       |
-| ----------- | -------------- | ---------------------------------------------------- |
-| **0-5**     | Simple         | Easy to understand, no action needed                 |
-| **6-10**    | Moderate       | Generally acceptable, but watch for further growth   |
-| **11-15**   | Complex        | Consider refactoring if functionality is being added |
-| **16-25**   | High           | Refactoring recommended                              |
-| **26+**     | Very High      | Refactoring strongly recommended                     |
+| Score Range | Interpretation | Recommendation |
+| -- | -- | -- |
+| **0-5** | Simple | Easy to understand, no action needed |
+| **6-10** | Moderate | Generally acceptable, but watch for further growth |
+| **11-15** | Complex | Consider refactoring if functionality is being added |
+| **16-25** | High | Refactoring recommended |
+| **26+** | Very High | Refactoring strongly recommended |
 
 !!! note "Default Threshold"
 
@@ -26,16 +26,16 @@ Cognitive complexity is calculated by analyzing the Abstract Syntax Tree (AST) o
 
 Each control flow structure adds to the complexity:
 
-| Structure        | Score | Example                   |
-| ---------------- | ----- | ------------------------- |
-| `if` statement   | +1    | `if condition:`           |
-| `elif` clause    | +1    | `elif other_condition:`   |
-| `else` clause    | +0    | `else:` (nesting only)    |
-| `for` loop       | +1    | `for item in items:`      |
-| `while` loop     | +1    | `while condition:`        |
-| `except` handler | +1    | `except ValueError:`      |
-| `finally` clause | +0    | `finally:` (nesting only) |
-| Ternary operator | +1    | `x if condition else y`   |
+| Structure | Score | Example |
+| -- | -- | -- |
+| `if` statement | +1 | `if condition:` |
+| `elif` clause | +1 | `elif other_condition:` |
+| `else` clause | +0 | `else:` (nesting only) |
+| `for` loop | +1 | `for item in items:` |
+| `while` loop | +1 | `while condition:` |
+| `except` handler | +1 | `except ValueError:` |
+| `finally` clause | +0 | `finally:` (nesting only) |
+| Ternary operator | +1 | `x if condition else y` |
 
 ### 2. Nesting Multiplier
 

@@ -4,18 +4,18 @@ complexipy incluye un sistema de refactorización inspirado en clippy que propor
 
 ## Categorías de Reglas
 
-| Categoría       | Icono | Descripción                                              |
-| --------------- | ----- | -------------------------------------------------------- |
-| **Complejidad** | ▲     | Reglas que reducen directamente la complejidad cognitiva |
-| **Legibilidad** | ◆     | Reglas que mejoran la legibilidad del código             |
+| Categoría | Icono | Descripción |
+| -- | -- | -- |
+| **Complejidad** | ▲ | Reglas que reducen directamente la complejidad cognitiva |
+| **Legibilidad** | ◆ | Reglas que mejoran la legibilidad del código |
 
 ## Niveles de Aplicabilidad
 
-| Nivel                 | Icono | Descripción                                                                                                                                                        |
-| --------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Seguro de aplicar** | \*    | Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización |
-| **Necesita revisión** | !     | Puede ser incorrecto en algunos casos, necesita revisión humana                                                                                                    |
-| **Informativo**       | i     | Solo orientación, no es directamente accionable                                                                                                                    |
+| Nivel | Icono | Descripción |
+| -- | -- | -- |
+| **Seguro de aplicar** | \* | Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización |
+| **Necesita revisión** | ! | Puede ser incorrecto en algunos casos, necesita revisión humana |
+| **Informativo** | i | Solo orientación, no es directamente accionable |
 
 ______________________________________________________________________
 
@@ -461,12 +461,12 @@ ______________________________________________________________________
 
 ## Referencia de IDs de Reglas
 
-| ID                                         | Nombre                       | Categoría     | Aplicabilidad        | Prioridad |
-| ------------------------------------------ | ---------------------------- | ------------- | -------------------- | --------- |
-| [C001](#c001-aplanar-condiciones-anidadas) | Aplanar Condiciones Anidadas | ▲ Complejidad | i Informativo        | Alta      |
-| [C002](#c002-guardas-de-bucles)            | Guardas de Bucles            | ▲ Complejidad | \* Seguro de aplicar | Media     |
-| [C003](#c003-extraer-funcion-auxiliar)     | Extraer Función Auxiliar     | ▲ Complejidad | i Informativo        | Baja      |
-| [C004](#c004-dividir-despachador)          | Dividir Despachador          | ▲ Complejidad | i Informativo        | Baja      |
-| [C005](#c005-extraer-predicado)            | Extraer Predicado            | ◆ Legibilidad | \* Seguro de aplicar | Baja      |
-| [C007](#c007-aplanar-if-anidados)          | Aplanar If Anidados          | ◆ Legibilidad | \* Seguro de aplicar | Máxima    |
-| [C011](#c011-aplanar-tryexcept)            | Aplanar Try/Except           | ▲ Complejidad | i Informativo        | Baja      |
+| ID | Nombre | Categoría | Aplicabilidad | Prioridad |
+| -- | -- | -- | -- | -- |
+| [C001](#c001-aplanar-condiciones-anidadas) | Aplanar Condiciones Anidadas | ▲ Complejidad | i Informativo | Alta |
+| [C002](#c002-guardas-de-bucles) | Guardas de Bucles | ▲ Complejidad | \* Seguro de aplicar | Media |
+| [C003](#c003-extraer-funcion-auxiliar) | Extraer Función Auxiliar | ▲ Complejidad | i Informativo | Baja |
+| [C004](#c004-dividir-despachador) | Dividir Despachador | ▲ Complejidad | i Informativo | Baja |
+| [C005](#c005-extraer-predicado) | Extraer Predicado | ◆ Legibilidad | \* Seguro de aplicar | Baja |
+| [C007](#c007-aplanar-if-anidados) | Aplanar If Anidados | ◆ Legibilidad | \* Seguro de aplicar | Máxima |
+| [C011](#c011-aplanar-tryexcept) | Aplanar Try/Except | ▲ Complejidad | i Informativo | Baja |

@@ -9,6 +9,7 @@ repos:
     rev: 1.0.0
     hooks:
       - id: mdformat
+        args: [--compact-tables]
         additional_dependencies:
           - mdformat-mkdocs>=0.2.1
         # mdformat has no frontmatter support: it rewrites a skill's opening `---` as a
