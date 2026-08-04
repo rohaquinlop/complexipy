@@ -462,11 +462,9 @@ ______________________________________________________________________
 
 <div align="center">
 
-<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by G. Ann Campbell</sub><br>
-<sub>complexipy is an independent project and is not affiliated with or endorsed by SonarSource</sub>
-
-**[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
-
-<sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub>
+<p style="margin: 0.25rem 0"><sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by G. Ann Campbell</sub></p>
+<p style="margin: 0.25rem 0"><sub>complexipy is an independent project and is not affiliated with or endorsed by SonarSource</sub></p>
+<p style="margin: 0.25rem 0"><strong><a href="https://rohaquinlop.github.io/complexipy/">Documentation</a> • <a href="https://pypi.org/project/complexipy/">PyPI</a> • <a href="https://github.com/rohaquinlop/complexipy">GitHub</a></strong></p>
+<p style="margin: 0.25rem 0"><sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub></p>
 
 </div>
