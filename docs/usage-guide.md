@@ -620,7 +620,7 @@ Use this when:
 ]
 ```
 
-Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
+Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run — entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
 ## Inline Ignores
 

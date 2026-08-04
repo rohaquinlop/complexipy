@@ -293,6 +293,8 @@ The snapshot file only stores functions whose complexity exceeds the configured 
 - fail if a tracked function becomes more complex, and
 - pass (and update the snapshot) when everything is stable or improved, automatically removing entries that now meet the standard.
 
+Snapshot updates only touch the files analyzed in the run: entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline.
+
 Use `--snapshot-ignore` if you need to temporarily bypass the snapshot gate (for example during a refactor or while regenerating the baseline).
 
 ### Complexity Diff

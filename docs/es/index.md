@@ -294,6 +294,8 @@ El archivo de snapshot solo almacena las funciones cuya complejidad supera el um
 - falla si una función registrada se vuelve más compleja, y
 - pasa (y actualiza la snapshot) cuando todo es estable o ha mejorado, eliminando automáticamente las entradas que ahora cumplen el estándar.
 
+Las actualizaciones de la snapshot solo afectan a los archivos analizados en la ejecución: las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base.
+
 Usa `--snapshot-ignore` si necesitas omitir temporalmente el control de snapshot (por ejemplo, durante una refactorización o al regenerar la línea base).
 
 ### Diff de Complejidad

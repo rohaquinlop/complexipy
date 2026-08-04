@@ -618,7 +618,7 @@ complexipy . --snapshot-ignore
 ]
 ```
 
-Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
+Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución — las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
 
 ## Ignorar en Línea
 
