@@ -89,6 +89,55 @@ def _file_content_at_ref(
     return None
 
 
+def _file_content_at_index(path_from_root: str, cwd: str) -> Optional[str]:
+    """Return the file content in the git index, or None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "show", f":{path_from_root}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def _staged_python_files(git_ref: str, cwd: str) -> List[str]:
+    """Return repo-root-relative paths of Python files staged vs *git_ref*.
+
+    Rename detection is disabled so a staged rename surfaces as an added
+    path plus a deleted path instead of a single renamed entry.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--cached",
+                "--no-renames",
+                "--diff-filter=ACMRD",
+                git_ref,
+                "--",
+                "*.py",
+            ],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
 def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
 
@@ -201,6 +250,63 @@ def compute_diff(
             old_c = old_map.get(name)
             new_c = current_map.get(name)
             entries.append(DiffEntry(file.path, name, old_c, new_c))
+
+    return entries
+
+
+def _analyse_content_to_map(content: Optional[str]) -> Optional[Dict[str, int]]:
+    """Analyse source text and return a ``{function_name: complexity}`` map.
+
+    Returns None when the content is missing or cannot be parsed.
+    """
+    if content is None:
+        return None
+    try:
+        result = _code_complexity(content)
+    except Exception:
+        return None
+    return {f.name: f.complexity for f in result.functions}
+
+
+def compute_staged_diff(
+    git_ref: str,
+    invocation_path: str,
+) -> Optional[List[DiffEntry]]:
+    """Compare the staged (index) content against *git_ref*.
+
+    Every Python file with staged changes is analysed at *git_ref* and at
+    the index, so the entries answer "what am I about to commit?"  Deleted
+    staged files produce REMOVED entries, newly added ones NEW entries.
+    Returns None when the invocation path is not inside a git repository.
+    """
+    root = _git_root(invocation_path)
+    if root is None:
+        return None
+
+    entries: List[DiffEntry] = []
+
+    for path_from_root in _staged_python_files(git_ref, root):
+        old_content = _file_content_at_ref(git_ref, path_from_root, root)
+        new_content = _file_content_at_index(path_from_root, root)
+
+        old_map = _analyse_content_to_map(old_content)
+        new_map = _analyse_content_to_map(new_content)
+
+        if old_map is None and new_map is None:
+            continue
+
+        old_map = old_map or {}
+        new_map = new_map or {}
+
+        for name in sorted(set(old_map) | set(new_map)):
+            entries.append(
+                DiffEntry(
+                    path_from_root,
+                    name,
+                    old_map.get(name),
+                    new_map.get(name),
+                )
+            )
 
     return entries
 
@@ -343,14 +449,27 @@ def handle_diff_output(
     files_complexities: List[FileComplexity],
     quiet: bool,
     invocation_path: str,
+    staged: bool = False,
 ) -> Optional[List[DiffEntry]]:
-    if diff:
-        if files_complexities:
-            entries = compute_diff(files_complexities, diff, invocation_path)
+    if not diff:
+        return None
+    if staged:
+        entries = compute_staged_diff(diff, invocation_path)
+        if entries is None:
             if not quiet:
-                format_diff(console, entries, diff)
-            return entries
-        return []
+                console.print(
+                    "[yellow]Warning:[/yellow] --staged requires a git "
+                    "repository; skipping the staged diff."
+                )
+            return None
+        if not quiet:
+            format_diff(console, entries, f"{diff} (staged)")
+        return entries
+    if files_complexities:
+        entries = compute_diff(files_complexities, diff, invocation_path)
+        if not quiet:
+            format_diff(console, entries, diff)
+        return entries
     return None
 
 
@@ -359,7 +478,11 @@ def resolve_diff_flags(
     diff: Optional[str],
     diff_only: Optional[str],
     ratchet: bool,
+    staged: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
+    if staged and not diff and not diff_only:
+        diff = "HEAD"
+
     if ratchet and diff:
         console.print(
             "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "

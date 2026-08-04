@@ -170,6 +170,18 @@ Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only`
 complexipy . --diff-only HEAD~1
 ```
 
+Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo — "¿qué complejidad estoy a punto de commitear?" — añade `--staged`:
+
+```bash
+# Cambios staged vs HEAD (la línea base por defecto de --staged)
+complexipy . --staged
+
+# Cambios staged vs una referencia específica
+complexipy . --diff main --staged
+```
+
+Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y falla cuando un cambio staged empuja una función por encima de `--max-complexity-allowed`. Las eliminaciones staged producen entradas `REMOVED` y las adiciones staged entradas `NEW`. Usa `--diff-only` con `--staged` para una vista solo visual.
+
 Esto requiere `git` y una ruta dentro de un repositorio.
 
 ### Modo Ratchet

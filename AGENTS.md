@@ -266,7 +266,7 @@ so adding a dependency usually means adding it to the feature list too.
 - `complexipy/utils/config.py` — `resolve_config()`: merges CLI args + TOML into `RunConfig`
 - `complexipy/utils/output.py` — Rich console display, `handle_display`, `handle_results_storage`
 - `complexipy/utils/paths.py` — Output path resolution for CSV/JSON/GitLab/SARIF exports
-- `complexipy/utils/diff.py` — Git diff computation, `resolve_diff_flags`, `handle_diff_output`
+- `complexipy/utils/diff.py` — Git diff computation, `resolve_diff_flags`, `handle_diff_output`, staged (index) comparison via `compute_staged_diff`
 - `complexipy/utils/snapshot.py` — `evaluate_snapshot()`, `SnapshotEvaluation`, watermark logic
 - `complexipy/utils/toml.py` — TOML loading, data-driven `get_arguments_value`
 - `complexipy/_complexipy.pyi` — Type stubs for the Rust extension module

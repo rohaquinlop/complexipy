@@ -829,6 +829,89 @@ class TestDiffCli:
         assert result.exit_code == 0
 
 
+class TestStagedDiffCli:
+    """Tests for --staged (git-index comparison)."""
+
+    _SIMPLE = "def simple(x):\n    return x + 1\n"
+    _COMPLEX = (
+        "def simple(x):\n"
+        "    if x:\n"
+        "        for i in range(x):\n"
+        "            if i > 0:\n"
+        "                if i % 2:\n"
+        "                    return i\n"
+        "    return 0\n"
+    )
+
+    def _run(self, tmp_path: Path, monkeypatch, args):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch(
+            "complexipy.utils.diff._git_root", return_value=str(tmp_path)
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["sample.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref",
+            return_value=self._SIMPLE,
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index",
+            return_value=self._COMPLEX,
+        ):
+            return runner.invoke(main_module.app, [*args, str(source_file)])
+
+    def test_staged_alone_defaults_to_head_and_enforces(
+        self, tmp_path: Path, monkeypatch
+    ):
+        result = self._run(tmp_path, monkeypatch, ["--staged", "-mx", "5"])
+
+        assert result.exit_code == 1
+        assert "REGRESSED" in result.output
+        assert "(staged)" in result.output
+
+    def test_staged_alone_passes_within_threshold(
+        self, tmp_path: Path, monkeypatch
+    ):
+        result = self._run(tmp_path, monkeypatch, ["--staged", "-mx", "50"])
+
+        assert result.exit_code == 0
+        assert "Complexity diff (vs HEAD (staged))" in result.output
+
+    def test_staged_with_ref_compares_index_against_ref(
+        self, tmp_path: Path, monkeypatch
+    ):
+        result = self._run(
+            tmp_path, monkeypatch, ["--diff", "main", "--staged", "-mx", "50"]
+        )
+
+        assert result.exit_code == 0
+        assert "Complexity diff (vs main (staged))" in result.output
+
+    def test_staged_outside_git_repo_warns_and_passes(
+        self, tmp_path: Path, monkeypatch
+    ):
+        import complexipy.main as main_module
+
+        runner = CliRunner()
+        source_file = tmp_path / "sample.py"
+        source_file.write_text(self._COMPLEX, encoding="utf-8")
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
+
+        with patch("complexipy.utils.diff._git_root", return_value=None):
+            result = runner.invoke(
+                main_module.app,
+                ["--staged", "-mx", "5", str(source_file)],
+            )
+
+        assert result.exit_code == 0
+        assert "requires a git repository" in result.output
+
+
 class TestOutputToml:
     def test_get_arguments_value_reads_new_output_keys(self):
         result = get_arguments_value(

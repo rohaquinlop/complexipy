@@ -67,6 +67,7 @@ class RunConfig:
     top: Optional[int]
     diff: Optional[str]
     diff_only: Optional[str]
+    staged: bool
 
 
 @dataclass

@@ -12,6 +12,7 @@ from complexipy.utils.diff import (
     DiffEntry,
     _resolve_git_path,
     compute_diff,
+    compute_staged_diff,
     format_diff,
     has_regressions,
 )
@@ -192,6 +193,105 @@ class TestComputeDiff:
             entries = compute_diff(current, "HEAD~1", "/repo")
         # If parsing fails the file is skipped; entries may be empty
         assert isinstance(entries, list)
+
+
+class TestComputeStagedDiff:
+    def test_no_git_repo_returns_none(self):
+        with patch("complexipy.utils.diff._git_root", return_value=None):
+            assert compute_staged_diff("HEAD", "/not-a-repo") is None
+
+    def test_new_staged_file_all_functions_marked_new(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["new.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=None
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index",
+            return_value=_WITH_IF,
+        ):
+            entries = compute_staged_diff("HEAD", "/repo")
+
+        assert entries
+        assert all(e.status == DiffStatus.NEW for e in entries)
+        assert any(e.func_name == "with_if" for e in entries)
+
+    def test_deleted_staged_file_all_functions_marked_removed(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["gone.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index", return_value=None
+        ):
+            entries = compute_staged_diff("HEAD", "/repo")
+
+        assert entries
+        assert all(e.status == DiffStatus.REMOVED for e in entries)
+        assert any(e.func_name == "simple" for e in entries)
+
+    def test_modified_staged_file_reports_changes(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["mod.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index",
+            return_value=_COMPLEX,
+        ):
+            entries = compute_staged_diff("HEAD", "/repo")
+
+        removed = next(e for e in entries if e.func_name == "simple")
+        assert removed.status == DiffStatus.REMOVED
+        added = next(e for e in entries if e.func_name == "complex_func")
+        assert added.status == DiffStatus.NEW
+
+    def test_unchanged_staged_file_produces_unchanged_entries(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["same.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index", return_value=_SIMPLE
+        ):
+            entries = compute_staged_diff("HEAD", "/repo")
+
+        simple_entry = next(e for e in entries if e.func_name == "simple")
+        assert simple_entry.status == DiffStatus.UNCHANGED
+
+    def test_unparseable_staged_content_is_skipped(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch(
+            "complexipy.utils.diff._staged_python_files",
+            return_value=["bad.py"],
+        ), patch(
+            "complexipy.utils.diff._file_content_at_ref", return_value=_SIMPLE
+        ), patch(
+            "complexipy.utils.diff._file_content_at_index",
+            return_value="not python!!!",
+        ):
+            entries = compute_staged_diff("HEAD", "/repo")
+
+        simple_entry = next(e for e in entries if e.func_name == "simple")
+        assert simple_entry.status == DiffStatus.REMOVED
+
+    def test_no_staged_files_returns_empty(self):
+        with patch(
+            "complexipy.utils.diff._git_root", return_value="/repo"
+        ), patch("complexipy.utils.diff._staged_python_files", return_value=[]):
+            assert compute_staged_diff("HEAD", "/repo") == []
 
 
 class TestFormatDiff:

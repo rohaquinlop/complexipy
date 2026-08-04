@@ -59,6 +59,7 @@ def resolve_config(
     diff: Optional[str],
     diff_only: Optional[str],
     ratchet: Optional[bool],
+    staged: Optional[bool],
     top: Optional[int],
     plain: Optional[bool],
     suggest_refactors: Optional[bool],
@@ -113,6 +114,7 @@ def resolve_config(
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
     ratchet = bool(get_argument_value(toml_config, "ratchet", ratchet, False))
+    staged = bool(get_argument_value(toml_config, "staged", staged, False))
 
     plain, suggest_refactors = validate_cli_arguments(
         plain, suggest_refactors, top, quiet
@@ -140,6 +142,7 @@ def resolve_config(
         top=top,
         diff=diff,
         diff_only=diff_only,
+        staged=staged,
     )
 
 

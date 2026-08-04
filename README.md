@@ -272,6 +272,7 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--output <path>`               | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats                                                                      | —       |
 | `--diff <ref>`                  | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | —       |
 | `--diff-only <ref>`             | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff))                                                                 | —       |
+| `--staged`                      | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff))   | `false` |
 | `--ratchet`, `-R`               | **Deprecated.** Use `--diff` instead, which now enforces by default                                                                                                       | `false` |
 | `--check-script`                | Report module-level (script) complexity as a synthetic `<module>` entry                                                                                                   | `false` |
 | `--no-ignore`                   | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`)                                                                | `false` |
@@ -359,6 +360,18 @@ To see the diff visually without affecting the exit code, use `--diff-only` inst
 ```bash
 complexipy . --diff-only HEAD~1
 ```
+
+To compare the **staged** (git index) content instead of the working tree — "what complexity am I about to commit?" — add `--staged`:
+
+```bash
+# Staged changes vs HEAD (the default baseline for --staged)
+complexipy . --staged
+
+# Staged changes vs a specific ref
+complexipy . --diff main --staged
+```
+
+Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. Staged deletions produce `REMOVED` entries and staged additions `NEW` entries.
 
 Requires `git` to be available and the analysed paths to be inside a git repository.
 
