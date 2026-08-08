@@ -141,9 +141,6 @@ complexipy . --output-format sarif
 complexipy . --output-format sarif --suggest-refactors
 ```
 
-Legacy flags such as `--output-json` and TOML keys such as `output-json = true`
-still work as deprecated aliases for one release cycle.
-
 JSON, SARIF, and GitLab Code Quality all follow the same rule: refactor plan
 data (`refactor_plans` in JSON, per-rule findings in SARIF/GitLab) is only
 emitted when `--suggest-refactors` is also passed. Without it, only the
@@ -191,17 +188,6 @@ Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file — see [Diff Configuration](#diff-configuration).
 
 ### Ratchet Mode
-
-!!! warning "Deprecated"
-
-    `--ratchet` (`-R`) is deprecated and will be removed in a future version. `--diff` now enforces by default with the same behavior. Migrate to `--diff` without `--ratchet`:
-
-    ```bash
-    # Before
-    complexipy . --diff main --ratchet
-    # After
-    complexipy . --diff main
-    ```
 
 ### Plain Output
 
@@ -391,10 +377,7 @@ section to the same configuration file:
   on every call.
 - CLI flags always take precedence over the section values.
 - `branch = ""` disables the diff for the current repository (opt-out).
-- The flat keys `staged = true` and `ratchet = true` still work but are
-  superseded by the section; they are kept as legacy and may be removed in
-  a future major version. Resolution order: CLI flag, then the `diff`
-  section, then the flat keys.
+- Resolution order: CLI flag, then the `diff` section.
 - If the configured `branch` does not exist in the local clone (for
   example a fresh or shallow clone), every function reports as `NEW` and
   the enforcement still applies. Fetch the branch or pass `--diff <ref>`

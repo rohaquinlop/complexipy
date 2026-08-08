@@ -17,7 +17,6 @@ from complexipy.types import (
     TOMLDiffSection,
 )
 from complexipy.utils.toml import (
-    get_argument_value,
     get_arguments_value,
 )
 
@@ -54,13 +53,8 @@ def resolve_config(
     sort: Optional[Sort],
     output_format: Optional[List[str]],
     output: Optional[str],
-    output_csv: Optional[bool],
-    output_json: Optional[bool],
-    output_gitlab: Optional[bool],
-    output_sarif: Optional[bool],
     diff: Optional[str],
     diff_only: Optional[str],
-    ratchet: Optional[bool],
     staged: Optional[bool],
     top: Optional[int],
     plain: Optional[bool],
@@ -82,10 +76,6 @@ def resolve_config(
         "sort": sort,
         "output_format": output_format,
         "output": output,
-        "output_csv": output_csv,
-        "output_json": output_json,
-        "output_gitlab": output_gitlab,
-        "output_sarif": output_sarif,
         "exclude": exclude,
         "check_script": check_script,
         "no_ignore": no_ignore,
@@ -115,10 +105,8 @@ def resolve_config(
 
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
-    ratchet = bool(get_argument_value(toml_config, "ratchet", ratchet, False))
-
     cli_staged = staged
-    staged = bool(get_argument_value(toml_config, "staged", staged, False))
+    staged = bool(staged)
 
     diff_section = (
         cast(Optional[TOMLDiffSection], toml_config.get("diff"))
@@ -152,7 +140,6 @@ def resolve_config(
         check_script=check_script,
         no_ignore=no_ignore,
         report_ignored=report_ignored,
-        ratchet=ratchet,
         plain=plain,
         suggest_refactors=suggest_refactors,
         top=top,

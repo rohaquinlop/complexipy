@@ -30,10 +30,6 @@ from complexipy.types import (
     Sort,
 )
 from complexipy.utils.cache import remember_previous_functions
-from complexipy.utils.constants import (
-    LEGACY_OUTPUT_CONFIG_KEYS,
-    LEGACY_OUTPUT_FLAGS,
-)
 from complexipy.utils.dataclasses import FileEntry, FunctionRow
 from complexipy.utils.paths import resolve_output_paths
 
@@ -163,35 +159,8 @@ def handle_results_storage(
         console.print(f"Results saved at {output_path}")
 
 
-def emit_deprecated_output_warnings(
-    console: Console,
-    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
-    toml_config,
-) -> None:
-    for output_format, flag_name in LEGACY_OUTPUT_FLAGS.items():
-        if legacy_cli_output_flags[output_format]:
-            console.print(
-                f"[yellow]Deprecated:[/yellow] {flag_name} will be removed "
-                f"in a future release. Use `--output-format "
-                f"{output_format.value}` instead."
-            )
-
-    if toml_config is None:
-        return
-
-    for output_format, config_key in LEGACY_OUTPUT_CONFIG_KEYS.items():
-        if bool(toml_config.get(config_key, False)):
-            console.print(
-                f"[yellow]Deprecated:[/yellow] `{config_key}` in TOML will "
-                f"be removed in a future release. Use `output-format = "
-                f'["{output_format.value}"]` instead.'
-            )
-
-
 def resolve_output_formats(
     output_format_values: List[str],
-    legacy_cli_output_flags: Dict[OutputFormat, Optional[bool]],
-    toml_config,
 ) -> List[OutputFormat]:
     output_formats = []
 
@@ -210,16 +179,7 @@ def resolve_output_formats(
         if normalized not in output_formats:
             output_formats.append(normalized)
 
-    for output_format in OutputFormat:
-        if legacy_cli_output_flags[output_format]:
-            output_formats.append(output_format)
-            continue
-
-        config_key = LEGACY_OUTPUT_CONFIG_KEYS[output_format]
-        if toml_config is not None and bool(toml_config.get(config_key, False)):
-            output_formats.append(output_format)
-
-    return list(dict.fromkeys(output_formats))
+    return output_formats
 
 
 def output_summary(

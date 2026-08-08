@@ -143,7 +143,8 @@ class TestGitlabOutput:
         result = runner.invoke(
             main_module.app,
             [
-                "--output-gitlab",
+                "--output-format",
+                "gitlab",
                 "--max-complexity-allowed",
                 "5",
                 str(source_file),

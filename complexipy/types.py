@@ -64,7 +64,6 @@ class RunConfig:
     check_script: bool
     no_ignore: bool
     report_ignored: bool
-    ratchet: bool
     plain: bool
     suggest_refactors: bool
     top: Optional[int]
