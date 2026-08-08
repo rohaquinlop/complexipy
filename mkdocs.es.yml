@@ -13,6 +13,7 @@ nav:
   - Inicio: index.md
   - Primeros Pasos:
       - Guía de Uso: usage-guide.md
+      - Guía de Migración: migracion.md
   - Entendiendo la Complejidad:
       - Qué Significan las Puntuaciones: understanding-scores.md
       - Comparación con Ruff: comparison-with-ruff.md

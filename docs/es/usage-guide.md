@@ -136,26 +136,6 @@ complexipy . --output-format json --output-format sarif --output reports/
 complexipy . --output-format sarif --suggest-refactors
 ```
 
-### Migración desde flags y claves deprecadas
-
-Las siguientes flags de CLI y claves TOML se eliminaron en la siguiente
-versión mayor. Usa sus reemplazos:
-
-| Flag/clave eliminada | Reemplazo |
-| -- | -- |
-| `--output-json` / `-j` | `--output-format json` |
-| `--output-csv` / `-c` | `--output-format csv` |
-| `--output-gitlab` | `--output-format gitlab` |
-| `--output-sarif` / `-sr` | `--output-format sarif` |
-| `--ratchet` / `-R` | `--diff <ref>` (aplica por defecto) |
-| `output-json = true` | `output-format = ["json"]` |
-| `output-csv = true` | `output-format = ["csv"]` |
-| `output-gitlab = true` | `output-format = ["gitlab"]` |
-| `output-sarif = true` | `output-format = ["sarif"]` |
-| `ratchet = true` | `[tool.complexipy.diff] branch` o `--diff <ref>` |
-| `staged = true` | `[tool.complexipy.diff] staged = true` |
-| `details = "low"` | `failed = true` |
-
 JSON, SARIF y GitLab Code Quality siguen la misma regla: los datos de los
 planes de refactorización (`refactor_plans` en JSON, hallazgos por regla en
 SARIF/GitLab) solo se emiten cuando también se pasa `--suggest-refactors`.

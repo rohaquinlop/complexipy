@@ -247,7 +247,7 @@ output = "complexipy-results.json"
 
 Legacy TOML keys and CLI flags such as `output-json = true` and
 `--output-json` were removed. Use `output-format` and `--output-format`
-instead. See the [migration note](https://complexipy.dev/usage-guide/#migrating-from-deprecated-flags-and-keys) for the full list of removed flags and keys with their replacements.
+instead. See the [migration note](https://rohaquinlop.github.io/complexipy/migration/) for the full list of removed flags and keys with their replacements.
 
 #### Diff Configuration
 
