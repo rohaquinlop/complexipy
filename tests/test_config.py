@@ -984,3 +984,72 @@ class TestTomlOverrides:
             report_ignored=None,
         )
         assert cfg.max_complexity_allowed == 10
+
+
+class TestDiffSectionFromToml:
+    @staticmethod
+    def _resolve(toml_config, diff=None, diff_only=None, staged=None):
+        return resolve_config(
+            toml_config,
+            paths=["."],
+            max_complexity_allowed=None,
+            snapshot_create=None,
+            snapshot_ignore=None,
+            quiet=None,
+            ignore_complexity=None,
+            failed=None,
+            color=None,
+            sort=None,
+            output_format=None,
+            output=None,
+            output_csv=None,
+            output_json=None,
+            output_gitlab=None,
+            output_sarif=None,
+            diff=diff,
+            diff_only=diff_only,
+            ratchet=None,
+            staged=staged,
+            top=None,
+            plain=None,
+            suggest_refactors=None,
+            exclude=None,
+            check_script=None,
+            no_ignore=None,
+            report_ignored=None,
+        )
+
+    def test_branch_from_section_sets_diff(self):
+        cfg = self._resolve({"diff": {"branch": "main"}})
+        assert cfg.diff == "main"
+        assert cfg.diff_only is None
+
+    def test_cli_diff_overrides_section_branch(self):
+        cfg = self._resolve({"diff": {"branch": "main"}}, diff="develop")
+        assert cfg.diff == "develop"
+
+    def test_cli_diff_only_overrides_section_branch(self):
+        cfg = self._resolve({"diff": {"branch": "main"}}, diff_only="develop")
+        assert cfg.diff is None
+        assert cfg.diff_only == "develop"
+
+    def test_empty_branch_disables_diff(self):
+        cfg = self._resolve({"diff": {"branch": ""}})
+        assert cfg.diff is None
+        assert cfg.diff_only is None
+
+    def test_section_staged_enabled_by_default(self):
+        cfg = self._resolve({"diff": {"staged": True}})
+        assert cfg.staged is True
+
+    def test_section_staged_false_overrides_flat_true(self):
+        cfg = self._resolve({"staged": True, "diff": {"staged": False}})
+        assert cfg.staged is False
+
+    def test_cli_staged_overrides_section(self):
+        cfg = self._resolve({"diff": {"staged": False}}, staged=True)
+        assert cfg.staged is True
+
+    def test_flat_staged_legacy_without_section(self):
+        cfg = self._resolve({"staged": True})
+        assert cfg.staged is True

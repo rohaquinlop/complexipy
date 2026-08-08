@@ -1,7 +1,7 @@
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, MutableMapping, Optional, TypeVar
+from typing import List, MutableMapping, Optional, TypeVar, Union
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -28,6 +28,8 @@ class OutputFormat(str, Enum):
     sarif = "sarif"
 
 
+TOMLDiffSection: TypeAlias = MutableMapping[str, Union[str, bool]]
+
 TOMLTypes = TypeVar(
     "TOMLTypes",
     int,
@@ -37,6 +39,7 @@ TOMLTypes = TypeVar(
     ColorTypes,
     OutputFormat,
     Sort,
+    TOMLDiffSection,
 )
 
 TOMLType: TypeAlias = MutableMapping[str, TOMLTypes]

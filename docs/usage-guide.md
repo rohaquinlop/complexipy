@@ -187,6 +187,9 @@ Like `--diff`, `--staged` enforces the threshold against the staged content and 
 
 This requires `git` and a repository-backed path.
 
+Instead of repeating the reference on every call, declare the comparison
+policy once in a configuration file — see [Diff Configuration](#diff-configuration).
+
 ### Ratchet Mode
 
 !!! warning "Deprecated"
@@ -357,6 +360,45 @@ complexipy loads configuration in this order (highest to lowest priority):
     ```
 
 `check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
+
+### Diff Configuration
+
+The comparison policy can be declared once in the repository instead of
+passing the same flags on every call. Add a `[tool.complexipy.diff]`
+section to the same configuration file:
+
+=== "complexipy.toml"
+
+    ```toml
+    [diff]
+    branch = "main"
+    staged = true
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    [tool.complexipy.diff]
+    branch = "main"
+    staged = true
+    ```
+
+- `branch` sets the default reference for `--diff` and `--diff-only`. A
+  plain `complexipy .` then behaves like `complexipy . --diff main`,
+  enforcement included. Pass `--diff <ref>` or `--diff-only <ref>` to
+  override the reference for a single run.
+- `staged` enables staged comparison by default, like passing `--staged`
+  on every call.
+- CLI flags always take precedence over the section values.
+- `branch = ""` disables the diff for the current repository (opt-out).
+- The flat keys `staged = true` and `ratchet = true` still work but are
+  superseded by the section; they are kept as legacy and may be removed in
+  a future major version. Resolution order: CLI flag, then the `diff`
+  section, then the flat keys.
+- If the configured `branch` does not exist in the local clone (for
+  example a fresh or shallow clone), every function reports as `NEW` and
+  the enforcement still applies. Fetch the branch or pass `--diff <ref>`
+  with an existing reference instead.
 
 ## Python API
 
