@@ -4,6 +4,7 @@ from typing import (
     List,
     Optional,
     Tuple,
+    cast,
 )
 
 import typer
@@ -13,6 +14,7 @@ from complexipy.types import (
     RunConfig,
     Sort,
     TOMLConfig,
+    TOMLDiffSection,
 )
 from complexipy.utils.toml import (
     get_argument_value,
@@ -114,7 +116,21 @@ def resolve_config(
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
     ratchet = bool(get_argument_value(toml_config, "ratchet", ratchet, False))
+
+    cli_staged = staged
     staged = bool(get_argument_value(toml_config, "staged", staged, False))
+
+    diff_section = (
+        cast(Optional[TOMLDiffSection], toml_config.get("diff"))
+        if toml_config is not None
+        else None
+    )
+    if diff_section is not None:
+        branch = diff_section.get("branch")
+        if diff is None and diff_only is None and branch:
+            diff = cast(str, branch)
+        if "staged" in diff_section and cli_staged is None:
+            staged = bool(diff_section["staged"])
 
     plain, suggest_refactors = validate_cli_arguments(
         plain, suggest_refactors, top, quiet

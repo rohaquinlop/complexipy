@@ -7,8 +7,10 @@ from typing import (
     Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
+    MutableMapping,
     Optional,
     Tuple,
+    Union,
     cast,
     overload,
 )
@@ -22,6 +24,7 @@ from complexipy.types import (
     Sort,
     TOMLBase,
     TOMLConfig,
+    TOMLDiffSection,
     TOMLType,
     TOMLTypes,
 )
@@ -55,9 +58,18 @@ def load_values_from_toml_key(
     | Sort
     | ColorTypes
     | OutputFormat
-    | TOMLType,
+    | TOMLType
+    | TOMLDiffSection,
 ) -> (
-    int | bool | str | List[str] | ColorTypes | OutputFormat | Sort | TOMLType
+    int
+    | bool
+    | str
+    | List[str]
+    | ColorTypes
+    | OutputFormat
+    | Sort
+    | TOMLType
+    | TOMLDiffSection
 ): ...
 
 
@@ -70,7 +82,8 @@ def load_values_from_toml_key(
     | Sort
     | ColorTypes
     | OutputFormat
-    | TOMLType,
+    | TOMLType
+    | TOMLDiffSection,
 ):
     """Normalize TOML values to expected runtime types.
 
@@ -93,8 +106,19 @@ def load_values_from_toml_key(
         if isinstance(value, str):
             return [value]
         return value
+    elif key == "diff" and isinstance(value, MutableMapping):
+        return _normalize_diff_section(value)
 
     return value
+
+
+def _normalize_diff_section(value: MutableMapping) -> TOMLDiffSection:
+    section = cast(TOMLDiffSection, value)
+    normalized: Dict[str, Union[str, bool]] = {}
+    for nested_key, nested_value in section.items():
+        if isinstance(nested_value, (str, bool)):
+            normalized[nested_key] = nested_value
+    return cast(TOMLDiffSection, normalized)
 
 
 def get_dict_from_pyproject(

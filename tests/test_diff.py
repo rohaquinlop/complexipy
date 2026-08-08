@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 from unittest.mock import patch
 
+from typer.testing import CliRunner
+
 from complexipy import DiffStatus, file_complexity
 from complexipy._complexipy import main as _main
 from complexipy.types import ExitReport
@@ -16,6 +18,7 @@ from complexipy.utils.diff import (
     format_diff,
     has_regressions,
 )
+from complexipy.utils.toml import get_complexipy_toml_config
 
 _SIMPLE = """\
 def simple(x):
@@ -36,6 +39,16 @@ def complex_func(data):
             if item:
                 return item
     return None
+"""
+
+
+_COMPLEX_SIMPLE = """\
+def simple(x):
+    if x:
+        for i in range(x):
+            if i:
+                return i
+    return x + 1
 """
 
 
@@ -807,3 +820,71 @@ class TestPublicApi:
         assert entry.new_complexity > 1
         assert has_regressions(entries, 15) is False
         assert has_regressions(entries, 5) is True
+
+
+class TestDiffTomlCli:
+    def _git(self, repo, *args):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def _committed_repo(self, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        target = repo / "calc.py"
+        target.write_text(_SIMPLE)
+        assert self._git(repo, "init", "-q").returncode == 0
+        assert self._git(repo, "add", ".").returncode == 0
+        assert self._git(repo, "commit", "-q", "-m", "v1").returncode == 0
+        target.write_text(_COMPLEX_SIMPLE)
+        return repo
+
+    def _run(self, main_module, monkeypatch, repo, args):
+        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(repo))
+        monkeypatch.setattr(
+            main_module,
+            "TOML_CONFIG",
+            get_complexipy_toml_config(str(repo)),
+        )
+        return CliRunner().invoke(main_module.app, args)
+
+    def test_toml_branch_enforces_like_cli_diff(self, tmp_path, monkeypatch):
+        import complexipy.main as main_module
+
+        repo = self._committed_repo(tmp_path)
+        (repo / "complexipy.toml").write_text(
+            'max-complexity-allowed = 2\n[diff]\nbranch = "HEAD"\n'
+        )
+        result = self._run(main_module, monkeypatch, repo, [str(repo)])
+        assert result.exit_code == 1
+
+    def test_diff_only_overrides_toml_branch(self, tmp_path, monkeypatch):
+        import complexipy.main as main_module
+
+        repo = self._committed_repo(tmp_path)
+        (repo / "complexipy.toml").write_text(
+            'max-complexity-allowed = 2\n[diff]\nbranch = "HEAD"\n'
+        )
+        result = self._run(
+            main_module,
+            monkeypatch,
+            repo,
+            [str(repo), "--diff-only", "HEAD", "--ignore-complexity"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "REGRESSED" in result.output
+
+    def test_toml_staged_enables_staged_comparison(self, tmp_path, monkeypatch):
+        import complexipy.main as main_module
+
+        repo = self._committed_repo(tmp_path)
+        assert self._git(repo, "add", ".").returncode == 0
+        (repo / "complexipy.toml").write_text(
+            "max-complexity-allowed = 2\n[diff]\nstaged = true\n"
+        )
+        result = self._run(main_module, monkeypatch, repo, [str(repo)])
+        assert result.exit_code == 1
