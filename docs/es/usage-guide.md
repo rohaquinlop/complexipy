@@ -184,6 +184,10 @@ Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y fal
 
 Esto requiere `git` y una ruta dentro de un repositorio.
 
+En lugar de repetir la referencia en cada llamada, declara la política de
+comparación una sola vez en un archivo de configuración — ver
+[Configuración de Diff](#configuraci%C3%B3n-de-diff).
+
 ### Modo Ratchet
 
 !!! warning "Deprecado"
@@ -355,6 +359,46 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     ```
 
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
+
+### Configuración de Diff
+
+La política de comparación se puede declarar una sola vez en el repositorio
+en lugar de pasar los mismos flags en cada llamada. Añade una sección
+`[tool.complexipy.diff]` al mismo archivo de configuración:
+
+=== "complexipy.toml"
+
+    ```toml
+    [diff]
+    branch = "main"
+    staged = true
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    [tool.complexipy.diff]
+    branch = "main"
+    staged = true
+    ```
+
+- `branch` establece la referencia por defecto para `--diff` y
+  `--diff-only`. Un `complexipy .` simple entonces se comporta como
+  `complexipy . --diff main`, incluida la aplicación del umbral. Pasa
+  `--diff <ref>` o `--diff-only <ref>` para sobrescribir la referencia en
+  una ejecución concreta.
+- `staged` habilita la comparación staged por defecto, como pasar
+  `--staged` en cada llamada.
+- Los flags de CLI siempre tienen prioridad sobre los valores de la sección.
+- `branch = ""` deshabilita el diff para el repositorio actual (opt-out).
+- Las claves planas `staged = true` y `ratchet = true` todavía funcionan,
+  pero quedan superadas por la sección; se mantienen como legado y pueden
+  eliminarse en una versión mayor futura. Orden de resolución: flag de CLI,
+  luego la sección `diff`, luego las claves planas.
+- Si la `branch` configurada no existe en el clon local (por ejemplo un
+  clon recién hecho o shallow), cada función se reporta como `NEW` y la
+  aplicación del umbral sigue activa. Haz fetch de la rama o pasa
+  `--diff <ref>` con una referencia existente.
 
 ## API de Python
 

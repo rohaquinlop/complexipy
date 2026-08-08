@@ -249,6 +249,31 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 `--output-json` still work for now, but they are deprecated in favor of
 `output-format` and `--output-format`.
 
+#### Diff Configuration
+
+The comparison policy can be declared once in the repo, so CI jobs and
+contributors don't repeat `--diff` flags:
+
+```toml
+# complexipy.toml or .complexipy.toml
+[diff]
+branch = "main"
+staged = true
+```
+
+```toml
+# pyproject.toml
+[tool.complexipy.diff]
+branch = "main"
+staged = true
+```
+
+`branch` makes a plain `complexipy .` behave like `complexipy . --diff main`
+(enforcement included); `staged` enables staged comparison by default. CLI
+flags always take precedence. See the [usage guide](docs/usage-guide.md)
+for details, including the empty-branch opt-out and missing-reference
+behavior.
+
 `check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
 
 ### CLI Options
