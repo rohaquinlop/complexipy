@@ -136,9 +136,25 @@ complexipy . --output-format json --output-format sarif --output reports/
 complexipy . --output-format sarif --suggest-refactors
 ```
 
-Las flags heredadas como `--output-json` y las claves TOML como
-`output-json = true` siguen funcionando como alias deprecados por un ciclo de
-release.
+### Migración desde flags y claves deprecadas
+
+Las siguientes flags de CLI y claves TOML se eliminaron en la siguiente
+versión mayor. Usa sus reemplazos:
+
+| Flag/clave eliminada | Reemplazo |
+| -- | -- |
+| `--output-json` / `-j` | `--output-format json` |
+| `--output-csv` / `-c` | `--output-format csv` |
+| `--output-gitlab` | `--output-format gitlab` |
+| `--output-sarif` / `-sr` | `--output-format sarif` |
+| `--ratchet` / `-R` | `--diff <ref>` (aplica por defecto) |
+| `output-json = true` | `output-format = ["json"]` |
+| `output-csv = true` | `output-format = ["csv"]` |
+| `output-gitlab = true` | `output-format = ["gitlab"]` |
+| `output-sarif = true` | `output-format = ["sarif"]` |
+| `ratchet = true` | `[tool.complexipy.diff] branch` o `--diff <ref>` |
+| `staged = true` | `[tool.complexipy.diff] staged = true` |
+| `details = "low"` | `failed = true` |
 
 JSON, SARIF y GitLab Code Quality siguen la misma regla: los datos de los
 planes de refactorización (`refactor_plans` en JSON, hallazgos por regla en
@@ -187,19 +203,6 @@ Esto requiere `git` y una ruta dentro de un repositorio.
 En lugar de repetir la referencia en cada llamada, declara la política de
 comparación una sola vez en un archivo de configuración — ver
 [Configuración de Diff](#configuraci%C3%B3n-de-diff).
-
-### Modo Ratchet
-
-!!! warning "Deprecado"
-
-    `--ratchet` (`-R`) está deprecado y será eliminado en una versión futura. `--diff` ahora aplica por defecto con el mismo comportamiento. Migra a `--diff` sin `--ratchet`:
-
-    ```bash
-    # Antes
-    complexipy . --diff main --ratchet
-    # Después
-    complexipy . --diff main
-    ```
 
 ### Salida en Texto Plano
 
@@ -391,10 +394,7 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
   `--staged` en cada llamada.
 - Los flags de CLI siempre tienen prioridad sobre los valores de la sección.
 - `branch = ""` deshabilita el diff para el repositorio actual (opt-out).
-- Las claves planas `staged = true` y `ratchet = true` todavía funcionan,
-  pero quedan superadas por la sección; se mantienen como legado y pueden
-  eliminarse en una versión mayor futura. Orden de resolución: flag de CLI,
-  luego la sección `diff`, luego las claves planas.
+- Orden de resolución: flag de CLI, luego la sección `diff`.
 - Si la `branch` configurada no existe en el clon local (por ejemplo un
   clon recién hecho o shallow), cada función se reporta como `NEW` y la
   aplicación del umbral sigue activa. Haz fetch de la rama o pasa

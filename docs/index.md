@@ -205,10 +205,6 @@ output-format = ["json"]
 output = "complexipy-results.json"
 ```
 
-Legacy TOML keys such as `output-json = true` and CLI flags such as
-`--output-json` still work for now, but they are deprecated in favor of
-`output-format` and `--output-format`.
-
 `check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
 
 ### CLI Options
@@ -233,14 +229,9 @@ Legacy TOML keys such as `output-json = true` and CLI flags such as
 | `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | — |
 | `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff)) | — |
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
-| `--ratchet`, `-R` | **Deprecated.** Use `--diff` instead, which now enforces by default | `false` |
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
-| `--output-json` | Deprecated alias for `--output-format json` | `false` |
-| `--output-csv` | Deprecated alias for `--output-format csv` | `false` |
-| `--output-gitlab` | Deprecated alias for `--output-format gitlab` | `false` |
-| `--output-sarif` | Deprecated alias for `--output-format sarif` | `false` |
 
 Example:
 
@@ -336,19 +327,6 @@ complexipy . --diff main --staged
 Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. Staged deletions produce `REMOVED` entries and staged additions `NEW` entries.
 
 Requires `git` to be available and the analysed paths to be inside a git repository.
-
-#### Ratchet Mode
-
-!!! warning "Deprecated"
-
-    `--ratchet` (`-R`) is deprecated and will be removed in a future version. `--diff` now enforces by default with the same behavior. Migrate to `--diff` without `--ratchet`:
-
-    ```bash
-    # Before
-    complexipy . --diff main --ratchet
-    # After
-    complexipy . --diff main
-    ```
 
 ### Script Complexity
 

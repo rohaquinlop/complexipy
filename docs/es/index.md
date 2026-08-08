@@ -206,10 +206,6 @@ output-format = ["json"]
 output = "complexipy-results.json"
 ```
 
-Las claves TOML heredadas como `output-json = true` y las flags de CLI como
-`--output-json` todavía funcionan por ahora, pero están deprecadas a favor de
-`output-format` y `--output-format`.
-
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
 
 ### Opciones de CLI
@@ -234,14 +230,9 @@ Las claves TOML heredadas como `output-json = true` y las flags de CLI como
 | `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](#diff-de-complejidad)) | — |
 | `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](#diff-de-complejidad)) | — |
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
-| `--ratchet`, `-R` | **Deprecado.** Usa `--diff` en su lugar, que ahora aplica por defecto | `false` |
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
-| `--output-json` | Alias deprecado de `--output-format json` | `false` |
-| `--output-csv` | Alias deprecado de `--output-format csv` | `false` |
-| `--output-gitlab` | Alias deprecado de `--output-format gitlab` | `false` |
-| `--output-sarif` | Alias deprecado de `--output-format sarif` | `false` |
 
 Ejemplo:
 
@@ -337,19 +328,6 @@ complexipy . --diff main --staged
 Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y falla cuando un cambio staged empuja una función por encima de `--max-complexity-allowed`. Las eliminaciones staged producen entradas `REMOVED` y las adiciones staged entradas `NEW`.
 
 Requiere que `git` esté disponible y que las rutas analizadas estén dentro de un repositorio git.
-
-#### Modo Ratchet
-
-!!! warning "Deprecado"
-
-    `--ratchet` (`-R`) está deprecado y será eliminado en una versión futura. `--diff` ahora aplica por defecto con el mismo comportamiento. Migra a `--diff` sin `--ratchet`:
-
-    ```bash
-    # Antes
-    complexipy . --diff main --ratchet
-    # Después
-    complexipy . --diff main
-    ```
 
 ### Complejidad de Script
 

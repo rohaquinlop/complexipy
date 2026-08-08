@@ -245,9 +245,9 @@ output-format = ["json"]
 output = "complexipy-results.json"
 ```
 
-Legacy TOML keys such as `output-json = true` and CLI flags such as
-`--output-json` still work for now, but they are deprecated in favor of
-`output-format` and `--output-format`.
+Legacy TOML keys and CLI flags such as `output-json = true` and
+`--output-json` were removed. Use `output-format` and `--output-format`
+instead. See the [migration note](https://complexipy.dev/usage-guide/#migrating-from-deprecated-flags-and-keys) for the full list of removed flags and keys with their replacements.
 
 #### Diff Configuration
 
@@ -298,14 +298,9 @@ behavior.
 | `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | — |
 | `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff)) | — |
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
-| `--ratchet`, `-R` | **Deprecated.** Use `--diff` instead, which now enforces by default | `false` |
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
-| `--output-json` | Deprecated alias for `--output-format json` | `false` |
-| `--output-csv` | Deprecated alias for `--output-format csv` | `false` |
-| `--output-gitlab` | Deprecated alias for `--output-format gitlab` | `false` |
-| `--output-sarif` | Deprecated alias for `--output-format sarif` | `false` |
 
 Example:
 
