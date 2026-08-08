@@ -59,7 +59,7 @@ class TestJsonOutput:
 
         result = runner.invoke(
             main_module.app,
-            ["--output-json", str(source_file)],
+            ["--output-format", "json", str(source_file)],
         )
 
         assert result.exit_code == 0, result.output

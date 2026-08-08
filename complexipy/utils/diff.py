@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-import typer
 from rich.console import Console
 
 from complexipy._complexipy import (
@@ -477,20 +476,10 @@ def resolve_diff_flags(
     console: Console,
     diff: Optional[str],
     diff_only: Optional[str],
-    ratchet: bool,
     staged: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
     if staged and not diff and not diff_only:
         diff = "HEAD"
-
-    if ratchet and diff:
-        console.print(
-            "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "
-            "--diff now enforces by default. Remove --ratchet."
-        )
-    elif ratchet and not diff:
-        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
-        raise typer.Exit(code=2)
 
     if diff_only and diff:
         console.print(

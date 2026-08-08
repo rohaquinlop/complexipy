@@ -597,7 +597,7 @@ class TestPlainOutput:
 
 
 class TestDiffCli:
-    """Tests for --diff (enforcing), --diff-only (visual), and --ratchet deprecation."""
+    """Tests for --diff (enforcing) and --diff-only (visual)."""
 
     _SIMPLE = "def simple(x):\n    return x + 1\n"
     _COMPLEX = (
@@ -748,52 +748,6 @@ class TestDiffCli:
         # Verify diff is shown.
         assert "Complexity diff" in result.output
         assert "REGRESSED" in result.output
-
-    def test_ratchet_deprecation_warning(self, tmp_path: Path, monkeypatch):
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(self._SIMPLE, encoding="utf-8")
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        with patch(
-            "complexipy.utils.diff._file_content_at_ref",
-            return_value=self._SIMPLE,
-        ), patch(
-            "complexipy.utils.diff._git_root",
-            return_value=str(tmp_path),
-        ):
-            result = runner.invoke(
-                main_module.app,
-                [
-                    "--ratchet",
-                    "--diff",
-                    "main",
-                    "-mx",
-                    "15",
-                    str(source_file),
-                ],
-            )
-
-        assert "Deprecated" in result.output
-        assert "--ratchet" in result.output
-
-    def test_ratchet_without_diff_errors(self, tmp_path: Path, monkeypatch):
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(self._SIMPLE, encoding="utf-8")
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        result = runner.invoke(
-            main_module.app,
-            ["--ratchet", str(source_file)],
-        )
-
-        assert result.exit_code == 2
-        assert "requires" in result.output.lower() or "--diff" in result.output
 
     def test_diff_and_diff_only_conflict(self, tmp_path: Path, monkeypatch):
         import complexipy.main as main_module

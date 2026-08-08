@@ -211,10 +211,6 @@ BOOLEAN_FIELDS: List[Tuple[str, str, bool]] = [
     ("check_script", "check-script", False),
     ("no_ignore", "no-ignore", False),
     ("report_ignored", "report-ignored", False),
-    ("output_csv", "output-csv", False),
-    ("output_json", "output-json", False),
-    ("output_gitlab", "output-gitlab", False),
-    ("output_sarif", "output-sarif", False),
 ]
 
 
@@ -244,14 +240,6 @@ def get_arguments_value(
         )
 
     failed = cli_args.get("failed")
-    if (
-        failed is None
-        and toml_config is not None
-        and "failed" not in toml_config
-    ):
-        legacy_details = toml_config.get("details")
-        if legacy_details is not None:
-            failed = str(legacy_details).lower() == "low"
     result["failed"] = cast(
         bool, get_argument_value(toml_config, "failed", failed, False)
     )
