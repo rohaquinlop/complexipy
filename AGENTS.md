@@ -35,7 +35,9 @@ complexipy/
 │   ├── utils.rs                  # CSV/JSON writers, snapshot I/O, AST helpers
 │   ├── wasm.rs                   # wasm-bindgen entry point
 │   ├── lib.rs                    # PyO3 module entry
+│   ├── helpers.rs                # Module declarations (helpers/)
 │   ├── helpers/exclude.rs        # Glob-based file exclusion
+│   ├── rules.rs                  # Module declarations (rules/)
 │   └── tests/rules/              # Rust unit tests (wired in via #[path])
 │
 ├── complexipy/                   # Python CLI + API wrapper
@@ -64,7 +66,9 @@ complexipy/
 │   └── test_*.py                 # Utility module tests
 │
 ├── docs/                         # MkDocs content (EN + es/)
+├── pkg/                          # wasm-pack output (copied into web/ and vscode/)
 ├── web/                          # Browser demo (WASM + CodeMirror)
+├── vscode/                       # VS Code extension (WASM module)
 └── .github/workflows/            # CI, PR title check, release
 ```
 
