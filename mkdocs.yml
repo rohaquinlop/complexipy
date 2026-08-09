@@ -12,6 +12,7 @@ nav:
   - Getting Started:
       - Usage Guide: usage-guide.md
       - Migration Guide: migration.md
+  - Changelog: changelog.md
   - Understanding Complexity:
       - What Scores Mean: understanding-scores.md
       - Comparison with Ruff: comparison-with-ruff.md
@@ -94,7 +95,8 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      check_paths: true
   - admonition
   - pymdownx.superfences:
       custom_fences:
