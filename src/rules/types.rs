@@ -41,6 +41,7 @@ impl RuleMetadata {
             current_complexity: 0,
             estimated_reduction: 0,
             estimated_complexity_after: 0,
+            reduction_is_measured: false,
             rule_id: self.id.clone(),
             category: self.category.clone(),
             applicability: self.applicability.clone(),

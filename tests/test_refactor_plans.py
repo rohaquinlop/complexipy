@@ -633,3 +633,81 @@ def test_loop_guard_with_else_reduction_matches_measured_delta() -> None:
     )
     assert real_reduction == 1
     assert plan.estimated_reduction == real_reduction
+
+
+def splice_and_measure(source: str, plan: RefactorPlan) -> int:
+    """Apply a plan's suggestion by hand and re-score the result.
+
+    Independent Python-side ground truth for the Rust measurement pass: the
+    plan's numbers must equal what splicing and re-scoring actually produce.
+    """
+    lines = source.split("\n")
+    spliced = "\n".join(
+        lines[: plan.line_start - 1]
+        + [plan.suggestion.replacement]  # type: ignore[union-attr]
+        + lines[plan.line_end :]
+    )
+    return code_complexity(spliced).functions[0].complexity
+
+
+def test_loop_guard_leading_suggestion_is_faithful_and_measured() -> None:
+    func = first_func(load_source("loop_guard_leading.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.spliceable
+    assert plan.reduction_is_measured
+    assert plan.estimated_reduction == func.complexity - splice_and_measure(
+        load_source("loop_guard_leading.py"), plan
+    )
+
+
+def test_loop_guard_trailing_suggestion_is_faithful_and_measured() -> None:
+    func = first_func(load_source("loop_guard_trailing.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.spliceable
+    assert plan.reduction_is_measured
+    assert plan.estimated_complexity_after == splice_and_measure(
+        load_source("loop_guard_trailing.py"), plan
+    )
+
+
+def test_loop_guard_multiline_header_suggestion_is_faithful_and_measured() -> (
+    None
+):
+    func = first_func(load_source("loop_guard_multiline_header.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.spliceable
+    assert plan.reduction_is_measured
+    assert plan.estimated_complexity_after == splice_and_measure(
+        load_source("loop_guard_multiline_header.py"), plan
+    )
+
+
+def test_reduction_is_measured_flag_marks_spliced_and_estimated_plans() -> None:
+    # Machine-applicable spliceable rules measure their reduction.
+    func = first_func(load_source("collapsible_if_simple.py"))
+    collapsible = next(
+        p for p in func.refactor_plans if p.kind == "collapsible_if"
+    )
+    assert collapsible.reduction_is_measured
+
+    # Help-only rules keep a formula estimate.
+    func = first_func(load_source("flatten_try_with_nested.py"))
+    flatten = next(p for p in func.refactor_plans if p.kind == "flatten_try")
+    assert not flatten.reduction_is_measured
+    assert flatten.suggestion is None
+
+    # C005 carries a suggestion but it is a snippet with a placeholder body,
+    # not a faithful splice -- it stays estimated.
+    func = first_func(load_source("extract_predicate_boolean.py"))
+    predicate = next(
+        p for p in func.refactor_plans if p.kind == "extract_predicate"
+    )
+    assert predicate.suggestion is not None
+    assert not predicate.suggestion.spliceable
+    assert not predicate.reduction_is_measured

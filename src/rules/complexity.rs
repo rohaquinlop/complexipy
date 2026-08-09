@@ -596,7 +596,8 @@ impl RefactorRule for CollapsibleIfRule {
 
 /// Generate a concrete suggestion for loop guards by inverting nested if
 /// conditions and using continue. Uses the region tree to collect guards,
-/// similar to how C007 uses `collect_if_chain`.
+/// similar to how C007 uses `collect_if_chain`. Returns `None` when the body
+/// holds no guardable chain — callers fall back to `help` text then.
 fn generate_loop_guard_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -610,8 +611,6 @@ fn generate_loop_guard_suggestion(
     }
 
     let base_indent = get_indentation_from_str(lines[start]);
-    let indent_step = detect_indent_step(&lines[start..end]);
-    let loop_body_indent = base_indent + indent_step;
 
     let mut guards = Vec::new();
     let mut current_region: Option<&ComplexityRegion> = None;
@@ -645,15 +644,37 @@ fn generate_loop_guard_suggestion(
         break;
     }
 
-    if guards.is_empty() {
+    // A loop-level `else` (for/while-else, aligned with the loop header)
+    // cannot survive the guard transformation: re-emitted as-is it becomes a
+    // dangling `else` inside the body. A first chain member with its own
+    // `else`/`elif` cannot become a guard either — the guard would skip the
+    // `else` branch entirely.
+    if has_else_branch(region, &lines)
+        || guards.is_empty()
+        || has_else_branch(guards[0].0, &lines)
+    {
         return None;
     }
 
     let innermost = guards.last().unwrap().0;
     let innermost_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
+    let innermost_end = (innermost.line_end as usize).min(lines.len());
+    let chain_start_idx = (guards[0].0.line_start.saturating_sub(1)) as usize;
+
+    // The body indent and step come from the first chain member's own line:
+    // the header may span several lines, so its continuation lines cannot be
+    // trusted to reveal the step. Header continuation lines fall into the
+    // leading range below and pass through unchanged.
+    let loop_body_indent = get_indentation_from_str(lines[chain_start_idx]);
+    let indent_step = loop_body_indent.saturating_sub(base_indent);
 
     let mut result = Vec::new();
     result.push(lines[start].to_string());
+    result.extend(
+        lines[(start + 1)..chain_start_idx]
+            .iter()
+            .map(|line| (*line).to_string()),
+    );
 
     for (_, guard) in &guards {
         result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
@@ -663,8 +684,7 @@ fn generate_loop_guard_suggestion(
         ));
     }
 
-    let body_start = innermost_line_idx + 1;
-    for line in &lines[body_start..end] {
+    for line in &lines[(innermost_line_idx + 1)..innermost_end] {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             result.push(String::new());
@@ -675,10 +695,16 @@ fn generate_loop_guard_suggestion(
         let padding = " ".repeat(shifted);
         result.push(format!("{}{}", padding, trimmed));
     }
+    result.extend(
+        lines[innermost_end..end]
+            .iter()
+            .map(|line| (*line).to_string()),
+    );
 
     Some(CodeSuggestion {
         replacement: result.join("\n"),
         applicability: Applicability::MachineApplicable,
+        spliceable: true,
         description: format!(
             "Convert {} nested conditions to continue guards",
             guards.len()
@@ -733,6 +759,7 @@ fn generate_predicate_suggestion(
     Some(CodeSuggestion {
         replacement,
         applicability: Applicability::MachineApplicable,
+        spliceable: false,
         description: format!("Extract condition into named predicate function `{func_name}`"),
     })
 }
@@ -903,6 +930,7 @@ fn generate_collapsible_if_suggestion_chain(
     CodeSuggestion {
         replacement,
         applicability: Applicability::MachineApplicable,
+        spliceable: true,
         description: format!("Merge nested conditions into `if {}:`", combined),
     }
 }

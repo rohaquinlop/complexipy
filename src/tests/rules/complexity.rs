@@ -6,7 +6,7 @@
 
 use super::{
     collect_loop_if_chain, combine_conditions_chain, extract_condition_from_line,
-    fallback_boolean_count, needs_parens_for_and,
+    fallback_boolean_count, generate_loop_guard_suggestion, needs_parens_for_and,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
@@ -153,6 +153,8 @@ fn returns_none_when_condition_spans_multiple_lines_via_unclosed_paren() {
 #[test]
 fn returns_none_for_unrecognized_leading_keyword() {
     assert_eq!(extract_condition_from_line("for x in items:"), None);
+    assert_eq!(extract_condition_from_line("match x:"), None);
+    assert_eq!(extract_condition_from_line("with open(f) as fh:"), None);
 }
 
 #[test]
@@ -265,4 +267,166 @@ fn fallback_boolean_count_sums_known_booleans_plus_one_join_per_merge() {
 
     // 1 + 2 + 0 known booleans, plus (3 - 1) joins from merging 3 conditions.
     assert_eq!(fallback_boolean_count(&refs), 5);
+}
+
+fn loop_region(children: Vec<ComplexityRegion>, line_end: u64) -> ComplexityRegion {
+    ComplexityRegion {
+        kind: RegionKind::Loop,
+        line_start: 1,
+        line_end,
+        children,
+        ..Default::default()
+    }
+}
+
+fn if_stmt(line_start: u64, line_end: u64, nesting: u64) -> ComplexityRegion {
+    ComplexityRegion {
+        kind: RegionKind::If,
+        line_start,
+        line_end,
+        nesting,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn loop_guard_suggestion_is_faithful_for_a_pure_chain() {
+    let source = "for x in y:\n    if a:\n        if b:\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 4,
+            nesting: 1,
+            children: vec![if_stmt(3, 4, 2)],
+            ..Default::default()
+        }],
+        4,
+    );
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert!(suggestion.spliceable);
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_keeps_leading_statements() {
+    let source = "for x in y:\n    total += x\n    if a:\n        pass\n";
+    let region = loop_region(vec![if_stmt(3, 4, 1)], 4);
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    total += x\n    if not a:\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
+    let source = "for x in y:\n    if a:\n        pass\n    total += 1\n";
+    let region = loop_region(vec![if_stmt(2, 3, 1)], 4);
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    pass\n    total += 1"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_keeps_an_else_on_the_last_chain_member() {
+    let source = "for x in y:\n    if a:\n        if b:\n            pass\n        else:\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 6,
+            nesting: 1,
+            children: vec![if_stmt(3, 6, 2)],
+            ..Default::default()
+        }],
+        6,
+    );
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    if b:\n        pass\n    else:\n        pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_preserves_a_multiline_header() {
+    let source = "for x in (\n    items):\n    if a:\n        pass\n";
+    let region = loop_region(vec![if_stmt(3, 4, 1)], 4);
+
+    // The header continuation lines pass through unchanged; only the body
+    // is transformed.
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert!(suggestion.spliceable);
+    assert_eq!(
+        suggestion.replacement,
+        "for x in (\n    items):\n    if not a:\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_refuses_a_first_member_with_its_own_else() {
+    let source = "for x in y:\n    if a:\n        pass\n    else:\n        pass\n";
+    let region = loop_region(vec![if_stmt(2, 4, 1)], 4);
+
+    // The guard `if not a: continue` would skip the `else` branch entirely.
+    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+}
+
+#[test]
+fn loop_guard_suggestion_refuses_a_loop_level_else() {
+    let source = "def f():\n    for x in y:\n        if a:\n            pass\n    else:\n        pass\n";
+    let region = ComplexityRegion {
+        kind: RegionKind::Loop,
+        line_start: 2,
+        line_end: 5,
+        children: vec![if_stmt(3, 4, 1)],
+        ..Default::default()
+    };
+
+    // The loop's own `else` would dangle after the guards.
+    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+}
+
+#[test]
+fn loop_guard_suggestion_refuses_an_unextractable_condition() {
+    let source = "for x in y:\n    if (a and\n            b):\n        pass\n";
+    let region = loop_region(vec![if_stmt(2, 4, 1)], 4);
+
+    // The first chain member's condition spans lines; no guard text exists.
+    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+}
+
+#[test]
+fn loop_guard_suggestion_keeps_unextractable_members_in_the_survivor() {
+    let source =
+        "for x in y:\n    if a:\n        if (b and\n                c):\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 5,
+            nesting: 1,
+            children: vec![if_stmt(3, 5, 2)],
+            ..Default::default()
+        }],
+        5,
+    );
+
+    // The first member becomes a guard; the unextractable member stays in
+    // the survivor block, dedented with it, unchanged.
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    if (b and\n            c):\n        pass"
+    );
 }

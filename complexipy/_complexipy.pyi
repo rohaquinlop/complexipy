@@ -43,8 +43,15 @@ class CodeSuggestion:
     description: str
     """Description of what this suggestion does."""
 
+    spliceable: bool
+    """Whether the replacement is a faithful source splice that can be measured."""
+
     def __init__(
-        self, replacement: str, applicability: Applicability, description: str
+        self,
+        replacement: str,
+        applicability: Applicability,
+        description: str,
+        spliceable: bool,
     ) -> None: ...
 
 class LineComplexity:
@@ -107,10 +114,17 @@ class RefactorPlan:
     """Current cognitive complexity of the function."""
 
     estimated_reduction: int
-    """Estimated complexity reduction from applying this refactoring."""
+    """Complexity reduction from applying this refactoring — measured when
+    `reduction_is_measured` is true, formula-estimated otherwise."""
 
     estimated_complexity_after: int
-    """Estimated complexity after applying this refactoring."""
+    """Complexity after applying this refactoring — measured when
+    `reduction_is_measured` is true, formula-estimated otherwise."""
+
+    reduction_is_measured: bool
+    """True when the reduction was measured by splicing the suggestion into
+    the source and re-scoring it; false for formula estimates (help-only
+    rules and measurement fallbacks)."""
 
     rule_id: str
     """Unique identifier for the rule (e.g., 'C001', 'C007')."""
@@ -149,6 +163,7 @@ class RefactorPlan:
         current_complexity: int,
         estimated_reduction: int,
         estimated_complexity_after: int,
+        reduction_is_measured: bool,
         rule_id: str,
         category: RuleCategory,
         applicability: Applicability,

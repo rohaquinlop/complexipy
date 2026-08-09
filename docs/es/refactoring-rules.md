@@ -445,9 +445,11 @@ La salida JSON incluye todos los metadatos de las reglas para consumo programát
   "current_complexity": 4,
   "estimated_reduction": 1,
   "estimated_complexity_after": 3,
+  "reduction_is_measured": true,
   "suggestion": {
     "replacement": "    if data and data.is_valid():\n        return process(data)",
     "applicability": "MachineApplicable",
+    "spliceable": true,
     "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
   "help": null,
@@ -456,6 +458,26 @@ La salida JSON incluye todos los metadatos de las reglas para consumo programát
   "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
 }
 ```
+
+### Reducciones medidas vs estimadas
+
+Cada plan informa cuánto reduce la complejidad al aplicarlo
+(`estimated_reduction` / `estimated_complexity_after`) junto con un
+indicador de confianza, `reduction_is_measured`:
+
+- **Medida** (`true`): la regla insertó su sugerencia en el código real, lo
+  re-analizó y volvió a ejecutar el puntuador. El número es la respuesta
+  literal a "aplica esto y vuelve a puntuar" — exactamente lo que
+  reportan C002 y C007, que llevan reemplazos aplicables por máquina. La
+  CLI los muestra sin calificador: `Reduction: -2 complexity (7 -> 5)`.
+- **Estimada** (`false`): el número proviene de la fórmula manual de la
+  regla (reglas solo con ayuda C001, C003, C004, C011, y el fragmento
+  C005, además de cualquier respaldo cuando una inserción no se puede
+  re-analizar). La CLI los muestra con una tilde:
+  `Estimated reduction: ~-2 complexity (7 -> 5)`.
+
+Una reducción medida de 0 significa que la sugerencia no reduce la
+complejidad realmente; el plan se descarta en lugar de mostrarse.
 
 ______________________________________________________________________
 

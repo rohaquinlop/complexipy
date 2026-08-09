@@ -362,9 +362,13 @@ def _output_single_plan(
         f"          Category: {category_icon} {category_name} "
         f"| Applicability: {applicability_icon} {applicability_name}"
     )
+    reduction_label = (
+        "Reduction" if plan.reduction_is_measured else "Estimated reduction"
+    )
+    qualifier = "" if plan.reduction_is_measured else "~"
     console.print(
         f"          Lines {plan.line_start}-{plan.line_end} "
-        f"-> Estimated reduction: [green]-{plan.estimated_reduction}[/green] complexity "
+        f"-> {reduction_label}: [green]-{qualifier}{plan.estimated_reduction}[/green] complexity "
         f"({plan.current_complexity} -> {plan.estimated_complexity_after})"
     )
 
