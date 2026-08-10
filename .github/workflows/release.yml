@@ -14,9 +14,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   linux-build:
     runs-on: ${{ matrix.platform.runner }}
@@ -52,10 +49,15 @@ jobs:
           sccache: "true"
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+          action: actions/upload-artifact@v7.0.1
+          with: |
+            name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            path: dist
+            overwrite: true
+          attempt_limit: 3
+          attempt_delay: 10000
 
   musllinux-build:
     runs-on: ${{ matrix.platform.runner }}
@@ -83,10 +85,15 @@ jobs:
           sccache: "true"
           manylinux: musllinux_1_2
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          name: wheels-musllinux-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+          action: actions/upload-artifact@v7.0.1
+          with: |
+            name: wheels-musllinux-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            path: dist
+            overwrite: true
+          attempt_limit: 3
+          attempt_delay: 10000
 
   windows-build:
     runs-on: ${{ matrix.platform.runner }}
@@ -114,10 +121,15 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+          action: actions/upload-artifact@v7.0.1
+          with: |
+            name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            path: dist
+            overwrite: true
+          attempt_limit: 3
+          attempt_delay: 10000
 
   macos-build:
     runs-on: ${{ matrix.platform.runner }}
@@ -144,10 +156,15 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
-          path: dist
+          action: actions/upload-artifact@v7.0.1
+          with: |
+            name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            path: dist
+            overwrite: true
+          attempt_limit: 3
+          attempt_delay: 10000
 
   sdist:
     runs-on: ubuntu-latest
@@ -161,10 +178,15 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          name: wheels-sdist
-          path: dist
+          action: actions/upload-artifact@v7.0.1
+          with: |
+            name: wheels-sdist
+            path: dist
+            overwrite: true
+          attempt_limit: 3
+          attempt_delay: 10000
 
   unit-tests-linux:
     name: Unit Tests
@@ -268,10 +290,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: wandalen/wretry.action@v3.8.0
         with:
-          path: artifacts
-          pattern: wheels-*
+          action: actions/download-artifact@v8.0.1
+          with: |
+            path: artifacts
+            pattern: wheels-*
+          attempt_limit: 3
+          attempt_delay: 10000
       - name: Flatten artifacts
         shell: bash
         run: |
