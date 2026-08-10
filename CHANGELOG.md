@@ -3,7 +3,7 @@
 All notable changes to complexipy are documented here, newest first. Each
 release section links to its GitHub release notes for the full details.
 
-## Unreleased
+## [7.0.0] - 2026-08-10
 
 ### Added
 
@@ -87,9 +87,12 @@ release section links to its GitHub release notes for the full details.
   flat `staged`, flat `ratchet`, and the undocumented `details = "low"`
   alias. (#221)
 
-These removals land in the next major version. See the
+These removals land in 7.0.0. See the
 [migration guide](https://rohaquinlop.github.io/complexipy/migration/) for
 each removed flag and key with its replacement.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/7.0.0)
+for the full details.
 
 ## [6.2.0] - 2026-07-23
 

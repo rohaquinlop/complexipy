@@ -4,7 +4,7 @@ Todos los cambios notables de complexipy se documentan aquí, de más reciente
 a más antiguo. Cada sección de versión enlaza a sus notas de versión de
 GitHub con todos los detalles.
 
-## Sin publicar
+## [7.0.0] - 2026-08-10
 
 ### Añadido
 
@@ -97,9 +97,12 @@ GitHub con todos los detalles.
   `output-sarif`, `staged` plana, `ratchet` plana y el alias no documentado
   `details = "low"`. (#221)
 
-Estas eliminaciones llegan en la próxima versión mayor. Consulta la
+Estas eliminaciones llegan en 7.0.0. Consulta la
 [guía de migración](https://rohaquinlop.github.io/complexipy/es/migracion/)
 para cada flag y clave eliminada con su reemplazo.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/7.0.0)
+para todos los detalles.
 
 ## [6.2.0] - 2026-07-23
 

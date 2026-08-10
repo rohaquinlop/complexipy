@@ -3,7 +3,7 @@
 Esta página registra las flags y claves eliminadas y sus reemplazos.
 Consúltala antes de actualizar entre versiones mayores.
 
-## Eliminado en la siguiente versión mayor
+## Eliminado en 7.0.0
 
 Las siguientes flags de CLI y claves TOML se eliminaron. Usa sus reemplazos:
 

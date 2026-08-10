@@ -3,7 +3,7 @@
 This page tracks removed flags and keys and their replacements. Check it
 before upgrading between major versions.
 
-## Removed in the next major version
+## Removed in 7.0.0
 
 The following CLI flags and TOML keys were removed. Use their replacements
 instead:
