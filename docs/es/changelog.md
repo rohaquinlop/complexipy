@@ -37,6 +37,20 @@ GitHub con todos los detalles.
   aplicación del umbral), `staged = true` habilita la comparación staged
   por defecto y `branch = ""` la desactiva. Las flags de CLI tienen
   precedencia sobre la sección. (#219)
+- Las reducciones de refactorización ahora se miden en lugar de estimarse:
+  para cada sugerencia aplicable por máquina (C002, C007) el reemplazo se
+  inserta en el código, se re-analiza y se vuelve a puntuar, de modo que
+  `estimated_reduction` y `estimated_complexity_after` reportan el delta
+  literal de aplicar la sugerencia — y el ranking, la resolución de
+  solapamientos y el filtro de ruido operan con valores medidos. El nuevo
+  flag `reduction_is_measured` en `RefactorPlan` separa los planes medidos
+  de las estimaciones por fórmula solo con ayuda, que la CLI muestra con
+  un calificador `~` (`Estimated reduction: ~-2`) mientras que los planes
+  medidos se muestran sin él (`Reduction: -2`). Las sugerencias de guardas
+  ahora son splices fieles para bucles con sentencias antes o después de la
+  cadena de ifs y para cabeceras de bucle multilínea; los fallos de
+  medición caen a la estimación por fórmula — nunca un panic, nunca un
+  número fabricado. (#225)
 
 ### Cambiado
 

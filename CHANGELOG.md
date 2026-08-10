@@ -33,6 +33,19 @@ release section links to its GitHub release notes for the full details.
   behave like `--diff main` (enforcement included), `staged = true` enables
   staged comparison by default, and `branch = ""` opts out. CLI flags take
   precedence over the section. (#219)
+- Refactor reductions are now measured instead of estimated: for every
+  machine-applicable suggestion (C002, C007) the replacement is spliced
+  into the source, re-parsed, and re-scored, so `estimated_reduction` and
+  `estimated_complexity_after` report the literal delta of applying the
+  suggestion — and ranking, overlap resolution, and the noise filter all
+  operate on measured values. The new `reduction_is_measured` flag on
+  `RefactorPlan` separates measured plans from help-only formula
+  estimates, which the CLI renders with a `~` qualifier
+  (`Estimated reduction: ~-2`) while measured plans render plain
+  (`Reduction: -2`). Guard suggestions are now faithful splices for loops
+  with statements before or after the if-chain and for multi-line loop
+  headers; measurement failures fall back to the formula estimate — never
+  a panic, never a fabricated number. (#225)
 
 ### Changed
 
