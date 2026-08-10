@@ -4,7 +4,17 @@ Todos los cambios notables de complexipy se documentan aquí, de más reciente
 a más antiguo. Cada sección de versión enlaza a sus notas de versión de
 GitHub con todos los detalles.
 
+## Sin publicar
+
 ## [7.0.0] - 2026-08-10
+
+!!! note "Migración"
+
+    Las flags `--output-json`, `--output-csv`, `--output-gitlab`,
+    `--output-sarif` y `--ratchet`, ya deprecadas, y sus claves TOML se
+    eliminaron; usa `--output-format` y `--diff` en su lugar. Consulta la
+    [guía de migración](https://rohaquinlop.github.io/complexipy/es/migracion/)
+    para cada flag y clave eliminada con su reemplazo.
 
 ### Añadido
 

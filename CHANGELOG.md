@@ -3,7 +3,17 @@
 All notable changes to complexipy are documented here, newest first. Each
 release section links to its GitHub release notes for the full details.
 
+## Unreleased
+
 ## [7.0.0] - 2026-08-10
+
+!!! note "Migration"
+
+    The deprecated `--output-json`, `--output-csv`, `--output-gitlab`,
+    `--output-sarif`, and `--ratchet` flags and their TOML keys were
+    removed; use `--output-format` and `--diff` instead. See the
+    [migration guide](https://rohaquinlop.github.io/complexipy/migration/)
+    for each removed flag and key with its replacement.
 
 ### Added
 
