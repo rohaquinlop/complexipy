@@ -1,5 +1,5 @@
 mod classes;
-mod cognitive_complexity;
+pub(crate) mod cognitive_complexity;
 mod helpers;
 mod refactor_plans;
 mod rules;

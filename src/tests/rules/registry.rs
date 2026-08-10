@@ -4,9 +4,11 @@
 //! so this stays a child module of the code it tests and can reach the private
 //! `RuleRegistry.rules` field through `super::` without widening its visibility.
 
-use super::{RuleRegistry, select_non_overlapping};
-use crate::classes::{Applicability, RefactorPlan, RuleCategory};
+use super::{RuleRegistry, measure_reduction, select_non_overlapping, splice_plan};
+use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
+use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
+use ruff_python_parser::parse_module;
 use std::collections::HashMap;
 
 fn plan(rule_id: &str, line_start: u64, line_end: u64, estimated_reduction: u64) -> RefactorPlan {
@@ -19,6 +21,7 @@ fn plan(rule_id: &str, line_start: u64, line_end: u64, estimated_reduction: u64)
         current_complexity: 10,
         estimated_reduction,
         estimated_complexity_after: 10u64.saturating_sub(estimated_reduction),
+        reduction_is_measured: false,
         rule_id: rule_id.to_string(),
         category: RuleCategory::Complexity,
         applicability: Applicability::Informational,
@@ -284,4 +287,120 @@ fn effectiveness_matches_documented_tiers() {
             "effectiveness mismatch for {rule_id}"
         );
     }
+}
+
+fn module_complexity(source: &str) -> u64 {
+    let parsed = parse_module(source).unwrap();
+    let (functions, _) =
+        function_level_cognitive_complexity_shared(&parsed.into_suite(), source, true, true, false);
+    functions
+        .iter()
+        .find(|f| f.name == "<module>")
+        .unwrap()
+        .complexity
+}
+
+/// A loop whose first if has two children (one plain statement, one nested
+/// if): C007 cannot collapse it (multi-child chain), so C002 is the only
+/// rule that fires.
+fn loop_guard_regions() -> (Vec<ComplexityRegion>, String) {
+    let source =
+        "for x in y:\n    if a:\n        total += x\n        if b:\n            pass\n".to_string();
+    let regions = vec![ComplexityRegion {
+        kind: RegionKind::Loop,
+        line_start: 1,
+        line_end: 5,
+        total: 6,
+        children: vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 5,
+            nesting: 1,
+            total: 5,
+            children: vec![
+                ComplexityRegion {
+                    kind: RegionKind::If,
+                    line_start: 3,
+                    line_end: 3,
+                    ..Default::default()
+                },
+                ComplexityRegion {
+                    kind: RegionKind::If,
+                    line_start: 4,
+                    line_end: 5,
+                    nesting: 2,
+                    total: 1,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        }],
+        ..Default::default()
+    }];
+    (regions, source)
+}
+
+/// The whole point of this change: a spliceable plan's `estimated_reduction`
+/// is the literal measured delta of applying its suggestion, and the
+/// independent ground truth (splice by hand, re-score) must match exactly.
+#[test]
+fn spliceable_plan_reports_the_measured_reduction() {
+    let (regions, source) = loop_guard_regions();
+    let complexity = module_complexity(&source);
+    let registry = RuleRegistry::new();
+
+    let (plans, _) = registry.analyze(&regions, &source, complexity, true);
+
+    assert_eq!(plans.len(), 1);
+    let plan = &plans[0];
+    assert_eq!(plan.rule_id, "C002");
+    assert!(plan.reduction_is_measured);
+
+    let spliced = splice_plan(plan, plan.suggestion.as_ref().unwrap(), &source).unwrap();
+    let measured_after = module_complexity(&spliced);
+    assert_eq!(
+        plan.estimated_reduction,
+        complexity.saturating_sub(measured_after)
+    );
+    assert_eq!(plan.estimated_complexity_after, measured_after);
+}
+
+/// A suggestion whose splice cannot be parsed must yield `None` from
+/// `measure_reduction` — the caller keeps the formula estimate and never
+/// panics and never prints a fabricated measured number.
+#[test]
+fn unparseable_splice_measures_to_none() {
+    let source = "for x in y:\n    pass\n";
+    let mut plan = plan("C002", 1, 2, 3);
+    plan.current_complexity = 5;
+    plan.suggestion = Some(CodeSuggestion {
+        replacement: "for x in y: ((".to_string(),
+        applicability: Applicability::MachineApplicable,
+        description: String::new(),
+        spliceable: true,
+    });
+
+    let measured = measure_reduction(&plan, plan.suggestion.as_ref().unwrap(), source, true);
+    assert!(measured.is_none());
+}
+
+/// A suggestion whose splice changes nothing measures 0 — the value the
+/// noise filter drops. Real rules rarely produce this (their formulas
+/// understate, so measured >= formula >= 1), which is exactly why the
+/// behavior is proven at the unit level rather than through a contrived
+/// rule shape.
+#[test]
+fn no_op_splice_measures_zero() {
+    let source = "def f():\n    pass\n";
+    let mut plan = plan("C002", 1, 2, 3);
+    plan.current_complexity = 0;
+    plan.suggestion = Some(CodeSuggestion {
+        replacement: "def f():\n    pass".to_string(),
+        applicability: Applicability::MachineApplicable,
+        description: String::new(),
+        spliceable: true,
+    });
+
+    let measured = measure_reduction(&plan, plan.suggestion.as_ref().unwrap(), source, false);
+    assert_eq!(measured, Some(0));
 }

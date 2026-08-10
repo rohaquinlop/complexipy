@@ -44,8 +44,13 @@ pub fn code_complexity(
         }
     };
     let ast_body = parsed.into_suite();
-    let (functions, complexity) =
-        function_level_cognitive_complexity_shared(&ast_body, code, check_script, no_ignore);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(
+        &ast_body,
+        code,
+        check_script,
+        no_ignore,
+        true,
+    );
     Ok(CodeComplexity {
         functions,
         complexity,
@@ -60,6 +65,7 @@ pub fn function_level_cognitive_complexity_shared(
     code: &str,
     check_script: bool,
     no_ignore: bool,
+    with_plans: bool,
 ) -> (Vec<FunctionComplexity>, u64) {
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
@@ -71,7 +77,13 @@ pub fn function_level_cognitive_complexity_shared(
         match node {
             Stmt::FunctionDef(f) => {
                 if !is_ignored(f, code, no_ignore) {
-                    functions.push(analyze_function(node, f, f.name.to_string(), code));
+                    functions.push(analyze_function(
+                        node,
+                        f,
+                        f.name.to_string(),
+                        code,
+                        with_plans,
+                    ));
                 }
             }
             Stmt::ClassDef(c) => {
@@ -84,6 +96,7 @@ pub fn function_level_cognitive_complexity_shared(
                             f,
                             format!("{}::{}", c.name, f.name),
                             code,
+                            with_plans,
                         ));
                     }
                 }
@@ -103,8 +116,11 @@ pub fn function_level_cognitive_complexity_shared(
 
     if check_script {
         let total_lines = code.lines().count() as u64;
-        let (refactor_plans, additional_refactor_plans) =
-            build_refactor_plans(module_complexity, &module_regions, code);
+        let (refactor_plans, additional_refactor_plans) = if with_plans {
+            build_refactor_plans(module_complexity, &module_regions, code, true)
+        } else {
+            (Vec::new(), 0)
+        };
         functions.push(FunctionComplexity {
             name: "<module>".to_string(),
             complexity: module_complexity,
@@ -134,14 +150,18 @@ fn analyze_function(
     f: &ast::StmtFunctionDef,
     name: String,
     code: &str,
+    with_plans: bool,
 ) -> FunctionComplexity {
     let mut result = statement_cognitive_complexity_shared(node, 0, code);
     if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), code) {
         result.complexity += 1;
         push_line(&mut result, line, 1);
     }
-    let (refactor_plans, additional_refactor_plans) =
-        build_refactor_plans(result.complexity, &result.regions, code);
+    let (refactor_plans, additional_refactor_plans) = if with_plans {
+        build_refactor_plans(result.complexity, &result.regions, code, false)
+    } else {
+        (Vec::new(), 0)
+    };
     FunctionComplexity {
         name,
         complexity: result.complexity,

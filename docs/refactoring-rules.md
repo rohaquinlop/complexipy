@@ -445,9 +445,11 @@ The JSON output includes all rule metadata for programmatic consumption:
   "current_complexity": 4,
   "estimated_reduction": 1,
   "estimated_complexity_after": 3,
+  "reduction_is_measured": true,
   "suggestion": {
     "replacement": "    if data and data.is_valid():\n        return process(data)",
     "applicability": "MachineApplicable",
+    "spliceable": true,
     "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
   "help": null,
@@ -456,6 +458,25 @@ The JSON output includes all rule metadata for programmatic consumption:
   "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
 }
 ```
+
+### Measured vs estimated reductions
+
+Every plan reports how much applying it lowers the complexity
+(`estimated_reduction` / `estimated_complexity_after`) together with a
+confidence flag, `reduction_is_measured`:
+
+- **Measured** (`true`): the rule spliced its suggestion into the real
+  source, re-parsed it, and re-ran the scorer. The number is the literal
+  answer to "apply this and re-score" — exactly what C002 and C007
+  report, since they carry machine-applicable replacements. The CLI shows
+  these without a qualifier: `Reduction: -2 complexity (7 -> 5)`.
+- **Estimated** (`false`): the number comes from the rule's hand-derived
+  formula (help-only rules C001, C003, C004, C011, and the C005 snippet,
+  plus any fallback when a splice cannot be re-parsed). The CLI renders
+  these with a tilde: `Estimated reduction: ~-2 complexity (7 -> 5)`.
+
+A measured reduction of 0 means the suggestion does not actually lower
+complexity; the plan is dropped rather than shown.
 
 ______________________________________________________________________
 

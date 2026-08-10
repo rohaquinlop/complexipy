@@ -31,6 +31,7 @@ pub struct CodeSuggestion {
     pub replacement: String,
     pub applicability: Applicability,
     pub description: String,
+    pub spliceable: bool,
 }
 
 #[cfg_attr(
@@ -80,6 +81,7 @@ pub struct RefactorPlan {
     pub current_complexity: u64,
     pub estimated_reduction: u64,
     pub estimated_complexity_after: u64,
+    pub reduction_is_measured: bool,
 
     pub rule_id: String,
     pub category: RuleCategory,

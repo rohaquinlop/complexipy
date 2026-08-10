@@ -335,9 +335,10 @@ class TestSuggestRefactorsOutput:
         # The exact reduction magnitude is intentionally NOT asserted here --
         # dedicated reduction-math tests in test_refactor_plans.py cover the
         # magnitude against measured ground truth; this test only guards the
-        # output *format*.
+        # output *format*. C007 is machine-applicable, so its reduction is
+        # measured and rendered without the "Estimated" label.
         assert re.search(
-            r"Estimated reduction: -\d+ complexity \(\d+ -> \d+\)",
+            r"Reduction: -\d+ complexity \(\d+ -> \d+\)",
             result.output,
         )
 

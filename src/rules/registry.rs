@@ -1,6 +1,8 @@
 use super::types::RefactorRule;
-use crate::classes::RefactorPlan;
+use crate::classes::{CodeSuggestion, RefactorPlan};
+use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::ComplexityRegion;
+use ruff_python_parser::parse_module;
 use std::collections::HashMap;
 
 pub struct RuleRegistry {
@@ -58,15 +60,39 @@ impl RuleRegistry {
         regions: &[ComplexityRegion],
         source: &str,
         function_complexity: u64,
+        is_module: bool,
     ) -> (Vec<RefactorPlan>, u64) {
         let mut plans = Vec::new();
 
         self.collect_plans(regions, source, function_complexity, &mut plans);
+        self.measure_plans(&mut plans, source, is_module);
 
         plans.retain(|plan| plan.estimated_reduction >= 1);
 
         let effectiveness = self.effectiveness_by_rule_id();
         select_non_overlapping(plans, &effectiveness)
+    }
+
+    /// Plans whose measurement fails keep their formula estimate with
+    /// `reduction_is_measured = false` — never a panic, never a fabricated
+    /// measured number.
+    fn measure_plans(&self, plans: &mut [RefactorPlan], source: &str, is_module: bool) {
+        for plan in plans.iter_mut() {
+            let Some(suggestion) = &plan.suggestion else {
+                continue;
+            };
+            if !suggestion.spliceable {
+                continue;
+            }
+            let Some(measured) = measure_reduction(plan, suggestion, source, is_module) else {
+                continue;
+            };
+            plan.estimated_reduction = measured;
+            plan.estimated_complexity_after = plan
+                .current_complexity
+                .saturating_sub(measured);
+            plan.reduction_is_measured = true;
+        }
     }
 
     fn collect_plans(
@@ -92,6 +118,57 @@ impl Default for RuleRegistry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn splice_plan(plan: &RefactorPlan, suggestion: &CodeSuggestion, source: &str) -> Option<String> {
+    let start: usize = plan.line_start.saturating_sub(1) as usize;
+    let end: usize = plan.line_end as usize;
+    let lines: Vec<&str> = source.lines().collect();
+    if start > end || end > lines.len() {
+        return None;
+    }
+    let mut spliced = Vec::with_capacity(lines.len() + 1);
+    spliced.extend(lines[..start].iter().copied());
+    spliced.push(suggestion.replacement.as_str());
+    spliced.extend(lines[end..].iter().copied());
+    Some(spliced.join("\n"))
+}
+
+/// The target is `<module>` for script-mode plans (module-level regions
+/// only reach the registry through the `is_module` call); otherwise it is
+/// the function with the greatest `line_start` still before the plan's
+/// region — the splice only shifts lines after the region, so the
+/// containing function's start is unchanged between the two parses.
+///
+/// Returns `None` when the spliced source cannot be parsed or the target
+/// cannot be located; the caller keeps the formula estimate then.
+fn measure_reduction(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    source: &str,
+    is_module: bool,
+) -> Option<u64> {
+    let spliced = splice_plan(plan, suggestion, source)?;
+    let parsed = parse_module(&spliced).ok()?;
+    let (functions, _) = function_level_cognitive_complexity_shared(
+        &parsed.into_suite(),
+        &spliced,
+        true,
+        true,
+        false,
+    );
+
+    let new_complexity = if is_module {
+        functions.iter().find(|f| f.name == "<module>")?.complexity
+    } else {
+        let containing = functions
+            .iter()
+            .filter(|f| f.name != "<module>" && f.line_start <= plan.line_start)
+            .max_by_key(|f| f.line_start)?;
+        containing.complexity
+    };
+
+    Some(plan.current_complexity.saturating_sub(new_complexity))
 }
 
 /// Sorts by effectiveness/reduction/line, then keeps only non-overlapping
