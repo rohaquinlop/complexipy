@@ -14,6 +14,9 @@ GitHub con todos los detalles.
   versiones de workflow fijadas y solo notifica a los repositorios
   downstream en releases con tag, manteniendo silenciosos los pushes
   sin tag.
+- Se fijó la versión de maturin en el workflow de release para evitar
+  límites de tasa de la API de GitHub al resolver la última versión
+  dentro de los contenedores Docker de build.
 
 ### Corregido
 

@@ -48,6 +48,7 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           manylinux: auto
+          maturin-version: "v1.14.1"
       - name: Upload wheels
         uses: wandalen/wretry.action@v3.8.0
         with:
@@ -84,6 +85,7 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           manylinux: musllinux_1_2
+          maturin-version: "v1.14.1"
       - name: Upload wheels
         uses: wandalen/wretry.action@v3.8.0
         with:
@@ -120,6 +122,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
+          maturin-version: "v1.14.1"
       - name: Upload wheels
         uses: wandalen/wretry.action@v3.8.0
         with:
@@ -155,6 +158,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
+          maturin-version: "v1.14.1"
       - name: Upload wheels
         uses: wandalen/wretry.action@v3.8.0
         with:
@@ -177,6 +181,7 @@ jobs:
         with:
           command: sdist
           args: --out dist
+          maturin-version: "v1.14.1"
       - name: Upload sdist
         uses: wandalen/wretry.action@v3.8.0
         with:

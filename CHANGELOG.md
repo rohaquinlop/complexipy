@@ -12,6 +12,9 @@ release section links to its GitHub release notes for the full details.
 - The release pipeline now retries artifact uploads with pinned workflow
   versions and only notifies downstream repositories on tag releases,
   keeping non-tag pushes silent.
+- Pinned maturin version in the release workflow to avoid GitHub API
+  rate limits when resolving the latest version inside Docker build
+  containers.
 
 ### Fixed
 
