@@ -1,0 +1,1905 @@
+
+<!doctype html>
+<html lang="es" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.">
+      
+      
+      
+        <link rel="canonical" href="https://rohaquinlop.github.io/complexipy/es/refactoring-rules/">
+      
+      
+        <link rel="prev" href="../comparison-with-ruff/">
+      
+      
+        <link rel="next" href="../about/">
+      
+      
+        
+          <link rel="alternate" href="/complexipy/" hreflang="en">
+        
+          <link rel="alternate" href="/complexipy/es/" hreflang="es">
+        
+      
+      
+      <link rel="icon" href="../img/complexipy_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Reglas de Refactorización - complexipy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#reglas-de-refactorizacion" class="md-skip">
+          Saltar a contenido
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabecera">
+    <a href=".." title="complexipy" class="md-header__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            complexipy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Reglas de Refactorización
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Cambiar a modo oscuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Cambiar a modo oscuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Cambiar a modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Cambiar a modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Seleccionar idioma">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="/complexipy/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="/complexipy/es/" hreflang="es" class="md-select__link">
+              Español
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Búsqueda" placeholder="Búsqueda" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Buscar">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Compartir" aria-label="Compartir" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpiar" aria-label="Limpiar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando búsqueda
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rohaquinlop/complexipy" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navegación" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="complexipy" class="md-nav__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    complexipy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rohaquinlop/complexipy" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inicio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Primeros Pasos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Primeros Pasos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guía de Uso
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migracion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guía de Migración
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Registro de Cambios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entendiendo la Complejidad
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Entendiendo la Complejidad
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../understanding-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Qué Significan las Puntuaciones
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison-with-ruff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparación con Ruff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Refactorización
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Refactorización
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reglas de Refactorización
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reglas de Refactorización
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#categorias-de-reglas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categorías de Reglas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#niveles-de-aplicabilidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Niveles de Aplicabilidad
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reglas-de-complejidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reglas de Complejidad
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reglas de Complejidad">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c001-aplanar-condiciones-anidadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C001: Aplanar Condiciones Anidadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c002-guardas-de-bucles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C002: Guardas de Bucles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c003-extraer-funcion-auxiliar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C003: Extraer Función Auxiliar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c004-dividir-despachador" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C004: Dividir Despachador
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c011-aplanar-tryexcept" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C011: Aplanar Try/Except
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reglas-de-legibilidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reglas de Legibilidad
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reglas de Legibilidad">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c005-extraer-predicado" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C005: Extraer Predicado
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c007-aplanar-if-anidados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C007: Aplanar If Anidados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uso-de-las-reglas-de-refactorizacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uso de las Reglas de Refactorización
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Uso de las Reglas de Refactorización">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#linea-de-comandos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Línea de Comandos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-de-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API de Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reducciones-medidas-vs-estimadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reducciones medidas vs estimadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#referencia-de-ids-de-reglas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Referencia de IDs de Reglas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Acerca de
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Acerca de
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Acerca de complexipy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#categorias-de-reglas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categorías de Reglas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#niveles-de-aplicabilidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Niveles de Aplicabilidad
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reglas-de-complejidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reglas de Complejidad
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reglas de Complejidad">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c001-aplanar-condiciones-anidadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C001: Aplanar Condiciones Anidadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c002-guardas-de-bucles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C002: Guardas de Bucles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c003-extraer-funcion-auxiliar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C003: Extraer Función Auxiliar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c004-dividir-despachador" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C004: Dividir Despachador
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c011-aplanar-tryexcept" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C011: Aplanar Try/Except
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reglas-de-legibilidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reglas de Legibilidad
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reglas de Legibilidad">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c005-extraer-predicado" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C005: Extraer Predicado
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c007-aplanar-if-anidados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C007: Aplanar If Anidados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uso-de-las-reglas-de-refactorizacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uso de las Reglas de Refactorización
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Uso de las Reglas de Refactorización">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#linea-de-comandos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Línea de Comandos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-de-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API de Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reducciones-medidas-vs-estimadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reducciones medidas vs estimadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#referencia-de-ids-de-reglas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Referencia de IDs de Reglas
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/rohaquinlop/complexipy/edit/main/docs/es/refactoring-rules.md" title="Editar esta página" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/rohaquinlop/complexipy/raw/main/docs/es/refactoring-rules.md" title="Ver código fuente de esta página" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
+    </a>
+  
+
+
+<h1 id="reglas-de-refactorizacion">Reglas de Refactorización<a class="headerlink" href="#reglas-de-refactorizacion" title="Permanent link">&para;</a></h1>
+<p>complexipy incluye un sistema de refactorización inspirado en clippy que proporciona sugerencias accionables para reducir la complejidad cognitiva. Cada regla tiene un ID único, categoría y nivel de aplicabilidad.</p>
+<h2 id="categorias-de-reglas">Categorías de Reglas<a class="headerlink" href="#categorias-de-reglas" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Icono</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Complejidad</strong></td>
+<td>▲</td>
+<td>Reglas que reducen directamente la complejidad cognitiva</td>
+</tr>
+<tr>
+<td><strong>Legibilidad</strong></td>
+<td>◆</td>
+<td>Reglas que mejoran la legibilidad del código</td>
+</tr>
+</tbody>
+</table>
+<h2 id="niveles-de-aplicabilidad">Niveles de Aplicabilidad<a class="headerlink" href="#niveles-de-aplicabilidad" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Nivel</th>
+<th>Icono</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Seguro de aplicar</strong></td>
+<td>*</td>
+<td>Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización</td>
+</tr>
+<tr>
+<td><strong>Necesita revisión</strong></td>
+<td>!</td>
+<td>Puede ser incorrecto en algunos casos, necesita revisión humana</td>
+</tr>
+<tr>
+<td><strong>Informativo</strong></td>
+<td>i</td>
+<td>Solo orientación, no es directamente accionable</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="reglas-de-complejidad">Reglas de Complejidad<a class="headerlink" href="#reglas-de-complejidad" title="Permanent link">&para;</a></h2>
+<h3 id="c001-aplanar-condiciones-anidadas">C001: Aplanar Condiciones Anidadas<a class="headerlink" href="#c001-aplanar-condiciones-anidadas" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ▲ Complejidad</li>
+<li><strong>Aplicabilidad:</strong> i Informativo</li>
+<li><strong>Prioridad:</strong> Alta (4/5)</li>
+</ul>
+<p>Aplana bloques de condiciones anidadas usando cláusulas de guarda con retornos anticipados.</p>
+<h4 id="cuando-se-activa">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando una función tiene sentencias <code>if</code> profundamente anidadas (2+ niveles de anidamiento) que añaden complejidad significativa.</p>
+<h4 id="ejemplo">Ejemplo<a class="headerlink" href="#ejemplo" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">is_ready</span><span class="p">():</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                <span class="k">return</span> <span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="k">return</span> <span class="kc">None</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">is_ready</span><span class="p">():</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">return</span> <span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda" title="Permanent link">&para;</a></h4>
+<p>Las condiciones profundamente anidadas son difíciles de seguir. Usar cláusulas de guarda con retornos anticipados reduce la carga cognitiva al mantener la ruta principal en un nivel de indentación menor.</p>
+<hr />
+<h3 id="c002-guardas-de-bucles">C002: Guardas de Bucles<a class="headerlink" href="#c002-guardas-de-bucles" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ▲ Complejidad</li>
+<li><strong>Aplicabilidad:</strong> * Seguro de aplicar</li>
+<li><strong>Prioridad:</strong> Media (3/5)</li>
+</ul>
+<p>Usa guardas <code>continue</code> al inicio de los bucles para reducir el anidamiento.</p>
+<h4 id="cuando-se-activa_1">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_1" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando un bucle contiene sentencias <code>if</code> anidadas que podrían convertirse en guardas <code>continue</code> anticipadas.</p>
+<h4 id="ejemplo_1">Ejemplo<a class="headerlink" href="#ejemplo_1" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_items</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">active</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">ready</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                <span class="n">total</span> <span class="o">+=</span> <span class="n">item</span><span class="o">.</span><span class="n">value</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">return</span> <span class="n">total</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_items</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">active</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>            <span class="k">continue</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">ready</span><span class="p">:</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>            <span class="k">continue</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">total</span> <span class="o">+=</span> <span class="n">item</span><span class="o">.</span><span class="n">value</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="k">return</span> <span class="n">total</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_1">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_1" title="Permanent link">&para;</a></h4>
+<p>Las condiciones anidadas dentro de los bucles añaden indentación innecesaria. Usar guardas <code>continue</code> mantiene la lógica principal en un nivel de anidamiento menor y hace que el bucle sea más fácil de seguir.</p>
+<hr />
+<h3 id="c003-extraer-funcion-auxiliar">C003: Extraer Función Auxiliar<a class="headerlink" href="#c003-extraer-funcion-auxiliar" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ▲ Complejidad</li>
+<li><strong>Aplicabilidad:</strong> i Informativo</li>
+<li><strong>Prioridad:</strong> Baja (2/5)</li>
+</ul>
+<p>Extrae bloques de código complejos en funciones auxiliares separadas.</p>
+<h4 id="cuando-se-activa_2">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_2" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando un bloque de código tiene alta complejidad (6+) y abarca múltiples líneas (5+).</p>
+<h4 id="ejemplo_2">Ejemplo<a class="headerlink" href="#ejemplo_2" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_order</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="c1"># Complex validation and processing logic</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="k">if</span> <span class="n">order</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">order</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                    <span class="n">total</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span> <span class="o">*</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                    <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>                        <span class="n">apply_discount</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>                    <span class="n">process_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_order</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">order</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="k">return</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">order</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">process_order_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">process_order_item</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="k">return</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">total</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span> <span class="o">*</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="n">apply_discount</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="n">process_item</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_2">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_2" title="Permanent link">&para;</a></h4>
+<p>Los bloques de código complejos deben extraerse en funciones con nombre para mejorar la legibilidad y la capacidad de prueba. La función extraída puede recibir un nombre descriptivo que explique su propósito.</p>
+<hr />
+<h3 id="c004-dividir-despachador">C004: Dividir Despachador<a class="headerlink" href="#c004-dividir-despachador" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ▲ Complejidad</li>
+<li><strong>Aplicabilidad:</strong> i Informativo</li>
+<li><strong>Prioridad:</strong> Baja (2/5)</li>
+</ul>
+<p>Divide cadenas largas de <code>elif</code> en manejadores separados.</p>
+<h4 id="cuando-se-activa_3">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_3" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando una cadena <code>if/elif</code> tiene 3+ ramas. Las sentencias <code>match</code>
+se excluyen intencionalmente: el modelo de complejidad cognitiva de complexipy asigna a
+un <code>match</code> un costo fijo sin importar cuántas cláusulas <code>case</code> tenga (a diferencia de
+una cadena <code>elif</code>, donde cada rama adicional suma a la puntuación), así que dividir un
+<code>match</code> en manejadores separados no reduciría realmente la complejidad medida.</p>
+<p>El refactor sugerido depende de la forma de la cadena:</p>
+<ul>
+<li>Si todas las ramas comparan la <strong>misma variable</strong> contra un <strong>literal</strong> con <code>==</code>, la
+  cadena puede convertirse en una sentencia <code>match</code> -- esto se recomienda por encima de
+  un diccionario de despacho, ya que no necesita indirección adicional y el propio
+  modelo de complexipy la puntúa sin el costo por rama que tiene la cadena <code>elif</code>.</li>
+<li>En caso contrario (rangos, varias variables, comparaciones que no son de igualdad --
+  cualquier cosa que un simple <code>match case &lt;valor&gt;:</code> no pueda expresar), se sugiere en
+  su lugar un diccionario de despacho que asigna casos a funciones manejadoras.</li>
+</ul>
+<h4 id="ejemplo-igualdad-de-una-sola-variable-match">Ejemplo: igualdad de una sola variable → <code>match</code><a class="headerlink" href="#ejemplo-igualdad-de-una-sola-variable-match" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">handle_action</span><span class="p">(</span><span class="n">action</span><span class="p">):</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">&quot;create&quot;</span><span class="p">:</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="k">return</span> <span class="n">create_resource</span><span class="p">()</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">elif</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">&quot;read&quot;</span><span class="p">:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="k">return</span> <span class="n">read_resource</span><span class="p">()</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">elif</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">&quot;update&quot;</span><span class="p">:</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="k">return</span> <span class="n">update_resource</span><span class="p">()</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="k">elif</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">&quot;delete&quot;</span><span class="p">:</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>        <span class="k">return</span> <span class="n">delete_resource</span><span class="p">()</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">return</span> <span class="kc">None</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">handle_action</span><span class="p">(</span><span class="n">action</span><span class="p">):</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="k">match</span> <span class="n">action</span><span class="p">:</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>        <span class="k">case</span> <span class="s2">&quot;create&quot;</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>            <span class="k">return</span> <span class="n">create_resource</span><span class="p">()</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="k">case</span> <span class="s2">&quot;read&quot;</span><span class="p">:</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="k">return</span> <span class="n">read_resource</span><span class="p">()</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="k">case</span> <span class="s2">&quot;update&quot;</span><span class="p">:</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>            <span class="k">return</span> <span class="n">update_resource</span><span class="p">()</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="k">case</span> <span class="s2">&quot;delete&quot;</span><span class="p">:</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>            <span class="k">return</span> <span class="n">delete_resource</span><span class="p">()</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="k">return</span> <span class="kc">None</span>
+</span></code></pre></div>
+<h4 id="ejemplo-rangos-diccionario-de-despacho">Ejemplo: rangos → diccionario de despacho<a class="headerlink" href="#ejemplo-rangos-diccionario-de-despacho" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">classify</span><span class="p">(</span><span class="n">score</span><span class="p">):</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">if</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="p">:</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>        <span class="k">return</span> <span class="s2">&quot;fail&quot;</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="k">elif</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="mi">70</span><span class="p">:</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="k">return</span> <span class="s2">&quot;d&quot;</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="k">elif</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="mi">85</span><span class="p">:</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="k">return</span> <span class="s2">&quot;b&quot;</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="k">elif</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="mi">95</span><span class="p">:</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="k">return</span> <span class="s2">&quot;a&quot;</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="k">return</span> <span class="s2">&quot;a+&quot;</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">classify</span><span class="p">(</span><span class="n">score</span><span class="p">):</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">thresholds</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">60</span><span class="p">,</span> <span class="s2">&quot;fail&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">70</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">85</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mi">95</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)]</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">for</span> <span class="n">limit</span><span class="p">,</span> <span class="n">grade</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="p">:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="k">if</span> <span class="n">score</span> <span class="o">&lt;</span> <span class="n">limit</span><span class="p">:</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>            <span class="k">return</span> <span class="n">grade</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="k">return</span> <span class="s2">&quot;a+&quot;</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_3">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_3" title="Permanent link">&para;</a></h4>
+<p>Las cadenas condicionales largas son difíciles de mantener y extender. Dividirlas en manejadores separados -- una sentencia <code>match</code> cuando la cadena es un despacho simple por igualdad, un diccionario de despacho en caso contrario -- hace que cada caso sea independientemente testeable y la lógica de despacho más clara.</p>
+<hr />
+<h3 id="c011-aplanar-tryexcept">C011: Aplanar Try/Except<a class="headerlink" href="#c011-aplanar-tryexcept" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ▲ Complejidad</li>
+<li><strong>Aplicabilidad:</strong> i Informativo</li>
+<li><strong>Prioridad:</strong> Baja (2/5)</li>
+</ul>
+<p>Aplana bloques try/except anidados combinándolos o reestructurándolos.</p>
+<h4 id="cuando-se-activa_4">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_4" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando los bloques try/except están anidados unos dentro de otros.</p>
+<h4 id="ejemplo_3">Ejemplo<a class="headerlink" href="#ejemplo_3" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_config</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>            <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>                <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>            <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>                <span class="k">return</span> <span class="n">default_config</span><span class="p">()</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="k">return</span> <span class="n">default_config</span><span class="p">()</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_config</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">):</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>        <span class="k">return</span> <span class="n">default_config</span><span class="p">()</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_4">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_4" title="Permanent link">&para;</a></h4>
+<p>Los bloques try/except anidados son confusos y difíciles de mantener. Considera fusionarlos o extraer el bloque interno en una función separada con su propio manejo de errores.</p>
+<hr />
+<h2 id="reglas-de-legibilidad">Reglas de Legibilidad<a class="headerlink" href="#reglas-de-legibilidad" title="Permanent link">&para;</a></h2>
+<h3 id="c005-extraer-predicado">C005: Extraer Predicado<a class="headerlink" href="#c005-extraer-predicado" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ◆ Legibilidad</li>
+<li><strong>Aplicabilidad:</strong> * Seguro de aplicar</li>
+<li><strong>Prioridad:</strong> Baja (2/5)</li>
+</ul>
+<p>Extrae condiciones booleanas complejas en funciones predicado con nombre.</p>
+<h4 id="cuando-se-activa_5">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_5" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando una condición booleana contiene 2+ operadores lógicos (and, or, not).</p>
+<h4 id="ejemplo_4">Ejemplo<a class="headerlink" href="#ejemplo_4" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_eligible</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">order</span><span class="p">):</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">if</span> <span class="p">(</span><span class="n">user</span><span class="o">.</span><span class="n">is_active</span> <span class="ow">and</span> <span class="n">user</span><span class="o">.</span><span class="n">has_subscription</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">100</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">order</span><span class="o">.</span><span class="n">is_gift</span><span class="p">):</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="k">return</span> <span class="kc">False</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_eligible</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">order</span><span class="p">):</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">return</span> <span class="n">has_active_subscription</span><span class="p">(</span><span class="n">user</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_qualifying_order</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">has_active_subscription</span><span class="p">(</span><span class="n">user</span><span class="p">):</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="k">return</span> <span class="n">user</span><span class="o">.</span><span class="n">is_active</span> <span class="ow">and</span> <span class="n">user</span><span class="o">.</span><span class="n">has_subscription</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_qualifying_order</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="k">return</span> <span class="n">order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">100</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">order</span><span class="o">.</span><span class="n">is_gift</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_5">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_5" title="Permanent link">&para;</a></h4>
+<p>Las expresiones booleanas complejas son difíciles de entender a simple vista. Extraerlas en predicados con nombre hace que el código sea autoexplicativo y más fácil de probar.</p>
+<hr />
+<h3 id="c007-aplanar-if-anidados">C007: Aplanar If Anidados<a class="headerlink" href="#c007-aplanar-if-anidados" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Categoría:</strong> ◆ Legibilidad</li>
+<li><strong>Aplicabilidad:</strong> * Seguro de aplicar</li>
+<li><strong>Prioridad:</strong> Máxima (5/5)</li>
+</ul>
+<p>Combina sentencias <code>if</code> anidadas en un único <code>if</code> con las condiciones combinadas.</p>
+<h4 id="cuando-se-activa_6">¿Cuándo se activa?<a class="headerlink" href="#cuando-se-activa_6" title="Permanent link">&para;</a></h4>
+<p>Esta regla se activa cuando el cuerpo completo de una sentencia <code>if</code> es un único <code>if</code> anidado sin rama <code>else</code>, para una cadena de dos o más niveles de este tipo.</p>
+<h4 id="ejemplo_5">Ejemplo<a class="headerlink" href="#ejemplo_5" title="Permanent link">&para;</a></h4>
+<p><strong>Antes:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_eligibility</span><span class="p">(</span><span class="n">user</span><span class="p">):</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_active</span><span class="p">:</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>        <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">has_permission</span><span class="p">:</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>            <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="k">return</span> <span class="kc">False</span>
+</span></code></pre></div>
+<p><strong>Después:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_eligibility</span><span class="p">(</span><span class="n">user</span><span class="p">):</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">if</span> <span class="n">user</span><span class="o">.</span><span class="n">is_active</span> <span class="ow">and</span> <span class="n">user</span><span class="o">.</span><span class="n">has_permission</span><span class="p">:</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="k">return</span> <span class="kc">False</span>
+</span></code></pre></div>
+<h4 id="por-que-esto-ayuda_6">Por qué esto ayuda<a class="headerlink" href="#por-que-esto-ayuda_6" title="Permanent link">&para;</a></h4>
+<p>Las sentencias <code>if</code> anidadas con un único cuerpo pueden combinarse en un único <code>if</code> con las condiciones unidas mediante <code>and</code>. Esto reduce el anidamiento y mejora la legibilidad.</p>
+<hr />
+<h2 id="uso-de-las-reglas-de-refactorizacion">Uso de las Reglas de Refactorización<a class="headerlink" href="#uso-de-las-reglas-de-refactorizacion" title="Permanent link">&para;</a></h2>
+<h3 id="linea-de-comandos">Línea de Comandos<a class="headerlink" href="#linea-de-comandos" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Muestra sugerencias de refactorización</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--suggest-refactors
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Muestra sugerencias solo para funciones fallidas</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--failed<span class="w"> </span>--suggest-refactors
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Exporta sugerencias a JSON</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>json<span class="w"> </span>--suggest-refactors
+</span></code></pre></div>
+<h3 id="api-de-python">API de Python<a class="headerlink" href="#api-de-python" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">complexipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">code_complexity</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="s2">def process(data):</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="s2">    if data:</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="s2">        if data.is_valid():</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="s2">            return process(data)</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="s2">    return None</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="s2">&quot;&quot;&quot;</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="n">result</span> <span class="o">=</span> <span class="n">code_complexity</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">functions</span><span class="p">:</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="k">for</span> <span class="n">plan</span> <span class="ow">in</span> <span class="n">func</span><span class="o">.</span><span class="n">refactor_plans</span><span class="p">:</span>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">rule_id</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Category: </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">category</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Applicability: </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">applicability</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Reduction: -</span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">estimated_reduction</span><span class="si">}</span><span class="s2"> complexity&quot;</span><span class="p">)</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>        <span class="k">if</span> <span class="n">plan</span><span class="o">.</span><span class="n">suggestion</span><span class="p">:</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Suggested replacement:</span><span class="se">\n</span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">suggestion</span><span class="o">.</span><span class="n">replacement</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        <span class="k">elif</span> <span class="n">plan</span><span class="o">.</span><span class="n">help</span><span class="p">:</span>
+</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Help: </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">help</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Docs: </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">doc_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="salida-json">Salida JSON<a class="headerlink" href="#salida-json" title="Permanent link">&para;</a></h3>
+<p>La salida JSON incluye todos los metadatos de las reglas para consumo programático:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;rule_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C007&quot;</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;collapsible_if&quot;</span><span class="p">,</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Merge nested if statements&quot;</span><span class="p">,</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">&quot;category&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Readability&quot;</span><span class="p">,</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="nt">&quot;applicability&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MachineApplicable&quot;</span><span class="p">,</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Merge nested if statements into a single if with combined conditions&quot;</span><span class="p">,</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="nt">&quot;line_start&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">  </span><span class="nt">&quot;line_end&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">  </span><span class="nt">&quot;column_start&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">  </span><span class="nt">&quot;current_complexity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">  </span><span class="nt">&quot;estimated_reduction&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">  </span><span class="nt">&quot;estimated_complexity_after&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">  </span><span class="nt">&quot;reduction_is_measured&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">  </span><span class="nt">&quot;suggestion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">    </span><span class="nt">&quot;replacement&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;    if data and data.is_valid():\n        return process(data)&quot;</span><span class="p">,</span>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">    </span><span class="nt">&quot;applicability&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MachineApplicable&quot;</span><span class="p">,</span>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">    </span><span class="nt">&quot;spliceable&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Merge nested conditions into `if data and data.is_valid():`&quot;</span>
+</span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">  </span><span class="nt">&quot;help&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-18-22"><a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">  </span><span class="nt">&quot;explanation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Nested if statements with a single body can be merged into a single if with combined conditions using &#39;and&#39;. This reduces nesting and improves readability.&quot;</span><span class="p">,</span>
+</span><span id="__span-18-23"><a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">  </span><span class="nt">&quot;references&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+</span><span id="__span-18-24"><a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">  </span><span class="nt">&quot;doc_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if&quot;</span>
+</span><span id="__span-18-25"><a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="reducciones-medidas-vs-estimadas">Reducciones medidas vs estimadas<a class="headerlink" href="#reducciones-medidas-vs-estimadas" title="Permanent link">&para;</a></h3>
+<p>Cada plan informa cuánto reduce la complejidad al aplicarlo
+(<code>estimated_reduction</code> / <code>estimated_complexity_after</code>) junto con un
+indicador de confianza, <code>reduction_is_measured</code>:</p>
+<ul>
+<li><strong>Medida</strong> (<code>true</code>): la regla insertó su sugerencia en el código real, lo
+  re-analizó y volvió a ejecutar el puntuador. El número es la respuesta
+  literal a "aplica esto y vuelve a puntuar" — exactamente lo que
+  reportan C002 y C007, que llevan reemplazos aplicables por máquina. La
+  CLI los muestra sin calificador: <code>Reduction: -2 complexity (7 -&gt; 5)</code>.</li>
+<li><strong>Estimada</strong> (<code>false</code>): el número proviene de la fórmula manual de la
+  regla (reglas solo con ayuda C001, C003, C004, C011, y el fragmento
+  C005, además de cualquier respaldo cuando una inserción no se puede
+  re-analizar). La CLI los muestra con una tilde:
+  <code>Estimated reduction: ~-2 complexity (7 -&gt; 5)</code>.</li>
+</ul>
+<p>Una reducción medida de 0 significa que la sugerencia no reduce la
+complejidad realmente; el plan se descarta en lugar de mostrarse.</p>
+<hr />
+<h2 id="referencia-de-ids-de-reglas">Referencia de IDs de Reglas<a class="headerlink" href="#referencia-de-ids-de-reglas" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Categoría</th>
+<th>Aplicabilidad</th>
+<th>Prioridad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#c001-aplanar-condiciones-anidadas">C001</a></td>
+<td>Aplanar Condiciones Anidadas</td>
+<td>▲ Complejidad</td>
+<td>i Informativo</td>
+<td>Alta</td>
+</tr>
+<tr>
+<td><a href="#c002-guardas-de-bucles">C002</a></td>
+<td>Guardas de Bucles</td>
+<td>▲ Complejidad</td>
+<td>* Seguro de aplicar</td>
+<td>Media</td>
+</tr>
+<tr>
+<td><a href="#c003-extraer-funcion-auxiliar">C003</a></td>
+<td>Extraer Función Auxiliar</td>
+<td>▲ Complejidad</td>
+<td>i Informativo</td>
+<td>Baja</td>
+</tr>
+<tr>
+<td><a href="#c004-dividir-despachador">C004</a></td>
+<td>Dividir Despachador</td>
+<td>▲ Complejidad</td>
+<td>i Informativo</td>
+<td>Baja</td>
+</tr>
+<tr>
+<td><a href="#c005-extraer-predicado">C005</a></td>
+<td>Extraer Predicado</td>
+<td>◆ Legibilidad</td>
+<td>* Seguro de aplicar</td>
+<td>Baja</td>
+</tr>
+<tr>
+<td><a href="#c007-aplanar-if-anidados">C007</a></td>
+<td>Aplanar If Anidados</td>
+<td>◆ Legibilidad</td>
+<td>* Seguro de aplicar</td>
+<td>Máxima</td>
+</tr>
+<tr>
+<td><a href="#c011-aplanar-tryexcept">C011</a></td>
+<td>Aplanar Try/Except</td>
+<td>▲ Complejidad</td>
+<td>i Informativo</td>
+<td>Baja</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Volver al principio
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Pie" >
+        
+          
+          <a href="../comparison-with-ruff/" class="md-footer__link md-footer__link--prev" aria-label="Anterior: Comparación con Ruff">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Anterior
+              </span>
+              <div class="md-ellipsis">
+                Comparación con Ruff
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../about/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: Acerca de complexipy">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Siguiente
+              </span>
+              <div class="md-ellipsis">
+                Acerca de complexipy
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/robin-hafid-quintero-lopez/" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+      <div class="md-consent" data-md-component="consent" id="__consent" hidden>
+        <div class="md-consent__overlay"></div>
+        <aside class="md-consent__inner">
+          <form class="md-consent__form md-grid md-typeset" name="consent">
+            
+
+
+  
+
+
+<h4>Consentimiento de cookies</h4>
+<p>Utilizamos cookies para reconocer tus visitas y preferencias repetidas, así como para medir la efectividad de nuestra documentación y si los usuarios encuentran lo que están buscando. Con tu consentimiento, nos ayudas a mejorar nuestra documentación.</p>
+<input class="md-toggle" type="checkbox" id="__settings" >
+<div class="md-consent__settings">
+  <ul class="task-list">
+    
+    
+      
+    
+    
+      
+        
+  
+  
+    
+    
+  
+  <li class="task-list-item">
+    <label class="task-list-control">
+      <input type="checkbox" name="github" checked>
+      <span class="task-list-indicator"></span>
+      GitHub
+    </label>
+  </li>
+
+      
+    
+    
+  </ul>
+</div>
+<div class="md-consent__controls">
+  
+    
+      <button class="md-button md-button--primary">Aceptar</button>
+    
+    
+    
+  
+    
+    
+    
+      <label class="md-button" for="__settings">Gestionar cookies</label>
+    
+  
+</div>
+          </form>
+        </aside>
+      </div>
+      <script>var consent=__md_get("__consent");if(consent)for(var input of document.forms.consent.elements)input.name&&(input.checked=consent[input.name]||!1);else"file:"!==location.protocol&&setTimeout((function(){document.querySelector("[data-md-component=consent]").hidden=!1}),250);var form=document.forms.consent;for(var action of["submit","reset"])form.addEventListener(action,(function(e){if(e.preventDefault(),"reset"===e.type)for(var n of document.forms.consent.elements)n.name&&(n.checked=!1);__md_set("__consent",Object.fromEntries(Array.from(new FormData(form).keys()).map((function(e){return[e,!0]})))),location.hash="",location.reload()}))</script>
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.tooltips", "content.action.edit", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado al portapapeles", "clipboard.copy": "Copiar al portapapeles", "search.result.more.one": "1 m\u00e1s en esta p\u00e1gina", "search.result.more.other": "# m\u00e1s en esta p\u00e1gina", "search.result.none": "No se encontraron documentos", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Teclee para comenzar b\u00fasqueda", "search.result.term.missing": "Falta", "select.version": "Seleccionar versi\u00f3n"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
