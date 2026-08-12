@@ -5,6 +5,14 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+## [7.0.1] - 2026-08-12
+
+### Changed
+
+- The release pipeline now retries artifact uploads with pinned workflow
+  versions and only notifies downstream repositories on tag releases,
+  keeping non-tag pushes silent.
+
 ### Fixed
 
 - Snapshot entries for analyzed files are updated in place instead of
@@ -12,6 +20,9 @@ release section links to its GitHub release notes for the full details.
   analyzing only staged files) no longer reorder the snapshot, so the
   snapshot stays byte-identical across commits that do not change
   complexity. ([#226](https://github.com/rohaquinlop/complexipy/issues/226))
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/7.0.1)
+for the full details.
 
 ## [7.0.0] - 2026-08-10
 

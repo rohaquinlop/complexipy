@@ -6,6 +6,15 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [7.0.1] - 2026-08-12
+
+### Cambiado
+
+- El pipeline de release ahora reintenta la subida de artefactos con
+  versiones de workflow fijadas y solo notifica a los repositorios
+  downstream en releases con tag, manteniendo silenciosos los pushes
+  sin tag.
+
 ### Corregido
 
 - Las entradas de snapshot de los archivos analizados se actualizan en su
@@ -13,6 +22,9 @@ GitHub con todos los detalles.
   parciales (p. ej. hooks de pre-commit que analizan solo los archivos
   staged) ya no reordenan el snapshot, por lo que el snapshot permanece
   byte-idéntico entre commits que no cambian la complejidad. ([#226](https://github.com/rohaquinlop/complexipy/issues/226))
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/7.0.1)
+para todos los detalles.
 
 ## [7.0.0] - 2026-08-10
 
