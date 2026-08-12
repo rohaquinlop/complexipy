@@ -6,6 +6,14 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Corregido
+
+- Las entradas de snapshot de los archivos analizados se actualizan en su
+  posición en lugar de moverse al final del archivo: las ejecuciones
+  parciales (p. ej. hooks de pre-commit que analizan solo los archivos
+  staged) ya no reordenan el snapshot, por lo que el snapshot permanece
+  byte-idéntico entre commits que no cambian la complejidad. ([#226](https://github.com/rohaquinlop/complexipy/issues/226))
+
 ## [7.0.0] - 2026-08-10
 
 !!! note "Migración"

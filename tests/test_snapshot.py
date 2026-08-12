@@ -113,10 +113,142 @@ class TestEvaluateSnapshot:
 
         assert result.watermark_success is True
         snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
-        assert {entry.file_name for entry in snapshot_files} == {
+        assert [entry.file_name for entry in snapshot_files] == [
             "tracked_a.py",
             "tracked_b.py",
-        }
+        ]
+
+    def test_partial_run_keeps_analyzed_file_position(self, tmp_path: Path):
+        tracked_a = tmp_path / "tracked_a.py"
+        tracked_a.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_b = tmp_path / "tracked_b.py"
+        tracked_b.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_c = tmp_path / "tracked_c.py"
+        tracked_c.write_text(*self.tracked_function_body, encoding="utf-8")
+        files, _ = self._analyze_paths([tracked_a, tracked_b, tracked_c])
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
+
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files)
+
+        tracked_b.write_text(
+            "def tracked(value):\n"
+            "    if value:\n"
+            "        if value > 1:\n"
+            "            return 1\n"
+            "    return 0\n",
+            encoding="utf-8",
+        )
+        files_b, _ = self._analyze_paths([tracked_b])
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files_b)
+
+        snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
+        assert [entry.file_name for entry in snapshot_files] == [
+            "tracked_a.py",
+            "tracked_b.py",
+            "tracked_c.py",
+        ]
+        assert (
+            snapshot_files[1].functions[0].complexity
+            == files_b[0].functions[0].complexity
+        )
+
+    def test_repeated_partial_runs_keep_snapshot_byte_identical(
+        self, tmp_path: Path
+    ):
+        tracked_a = tmp_path / "tracked_a.py"
+        tracked_a.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_b = tmp_path / "tracked_b.py"
+        tracked_b.write_text(*self.tracked_function_body, encoding="utf-8")
+        files, _ = self._analyze_paths([tracked_a, tracked_b])
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
+
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files)
+
+        files_b, _ = self._analyze_paths([tracked_b])
+        evaluate_snapshot(False, False, str(snapshot_path), 0, files_b)
+        first_content = snapshot_path.read_text(encoding="utf-8")
+
+        evaluate_snapshot(False, False, str(snapshot_path), 0, files_b)
+
+        assert snapshot_path.read_text(encoding="utf-8") == first_content
+
+    def test_new_file_appends_at_end(self, tmp_path: Path):
+        tracked_a = tmp_path / "tracked_a.py"
+        tracked_a.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_b = tmp_path / "tracked_b.py"
+        tracked_b.write_text(*self.tracked_function_body, encoding="utf-8")
+        files, _ = self._analyze_paths([tracked_a, tracked_b])
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
+
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files)
+
+        tracked_c = tmp_path / "tracked_c.py"
+        tracked_c.write_text(*self.tracked_function_body, encoding="utf-8")
+        files_ac, _ = self._analyze_paths([tracked_a, tracked_c])
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files_ac)
+
+        snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
+        assert [entry.file_name for entry in snapshot_files] == [
+            "tracked_a.py",
+            "tracked_b.py",
+            "tracked_c.py",
+        ]
+
+    def test_duplicate_snapshot_entries_collapse_in_place(self, tmp_path: Path):
+        tracked_a = tmp_path / "tracked_a.py"
+        tracked_a.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_b = tmp_path / "tracked_b.py"
+        tracked_b.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_c = tmp_path / "tracked_c.py"
+        tracked_c.write_text(*self.tracked_function_body, encoding="utf-8")
+        files, _ = self._analyze_paths([tracked_a, tracked_b, tracked_c])
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
+
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files)
+
+        snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
+        duplicated = [
+            snapshot_files[0],
+            snapshot_files[1],
+            snapshot_files[1],
+            snapshot_files[2],
+        ]
+        _complexipy.create_snapshot_file(str(snapshot_path), 0, duplicated)
+
+        files_b, _ = self._analyze_paths([tracked_b])
+        evaluate_snapshot(False, False, str(snapshot_path), 0, files_b)
+
+        snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
+        assert [entry.file_name for entry in snapshot_files] == [
+            "tracked_a.py",
+            "tracked_b.py",
+            "tracked_c.py",
+        ]
+        assert (
+            snapshot_files[1].functions[0].complexity
+            == files_b[0].functions[0].complexity
+        )
+
+    def test_snapshot_create_partial_run_preserves_positions(
+        self, tmp_path: Path
+    ):
+        tracked_a = tmp_path / "tracked_a.py"
+        tracked_a.write_text(*self.tracked_function_body, encoding="utf-8")
+        tracked_b = tmp_path / "tracked_b.py"
+        tracked_b.write_text(*self.tracked_function_body, encoding="utf-8")
+        files, _ = self._analyze_paths([tracked_a, tracked_b])
+        snapshot_path = tmp_path / self.complexipy_snapshot_file
+
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files)
+
+        files_b, _ = self._analyze_paths([tracked_b])
+        evaluate_snapshot(True, False, str(snapshot_path), 0, files_b)
+
+        snapshot_files = _complexipy.load_snapshot_file(str(snapshot_path))
+        assert [entry.file_name for entry in snapshot_files] == [
+            "tracked_a.py",
+            "tracked_b.py",
+        ]
 
     def test_partial_run_removes_improved_function(self, tmp_path: Path):
         tracked_a = tmp_path / "tracked_a.py"
