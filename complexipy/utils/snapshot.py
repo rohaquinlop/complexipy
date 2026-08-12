@@ -41,17 +41,26 @@ def merge_snapshot_files(
     snapshot_files: List[FileComplexity],
     files_complexities: List[FileComplexity],
 ) -> List[FileComplexity]:
-    analyzed_keys = {
-        (file_complexity.path, file_complexity.file_name)
+    current_entries = {
+        (file_complexity.path, file_complexity.file_name): file_complexity
         for file_complexity in files_complexities
     }
-    preserved = [
-        file_complexity
-        for file_complexity in snapshot_files
-        if (file_complexity.path, file_complexity.file_name)
-        not in analyzed_keys
-    ]
-    return [*preserved, *files_complexities]
+    merged = []
+    merged_keys = set()
+    for file_complexity in snapshot_files:
+        key = (file_complexity.path, file_complexity.file_name)
+        if key in current_entries:
+            if key not in merged_keys:
+                merged.append(current_entries[key])
+                merged_keys.add(key)
+        else:
+            merged.append(file_complexity)
+    for file_complexity in files_complexities:
+        key = (file_complexity.path, file_complexity.file_name)
+        if key not in merged_keys:
+            merged.append(file_complexity)
+            merged_keys.add(key)
+    return merged
 
 
 def handle_snapshot_watermark(

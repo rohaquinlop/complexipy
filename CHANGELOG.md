@@ -5,6 +5,14 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Fixed
+
+- Snapshot entries for analyzed files are updated in place instead of
+  being moved to the end of the file: partial runs (e.g. pre-commit hooks
+  analyzing only staged files) no longer reorder the snapshot, so the
+  snapshot stays byte-identical across commits that do not change
+  complexity. ([#226](https://github.com/rohaquinlop/complexipy/issues/226))
+
 ## [7.0.0] - 2026-08-10
 
 !!! note "Migration"
