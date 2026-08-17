@@ -1,3 +1,4 @@
+pub use crate::classes::RefactorPlan;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -119,4 +120,19 @@ impl DiffEntry {
             (Some(old), Some(new)) => Some(new - old),
         }
     }
+}
+
+pub struct FunctionRow {
+    name: String,
+    complexity: u64,
+    passed: bool,
+    path: String,
+    file_name: String,
+    refactor_plans: Vec<RefactorPlan>,
+    additional_refactor_plans: u64,
+}
+
+pub struct FileEntry {
+    path: String,
+    functions: Vec<FunctionRow>,
 }
