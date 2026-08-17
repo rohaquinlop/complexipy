@@ -1,4 +1,5 @@
 pub use crate::classes::RefactorPlan;
+use clap::ValueEnum;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -48,51 +49,51 @@ fn default_max_complexity() -> u64 {
     15
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum Color {
-    auto,
-    yes,
-    no,
+    Auto,
+    Yes,
+    No,
 }
 
 impl Default for Color {
     fn default() -> Self {
-        Self::auto
+        Self::Auto
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
-    asc,
-    desc,
-    file_name,
+    Asc,
+    Desc,
+    File_name,
 }
 
 impl Default for Sort {
     fn default() -> Self {
-        Self::asc
+        Self::Asc
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
-    csv,
-    json,
-    gitlab,
-    sarif,
+    Csv,
+    Json,
+    Gitlab,
+    Sarif,
 }
 
 impl OutputFormat {
     pub fn default_output_filename(&self) -> String {
         let file_name = "complexipy-results";
         let extension = match self {
-            Self::csv => "csv",
-            Self::json => "json",
-            Self::gitlab => "gitlab.json",
-            Self::sarif => "sarif",
+            Self::Csv => "csv",
+            Self::Json => "json",
+            Self::Gitlab => "gitlab.json",
+            Self::Sarif => "sarif",
         };
         format!("{}.{}", file_name, extension)
     }
