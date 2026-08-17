@@ -2,27 +2,50 @@ pub use crate::classes::RefactorPlan;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct RunConfig {
+pub struct Config {
     paths: Vec<String>,
-    max_complexity_allowed: u64,
-    snapshot_create: bool,
-    snapshot_ignore: bool,
-    quiet: bool,
-    ignore_complexity: bool,
-    failed: bool,
-    color: Color,
-    sort: Sort,
-    output_format: Vec<OutputFormat>,
+    #[serde(default)]
     exclude: Vec<String>,
-    check_script: bool,
-    no_ignore: bool,
-    report_ignored: bool,
-    plain: bool,
+    #[serde(default = "default_max_complexity")]
+    max_complexity_allowed: u64,
+    #[serde(default)]
+    snapshot_create: bool,
+    #[serde(default)]
+    snapshot_ignore: bool,
+    #[serde(default)]
+    failed: bool,
+    #[serde(default)]
     suggest_refactors: bool,
+    #[serde(default)]
+    color: Color,
+    #[serde(default)]
+    sort: Sort,
+    #[serde(default)]
+    quiet: bool,
+    #[serde(default)]
+    ignore_complexity: bool,
+    #[serde(default)]
+    version: bool,
     top: Option<u64>,
+    #[serde(default)]
+    plain: bool,
+    #[serde(default)]
+    output_format: Vec<OutputFormat>,
+    output: Option<String>,
     diff: Option<String>,
     diff_only: Option<String>,
+    #[serde(default)]
     staged: bool,
+    #[serde(default)]
+    check_script: bool,
+    #[serde(default)]
+    no_ignore: bool,
+    #[serde(default)]
+    report_ignored: bool,
+}
+
+fn default_max_complexity() -> u64 {
+    15
 }
 
 #[derive(Deserialize)]
@@ -33,12 +56,24 @@ pub enum Color {
     no,
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Self::auto
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
     asc,
     desc,
     file_name,
+}
+
+impl Default for Sort {
+    fn default() -> Self {
+        Self::asc
+    }
 }
 
 #[derive(Deserialize)]
