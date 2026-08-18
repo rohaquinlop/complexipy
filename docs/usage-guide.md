@@ -323,6 +323,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     check-script = false
     no-ignore = false
     report-ignored = false
+    cache-dir = ".complexipy_cache"
     ```
 
 === "pyproject.toml"
@@ -335,6 +336,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     failed = true
     sort = "desc"
     check-script = true
+    cache-dir = ".complexipy_cache"
     ```
 
 === ".complexipy.toml"
@@ -343,6 +345,7 @@ complexipy loads configuration in this order (highest to lowest priority):
     # Hidden config file for team-specific settings
     max-complexity-allowed = 15
     exclude = ["venv/**", ".venv/**", "node_modules/**"]
+    cache-dir = ".complexipy_cache"
     ```
 
 `check-script` is supported in TOML. `--top` and `--plain` are CLI-only flags.
@@ -382,6 +385,40 @@ section to the same configuration file:
   example a fresh or shallow clone), every function reports as `NEW` and
   the enforcement still applies. Fetch the branch or pass `--diff <ref>`
   with an existing reference instead.
+
+## Cache Configuration
+
+complexipy stores per-function complexity data between runs to power
+delta/diff comparisons. By default this cache lives in
+`.complexipy_cache/` inside your invocation directory. Instead of the
+default location you can redirect it to any directory which is useful
+for CI, chared cache directories or avoiding polluting the project
+tree.
+
+```bash
+# CLI flag (highest priority)
+complexipy . --cache-dir .cache/complexipy
+```
+
+Or declare it once in a configuration file:
+
+=== "complexipy.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy"
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy"
+    ```
+
+=== ".complexipy.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy
+    ```
 
 ## Python API
 
