@@ -224,7 +224,7 @@ def main(
         "--cache-dir",
         help="Directory to use for storing complexipy cache between runs. Defaults to "
         ".complexipy_cache in the invocation directory. Can also be set via the "
-        "cache-dir key in TOML config files."
+        "cache-dir key in TOML config files.",
     ),
     version: bool = typer.Option(
         False,
