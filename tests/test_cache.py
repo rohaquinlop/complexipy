@@ -215,3 +215,78 @@ class TestCache:
 
         # Should return None gracefully without raising exceptions
         assert result is None
+
+    def test_custom_cache_dir(self, tmp_path: Path):
+        """Test that a custom cache directory is used when provided."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text(
+            "def example():\n   if True\n       return 1\n  return 0\n",
+            encoding="utf-8",
+        )
+
+        files, _ = _complexipy.main([str(test_file)], False, [])
+
+        custom_cache_dir = tmp_path / "custom_cache"
+        remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files,
+            cache_dir=str(custom_cache_dir),
+        )
+
+        assert custom_cache_dir.exists(), "Custom cache directory should exist"
+        assert custom_cache_dir.is_dir(), "Custom cache directory should be a directory"
+
+        cache_file = custom_cache_dir / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        assert cache_file.exists(), "Cache file should exist in custom cache directory"
+        assert cache_file.is_file(), "Cache file should be a file in the custom cache directory"
+
+    def test_default_cache_dir_when_none_provided(self, tmp_path: Path):
+        """Test that the default cache location is used when cache_dir is None."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text(
+            "def example():\n   if True\n       return 1\n  return 0\n",
+            encoding="utf-8",
+        )
+
+        files, _ = _complexipy.main([str(test_file)], False, [])
+
+        remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files,
+            cache_dir=None,
+        )
+
+        default_cache_dir = tmp_path / CACHE_DIR_NAME
+        assert default_cache_dir.exists(), "Default cache directory should exist"
+        assert default_cache_dir.is_dir(), "Default cache directory should be a directory"
+
+        cache_file = default_cache_dir / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        assert cache_file.exists(), "Cache file should exist in default cache directory"
+        assert cache_file.is_file(), "Cache file should be a file in the default cache directory"
+
+    def test_nested_cache_dir(self, tmp_path: Path):
+        """Test that nested cache directories (ex. .cache/complexipy) are created and work as expected."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text(
+            "def example():\n   if True\n       return 1\n  return 0\n",
+            encoding="utf-8",
+        )
+
+        files, _ = _complexipy.main([str(test_file)], False, [])
+
+        custom_cache_dir = tmp_path / ".cache" / "complexipy"
+        remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files,
+            cache_dir=custom_cache_dir,
+        )
+
+        assert custom_cache_dir.exists(), "Nested custom cache directory should exist"
+        assert custom_cache_dir.is_dir(), "Nested custom cache directory should be a directory"
+
+        cache_file = custom_cache_dir / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        assert cache_file.exists(), "Cache file should exist in nested custom cache directory"
+        assert cache_file.is_file(), "Cache file should be a file in the nested custom cache directory"
