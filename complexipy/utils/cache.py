@@ -32,10 +32,17 @@ complexity results so future runs can compare per-function complexity changes.
 """
 
 
+def _resolve_cache_dir(invocation_path: str, cache_dir: Optional[str]) -> Path:
+    if cache_dir:
+        return Path(cache_dir)
+    return Path(invocation_path) / CACHE_DIR_NAME
+
+
 def remember_previous_functions(
     invocation_path: str,
     targets: List[str],
     files_complexities: List[FileComplexity],
+    cache_dir: Optional[str] = None,
 ) -> Optional[dict[tuple[str, str, str], int]]:
     """Store per-function results for the target set and return previous map.
 
@@ -47,15 +54,15 @@ def remember_previous_functions(
     if cache_key is None:
         return None
 
-    cache_dir = Path(invocation_path) / CACHE_DIR_NAME
-    cache_file = _cache_value_path(cache_dir, FUNCTIONS_CACHE_KEY)
+    cache_dir_path = _resolve_cache_dir(invocation_path, cache_dir)
+    cache_file = _cache_value_path(cache_dir_path, FUNCTIONS_CACHE_KEY)
     try:
-        _ensure_cache_dir_and_supporting_files(cache_dir)
+        _ensure_cache_dir_and_supporting_files(cache_dir_path)
     except OSError:
         return None
 
     cache_store = _load_cache_store(cache_file)
-    _migrate_legacy_cache_entry(cache_dir, cache_store, cache_key)
+    _migrate_legacy_cache_entry(cache_dir_path, cache_store, cache_key)
     previous_map = _load_previous_map_from_store(cache_store, cache_key)
 
     cache_store.setdefault("entries", {})[cache_key] = {
@@ -65,7 +72,7 @@ def remember_previous_functions(
     }
     _prune_cache_store(cache_store)
     if _persist_cache(cache_file, cache_store):
-        _remove_legacy_cache_files(cache_dir)
+        _remove_legacy_cache_files(cache_dir_path)
     return previous_map
 
 
@@ -287,7 +294,7 @@ def _remove_legacy_cache_files(cache_dir: Path) -> None:
 
 def _ensure_cache_dir_and_supporting_files(cache_dir: Path) -> None:
     """Create the cache directory and support files used by cache tools."""
-    cache_dir.mkdir(exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     _write_support_file(cache_dir / ".gitignore", "*\n")
     _write_support_file(cache_dir / "CACHEDIR.TAG", CACHEDIR_TAG_CONTENT)
     _write_support_file(cache_dir / "README.md", README_CONTENT)

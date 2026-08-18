@@ -63,6 +63,7 @@ def resolve_config(
     check_script: Optional[bool],
     no_ignore: Optional[bool],
     report_ignored: Optional[bool],
+    cache_dir: Optional[str],
 ) -> RunConfig:
     cli_args = {
         "paths": paths,
@@ -80,6 +81,7 @@ def resolve_config(
         "check_script": check_script,
         "no_ignore": no_ignore,
         "report_ignored": report_ignored,
+        "cache_dir": cache_dir,
     }
 
     resolved = get_arguments_value(toml_config, cli_args)
@@ -107,6 +109,7 @@ def resolve_config(
     report_ignored = bool(report_ignored)
     cli_staged = staged
     staged = bool(staged)
+    cache_dir = resolved["cache_dir"]
 
     diff_section = (
         cast(Optional[TOMLDiffSection], toml_config.get("diff"))
@@ -146,6 +149,7 @@ def resolve_config(
         diff=diff,
         diff_only=diff_only,
         staged=staged,
+        cache_dir=cache_dir,
     )
 
 

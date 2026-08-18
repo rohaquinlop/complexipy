@@ -279,4 +279,8 @@ def get_arguments_value(
         toml_config, "exclude", cli_args.get("exclude"), []
     )
 
+    result["cache_dir"] = cli_args.get("cache_dir")
+    if result["cache_dir"] is None and toml_config is not None:
+        result["cache_dir"] = cast(Optional[str], toml_config.get("cache-dir"))
+
     return result
