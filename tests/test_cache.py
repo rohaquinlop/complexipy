@@ -220,7 +220,7 @@ class TestCache:
         """Test that a custom cache directory is used when provided."""
         test_file = tmp_path / "test.py"
         test_file.write_text(
-            "def example():\n   if True\n       return 1\n  return 0\n",
+            "def example():\n    if True:\n        return 1\n    return 0\n",
             encoding="utf-8",
         )
 
@@ -251,7 +251,7 @@ class TestCache:
         """Test that the default cache location is used when cache_dir is None."""
         test_file = tmp_path / "test.py"
         test_file.write_text(
-            "def example():\n   if True\n       return 1\n  return 0\n",
+            "def example():\n    if True:\n        return 1\n    return 0\n",
             encoding="utf-8",
         )
 
@@ -284,7 +284,7 @@ class TestCache:
         """Test that nested cache directories (ex. .cache/complexipy) are created and work as expected."""
         test_file = tmp_path / "test.py"
         test_file.write_text(
-            "def example():\n   if True\n       return 1\n  return 0\n",
+            "def example():\n    if True:\n        return 1\n    return 0\n",
             encoding="utf-8",
         )
 
@@ -295,7 +295,7 @@ class TestCache:
             invocation_path=str(tmp_path),
             targets=[str(test_file)],
             files_complexities=files,
-            cache_dir=custom_cache_dir,
+            cache_dir=str(custom_cache_dir),
         )
 
         assert custom_cache_dir.exists(), (
