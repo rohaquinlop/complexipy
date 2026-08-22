@@ -287,6 +287,11 @@ def get_arguments_value(
             "The 'cache-dir' option must be a string in the TOML config file"
         )
         raise Exit(code=1)
+    if cache_dir is not None and not cache_dir.strip():
+        typer.echo(
+            "The 'cache-dir' option cannot be an empty string in the TOML config file"
+        )
+        raise Exit(code=1)
     result["cache_dir"] = cache_dir
 
     return result
