@@ -169,6 +169,51 @@ class TestCache:
         assert not legacy_file.exists()
         assert cache_file.exists()
 
+    def test_cache_skips_migration_and_removal_when_cache_dir_is_not_default(
+        self, tmp_path: Path
+    ):
+        """Legacy cache entries should not be migrated when a custom cache_dir is used."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text("def example():\n    return 1\n", encoding="utf-8")
+        files, _ = _complexipy.main([str(test_file)], False, [])
+
+        custom_cache_dir = str(tmp_path / "custom_cache")
+
+        remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files,
+            cache_dir=custom_cache_dir,
+        )
+
+        cache_file = (
+            Path(custom_cache_dir) / "v" / "cache" / FUNCTIONS_CACHE_KEY
+        )
+        cache_payload = json.loads(cache_file.read_text(encoding="utf-8"))
+        [cache_key] = cache_payload["entries"].keys()
+        cache_file.unlink()
+
+        # Plant a legacy file inside the custom cache dir
+        legacy_file = Path(custom_cache_dir) / f"{cache_key}.json"
+        legacy_file.write_text(
+            json.dumps(next(iter(cache_payload["entries"].values()))),
+            encoding="utf-8",
+        )
+
+        previous = remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files,
+            cache_dir=custom_cache_dir,
+        )
+
+        # Legacy file should survive untouched — migration never ran
+        assert previous is None, (
+            "Previous map should be None since migration and removal never ran"
+        )
+        assert legacy_file.exists(), "Legacy file should exist"
+        assert cache_file.exists(), "Cache file should exist"
+
     def test_cache_prunes_old_target_set_entries(self, tmp_path: Path):
         """Test that the single value file does not grow unbounded."""
         files = []
@@ -232,6 +277,21 @@ class TestCache:
             targets=[str(test_file)],
             files_complexities=files,
             cache_dir=str(custom_cache_dir),
+        )
+
+        files_again, _ = _complexipy.main([str(test_file)], False, [])
+        previous = remember_previous_functions(
+            invocation_path=str(tmp_path),
+            targets=[str(test_file)],
+            files_complexities=files_again,
+            cache_dir=str(custom_cache_dir),
+        )
+
+        assert previous is not None, (
+            "Subsequent runs should read the previous map from the custom cache directory"
+        )
+        assert len(previous) == 1, (
+            "The number of previous maps cached should only be 1"
         )
 
         assert custom_cache_dir.exists(), "Custom cache directory should exist"
