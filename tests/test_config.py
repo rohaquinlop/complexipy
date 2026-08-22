@@ -595,6 +595,62 @@ class TestPlainAndSuggestRefactors:
                 cache_dir=None,
             )
 
+    def test_toml_cache_dir(self):
+        cfg = resolve_config(
+            {"cache-dir": "/tmp/cache"},
+            paths=["."],
+            max_complexity_allowed=None,
+            snapshot_create=None,
+            snapshot_ignore=None,
+            quiet=None,
+            ignore_complexity=None,
+            failed=None,
+            color=None,
+            sort=None,
+            output_format=None,
+            output=None,
+            diff=None,
+            diff_only=None,
+            staged=None,
+            top=None,
+            plain=None,
+            suggest_refactors=None,
+            exclude=None,
+            check_script=None,
+            no_ignore=None,
+            report_ignored=None,
+            cache_dir=None,
+        )
+        assert cfg.cache_dir == "/tmp/cache"
+
+    def test_cli_cache_dir_overrides_toml(self):
+        cfg = resolve_config(
+            {"cache-dir": "/tmp/cache"},
+            paths=["."],
+            max_complexity_allowed=None,
+            snapshot_create=None,
+            snapshot_ignore=None,
+            quiet=None,
+            ignore_complexity=None,
+            failed=None,
+            color=None,
+            sort=None,
+            output_format=None,
+            output=None,
+            diff=None,
+            diff_only=None,
+            staged=None,
+            top=None,
+            plain=None,
+            suggest_refactors=None,
+            exclude=None,
+            check_script=None,
+            no_ignore=None,
+            report_ignored=None,
+            cache_dir="/tmp/cli",
+        )
+        assert cfg.cache_dir == "/tmp/cli"
+
 
 class TestDiffFlagResolution:
     def test_diff_only_when_both_set(self):
