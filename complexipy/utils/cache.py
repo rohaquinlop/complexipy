@@ -56,6 +56,9 @@ def remember_previous_functions(
         return None
 
     cache_dir_path = _resolve_cache_dir(invocation_path, cache_dir)
+    is_default_cache_location = (
+        cache_dir_path == Path(invocation_path) / CACHE_DIR_NAME
+    )
     cache_file = _cache_value_path(cache_dir_path, FUNCTIONS_CACHE_KEY)
     try:
         _ensure_cache_dir_and_supporting_files(cache_dir_path)
@@ -63,7 +66,8 @@ def remember_previous_functions(
         return None
 
     cache_store = _load_cache_store(cache_file)
-    _migrate_legacy_cache_entry(cache_dir_path, cache_store, cache_key)
+    if is_default_cache_location:
+        _migrate_legacy_cache_entry(cache_dir_path, cache_store, cache_key)
     previous_map = _load_previous_map_from_store(cache_store, cache_key)
 
     cache_store.setdefault("entries", {})[cache_key] = {
@@ -73,7 +77,8 @@ def remember_previous_functions(
     }
     _prune_cache_store(cache_store)
     if _persist_cache(cache_file, cache_store):
-        _remove_legacy_cache_files(cache_dir_path)
+        if is_default_cache_location:
+            _remove_legacy_cache_files(cache_dir_path)
     return previous_map
 
 
