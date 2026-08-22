@@ -30,6 +30,7 @@ complexity results so future runs can compare per-function complexity changes.
 
 **Do not** commit this to version control.
 """
+LEGACY_CACHE_FILE_PATTERN = re.compile(r"^[0-9a-f]{32}\.json$")
 
 
 def _resolve_cache_dir(invocation_path: str, cache_dir: Optional[str]) -> Path:
@@ -286,6 +287,8 @@ def _persist_cache(cache_file: Path, payload: dict) -> bool:
 
 def _remove_legacy_cache_files(cache_dir: Path) -> None:
     for legacy_cache_file in cache_dir.glob("*.json"):
+        if not LEGACY_CACHE_FILE_PATTERN.match(legacy_cache_file.name):
+            continue
         try:
             legacy_cache_file.unlink()
         except OSError:
