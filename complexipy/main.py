@@ -219,6 +219,13 @@ def main(
         "--report-ignored",
         help="List every file:line where a '# complexipy: ignore' or '# noqa: complexipy' comment exists.",
     ),
+    cache_dir: Optional[str] = typer.Option(
+        None,
+        "--cache-dir",
+        help="Directory to use for storing complexipy cache between runs. Defaults to "
+        ".complexipy_cache in the invocation directory. Can also be set via the "
+        "cache-dir key in TOML config files.",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -250,6 +257,7 @@ def main(
         check_script,
         no_ignore,
         report_ignored,
+        cache_dir,
     )
 
     console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
@@ -302,6 +310,7 @@ def main(
         cfg.quiet,
         cfg.plain,
         INVOCATION_PATH,
+        cfg.cache_dir,
         cfg.top,
         cfg.suggest_refactors,
     )

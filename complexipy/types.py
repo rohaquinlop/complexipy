@@ -70,6 +70,7 @@ class RunConfig:
     diff: Optional[str]
     diff_only: Optional[str]
     staged: bool
+    cache_dir: Optional[str]
 
 
 @dataclass

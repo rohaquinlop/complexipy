@@ -68,12 +68,13 @@ def handle_display(
     quiet: bool,
     plain: bool,
     invocation_path: str,
+    cache_dir: Optional[str] = None,
     top: Optional[int] = None,
     suggest_refactors: bool = False,
 ) -> bool:
     if files_complexities:
         previous_functions = remember_previous_functions(
-            invocation_path, paths, files_complexities
+            invocation_path, paths, files_complexities, cache_dir
         )
     else:
         previous_functions = None

@@ -319,6 +319,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     check-script = false
     no-ignore = false
     report-ignored = false
+    cache-dir = ".complexipy_cache"
     ```
 
 === "pyproject.toml"
@@ -331,6 +332,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     failed = true
     sort = "desc"
     check-script = true
+    cache-dir = ".complexipy_cache"
     ```
 
 === ".complexipy.toml"
@@ -339,6 +341,7 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
     # Archivo de configuración oculto para ajustes específicos del equipo
     max-complexity-allowed = 15
     exclude = ["venv/**", ".venv/**", "node_modules/**"]
+    cache-dir = ".complexipy_cache"
     ```
 
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
@@ -379,6 +382,41 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
   clon recién hecho o shallow), cada función se reporta como `NEW` y la
   aplicación del umbral sigue activa. Haz fetch de la rama o pasa
   `--diff <ref>` con una referencia existente.
+
+## Configuración de la caché
+
+complexipy almacena los datos de complejidad de cada función entre ejecuciones
+para permitir comparaciones de cambios/diferencias (delta/diff). De forma
+predeterminada, esta caché se encuentra en .complexipy_cache/ dentro del directorio
+desde el que se ejecuta la herramienta. En lugar de utilizar la ubicación
+predeterminada, puedes redirigir la caché a cualquier directorio. Esto resulta útil
+para CI, directorios de caché compartidos o para evitar añadir archivos innecesarios
+al árbol del proyecto.
+
+```bash
+# Opción de CLI (máxima prioridad)
+complexipy . --cache-dir .cache/complexipy
+```
+
+O decláralo una vez en un archivo de configuración:
+
+=== "complexipy.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy"
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy"
+    ```
+
+=== ".complexipy.toml"
+
+    ```toml
+    cache-dir = ".cache/complexipy"
+    ```
 
 ## API de Python
 

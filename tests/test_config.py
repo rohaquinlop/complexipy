@@ -37,6 +37,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.max_complexity_allowed == 15
 
@@ -64,6 +65,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.snapshot_create is False
         assert cfg.snapshot_ignore is False
@@ -98,6 +100,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.color == ColorTypes.auto
         assert cfg.sort == Sort.asc
@@ -126,6 +129,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.output is None
         assert cfg.diff is None
@@ -156,6 +160,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.output_format == []
         assert cfg.exclude == []
@@ -184,6 +189,7 @@ class TestRunConfigDefaults:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.plain is False
         assert cfg.suggest_refactors is False
@@ -214,6 +220,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.max_complexity_allowed == 25
 
@@ -241,6 +248,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.quiet is True
 
@@ -268,6 +276,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.color == ColorTypes.yes
 
@@ -295,6 +304,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.sort == Sort.desc
 
@@ -322,6 +332,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.exclude == ["tests/**"]
 
@@ -349,6 +360,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.output_format == ["csv", "json"]
 
@@ -376,6 +388,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.diff == "main"
         assert cfg.diff_only is None
@@ -404,6 +417,7 @@ class TestResolveConfigOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.top == 10
 
@@ -433,6 +447,7 @@ class TestBooleanNormalization:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert isinstance(cfg.no_ignore, bool)
         assert cfg.no_ignore is False
@@ -461,6 +476,7 @@ class TestBooleanNormalization:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert isinstance(cfg.report_ignored, bool)
         assert cfg.report_ignored is False
@@ -491,6 +507,7 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.plain is False
 
@@ -518,6 +535,7 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.suggest_refactors is False
 
@@ -545,6 +563,7 @@ class TestPlainAndSuggestRefactors:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.plain is True
 
@@ -573,6 +592,119 @@ class TestPlainAndSuggestRefactors:
                 check_script=None,
                 no_ignore=None,
                 report_ignored=None,
+                cache_dir=None,
+            )
+
+    def test_toml_cache_dir(self):
+        cfg = resolve_config(
+            {"cache-dir": "/tmp/cache"},
+            paths=["."],
+            max_complexity_allowed=None,
+            snapshot_create=None,
+            snapshot_ignore=None,
+            quiet=None,
+            ignore_complexity=None,
+            failed=None,
+            color=None,
+            sort=None,
+            output_format=None,
+            output=None,
+            diff=None,
+            diff_only=None,
+            staged=None,
+            top=None,
+            plain=None,
+            suggest_refactors=None,
+            exclude=None,
+            check_script=None,
+            no_ignore=None,
+            report_ignored=None,
+            cache_dir=None,
+        )
+        assert cfg.cache_dir == "/tmp/cache"
+
+    def test_cli_cache_dir_overrides_toml(self):
+        cfg = resolve_config(
+            {"cache-dir": "/tmp/cache"},
+            paths=["."],
+            max_complexity_allowed=None,
+            snapshot_create=None,
+            snapshot_ignore=None,
+            quiet=None,
+            ignore_complexity=None,
+            failed=None,
+            color=None,
+            sort=None,
+            output_format=None,
+            output=None,
+            diff=None,
+            diff_only=None,
+            staged=None,
+            top=None,
+            plain=None,
+            suggest_refactors=None,
+            exclude=None,
+            check_script=None,
+            no_ignore=None,
+            report_ignored=None,
+            cache_dir="/tmp/cli",
+        )
+        assert cfg.cache_dir == "/tmp/cli"
+
+    def test_non_string_toml_cache_dir_raises(self):
+        with pytest.raises(Exception):
+            resolve_config(
+                {"cache-dir": 123},
+                paths=["."],
+                max_complexity_allowed=None,
+                snapshot_create=None,
+                snapshot_ignore=None,
+                quiet=None,
+                ignore_complexity=None,
+                failed=None,
+                color=None,
+                sort=None,
+                output_format=None,
+                output=None,
+                diff=None,
+                diff_only=None,
+                staged=None,
+                top=None,
+                plain=None,
+                suggest_refactors=None,
+                exclude=None,
+                check_script=None,
+                no_ignore=None,
+                report_ignored=None,
+                cache_dir=None,
+            )
+
+    def test_empty_string_toml_cache_dir_raises(self):
+        with pytest.raises(Exception):
+            resolve_config(
+                {"cache-dir": ""},
+                paths=["."],
+                max_complexity_allowed=None,
+                snapshot_create=None,
+                snapshot_ignore=None,
+                quiet=None,
+                ignore_complexity=None,
+                failed=None,
+                color=None,
+                sort=None,
+                output_format=None,
+                output=None,
+                diff=None,
+                diff_only=None,
+                staged=None,
+                top=None,
+                plain=None,
+                suggest_refactors=None,
+                exclude=None,
+                check_script=None,
+                no_ignore=None,
+                report_ignored=None,
+                cache_dir=None,
             )
 
 
@@ -606,6 +738,7 @@ class TestDiffFlagResolution:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.diff == "main"
         assert cfg.diff_only is None
@@ -636,6 +769,7 @@ class TestCheckScriptAndNoIgnore:
             check_script=True,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.check_script is True
 
@@ -663,6 +797,7 @@ class TestCheckScriptAndNoIgnore:
             check_script=None,
             no_ignore=True,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.no_ignore is True
 
@@ -692,6 +827,7 @@ class TestOutputDir:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.output == "/tmp/results"
 
@@ -721,6 +857,7 @@ class TestTomlOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.max_complexity_allowed == 30
 
@@ -748,6 +885,7 @@ class TestTomlOverrides:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
         assert cfg.max_complexity_allowed == 10
 
@@ -778,6 +916,7 @@ class TestDiffSectionFromToml:
             check_script=None,
             no_ignore=None,
             report_ignored=None,
+            cache_dir=None,
         )
 
     def test_branch_from_section_sets_diff(self):
