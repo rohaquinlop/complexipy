@@ -392,7 +392,7 @@ complexipy stores per-function complexity data between runs to power
 delta/diff comparisons. By default this cache lives in
 `.complexipy_cache/` inside your invocation directory. Instead of the
 default location you can redirect it to any directory which is useful
-for CI, chared cache directories or avoiding polluting the project
+for CI, shared cache directories or avoiding polluting the project
 tree.
 
 ```bash
@@ -417,7 +417,7 @@ Or declare it once in a configuration file:
 === ".complexipy.toml"
 
     ```toml
-    cache-dir = ".cache/complexipy
+    cache-dir = ".cache/complexipy"
     ```
 
 ## Python API
