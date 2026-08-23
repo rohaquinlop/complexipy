@@ -1,5 +1,5 @@
 mod classes;
-#[cfg(feature = "python")]
+#[cfg(feature = "cli")]
 mod cli;
 pub(crate) mod cognitive_complexity;
 mod helpers;

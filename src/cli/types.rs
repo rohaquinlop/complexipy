@@ -2,54 +2,99 @@ pub use crate::classes::RefactorPlan;
 use clap::ValueEnum;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
-    paths: Vec<String>,
     #[serde(default)]
-    exclude: Vec<String>,
+    pub paths: StringOrList<String>,
+    #[serde(default)]
+    pub exclude: StringOrList<String>,
     #[serde(default = "default_max_complexity")]
-    max_complexity_allowed: u64,
+    pub max_complexity_allowed: u64,
     #[serde(default)]
-    snapshot_create: bool,
+    pub snapshot_create: bool,
     #[serde(default)]
-    snapshot_ignore: bool,
+    pub snapshot_ignore: bool,
     #[serde(default)]
-    failed: bool,
+    pub quiet: bool,
     #[serde(default)]
-    suggest_refactors: bool,
+    pub ignore_complexity: bool,
     #[serde(default)]
-    color: Color,
+    pub failed: bool,
     #[serde(default)]
-    sort: Sort,
+    pub color: Color,
     #[serde(default)]
-    quiet: bool,
+    pub sort: Sort,
     #[serde(default)]
-    ignore_complexity: bool,
+    pub output_format: StringOrList<OutputFormat>,
+    pub output: Option<String>,
+    pub diff: Option<DiffSection>,
     #[serde(default)]
-    version: bool,
-    top: Option<u64>,
+    pub check_script: bool,
     #[serde(default)]
-    plain: bool,
+    pub no_ignore: bool,
     #[serde(default)]
-    output_format: Vec<OutputFormat>,
-    output: Option<String>,
-    diff: Option<String>,
-    diff_only: Option<String>,
-    #[serde(default)]
-    staged: bool,
-    #[serde(default)]
-    check_script: bool,
-    #[serde(default)]
-    no_ignore: bool,
-    #[serde(default)]
-    report_ignored: bool,
+    pub report_ignored: bool,
 }
 
 fn default_max_complexity() -> u64 {
     15
 }
 
-#[derive(Deserialize, Clone, ValueEnum)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct DiffSection {
+    pub branch: Option<String>,
+    pub staged: Option<bool>,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum StringOrList<T> {
+    One(T),
+    Many(Vec<T>),
+}
+
+impl<T> Default for StringOrList<T> {
+    fn default() -> Self {
+        Self::Many(Vec::new())
+    }
+}
+
+impl<T> StringOrList<T> {
+    pub fn into_vec(self) -> Vec<T> {
+        match self {
+            Self::One(value) => vec![value],
+            Self::Many(values) => values,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunConfig {
+    pub paths: Vec<String>,
+    pub max_complexity_allowed: u64,
+    pub snapshot_create: bool,
+    pub snapshot_ignore: bool,
+    pub quiet: bool,
+    pub ignore_complexity: bool,
+    pub failed: bool,
+    pub color: Color,
+    pub sort: Sort,
+    pub output_format: Vec<OutputFormat>,
+    pub output: Option<String>,
+    pub exclude: Vec<String>,
+    pub check_script: bool,
+    pub no_ignore: bool,
+    pub report_ignored: bool,
+    pub plain: bool,
+    pub suggest_refactors: bool,
+    pub top: Option<u64>,
+    pub diff: Option<String>,
+    pub diff_only: Option<String>,
+    pub staged: bool,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum Color {
     Auto,
@@ -63,7 +108,7 @@ impl Default for Color {
     }
 }
 
-#[derive(Deserialize, Clone, ValueEnum)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
     Asc,
@@ -77,7 +122,7 @@ impl Default for Sort {
     }
 }
 
-#[derive(Deserialize, Clone, ValueEnum)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
     Csv,
