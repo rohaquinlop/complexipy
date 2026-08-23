@@ -2,6 +2,8 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
+use owo_colors::OwoColorize;
+
 use complexipy::cli::args::CliArgs;
 use complexipy::cli::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
@@ -53,7 +55,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
 
     let (diff, diff_only) = resolve_diff_flags(config.diff, config.diff_only, config.staged);
     if !config.quiet && diff_only.is_some() && diff.is_none() {
-        println!("[yellow]Warning:[/yellow] {}", diff_flags_warning());
+        println!("{} {}", "Warning:".yellow(), diff_flags_warning());
     }
 
     let (files_complexities, failed_paths) = match run_analysis_shared(
@@ -201,7 +203,8 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 None => {
                     if !config.quiet {
                         println!(
-                            "[yellow]Warning:[/yellow] --staged requires a git repository; skipping the staged diff."
+                            "{} --staged requires a git repository; skipping the staged diff.",
+                            "Warning:".yellow()
                         );
                     }
                     None
@@ -231,7 +234,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if cfg!(windows) {
             println!("{}", rule("Analysis completed!"));
         } else {
-            println!("{}", rule(":tada: Analysis completed! :tada:"));
+            println!("{}", rule("🎉 Analysis completed! 🎉"));
         }
     }
 

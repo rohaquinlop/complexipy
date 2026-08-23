@@ -186,7 +186,7 @@ fn invalid_paths_rendering() {
 
 #[test]
 fn rule_renders_title_with_padding() {
-    let output = rule("complexipy");
+    let output = strip_ansi(&rule("complexipy"));
     assert!(output.contains("complexipy"));
     assert!(output.starts_with('─'));
     assert!(output.ends_with('─'));

@@ -30,7 +30,7 @@ pub fn handle_console_settings(
     } else if cfg!(windows) {
         rule("complexipy")
     } else {
-        rule(":octopus: complexipy")
+        rule("🐙 complexipy")
     };
 
     ConsoleSettings {
@@ -41,18 +41,14 @@ pub fn handle_console_settings(
 
 pub fn rule(title: &str) -> String {
     if title.is_empty() {
-        return "─".repeat(RULE_WIDTH);
+        return "─".repeat(RULE_WIDTH).bold().to_string();
     }
     let padding = RULE_WIDTH.saturating_sub(title.chars().count() + 2);
     let left = padding / 2;
     let right = padding - left;
-    format!(
-        "{}{} {} {}",
-        "─".repeat(left),
-        "─".repeat(0),
-        title,
-        "─".repeat(right)
-    )
+    format!("{} {} {}", "─".repeat(left), title, "─".repeat(right))
+        .bold()
+        .to_string()
 }
 
 pub struct SummaryOptions<'a> {
@@ -181,13 +177,9 @@ pub fn output_file_entries(
 
 pub fn format_status_text(passed: bool) -> String {
     if passed {
-        " :white_heavy_check_mark: PASSED "
-            .black()
-            .on_green()
-            .bold()
-            .to_string()
+        " ✅ PASSED ".black().on_green().bold().to_string()
     } else {
-        " :cross_mark: FAILED ".white().on_red().bold().to_string()
+        " ❌ FAILED ".white().on_red().bold().to_string()
     }
 }
 
