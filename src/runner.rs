@@ -39,6 +39,100 @@ struct ProcessOptions {
 
 type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn run_analysis_shared(
+    paths: &[String],
+    quiet: bool,
+    exclude: &[String],
+    check_script: bool,
+    no_ignore: bool,
+    invocation_path: &str,
+) -> Result<ComplexitiesAndFailedPaths, String> {
+    let mut successful = Vec::new();
+    let mut failed_paths = Vec::new();
+
+    for path in paths {
+        let path_obj = path::Path::new(path);
+        if !path_obj.exists() {
+            failed_paths.push(path.to_string());
+            continue;
+        }
+
+        let opts = ProcessOptions {
+            quiet,
+            exclude: exclude.to_vec(),
+            check_script,
+            no_ignore,
+        };
+
+        let (mut complexities, mut f_paths) = if path_obj.is_dir() {
+            evaluate_dir_shared(path, &opts, invocation_path)
+        } else {
+            match analyze_file_shared(path, &opts, invocation_path) {
+                Ok(file_complexity) => (vec![file_complexity], vec![]),
+                Err(_) => (vec![], vec![path.to_string()]),
+            }
+        };
+        complexities
+            .iter_mut()
+            .for_each(|f| f.functions.sort_by_key(|f| (f.complexity, f.name.clone())));
+        complexities.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
+        successful.append(&mut complexities);
+        failed_paths.append(&mut f_paths);
+    }
+
+    Ok((successful, failed_paths))
+}
+
+#[cfg(any(feature = "python", feature = "cli"))]
+fn evaluate_dir_shared(
+    path: &str,
+    opts: &ProcessOptions,
+    invocation_path: &str,
+) -> ComplexitiesAndFailedPaths {
+    let inv_abs = path::Path::new(invocation_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    let base_dir = inv_abs.to_string_lossy().replace('\\', "/");
+    let files_paths_to_process = match get_paths_to_process(path, opts.exclude.clone()) {
+        Ok(paths) => paths,
+        Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
+    };
+
+    let mut complexities = Vec::new();
+    let mut failed_paths = Vec::new();
+    for file_path in files_paths_to_process {
+        match analyze_file_shared(&file_path, opts, &base_dir) {
+            Ok(file_complexity) => complexities.push(file_complexity),
+            Err(_) => failed_paths.push(file_path.clone()),
+        }
+    }
+    (complexities, failed_paths)
+}
+
+#[cfg(any(feature = "python", feature = "cli"))]
+fn analyze_file_shared(
+    path: &str,
+    opts: &ProcessOptions,
+    invocation_path: &str,
+) -> Result<FileComplexity, String> {
+    let inv_abs = path::Path::new(invocation_path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
+    let inv_str = inv_abs.to_string_lossy().replace('\\', "/");
+    let file_abs = path::Path::new(path)
+        .canonicalize()
+        .unwrap_or_else(|_| path::Path::new(path).to_path_buf());
+    let rel = file_abs
+        .strip_prefix(&inv_abs)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(path);
+    let mut complexity = file_complexity_shared(path, &inv_str, opts.check_script, opts.no_ignore)?;
+    complexity.path = rel.to_string();
+    Ok(complexity)
+}
+
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (paths, quiet, exclude, check_script=false, no_ignore=false, invocation_path="."))]

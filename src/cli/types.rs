@@ -138,12 +138,13 @@ impl OutputFormat {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExitReport {
-    display_ok: bool,
-    snapshot_ok: bool,
-    paths_ok: bool,
-    diff_ok: bool,
-    enforce_diff: bool,
+    pub display_ok: bool,
+    pub snapshot_ok: bool,
+    pub paths_ok: bool,
+    pub diff_ok: bool,
+    pub enforce_diff: bool,
 }
 
 impl ExitReport {

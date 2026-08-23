@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use owo_colors::OwoColorize;
+use std::io::IsTerminal;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::classes::FileComplexity;
 use crate::cli::output::refactor::output_refactor_plans;
@@ -30,7 +32,7 @@ pub fn handle_console_settings(
     } else if cfg!(windows) {
         rule("complexipy")
     } else {
-        rule(":octopus: complexipy")
+        rule("🐙 complexipy")
     };
 
     ConsoleSettings {
@@ -40,19 +42,65 @@ pub fn handle_console_settings(
 }
 
 pub fn rule(title: &str) -> String {
+    rule_at(title, terminal_width())
+}
+
+fn rule_at(title: &str, width: usize) -> String {
     if title.is_empty() {
-        return "─".repeat(RULE_WIDTH);
+        return "─".repeat(width).bright_green().to_string();
     }
-    let padding = RULE_WIDTH.saturating_sub(title.chars().count() + 2);
-    let left = padding / 2;
-    let right = padding - left;
-    format!(
-        "{}{} {} {}",
-        "─".repeat(left),
-        "─".repeat(0),
-        title,
-        "─".repeat(right)
-    )
+    if width < 4 {
+        return "─".repeat(width).bright_green().to_string();
+    }
+
+    let title_cells = UnicodeWidthStr::width(title);
+    let side_width = (width - title_cells) / 2;
+    let left = side_width.saturating_sub(1);
+    let right_length = width - left - title_cells;
+    let right = (side_width + 1).min(right_length);
+
+    let plain = format!("{} {} {}", "─".repeat(left), title, "─".repeat(right));
+    let plain = set_cell_size(&plain, width);
+
+    if let Some(start) = plain.find(title) {
+        let end = start + title.len();
+        format!(
+            "{}{}{}",
+            plain[..start].to_string().bright_green(),
+            &plain[start..end],
+            plain[end..].to_string().bright_green()
+        )
+    } else {
+        plain.bright_green().to_string()
+    }
+}
+
+fn set_cell_size(text: &str, width: usize) -> String {
+    let mut result = String::new();
+    let mut cells = 0;
+    for character in text.chars() {
+        let character_width = UnicodeWidthChar::width(character).unwrap_or(0);
+        if cells + character_width > width {
+            break;
+        }
+        result.push(character);
+        cells += character_width;
+    }
+    while cells < width {
+        result.push(' ');
+        cells += 1;
+    }
+    result
+}
+
+fn terminal_width() -> usize {
+    if std::io::stdout().is_terminal() {
+        terminal_size::terminal_size()
+            .map(|(width, _)| width.0 as usize)
+            .unwrap_or(RULE_WIDTH)
+    } else {
+        RULE_WIDTH
+    }
 }
 
 pub struct SummaryOptions<'a> {
@@ -145,7 +193,7 @@ pub fn output_file_entries(
             let complexity_text = colorize_complexity(function.complexity, max_complexity);
             let delta_text = output_delta_text(previous_functions, function, max_complexity);
             lines.push(format!(
-                "    {} {}{} {}",
+                "    {} {}{}  {}",
                 function.name, complexity_text, delta_text, status_text
             ));
             if suggest_refactors {
@@ -181,13 +229,9 @@ pub fn output_file_entries(
 
 pub fn format_status_text(passed: bool) -> String {
     if passed {
-        " :white_heavy_check_mark: PASSED "
-            .black()
-            .on_green()
-            .bold()
-            .to_string()
+        format!("✅ {} ", " PASSED ".black().on_green().bold())
     } else {
-        " :cross_mark: FAILED ".white().on_red().bold().to_string()
+        format!("❌ {} ", " FAILED ".white().on_red().bold())
     }
 }
 
