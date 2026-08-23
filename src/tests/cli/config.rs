@@ -4,7 +4,7 @@ use clap::Parser;
 
 use crate::cli::args::CliArgs;
 use crate::cli::types::{Color, Config, OutputFormat, RunConfig, Sort};
-use crate::cli::utils::config::{resolve_config, ConfigError};
+use crate::cli::utils::config::{ConfigError, resolve_config};
 
 fn resolve(cli_args: &[&str], toml_source: Option<&str>) -> Result<RunConfig, ConfigError> {
     let mut argv = vec!["complexipy"];
@@ -20,26 +20,26 @@ fn defaults_with_only_paths() {
 
     assert_eq!(config.paths, vec!["src"]);
     assert_eq!(config.max_complexity_allowed, 15);
-    assert_eq!(config.snapshot_create, false);
-    assert_eq!(config.snapshot_ignore, false);
-    assert_eq!(config.quiet, false);
-    assert_eq!(config.ignore_complexity, false);
-    assert_eq!(config.failed, false);
+    assert!(!config.snapshot_create);
+    assert!(!config.snapshot_ignore);
+    assert!(!config.quiet);
+    assert!(!config.ignore_complexity);
+    assert!(!config.failed);
     assert_eq!(config.color, Color::Auto);
     assert_eq!(config.sort, Sort::Asc);
     assert_eq!(config.output_format, Vec::<OutputFormat>::new());
     assert_eq!(config.output, None);
     assert_eq!(config.exclude, Vec::<String>::new());
-    assert_eq!(config.check_script, false);
-    assert_eq!(config.no_ignore, false);
-    assert_eq!(config.report_ignored, false);
-    assert_eq!(config.plain, false);
-    assert_eq!(config.suggest_refactors, false);
+    assert!(!config.check_script);
+    assert!(!config.no_ignore);
+    assert!(!config.report_ignored);
+    assert!(!config.plain);
+    assert!(!config.suggest_refactors);
     assert_eq!(config.top, None);
     assert_eq!(config.cache_dir, None);
     assert_eq!(config.diff, None);
     assert_eq!(config.diff_only, None);
-    assert_eq!(config.staged, false);
+    assert!(!config.staged);
 }
 
 #[test]
@@ -94,9 +94,9 @@ fn toml_boolean_used_when_cli_absent() {
     )
     .expect("resolve should succeed");
 
-    assert_eq!(config.quiet, true);
-    assert_eq!(config.no_ignore, true);
-    assert_eq!(config.report_ignored, true);
+    assert!(config.quiet);
+    assert!(config.no_ignore);
+    assert!(config.report_ignored);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn cli_boolean_overrides_toml() {
     let config =
         resolve(&["src", "--quiet=false"], Some("quiet = true")).expect("resolve should succeed");
 
-    assert_eq!(config.quiet, false);
+    assert!(!config.quiet);
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn diff_only_blocks_toml_branch() {
 fn staged_from_toml_when_cli_absent() {
     let config = resolve(&["src"], Some("[diff]\nstaged = true")).expect("resolve should succeed");
 
-    assert_eq!(config.staged, true);
+    assert!(config.staged);
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn cli_staged_wins_over_toml() {
     let config = resolve(&["src", "--staged"], Some("[diff]\nstaged = false"))
         .expect("resolve should succeed");
 
-    assert_eq!(config.staged, true);
+    assert!(config.staged);
 }
 
 #[test]
@@ -241,15 +241,15 @@ output = \"results.json\"";
     let config: Config = toml::from_str(source).expect("toml should parse");
 
     assert_eq!(config.max_complexity_allowed, 12);
-    assert_eq!(config.check_script, true);
-    assert_eq!(config.no_ignore, true);
-    assert_eq!(config.report_ignored, true);
-    assert_eq!(config.snapshot_create, true);
-    assert_eq!(config.snapshot_ignore, true);
-    assert_eq!(config.ignore_complexity, true);
+    assert!(config.check_script);
+    assert!(config.no_ignore);
+    assert!(config.report_ignored);
+    assert!(config.snapshot_create);
+    assert!(config.snapshot_ignore);
+    assert!(config.ignore_complexity);
     assert_eq!(config.color, Color::No);
     assert_eq!(config.sort, Sort::Desc);
-    assert_eq!(config.failed, true);
+    assert!(config.failed);
     assert_eq!(config.output, Some("results.json".to_string()));
 }
 
@@ -287,8 +287,8 @@ fn top_and_version_ignored_in_toml() {
 fn plain_and_suggest_refactors_default_false() {
     let config = resolve(&["src"], None).expect("resolve should succeed");
 
-    assert_eq!(config.plain, false);
-    assert_eq!(config.suggest_refactors, false);
+    assert!(!config.plain);
+    assert!(!config.suggest_refactors);
 }
 
 #[test]

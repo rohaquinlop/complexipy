@@ -44,13 +44,8 @@ pub fn code_complexity(
         }
     };
     let ast_body = parsed.into_suite();
-    let (functions, complexity) = function_level_cognitive_complexity_shared(
-        &ast_body,
-        code,
-        check_script,
-        no_ignore,
-        true,
-    );
+    let (functions, complexity) =
+        function_level_cognitive_complexity_shared(&ast_body, code, check_script, no_ignore, true);
     Ok(CodeComplexity {
         functions,
         complexity,

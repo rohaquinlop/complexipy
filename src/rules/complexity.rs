@@ -649,9 +649,7 @@ fn generate_loop_guard_suggestion(
     // dangling `else` inside the body. A first chain member with its own
     // `else`/`elif` cannot become a guard either — the guard would skip the
     // `else` branch entirely.
-    if has_else_branch(region, &lines)
-        || guards.is_empty()
-        || has_else_branch(guards[0].0, &lines)
+    if has_else_branch(region, &lines) || guards.is_empty() || has_else_branch(guards[0].0, &lines)
     {
         return None;
     }

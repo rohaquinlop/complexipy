@@ -384,7 +384,8 @@ fn loop_guard_suggestion_refuses_a_first_member_with_its_own_else() {
 
 #[test]
 fn loop_guard_suggestion_refuses_a_loop_level_else() {
-    let source = "def f():\n    for x in y:\n        if a:\n            pass\n    else:\n        pass\n";
+    let source =
+        "def f():\n    for x in y:\n        if a:\n            pass\n    else:\n        pass\n";
     let region = ComplexityRegion {
         kind: RegionKind::Loop,
         line_start: 2,

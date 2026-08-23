@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::cli::args::CliArgs;
-use crate::cli::types::{Color, Config, OutputFormat, RunConfig, Sort};
+use crate::cli::types::{Color, Config, RunConfig, Sort};
 
 #[derive(Debug, PartialEq)]
 pub enum ConfigError {
@@ -144,15 +144,16 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
     let diff_only = cli.diff_only;
     let mut staged = cli.staged.unwrap_or(false);
     if let Some(section) = toml.and_then(|toml| toml.diff.as_ref()) {
-        if diff.is_none() && diff_only.is_none() {
-            if let Some(branch) = &section.branch {
-                diff = Some(branch.clone());
-            }
+        if diff.is_none()
+            && diff_only.is_none()
+            && let Some(branch) = &section.branch
+        {
+            diff = Some(branch.clone());
         }
-        if cli.staged.is_none() {
-            if let Some(section_staged) = section.staged {
-                staged = section_staged;
-            }
+        if cli.staged.is_none()
+            && let Some(section_staged) = section.staged
+        {
+            staged = section_staged;
         }
     }
 

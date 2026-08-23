@@ -97,32 +97,23 @@ pub struct RunConfig {
     pub staged: bool,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Color {
+    #[default]
     Auto,
     Yes,
     No,
 }
 
-impl Default for Color {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
-
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
+    #[default]
     Asc,
     Desc,
-    File_name,
-}
-
-impl Default for Sort {
-    fn default() -> Self {
-        Self::Asc
-    }
+    #[value(name = "file_name")]
+    FileName,
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -166,11 +157,11 @@ impl ExitReport {
 }
 
 pub enum DiffStatus {
-    REGRESSED,
-    IMPROVED,
-    UNCHANGED,
-    NEW,
-    REMOVED,
+    Regressed,
+    Improved,
+    Unchanged,
+    New,
+    Removed,
 }
 
 pub struct DiffEntry {
@@ -183,15 +174,15 @@ pub struct DiffEntry {
 impl DiffEntry {
     pub fn status(&self) -> DiffStatus {
         match (self.old_complexity, self.new_complexity) {
-            (None, ..) => DiffStatus::NEW,
-            (.., None) => DiffStatus::REMOVED,
+            (None, ..) => DiffStatus::New,
+            (.., None) => DiffStatus::Removed,
             (Some(old), Some(new)) => {
                 if new > old {
-                    DiffStatus::REGRESSED
+                    DiffStatus::Regressed
                 } else if new < old {
-                    DiffStatus::IMPROVED
+                    DiffStatus::Improved
                 } else {
-                    DiffStatus::UNCHANGED
+                    DiffStatus::Unchanged
                 }
             }
         }
