@@ -50,15 +50,13 @@ fn status_text_emoji_outside_color() {
     assert!(passed.starts_with("✅ "));
     let colored = passed.trim_start_matches("✅ ");
     assert!(colored.starts_with("\u{1b}["));
-    assert!(colored.contains("PASSED"));
-    assert!(!colored.contains(" PASSED "));
+    assert!(colored.contains(" PASSED "));
 
     let failed = format_status_text(false);
     assert!(failed.starts_with("❌ "));
     let colored = failed.trim_start_matches("❌ ");
     assert!(colored.starts_with("\u{1b}["));
-    assert!(colored.contains("FAILED"));
-    assert!(!colored.contains(" FAILED "));
+    assert!(colored.contains(" FAILED "));
 }
 
 #[test]
