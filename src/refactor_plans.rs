@@ -1,10 +1,10 @@
 pub use crate::classes::{LineComplexity, RefactorPlan};
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use crate::rules::RuleRegistry;
 use std::sync::OnceLock;
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum RegionKind {
     #[default]
@@ -17,7 +17,7 @@ pub enum RegionKind {
     With,
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 #[derive(Clone, Default)]
 pub struct ComplexityRegion {
     pub kind: RegionKind,
@@ -33,14 +33,14 @@ pub struct ComplexityRegion {
     pub children: Vec<ComplexityRegion>,
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub struct ComplexityResult {
     pub complexity: u64,
     pub line_complexities: Vec<LineComplexity>,
     pub regions: Vec<ComplexityRegion>,
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn build_refactor_plans(
     function_complexity: u64,
     regions: &[ComplexityRegion],
