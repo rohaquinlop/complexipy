@@ -88,9 +88,7 @@ impl RuleRegistry {
                 continue;
             };
             plan.estimated_reduction = measured;
-            plan.estimated_complexity_after = plan
-                .current_complexity
-                .saturating_sub(measured);
+            plan.estimated_complexity_after = plan.current_complexity.saturating_sub(measured);
             plan.reduction_is_measured = true;
         }
     }

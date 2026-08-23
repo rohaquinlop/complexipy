@@ -482,13 +482,8 @@ fn collect_removable_ignores_from_file(
     let parsed = parse_module(&code)
         .map_err(|e| PyValueError::new_err(format!("Failed to parse code: {}", e)))?;
     let ast_body = parsed.into_suite();
-    let (functions, _) = function_level_cognitive_complexity_shared(
-        &ast_body,
-        &code,
-        false,
-        true,
-        false,
-    );
+    let (functions, _) =
+        function_level_cognitive_complexity_shared(&ast_body, &code, false, true, false);
     let removable = filter_removable_ignores(&locations, &functions, max_complexity_allowed);
     Ok(removable
         .into_iter()
