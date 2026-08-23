@@ -20,7 +20,6 @@ mod python_deps {
     pub use crate::classes::FunctionComplexity;
     pub use pyo3::exceptions::{PyIOError, PyValueError};
     pub use pyo3::prelude::*;
-    pub use std::fs::read_to_string;
 }
 
 #[cfg(feature = "python")]
@@ -225,13 +224,12 @@ pub fn output_json(
     .map_err(export_error_to_py_error)
 }
 
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn create_snapshot_file(
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn create_snapshot_file_shared(
     snapshot_file_path: &str,
     max_complexity: u64,
     files_complexities: Vec<FileComplexity>,
-) -> PyResult<()> {
+) -> Result<(), ExportError> {
     let files_snapshot: Vec<FileComplexity> = files_complexities
         .into_iter()
         .filter_map(|file_complexity| {
@@ -253,15 +251,15 @@ pub fn create_snapshot_file(
         .collect();
 
     let json_string = serde_json::to_string_pretty(&files_snapshot)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize JSON: {}", e)))?;
+        .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
     let mut file = File::create(snapshot_file_path).map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to create snapshot file at {}: {}",
             snapshot_file_path, e
         ))
     })?;
     file.write_all(json_string.as_bytes()).map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to write snapshot file at {}: {}",
             snapshot_file_path, e
         ))
@@ -270,17 +268,35 @@ pub fn create_snapshot_file(
     Ok(())
 }
 
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn load_snapshot_file(snapshot_file_path: &str) -> PyResult<Vec<FileComplexity>> {
-    let snapshot_content = read_to_string(snapshot_file_path).map_err(|e| {
-        PyIOError::new_err(format!(
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn load_snapshot_file_shared(
+    snapshot_file_path: &str,
+) -> Result<Vec<FileComplexity>, ExportError> {
+    let snapshot_content = std::fs::read_to_string(snapshot_file_path).map_err(|e| {
+        ExportError::Io(format!(
             "Failed to read snapshot file {}: {}",
             snapshot_file_path, e
         ))
     })?;
     serde_json::from_str(snapshot_content.as_str())
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse snapshot JSON: {}", e)))
+        .map_err(|e| ExportError::Serialize(format!("Failed to parse snapshot JSON: {}", e)))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn create_snapshot_file(
+    snapshot_file_path: &str,
+    max_complexity: u64,
+    files_complexities: Vec<FileComplexity>,
+) -> PyResult<()> {
+    create_snapshot_file_shared(snapshot_file_path, max_complexity, files_complexities)
+        .map_err(export_error_to_py_error)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn load_snapshot_file(snapshot_file_path: &str) -> PyResult<Vec<FileComplexity>> {
+    load_snapshot_file_shared(snapshot_file_path).map_err(export_error_to_py_error)
 }
 
 #[cfg(feature = "python")]

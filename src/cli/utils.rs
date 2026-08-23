@@ -3,4 +3,5 @@ pub mod config;
 pub mod gitlab;
 pub mod paths;
 pub mod sarif;
+pub mod snapshot;
 pub mod toml;
