@@ -5,31 +5,67 @@ use ruff_python_ast::{self as ast, Stmt};
 #[cfg(any(feature = "python", feature = "wasm"))]
 use std::sync::OnceLock;
 
+#[cfg(any(feature = "python", feature = "cli"))]
+mod export_deps {
+    pub use crate::classes::FileComplexity;
+    pub use csv::Writer;
+    pub use serde_json;
+    pub use std::fs::File;
+    pub use std::io::Write;
+}
+
 #[cfg(feature = "python")]
 mod python_deps {
-    pub use crate::classes::{FileComplexity, FunctionComplexity};
-    pub use csv::Writer;
+    pub use super::export_deps::*;
+    pub use crate::classes::FunctionComplexity;
     pub use pyo3::exceptions::{PyIOError, PyValueError};
     pub use pyo3::prelude::*;
-    pub use serde_json;
-    pub use std::fs::{File, read_to_string};
-    pub use std::io::Write;
+    pub use std::fs::read_to_string;
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
 
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn output_csv(
+#[cfg(any(feature = "python", feature = "cli"))]
+use std::fmt;
+
+#[cfg(any(feature = "python", feature = "cli"))]
+#[derive(Debug, PartialEq)]
+pub enum ExportError {
+    Io(String),
+    Serialize(String),
+    InvalidSort(String),
+}
+
+#[cfg(any(feature = "python", feature = "cli"))]
+impl fmt::Display for ExportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(message) => write!(f, "{}", message),
+            Self::Serialize(message) => write!(f, "{}", message),
+            Self::InvalidSort(message) => write!(f, "Invalid sort value: {}", message),
+        }
+    }
+}
+
+#[cfg(any(feature = "python", feature = "cli"))]
+impl std::error::Error for ExportError {}
+
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn output_csv_shared(
     invocation_path: &str,
     functions_complexity: Vec<FileComplexity>,
     sort: &str,
     show_detailed_results: bool,
-    max_complexity: i32,
-) -> PyResult<()> {
+    max_complexity: u64,
+) -> Result<(), ExportError> {
+    match sort {
+        "asc" | "desc" | "name" | "file_name" => {}
+        other => return Err(ExportError::InvalidSort(other.to_string())),
+    }
+
     let mut writer = Writer::from_path(invocation_path).map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to create CSV at {}: {}",
             invocation_path, e
         ))
@@ -38,81 +74,64 @@ pub fn output_csv(
     writer
         .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
         .map_err(|e| {
-            PyIOError::new_err(format!(
+            ExportError::Io(format!(
                 "Failed to write CSV header at {}: {}",
                 invocation_path, e
             ))
         })?;
 
-    let max_complexity_limit = u64::try_from(max_complexity)
-        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
-
-    if sort != "name" {
-        let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
-
-        for file in functions_complexity {
-            for function in file.functions {
-                if show_detailed_results || function.complexity > max_complexity_limit {
-                    all_functions.push((file.path.clone(), file.file_name.clone(), function));
-                }
-            }
-        }
-
-        all_functions.sort_by_key(|f| f.2.complexity);
-
-        if sort == "desc" {
-            all_functions.reverse();
-        }
-
-        for (path, file_name, function) in all_functions.into_iter() {
-            writer
-                .write_record([
-                    &path,
-                    &file_name,
-                    &function.name,
-                    &function.complexity.to_string(),
-                ])
-                .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
-        }
-    } else {
-        for file in functions_complexity {
-            for function in file.functions {
-                writer
-                    .write_record([
-                        &file.path,
-                        &file.file_name,
-                        &function.name,
-                        &function.complexity.to_string(),
-                    ])
-                    .map_err(|e| PyIOError::new_err(format!("Failed to write CSV row: {}", e)))?;
+    let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
+    for file in functions_complexity {
+        for function in file.functions {
+            if show_detailed_results || function.complexity > max_complexity {
+                all_functions.push((file.path.clone(), file.file_name.clone(), function));
             }
         }
     }
 
+    match sort {
+        "desc" => {
+            all_functions.sort_by_key(|f| f.2.complexity);
+            all_functions.reverse();
+        }
+        "asc" => all_functions.sort_by_key(|f| f.2.complexity),
+        "name" | "file_name" => {
+            all_functions.sort_by(|left, right| left.0.cmp(&right.0).then(left.1.cmp(&right.1)))
+        }
+        other => return Err(ExportError::InvalidSort(other.to_string())),
+    }
+
+    for (path, file_name, function) in all_functions {
+        writer
+            .write_record([
+                &path,
+                &file_name,
+                &function.name,
+                &function.complexity.to_string(),
+            ])
+            .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;
+    }
+
     writer
         .flush()
-        .map_err(|e| PyIOError::new_err(format!("Failed to flush CSV to disk: {}", e)))?;
+        .map_err(|e| ExportError::Io(format!("Failed to flush CSV to disk: {}", e)))?;
 
     Ok(())
 }
 
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (invocation_path, functions_complexity, show_detailed_results, max_complexity, suggest_refactors=false))]
-pub fn output_json(
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn output_json_shared(
     invocation_path: &str,
     functions_complexity: Vec<FileComplexity>,
     show_detailed_results: bool,
-    max_complexity: i32,
+    max_complexity: u64,
     suggest_refactors: bool,
-) -> PyResult<()> {
+) -> Result<(), ExportError> {
     let mut json_data = Vec::new();
-    let max_complexity_limit = u64::try_from(max_complexity)
-        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
 
     for file in functions_complexity {
         for function in file.functions {
-            if show_detailed_results || function.complexity > max_complexity_limit {
+            if show_detailed_results || function.complexity > max_complexity {
                 let refactor_plans = if suggest_refactors {
                     function.refactor_plans
                 } else {
@@ -131,27 +150,79 @@ pub fn output_json(
     }
 
     let json_string = serde_json::to_string_pretty(&json_data)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize JSON: {}", e)))?;
+        .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
     let mut file = File::create(invocation_path).map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to create JSON file at {}: {}",
             invocation_path, e
         ))
     })?;
     file.write_all(json_string.as_bytes()).map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to write JSON to {}: {}",
             invocation_path, e
         ))
     })?;
     file.write_all(b"\n").map_err(|e| {
-        PyIOError::new_err(format!(
+        ExportError::Io(format!(
             "Failed to write JSON to {}: {}",
             invocation_path, e
         ))
     })?;
 
     Ok(())
+}
+
+#[cfg(feature = "python")]
+fn export_error_to_py_error(error: ExportError) -> PyErr {
+    match error {
+        ExportError::Io(message) => PyIOError::new_err(message),
+        ExportError::Serialize(message) => PyValueError::new_err(message),
+        ExportError::InvalidSort(message) => PyValueError::new_err(message),
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn output_csv(
+    invocation_path: &str,
+    functions_complexity: Vec<FileComplexity>,
+    sort: &str,
+    show_detailed_results: bool,
+    max_complexity: i32,
+) -> PyResult<()> {
+    let max_complexity = u64::try_from(max_complexity)
+        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
+    output_csv_shared(
+        invocation_path,
+        functions_complexity,
+        sort,
+        show_detailed_results,
+        max_complexity,
+    )
+    .map_err(export_error_to_py_error)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (invocation_path, functions_complexity, show_detailed_results, max_complexity, suggest_refactors=false))]
+pub fn output_json(
+    invocation_path: &str,
+    functions_complexity: Vec<FileComplexity>,
+    show_detailed_results: bool,
+    max_complexity: i32,
+    suggest_refactors: bool,
+) -> PyResult<()> {
+    let max_complexity = u64::try_from(max_complexity)
+        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
+    output_json_shared(
+        invocation_path,
+        functions_complexity,
+        show_detailed_results,
+        max_complexity,
+        suggest_refactors,
+    )
+    .map_err(export_error_to_py_error)
 }
 
 #[cfg(feature = "python")]
@@ -588,3 +659,7 @@ pub fn filter_removable_ignores(
 #[cfg(test)]
 #[path = "tests/removable.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/export.rs"]
+mod export_tests;
