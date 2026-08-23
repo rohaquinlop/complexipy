@@ -156,7 +156,7 @@ impl ExitReport {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum DiffStatus {
     Regressed,
     Improved,
@@ -199,17 +199,19 @@ impl DiffEntry {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionRow {
-    name: String,
-    complexity: u64,
-    passed: bool,
-    path: String,
-    file_name: String,
-    refactor_plans: Vec<RefactorPlan>,
-    additional_refactor_plans: u64,
+    pub name: String,
+    pub complexity: u64,
+    pub passed: bool,
+    pub path: String,
+    pub file_name: String,
+    pub refactor_plans: Vec<RefactorPlan>,
+    pub additional_refactor_plans: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileEntry {
-    path: String,
-    functions: Vec<FunctionRow>,
+    pub path: String,
+    pub functions: Vec<FunctionRow>,
 }
