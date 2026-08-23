@@ -5,6 +5,14 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Changed
+
+- The CLI is being rewritten in Rust. The port of the full command
+  pipeline (configuration, analysis, snapshot, export formats, diff and
+  ratchet gates) is complete and the Rust binary is now the foundation of
+  the next major release; the Python CLI remains the installed command
+  until the cutover. ([#224](https://github.com/rohaquinlop/complexipy/issues/224))
+
 ## [7.0.1] - 2026-08-12
 
 ### Changed
