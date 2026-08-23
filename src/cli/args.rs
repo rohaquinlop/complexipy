@@ -37,6 +37,9 @@ pub struct CliArgs {
     #[arg(long)]
     pub output: Option<String>,
 
+    #[arg(long)]
+    pub cache_dir: Option<String>,
+
     #[arg(long, value_delimiter = ',')]
     pub output_format: Option<Vec<OutputFormat>>,
 

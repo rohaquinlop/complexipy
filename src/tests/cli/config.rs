@@ -36,6 +36,7 @@ fn defaults_with_only_paths() {
     assert_eq!(config.plain, false);
     assert_eq!(config.suggest_refactors, false);
     assert_eq!(config.top, None);
+    assert_eq!(config.cache_dir, None);
     assert_eq!(config.diff, None);
     assert_eq!(config.diff_only, None);
     assert_eq!(config.staged, false);
@@ -173,6 +174,47 @@ fn staged_from_toml_when_cli_absent() {
     let config = resolve(&["src"], Some("[diff]\nstaged = true")).expect("resolve should succeed");
 
     assert_eq!(config.staged, true);
+}
+
+#[test]
+fn cache_dir_from_cli() {
+    let config = resolve(&["src", "--cache-dir", ".cache"], None).expect("resolve should succeed");
+
+    assert_eq!(config.cache_dir, Some(".cache".to_string()));
+}
+
+#[test]
+fn cache_dir_from_toml_when_cli_absent() {
+    let config = resolve(&["src"], Some("cache-dir = \".cache\"")).expect("resolve should succeed");
+
+    assert_eq!(config.cache_dir, Some(".cache".to_string()));
+}
+
+#[test]
+fn cli_cache_dir_wins_over_toml() {
+    let config = resolve(
+        &["src", "--cache-dir", "cli-cache"],
+        Some("cache-dir = \".cache\""),
+    )
+    .expect("resolve should succeed");
+
+    assert_eq!(config.cache_dir, Some("cli-cache".to_string()));
+}
+
+#[test]
+fn cache_dir_must_be_a_string_in_toml() {
+    let result = resolve(&["src"], Some("cache-dir = 123"));
+
+    assert_eq!(result, Err(ConfigError::CacheDirNotAString));
+}
+
+#[test]
+fn cache_dir_cannot_be_empty() {
+    let from_toml = resolve(&["src"], Some("cache-dir = \"\""));
+    assert_eq!(from_toml, Err(ConfigError::CacheDirEmpty));
+
+    let from_cli = resolve(&["src", "--cache-dir", ""], None);
+    assert_eq!(from_cli, Err(ConfigError::CacheDirEmpty));
 }
 
 #[test]

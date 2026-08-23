@@ -6,6 +6,8 @@ use crate::cli::types::{Color, Config, OutputFormat, RunConfig, Sort};
 #[derive(Debug, PartialEq)]
 pub enum ConfigError {
     MissingPaths,
+    CacheDirNotAString,
+    CacheDirEmpty,
 }
 
 impl fmt::Display for ConfigError {
@@ -15,11 +17,42 @@ impl fmt::Display for ConfigError {
                 f,
                 "You need to define paths in the CLI call arguments or in complexipy.toml file"
             ),
+            Self::CacheDirNotAString => write!(
+                f,
+                "The 'cache-dir' option must be a string in the TOML config file"
+            ),
+            Self::CacheDirEmpty => write!(
+                f,
+                "The 'cache-dir' option cannot be an empty string in the TOML config file"
+            ),
         }
     }
 }
 
 impl std::error::Error for ConfigError {}
+
+fn resolve_cache_dir(
+    cli_value: Option<String>,
+    toml_value: Option<&toml::Value>,
+) -> Result<Option<String>, ConfigError> {
+    if let Some(value) = cli_value {
+        if value.trim().is_empty() {
+            return Err(ConfigError::CacheDirEmpty);
+        }
+        return Ok(Some(value));
+    }
+    match toml_value {
+        Some(toml::Value::String(value)) => {
+            if value.trim().is_empty() {
+                Err(ConfigError::CacheDirEmpty)
+            } else {
+                Ok(Some(value.clone()))
+            }
+        }
+        Some(_) => Err(ConfigError::CacheDirNotAString),
+        None => Ok(None),
+    }
+}
 
 pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunConfig, ConfigError> {
     let toml = toml_config.as_ref();
@@ -104,6 +137,8 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
     let plain = cli.plain.unwrap_or(false);
     let suggest_refactors = cli.suggest_refactors.unwrap_or(false);
     let top = cli.top;
+    let cache_dir =
+        resolve_cache_dir(cli.cache_dir, toml.and_then(|toml| toml.cache_dir.as_ref()))?;
 
     let mut diff = cli.diff;
     let diff_only = cli.diff_only;
@@ -140,6 +175,7 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
         plain,
         suggest_refactors,
         top,
+        cache_dir,
         diff,
         diff_only,
         staged,

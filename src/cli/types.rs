@@ -30,6 +30,8 @@ pub struct Config {
     pub output: Option<String>,
     pub diff: Option<DiffSection>,
     #[serde(default)]
+    pub cache_dir: Option<toml::Value>,
+    #[serde(default)]
     pub check_script: bool,
     #[serde(default)]
     pub no_ignore: bool,
@@ -83,6 +85,7 @@ pub struct RunConfig {
     pub output_format: Vec<OutputFormat>,
     pub output: Option<String>,
     pub exclude: Vec<String>,
+    pub cache_dir: Option<String>,
     pub check_script: bool,
     pub no_ignore: bool,
     pub report_ignored: bool,
