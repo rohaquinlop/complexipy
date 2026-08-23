@@ -5,8 +5,8 @@ use crate::utils::{collect_ignored_locations, filter_removable_ignores};
 use ruff_python_parser::parse_module;
 use std::path;
 
-#[cfg(feature = "python")]
-use crate::cognitive_complexity::code_complexity;
+#[cfg(any(feature = "python", feature = "cli"))]
+use crate::cognitive_complexity::code_complexity_shared;
 #[cfg(feature = "python")]
 use crate::utils::get_repo_name;
 #[cfg(feature = "python")]
@@ -250,6 +250,35 @@ fn evaluate_dir(
     (complexities, failed_paths)
 }
 
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn file_complexity_shared(
+    file_path: &str,
+    base_path: &str,
+    check_script: bool,
+    no_ignore: bool,
+) -> Result<FileComplexity, String> {
+    let path = path::Path::new(file_path);
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| format!("Invalid file name: {}", file_path))?;
+    let relative_path = path
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path);
+    let code = std::fs::read_to_string(file_path)
+        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    let code_complexity = code_complexity_shared(&code, check_script, no_ignore)
+        .map_err(|e| format!("Failed to process file '{}': {}", file_path, e))?;
+    Ok(FileComplexity {
+        path: relative_path.to_string(),
+        file_name: file_name.to_string(),
+        complexity: code_complexity.complexity,
+        functions: code_complexity.functions,
+    })
+}
+
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
@@ -259,32 +288,8 @@ pub fn file_complexity(
     check_script: bool,
     no_ignore: bool,
 ) -> PyResult<FileComplexity> {
-    let path = path::Path::new(file_path);
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or_else(|| PyValueError::new_err(format!("Invalid file name: {}", file_path)))?;
-    let relative_path = path
-        .strip_prefix(base_path)
-        .ok()
-        .and_then(|p| p.to_str())
-        .unwrap_or(file_path);
-    let code = std::fs::read_to_string(file_path)?;
-    let code_complexity = match code_complexity(&code, check_script, no_ignore) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(PyValueError::new_err(format!(
-                "Failed to process file '{}': {}",
-                file_path, e
-            )));
-        }
-    };
-    Ok(FileComplexity {
-        path: relative_path.to_string(),
-        file_name: file_name.to_string(),
-        complexity: code_complexity.complexity,
-        functions: code_complexity.functions,
-    })
+    file_complexity_shared(file_path, base_path, check_script, no_ignore)
+        .map_err(PyValueError::new_err)
 }
 
 #[cfg(any(feature = "python", feature = "cli"))]
