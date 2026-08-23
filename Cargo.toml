@@ -26,7 +26,7 @@ crate-type = ["cdylib"]
 
 [features]
 default = ["python", "cli"]
-cli = ["dep:clap", "dep:toml", "serde"]
+cli = ["dep:clap", "dep:toml", "serde", "dep:blake2"]
 python = [
     "serde",
     "pyo3",
@@ -73,6 +73,7 @@ web-sys = { version = "0.3", features = ["console"], optional = true }
 wax = "0.7.0"
 toml = { version = "1.1.4", optional = true }
 clap = { version = "4.6.6", features = ["derive"], optional = true }
+blake2 = { version = "0.10", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
