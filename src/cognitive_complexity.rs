@@ -20,29 +20,19 @@ use shared_deps::*;
 mod python_deps {
     pub use pyo3::exceptions::PyValueError;
     pub use pyo3::prelude::*;
-    pub use ruff_python_parser::parse_module;
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
 
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (code, check_script=false, no_ignore=false))]
-pub fn code_complexity(
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn code_complexity_shared(
     code: &str,
     check_script: bool,
     no_ignore: bool,
-) -> PyResult<CodeComplexity> {
-    let parsed = match parse_module(code) {
-        Ok(parsed) => parsed,
-        Err(e) => {
-            return Err(PyValueError::new_err(format!(
-                "Failed to parse code: {}",
-                e
-            )));
-        }
-    };
+) -> Result<CodeComplexity, String> {
+    let parsed = ruff_python_parser::parse_module(code)
+        .map_err(|e| format!("Failed to parse code: {}", e))?;
     let ast_body = parsed.into_suite();
     let (functions, complexity) =
         function_level_cognitive_complexity_shared(&ast_body, code, check_script, no_ignore, true);
@@ -52,6 +42,17 @@ pub fn code_complexity(
         #[cfg(feature = "wasm")]
         version: env!("CARGO_PKG_VERSION").to_string(),
     })
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (code, check_script=false, no_ignore=false))]
+pub fn code_complexity(
+    code: &str,
+    check_script: bool,
+    no_ignore: bool,
+) -> PyResult<CodeComplexity> {
+    code_complexity_shared(code, check_script, no_ignore).map_err(PyValueError::new_err)
 }
 
 #[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
