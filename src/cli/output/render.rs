@@ -41,14 +41,17 @@ pub fn handle_console_settings(
 
 pub fn rule(title: &str) -> String {
     if title.is_empty() {
-        return "─".repeat(RULE_WIDTH).bold().to_string();
+        return "─".repeat(RULE_WIDTH).bright_green().to_string();
     }
     let padding = RULE_WIDTH.saturating_sub(title.chars().count() + 2);
     let left = padding / 2;
     let right = padding - left;
-    format!("{} {} {}", "─".repeat(left), title, "─".repeat(right))
-        .bold()
-        .to_string()
+    format!(
+        "{} {} {}",
+        "─".repeat(left).bright_green(),
+        title,
+        "─".repeat(right).bright_green()
+    )
 }
 
 pub struct SummaryOptions<'a> {
