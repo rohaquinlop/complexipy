@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod config;
+pub mod diff;
 pub mod gitlab;
 pub mod paths;
 pub mod sarif;

@@ -156,6 +156,7 @@ impl ExitReport {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum DiffStatus {
     Regressed,
     Improved,
@@ -164,11 +165,12 @@ pub enum DiffStatus {
     Removed,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffEntry {
-    file_path: String,
-    func_name: String,
-    old_complexity: Option<u64>,
-    new_complexity: Option<u64>,
+    pub file_path: String,
+    pub func_name: String,
+    pub old_complexity: Option<u64>,
+    pub new_complexity: Option<u64>,
 }
 
 impl DiffEntry {
@@ -188,11 +190,11 @@ impl DiffEntry {
         }
     }
 
-    pub fn delta(&self) -> Option<u64> {
+    pub fn delta(&self) -> Option<i64> {
         match (self.old_complexity, self.new_complexity) {
             (None, ..) => None,
             (.., None) => None,
-            (Some(old), Some(new)) => Some(new - old),
+            (Some(old), Some(new)) => Some(new as i64 - old as i64),
         }
     }
 }
