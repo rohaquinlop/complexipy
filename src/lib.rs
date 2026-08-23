@@ -1,4 +1,6 @@
 mod classes;
+#[cfg(feature = "cli")]
+mod cli;
 pub(crate) mod cognitive_complexity;
 mod helpers;
 mod refactor_plans;
