@@ -26,7 +26,7 @@ crate-type = ["cdylib"]
 
 [features]
 default = ["python", "cli"]
-cli = ["dep:clap", "dep:toml", "serde", "dep:blake2"]
+cli = ["dep:clap", "dep:toml", "serde", "dep:blake2", "csv"]
 python = [
     "serde",
     "pyo3",
