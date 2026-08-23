@@ -6,7 +6,7 @@ pub(crate) mod cognitive_complexity;
 mod helpers;
 mod refactor_plans;
 mod rules;
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 mod runner;
 mod utils;
 

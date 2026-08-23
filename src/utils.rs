@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 
 #[cfg(any(feature = "python", feature = "cli"))]
 mod export_deps {
-    pub use crate::classes::FileComplexity;
+    pub use crate::classes::{FileComplexity, FunctionComplexity};
     pub use csv::Writer;
     pub use serde_json;
     pub use std::fs::File;
@@ -17,13 +17,15 @@ mod export_deps {
 #[cfg(feature = "python")]
 mod python_deps {
     pub use super::export_deps::*;
-    pub use crate::classes::FunctionComplexity;
     pub use pyo3::exceptions::{PyIOError, PyValueError};
     pub use pyo3::prelude::*;
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
+
+#[cfg(all(feature = "cli", not(feature = "python")))]
+use export_deps::*;
 
 #[cfg(any(feature = "python", feature = "cli"))]
 use std::fmt;
@@ -582,7 +584,7 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
 /// Collect ignored locations from code, only reporting markers that
 /// actually suppress a function definition (i.e., are adjacent to `def`
 /// or `@decorator` lines).
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     let mut results = Vec::new();
     let lines: Vec<&str> = code.lines().collect();
@@ -648,7 +650,7 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
 ///
 /// Returns `(line, comment, function_name, complexity)` for each removable
 /// marker; the function's complexity is measured without the marker applied.
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 pub fn filter_removable_ignores(
     locations: &[(u64, String)],
     functions: &[FunctionComplexity],
