@@ -45,6 +45,21 @@ fn status_text_contains_labels() {
 }
 
 #[test]
+fn status_text_emoji_outside_color() {
+    let passed = format_status_text(true);
+    assert!(passed.starts_with("✅ "));
+    let colored = passed.trim_start_matches("✅ ");
+    assert!(colored.starts_with("\u{1b}["));
+    assert!(colored.contains(" PASSED "));
+
+    let failed = format_status_text(false);
+    assert!(failed.starts_with("❌ "));
+    let colored = failed.trim_start_matches("❌ ");
+    assert!(colored.starts_with("\u{1b}["));
+    assert!(colored.contains(" FAILED "));
+}
+
+#[test]
 fn colorize_marks_over_threshold_red() {
     let ok = colorize_complexity(5, 5);
     let bad = colorize_complexity(6, 5);

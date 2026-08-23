@@ -229,9 +229,9 @@ pub fn output_file_entries(
 
 pub fn format_status_text(passed: bool) -> String {
     if passed {
-        " ✅ PASSED ".black().on_green().bold().to_string()
+        format!("✅ {} ", " PASSED ".black().on_green().bold())
     } else {
-        " ❌ FAILED ".white().on_red().bold().to_string()
+        format!("❌ {} ", " FAILED ".white().on_red().bold())
     }
 }
 
