@@ -1,5 +1,6 @@
 mod classes;
 #[cfg(feature = "cli")]
+#[allow(dead_code)]
 mod cli;
 pub(crate) mod cognitive_complexity;
 mod helpers;
