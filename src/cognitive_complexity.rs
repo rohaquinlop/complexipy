@@ -10,7 +10,7 @@ mod shared_deps {
     pub use ruff_python_ast::{self as ast, Stmt};
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 use crate::classes::CodeComplexity;
 
 #[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
