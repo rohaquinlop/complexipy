@@ -50,6 +50,18 @@ def test_nested_if_creates_flatten_condition_plan() -> None:
     assert plan.help is None
 
 
+def test_collapsible_if_skips_when_nested_if_has_preceding_sibling() -> None:
+    func = first_func(load_source("collapsible_if_skips_preceding_sibling.py"))
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_issue_228_does_not_merge_recursive_call_with_nested_if() -> None:
+    func = first_func(load_source("issue_228_update_parent_rows.py"))
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
 def test_loop_with_nested_if_creates_loop_guard_plan() -> None:
     func = first_func(load_source("loop_guard_nested_if.py"))
 

@@ -523,8 +523,29 @@ impl RefactorRule for CollapsibleIfRule {
                 break;
             }
             let next = chain[i + 1];
+            let r_start = (r.line_start as usize).saturating_sub(1);
             let r_end = (r.line_end as usize).min(lines.len());
+            let next_start = (next.line_start as usize).saturating_sub(1);
             let next_end = (next.line_end as usize).min(lines.len());
+
+            let mut body_start = r_start + 1;
+            if !lines[r_start].trim_end().ends_with(':') {
+                while body_start < next_start.min(lines.len()) {
+                    if lines[body_start].trim_end().ends_with(':') {
+                        body_start += 1;
+                        break;
+                    }
+                    body_start += 1;
+                }
+            }
+
+            for line in &lines[body_start..next_start.min(lines.len())] {
+                let trimmed = line.trim_start();
+                let indent = get_indentation_from_str(line);
+                if !trimmed.is_empty() && indent == body_indent {
+                    return None;
+                }
+            }
 
             for line in &lines[next_end..r_end] {
                 let trimmed = line.trim_start();
