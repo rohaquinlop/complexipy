@@ -279,4 +279,19 @@ def get_arguments_value(
         toml_config, "exclude", cli_args.get("exclude"), []
     )
 
+    cache_dir = cli_args.get("cache_dir")
+    if cache_dir is None and toml_config is not None:
+        cache_dir = toml_config.get("cache-dir")
+    if cache_dir is not None and not isinstance(cache_dir, str):
+        typer.echo(
+            "The 'cache-dir' option must be a string in the TOML config file"
+        )
+        raise Exit(code=1)
+    if cache_dir is not None and not cache_dir.strip():
+        typer.echo(
+            "The 'cache-dir' option cannot be an empty string in the TOML config file"
+        )
+        raise Exit(code=1)
+    result["cache_dir"] = cache_dir
+
     return result
