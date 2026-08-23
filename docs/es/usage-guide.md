@@ -387,18 +387,18 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
 
 complexipy almacena los datos de complejidad de cada función entre ejecuciones
 para permitir comparaciones de cambios/diferencias (delta/diff). De forma
-predeterminada, esta caché se encuentra en .complexipy_cache/ dentro del directorio
+predeterminada, esta caché se encuentra en `.complexipy_cache/` dentro del directorio
 desde el que se ejecuta la herramienta. En lugar de utilizar la ubicación
 predeterminada, puedes redirigir la caché a cualquier directorio. Esto resulta útil
 para CI, directorios de caché compartidos o para evitar añadir archivos innecesarios
 al árbol del proyecto.
 
 ```bash
-# Opción de CLI (máxima prioridad)
+# Flag de CLI (mayor prioridad)
 complexipy . --cache-dir .cache/complexipy
 ```
 
-O decláralo una vez en un archivo de configuración:
+O declárala una vez en un archivo de configuración:
 
 === "complexipy.toml"
 
