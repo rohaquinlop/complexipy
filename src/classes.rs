@@ -26,7 +26,7 @@ pub struct LineComplexity {
     any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodeSuggestion {
     pub replacement: String,
     pub applicability: Applicability,
@@ -71,7 +71,7 @@ pub enum Applicability {
     any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RefactorPlan {
     pub kind: String,
     pub title: String,
