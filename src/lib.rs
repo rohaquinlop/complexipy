@@ -1,4 +1,4 @@
-mod classes;
+pub mod classes;
 #[cfg(feature = "cli")]
 #[allow(dead_code)]
 pub mod cli;
@@ -13,8 +13,31 @@ pub use runner::run_analysis_shared;
 
 mod utils;
 
+/// Stable public API — mirrors `complexipy/__init__.py`'s `__all__`.
+/// Names here are a compatibility promise; do not move or rename them
+/// without a major release.
+pub use classes::{
+    Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
+    IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
+};
+#[cfg(feature = "cli")]
+pub use cli::api::{code_complexity, file_complexity};
+#[cfg(feature = "cli")]
+pub use cli::types::{DiffEntry, DiffStatus};
+#[cfg(feature = "cli")]
+pub use cli::utils::diff::{compute_diff, has_regressions};
+#[cfg(any(feature = "python", feature = "cli"))]
+pub use runner::{
+    collect_all_ignored_locations_shared as collect_all_ignored_locations,
+    collect_removable_ignored_locations_shared as collect_removable_ignored_locations,
+};
+
 #[cfg(feature = "wasm")]
 mod wasm;
+
+#[cfg(test)]
+#[path = "tests/lib_surface.rs"]
+mod surface_tests;
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
