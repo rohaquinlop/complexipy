@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use owo_colors::OwoColorize;
+use std::io::IsTerminal;
 
 use crate::classes::FileComplexity;
 use crate::cli::output::refactor::output_refactor_plans;
@@ -40,10 +41,11 @@ pub fn handle_console_settings(
 }
 
 pub fn rule(title: &str) -> String {
+    let width = terminal_width();
     if title.is_empty() {
-        return "─".repeat(RULE_WIDTH).bright_green().to_string();
+        return "─".repeat(width).bright_green().to_string();
     }
-    let padding = RULE_WIDTH.saturating_sub(title.chars().count() + 2);
+    let padding = width.saturating_sub(title.chars().count() + 2);
     let left = padding / 2;
     let right = padding - left;
     format!(
@@ -52,6 +54,16 @@ pub fn rule(title: &str) -> String {
         title,
         "─".repeat(right).bright_green()
     )
+}
+
+fn terminal_width() -> usize {
+    if std::io::stdout().is_terminal() {
+        terminal_size::terminal_size()
+            .map(|(width, _)| width.0 as usize)
+            .unwrap_or(RULE_WIDTH)
+    } else {
+        RULE_WIDTH
+    }
 }
 
 pub struct SummaryOptions<'a> {
