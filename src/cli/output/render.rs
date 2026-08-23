@@ -193,7 +193,7 @@ pub fn output_file_entries(
             let complexity_text = colorize_complexity(function.complexity, max_complexity);
             let delta_text = output_delta_text(previous_functions, function, max_complexity);
             lines.push(format!(
-                "    {} {}{} {}",
+                "    {} {}{}  {}",
                 function.name, complexity_text, delta_text, status_text
             ));
             if suggest_refactors {
