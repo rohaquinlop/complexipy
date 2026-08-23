@@ -1,13 +1,16 @@
 mod classes;
 #[cfg(feature = "cli")]
 #[allow(dead_code)]
-mod cli;
+pub mod cli;
 pub(crate) mod cognitive_complexity;
 mod helpers;
 mod refactor_plans;
 mod rules;
 #[cfg(any(feature = "python", feature = "cli"))]
 mod runner;
+#[cfg(feature = "cli")]
+pub use runner::run_analysis_shared;
+
 mod utils;
 
 #[cfg(feature = "wasm")]

@@ -21,8 +21,13 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "complexipy"
-# Enable cdylib for Python and wasm32 targets
-crate-type = ["cdylib"]
+# cdylib for Python and wasm32 targets; rlib lets the CLI binary link the lib
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "complexipy"
+path = "src/main.rs"
+required-features = ["cli"]
 
 [features]
 default = ["python", "cli"]
