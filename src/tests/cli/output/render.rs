@@ -4,9 +4,10 @@ use std::collections::HashMap;
 
 use crate::cli::output::render::{
     SummaryOptions, colorize_complexity, format_status_text, handle_console_settings,
-    output_delta_text, output_plain, output_summary, print_invalid_paths, rule,
+    output_delta_text, output_plain, output_summary, print_invalid_paths, rule, rule_at,
 };
 use crate::cli::types::{Color, FileEntry, FunctionRow, Sort};
+use unicode_width::UnicodeWidthStr;
 
 fn strip_ansi(input: &str) -> String {
     let mut result = String::new();
@@ -190,6 +191,21 @@ fn rule_renders_title_with_padding() {
     assert!(output.contains("complexipy"));
     assert!(output.starts_with('─'));
     assert!(output.ends_with('─'));
+    assert_eq!(output.chars().count(), 80);
+}
+
+#[test]
+fn rule_matches_rich_layout_at_width() {
+    let output = strip_ansi(&rule_at("🎉 Analysis completed! 🎉", 100));
+    // Rich: side = (width - title_cells) / 2; left = side - 1; clamp to width.
+    // title cells = 2+1+19+1+2 = 25; width 100 -> side 37 -> left 36, right 37.
+    let stripped = output.trim_end_matches(' ');
+    let left = stripped.chars().take_while(|c| *c == '─').count();
+    let right = stripped.chars().rev().take_while(|c| *c == '─').count();
+    assert_eq!(left, 36);
+    assert_eq!(right, 37);
+    assert_eq!(output.chars().count(), 98);
+    assert_eq!(UnicodeWidthStr::width(output.as_str()), 100);
 }
 
 #[test]

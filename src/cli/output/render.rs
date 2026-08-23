@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use owo_colors::OwoColorize;
 use std::io::IsTerminal;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::classes::FileComplexity;
 use crate::cli::output::refactor::output_refactor_plans;
@@ -41,19 +42,55 @@ pub fn handle_console_settings(
 }
 
 pub fn rule(title: &str) -> String {
-    let width = terminal_width();
+    rule_at(title, terminal_width())
+}
+
+fn rule_at(title: &str, width: usize) -> String {
     if title.is_empty() {
         return "─".repeat(width).bright_green().to_string();
     }
-    let padding = width.saturating_sub(title.chars().count() + 2);
-    let left = padding / 2;
-    let right = padding - left;
-    format!(
-        "{} {} {}",
-        "─".repeat(left).bright_green(),
-        title,
-        "─".repeat(right).bright_green()
-    )
+    if width < 4 {
+        return "─".repeat(width).bright_green().to_string();
+    }
+
+    let title_cells = UnicodeWidthStr::width(title);
+    let side_width = (width - title_cells) / 2;
+    let left = side_width.saturating_sub(1);
+    let right_length = width - left - title_cells;
+    let right = (side_width + 1).min(right_length);
+
+    let plain = format!("{} {} {}", "─".repeat(left), title, "─".repeat(right));
+    let plain = set_cell_size(&plain, width);
+
+    if let Some(start) = plain.find(title) {
+        let end = start + title.len();
+        format!(
+            "{}{}{}",
+            plain[..start].to_string().bright_green(),
+            &plain[start..end],
+            plain[end..].to_string().bright_green()
+        )
+    } else {
+        plain.bright_green().to_string()
+    }
+}
+
+fn set_cell_size(text: &str, width: usize) -> String {
+    let mut result = String::new();
+    let mut cells = 0;
+    for character in text.chars() {
+        let character_width = UnicodeWidthChar::width(character).unwrap_or(0);
+        if cells + character_width > width {
+            break;
+        }
+        result.push(character);
+        cells += character_width;
+    }
+    while cells < width {
+        result.push(' ');
+        cells += 1;
+    }
+    result
 }
 
 fn terminal_width() -> usize {

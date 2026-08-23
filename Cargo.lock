@@ -287,6 +287,7 @@ dependencies = [
  "tempfile",
  "terminal_size",
  "toml",
+ "unicode-width",
  "wasm-bindgen",
  "wax",
  "web-sys",
