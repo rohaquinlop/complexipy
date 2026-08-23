@@ -8,7 +8,7 @@ use tempfile::tempdir;
 use crate::cli::types::OutputFormat;
 use crate::cli::utils::paths::{
     PathsError, build_output_paths, ensure_directory_destination, is_directory_output_hint,
-    resolve_output_paths,
+    normalize_path, resolve_output_paths,
 };
 
 fn default_paths(destination: &Path) -> Vec<(OutputFormat, PathBuf)> {
@@ -301,6 +301,34 @@ fn directory_hint_detects_trailing_separators() {
     assert!(is_directory_output_hint("out/"));
     assert!(!is_directory_output_hint("out"));
     assert!(!is_directory_output_hint(""));
+}
+
+#[test]
+fn normalize_path_returns_cleaned_path_when_ends_with_file_name() {
+    assert_eq!(normalize_path("src/a.py", "a.py"), "src/a.py");
+    assert_eq!(normalize_path("src/a.py/", "a.py"), "src/a.py");
+}
+
+#[test]
+fn normalize_path_joins_path_and_file_name() {
+    assert_eq!(normalize_path("src", "a.py"), "src/a.py");
+    assert_eq!(normalize_path("src/", "a.py"), "src/a.py");
+}
+
+#[test]
+fn normalize_path_empty_path_returns_file_name() {
+    assert_eq!(normalize_path("", "a.py"), "a.py");
+    assert_eq!(normalize_path("/", "a.py"), "a.py");
+}
+
+#[test]
+fn normalize_path_empty_file_name_returns_cleaned() {
+    assert_eq!(normalize_path("src/a.py", ""), "src/a.py");
+}
+
+#[test]
+fn normalize_path_strips_all_trailing_slashes() {
+    assert_eq!(normalize_path("src///", "a.py"), "src/a.py");
 }
 
 #[test]

@@ -100,6 +100,17 @@ pub fn is_directory_output_hint(output: &str) -> bool {
     output.ends_with('/') || (cfg!(windows) && output.ends_with('\\'))
 }
 
+pub fn normalize_path(path: &str, file_name: &str) -> String {
+    let cleaned = path.trim_end_matches('/');
+    if cleaned.ends_with(file_name) {
+        cleaned.to_string()
+    } else if !cleaned.is_empty() {
+        format!("{}/{}", cleaned, file_name)
+    } else {
+        file_name.to_string()
+    }
+}
+
 pub fn ensure_directory_destination(
     destination: &Path,
     is_directory_hint: bool,
