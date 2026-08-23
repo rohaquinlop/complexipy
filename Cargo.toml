@@ -25,7 +25,8 @@ name = "complexipy"
 crate-type = ["cdylib"]
 
 [features]
-default = ["python"]
+default = ["python", "cli"]
+cli = ["dep:clap", "dep:toml", "serde"]
 python = [
     "serde",
     "pyo3",
@@ -70,8 +71,8 @@ serde-wasm-bindgen = { version = "0.4", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 web-sys = { version = "0.3", features = ["console"], optional = true }
 wax = "0.7.0"
-toml = "1.1.4"
-clap = { version = "4.6.6", features = ["derive"] }
+toml = { version = "1.1.4", optional = true }
+clap = { version = "4.6.6", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
