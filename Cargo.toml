@@ -31,7 +31,7 @@ required-features = ["cli"]
 
 [features]
 default = ["python", "cli"]
-cli = ["dep:clap", "dep:toml", "serde", "dep:blake2", "csv", "dep:sha2", "regex", "ruff_python_ast", "ruff_python_parser", "ignore", "dep:comfy-table", "dep:owo-colors", "dep:syntect", "dep:terminal_size", "dep:unicode-width"]
+cli = ["dep:clap", "dep:toml", "serde", "dep:blake2", "csv", "dep:sha2", "regex", "ruff_python_ast", "ruff_python_parser", "ignore", "tempfile", "dep:comfy-table", "dep:owo-colors", "dep:syntect", "dep:terminal_size", "dep:unicode-width"]
 python = [
     "serde",
     "pyo3",

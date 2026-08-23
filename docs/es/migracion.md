@@ -34,3 +34,17 @@ Las siguientes flags de CLI y claves TOML se eliminaron. Usa sus reemplazos:
   comparación staged por defecto.
 - `failed = true` muestra solo las funciones por encima del umbral de
   complejidad.
+
+## Eliminado en la próxima versión mayor
+
+La CLI se está reescribiendo en Rust. Las siguientes características de
+compatibilidad con versiones antiguas se eliminan en la próxima versión
+mayor:
+
+- **Análisis por URL de Git** (`complexipy <repository-url>`) — solo rutas
+  locales.
+- **Migración de caché heredada** — el diseño anterior
+  `.complexipy_cache/<hash>.json` ya no se migra; los archivos heredados
+  existentes se ignoran y el historial de diferencias comienza vacío.
+- **Archivos de snapshot heredados** — los snapshots creados con versiones
+  antiguas ya no se detectan; vuelve a crearlos con `--snapshot-create`.
