@@ -8,8 +8,7 @@ use tempfile::tempdir;
 
 use crate::classes::{FileComplexity, FunctionComplexity};
 use crate::cli::utils::cache::{
-    build_cache_key, hash_targets, is_legacy_cache_file_name, lexically_clean,
-    remember_previous_functions,
+    build_cache_key, hash_targets, lexically_clean, remember_previous_functions,
 };
 
 fn file_complexity(path: &str, file_name: &str, functions: &[(&str, u64)]) -> FileComplexity {
@@ -44,18 +43,6 @@ fn cache_key_matches_python_blake2b() {
         hash_targets("src||tests"),
         "c7f7a0c9374f38debd3947990e36306c"
     );
-}
-
-#[test]
-fn legacy_file_name_pattern_matches_python() {
-    let key = "c7f7a0c9374f38debd3947990e36306c";
-    assert!(is_legacy_cache_file_name(&format!("{}.json", key)));
-    assert!(!is_legacy_cache_file_name("functions"));
-    assert!(!is_legacy_cache_file_name("notes.txt"));
-    assert!(!is_legacy_cache_file_name(&format!(
-        "{}.json",
-        "G7f7a0c9374f38debd3947990e36306c"
-    )));
 }
 
 #[test]
@@ -182,109 +169,6 @@ fn target_sets_share_single_functions_file() {
         .as_object()
         .expect("object");
     assert_eq!(entries.len(), 2);
-}
-
-#[test]
-fn legacy_hash_file_is_migrated_and_removed() {
-    let dir = tempdir().expect("tempdir should work");
-    let inv = dir.path().join("proj");
-    fs::create_dir(&inv).expect("should create");
-    let cache_dir = inv.join(".complexipy_cache");
-    fs::create_dir_all(&cache_dir).expect("should create");
-
-    let targets = vec!["src".to_string()];
-    let key = build_cache_key(inv.to_str().unwrap(), &targets).expect("key");
-    let legacy_payload = json!({
-        "targets": [inv.join("src").to_string_lossy()],
-        "functions": [{
-            "path": "src/legacy.py",
-            "file_name": "legacy.py",
-            "function_name": "old",
-            "complexity": 9,
-        }],
-    });
-    fs::write(
-        cache_dir.join(format!("{}.json", key)),
-        serde_json::to_string_pretty(&legacy_payload).expect("serialize"),
-    )
-    .expect("should write");
-
-    let result = remember_previous_functions(
-        inv.to_str().unwrap(),
-        &targets,
-        &[file_complexity("src/a.py", "a.py", &[("f", 5)])],
-        None,
-    );
-
-    assert_eq!(
-        result,
-        Some(HashMap::from([(
-            (
-                "src/legacy.py".to_string(),
-                "legacy.py".to_string(),
-                "old".to_string()
-            ),
-            9
-        )]))
-    );
-    assert!(!cache_dir.join(format!("{}.json", key)).exists());
-
-    let store = load_functions_file(&cache_dir);
-    let entries = store
-        .get("entries")
-        .expect("entries")
-        .as_object()
-        .expect("object");
-    let entry = entries.get(&key).expect("entry");
-    assert_eq!(
-        entry.get("functions").expect("functions"),
-        &json!([{
-            "path": "src/a.py",
-            "file_name": "a.py",
-            "function_name": "f",
-            "complexity": 5,
-        }])
-    );
-}
-
-#[test]
-fn legacy_migration_skipped_for_custom_cache_dir() {
-    let dir = tempdir().expect("tempdir should work");
-    let inv = dir.path().join("proj");
-    fs::create_dir(&inv).expect("should create");
-    let custom_dir = dir.path().join("custom");
-    fs::create_dir_all(&custom_dir).expect("should create");
-
-    let key = build_cache_key(inv.to_str().unwrap(), &["src".to_string()]).expect("key");
-    let legacy_file = custom_dir.join(format!("{}.json", key));
-    fs::write(&legacy_file, "{}").expect("should write");
-
-    let result = remember_previous_functions(
-        inv.to_str().unwrap(),
-        &["src".to_string()],
-        &[file_complexity("src/a.py", "a.py", &[("f", 5)])],
-        Some(custom_dir.to_str().unwrap()),
-    );
-
-    assert_eq!(result, None);
-    assert!(legacy_file.exists());
-    let store = load_functions_file(&custom_dir);
-    let entries = store
-        .get("entries")
-        .expect("entries")
-        .as_object()
-        .expect("object");
-    assert_eq!(entries.len(), 1);
-    let entry = entries.values().next().expect("entry");
-    assert_eq!(
-        entry.get("functions").expect("functions"),
-        &json!([{
-            "path": "src/a.py",
-            "file_name": "a.py",
-            "function_name": "f",
-            "complexity": 5,
-        }])
-    );
 }
 
 #[test]

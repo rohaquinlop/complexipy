@@ -35,16 +35,11 @@ pub fn remember_previous_functions(
     let cache_key = build_cache_key(invocation_path, targets)?;
 
     let cache_dir_path = resolve_cache_dir(invocation_path, cache_dir);
-    let is_default_cache_location =
-        cache_dir_path == Path::new(invocation_path).join(CACHE_DIR_NAME);
     let cache_file = cache_value_path(&cache_dir_path, FUNCTIONS_CACHE_KEY);
 
     ensure_cache_dir_and_supporting_files(&cache_dir_path)?;
 
     let mut cache_store = load_cache_store(&cache_file);
-    if is_default_cache_location {
-        migrate_legacy_cache_entry(&cache_dir_path, &mut cache_store, &cache_key);
-    }
     let previous_map = load_previous_map_from_store(&cache_store, &cache_key);
 
     cache_store["entries"][cache_key.as_str()] = json!({
@@ -53,9 +48,7 @@ pub fn remember_previous_functions(
         "updated_at": now_seconds(),
     });
     prune_cache_store(&mut cache_store);
-    if persist_cache(&cache_file, &cache_store) && is_default_cache_location {
-        remove_legacy_cache_files(&cache_dir_path);
-    }
+    persist_cache(&cache_file, &cache_store);
     previous_map
 }
 
@@ -179,42 +172,6 @@ fn load_cache_store(cache_file: &Path) -> Value {
         }
         _ => json!({ "entries": {} }),
     }
-}
-
-fn migrate_legacy_cache_entry(cache_dir: &Path, cache_store: &mut Value, cache_key: &str) {
-    let Some(entries) = cache_store
-        .get_mut("entries")
-        .and_then(|entries| entries.as_object_mut())
-    else {
-        return;
-    };
-    if entries.contains_key(cache_key) {
-        return;
-    }
-
-    let legacy_cache_file = cache_dir.join(format!("{}.json", cache_key));
-    let Some(legacy_payload) = load_cache(&legacy_cache_file) else {
-        return;
-    };
-
-    let updated_at = fs::metadata(&legacy_cache_file)
-        .and_then(|metadata| metadata.modified())
-        .map(|modified| {
-            modified
-                .duration_since(UNIX_EPOCH)
-                .map(|duration| duration.as_secs_f64())
-                .unwrap_or(0.0)
-        })
-        .unwrap_or(0.0);
-
-    entries.insert(
-        cache_key.to_string(),
-        json!({
-            "targets": legacy_payload.get("targets").cloned().unwrap_or_else(|| json!([])),
-            "functions": legacy_payload.get("functions").cloned().unwrap_or_else(|| json!([])),
-            "updated_at": updated_at,
-        }),
-    );
 }
 
 fn load_previous_map_from_store(
@@ -373,29 +330,6 @@ fn persist_cache(cache_file: &Path, payload: &Value) -> bool {
         return false;
     };
     fs::write(cache_file, serialized).is_ok()
-}
-
-fn remove_legacy_cache_files(cache_dir: &Path) {
-    let Ok(entries) = fs::read_dir(cache_dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let file_name = entry.file_name();
-        let Some(name) = file_name.to_str() else {
-            continue;
-        };
-        if is_legacy_cache_file_name(name) {
-            let _ = fs::remove_file(entry.path());
-        }
-    }
-}
-
-fn is_legacy_cache_file_name(name: &str) -> bool {
-    name.len() == 37
-        && name.ends_with(".json")
-        && name[..32]
-            .bytes()
-            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn ensure_cache_dir_and_supporting_files(cache_dir: &Path) -> Option<()> {
