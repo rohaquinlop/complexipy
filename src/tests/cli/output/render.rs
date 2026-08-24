@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::cli::output::render::{
     SummaryOptions, colorize_complexity, format_status_text, handle_console_settings,
-    output_delta_text, output_plain, output_summary, print_invalid_paths, rule, rule_at,
+    output_delta_text, output_plain, output_summary, print_invalid_paths, rule_at,
 };
 use crate::cli::types::{Color, FileEntry, FunctionRow, Sort};
 use unicode_width::UnicodeWidthStr;
