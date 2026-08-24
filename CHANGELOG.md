@@ -7,11 +7,13 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
-- The CLI is being rewritten in Rust. The port of the full command
-  pipeline (configuration, analysis, snapshot, export formats, diff and
-  ratchet gates) is complete and the Rust binary is now the foundation of
-  the next major release; the Python CLI remains the installed command
-  until the cutover. ([#224](https://github.com/rohaquinlop/complexipy/issues/224))
+- The Python CLI is retired: `complexipy` is now a native Rust
+  implementation exposed through a thin console-script shim, so the whole
+  pipeline runs without a Python interpreter. The Python API is unchanged
+  and now includes the diff comparison (`compute_diff`, `has_regressions`,
+  `DiffEntry`, `DiffStatus`) backed by the same Rust engine as the CLI.
+  The extension module keeps being distributed via maturin wheels.
+  ([#224](https://github.com/rohaquinlop/complexipy/issues/224), [#243](https://github.com/rohaquinlop/complexipy/issues/243))
 
 ## [7.0.1] - 2026-08-12
 

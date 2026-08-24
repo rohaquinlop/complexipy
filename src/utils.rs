@@ -17,7 +17,6 @@ mod export_deps {
 #[cfg(feature = "python")]
 mod python_deps {
     pub use super::export_deps::*;
-    pub use pyo3::exceptions::{PyIOError, PyValueError};
     pub use pyo3::prelude::*;
 }
 
@@ -174,58 +173,6 @@ pub fn output_json_shared(
     Ok(())
 }
 
-#[cfg(feature = "python")]
-fn export_error_to_py_error(error: ExportError) -> PyErr {
-    match error {
-        ExportError::Io(message) => PyIOError::new_err(message),
-        ExportError::Serialize(message) => PyValueError::new_err(message),
-        ExportError::InvalidSort(message) => PyValueError::new_err(message),
-    }
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn output_csv(
-    invocation_path: &str,
-    functions_complexity: Vec<FileComplexity>,
-    sort: &str,
-    show_detailed_results: bool,
-    max_complexity: i32,
-) -> PyResult<()> {
-    let max_complexity = u64::try_from(max_complexity)
-        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
-    output_csv_shared(
-        invocation_path,
-        functions_complexity,
-        sort,
-        show_detailed_results,
-        max_complexity,
-    )
-    .map_err(export_error_to_py_error)
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (invocation_path, functions_complexity, show_detailed_results, max_complexity, suggest_refactors=false))]
-pub fn output_json(
-    invocation_path: &str,
-    functions_complexity: Vec<FileComplexity>,
-    show_detailed_results: bool,
-    max_complexity: i32,
-    suggest_refactors: bool,
-) -> PyResult<()> {
-    let max_complexity = u64::try_from(max_complexity)
-        .map_err(|_| PyValueError::new_err("max_complexity must be non-negative"))?;
-    output_json_shared(
-        invocation_path,
-        functions_complexity,
-        show_detailed_results,
-        max_complexity,
-        suggest_refactors,
-    )
-    .map_err(export_error_to_py_error)
-}
-
 #[cfg(any(feature = "python", feature = "cli"))]
 pub fn create_snapshot_file_shared(
     snapshot_file_path: &str,
@@ -282,39 +229,6 @@ pub fn load_snapshot_file_shared(
     })?;
     serde_json::from_str(snapshot_content.as_str())
         .map_err(|e| ExportError::Serialize(format!("Failed to parse snapshot JSON: {}", e)))
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn create_snapshot_file(
-    snapshot_file_path: &str,
-    max_complexity: u64,
-    files_complexities: Vec<FileComplexity>,
-) -> PyResult<()> {
-    create_snapshot_file_shared(snapshot_file_path, max_complexity, files_complexities)
-        .map_err(export_error_to_py_error)
-}
-
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn load_snapshot_file(snapshot_file_path: &str) -> PyResult<Vec<FileComplexity>> {
-    load_snapshot_file_shared(snapshot_file_path).map_err(export_error_to_py_error)
-}
-
-#[cfg(feature = "python")]
-pub fn get_repo_name(url: &str) -> PyResult<String> {
-    let url = url.trim_end_matches('/');
-
-    let repo_name = url
-        .split('/')
-        .next_back()
-        .filter(|name| !name.is_empty())
-        .ok_or_else(|| PyValueError::new_err("Repository URL is missing a final path segment"))?;
-
-    Ok(repo_name
-        .strip_suffix(".git")
-        .unwrap_or(repo_name)
-        .to_string())
 }
 
 #[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
