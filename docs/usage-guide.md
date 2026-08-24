@@ -22,6 +22,10 @@ This guide covers everything you need to know to effectively use complexipy in y
     poetry add complexipy
     ```
 
+The `complexipy` command is a native implementation written in Rust; the
+whole analysis pipeline runs without a Python interpreter. The same wheel
+also provides the Python API for embedding analysis in your own tools.
+
 ## Command Line Usage
 
 ### Basic Analysis

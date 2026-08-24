@@ -7,8 +7,8 @@ use std::process::Command;
 use clap::Parser;
 use tempfile::tempdir;
 
-use crate::run_at;
-use complexipy::cli::args::CliArgs;
+use super::run_at;
+use crate::cli::args::CliArgs;
 
 const SIMPLE: &str = "def simple(x):\n    return x + 1\n";
 

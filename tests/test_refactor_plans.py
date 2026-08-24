@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import textwrap
 from pathlib import Path
 
@@ -169,80 +168,6 @@ def test_refactor_plan_exported_and_available_on_python_api() -> None:
     assert complexipy.RefactorPlan is RefactorPlan
     assert isinstance(func.refactor_plans[0], RefactorPlan)
     assert func.refactor_plans[0].estimated_complexity_after <= func.complexity
-
-
-def test_manual_cli_json_includes_refactor_plans_and_snapshot_stays_unchanged(
-    tmp_path,
-) -> None:
-    source = tmp_path / "sample.py"
-    source.write_text(load_source("extract_predicate_boolean.py"))
-    file_result = complexipy.file_complexity(str(source))
-    func = file_result.functions[0]
-    output_path = tmp_path / "complexity.json"
-
-    complexipy._complexipy.output_json(
-        str(output_path), [file_result], True, 0, suggest_refactors=True
-    )
-
-    json_data = json.loads(output_path.read_text())
-    # Check that the JSON contains the expected structure with new fields
-    assert len(json_data) == 1
-    assert json_data[0]["path"] == "sample.py"
-    assert json_data[0]["file_name"] == "sample.py"
-    assert json_data[0]["function_name"] == "sample"
-    assert json_data[0]["complexity"] == func.complexity
-
-    # Check that refactor plans are included with new fields
-    assert len(json_data[0]["refactor_plans"]) > 0
-    plan = json_data[0]["refactor_plans"][0]
-    assert plan["kind"] == func.refactor_plans[0].kind
-    assert plan["title"] == func.refactor_plans[0].title
-    assert plan["line_start"] == func.refactor_plans[0].line_start
-    assert plan["line_end"] == func.refactor_plans[0].line_end
-    assert (
-        plan["current_complexity"] == func.refactor_plans[0].current_complexity
-    )
-    assert (
-        plan["estimated_reduction"]
-        == func.refactor_plans[0].estimated_reduction
-    )
-    assert (
-        plan["estimated_complexity_after"]
-        == func.refactor_plans[0].estimated_complexity_after
-    )
-
-    assert "rule_id" in plan
-    assert "category" in plan
-    assert "applicability" in plan
-    assert "description" in plan
-    assert "explanation" in plan
-    assert "references" in plan
-    assert "suggestion" in plan
-    assert "help" in plan
-
-    snapshot_path = tmp_path / "complexipy-snapshot.json"
-    complexipy._complexipy.create_snapshot_file(
-        str(snapshot_path), 0, [file_result]
-    )
-    snapshot_data = json.loads(snapshot_path.read_text())
-    assert "refactor_plans" not in snapshot_data[0]["functions"][0]
-
-
-def test_manual_cli_json_omits_refactor_plans_without_suggest_refactors(
-    tmp_path,
-) -> None:
-    """`suggest_refactors` defaults to False, matching `--suggest-refactors`
-    being opt-in on the CLI -- JSON should not carry plan data a caller never
-    asked for."""
-    source = tmp_path / "sample.py"
-    source.write_text(load_source("extract_predicate_boolean.py"))
-    file_result = complexipy.file_complexity(str(source))
-    output_path = tmp_path / "complexity.json"
-
-    complexipy._complexipy.output_json(str(output_path), [file_result], True, 0)
-
-    json_data = json.loads(output_path.read_text())
-    assert json_data[0]["refactor_plans"] == []
 
 
 def test_single_line_function_creates_no_plans() -> None:

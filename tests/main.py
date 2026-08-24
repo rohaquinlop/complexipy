@@ -2,168 +2,160 @@ from pathlib import Path
 from typing import List, Tuple
 
 import pytest
-from typer.testing import CliRunner
 
 from complexipy import (
-    _complexipy,
     code_complexity,
+    collect_removable_ignored_locations,
     file_complexity,
 )
 from complexipy._complexipy import FileComplexity
-from complexipy.utils.snapshot import (
-    handle_snapshot_file_creation,
-    handle_snapshot_functions_load,
-    handle_snapshot_watermark,
-)
+
+
+def _analyze_paths(
+    paths: List[Path], check_script: bool = False, no_ignore: bool = False
+) -> Tuple[List[FileComplexity], List[str]]:
+    """Analyze files or directories via the public file_complexity API.
+
+    Directories are walked recursively for ``.py`` files in sorted order.
+    Missing paths are reported in the failed list.
+    """
+    successful: List[FileComplexity] = []
+    failed: List[str] = []
+
+    for raw_path in paths:
+        path = Path(raw_path).resolve()
+        if not path.exists():
+            failed.append(str(raw_path))
+            continue
+        if path.is_dir():
+            files = sorted(p for p in path.rglob("*.py") if p.is_file())
+        else:
+            files = [path]
+
+        for file in files:
+            try:
+                successful.append(
+                    file_complexity(
+                        str(file),
+                        check_script=check_script,
+                        no_ignore=no_ignore,
+                    )
+                )
+            except (
+                FileNotFoundError,
+                PermissionError,
+                UnicodeDecodeError,
+                SyntaxError,
+            ):
+                failed.append(str(file))
+
+    return successful, failed
 
 
 class TestFiles:
     local_path = Path(__file__).resolve().parent
-    tracked_path = "tracked.py"
-    tracked_function_body = [
-        "def tracked(value):\n    if value:\n        return 1\n    return 0\n",
-    ]
-    complexipy_snapshot_file = "complexipy-snapshot.json"
-
-    def _analyze_paths(
-        self, paths: List[Path]
-    ) -> Tuple[List[FileComplexity], List[str]]:
-        string_paths = [str(path) for path in paths]
-        return _complexipy.main(string_paths, False, [], False)
 
     def test_missing_path_is_reported(self):
         missing = self.local_path / "this_file_does_not_exist.py"
 
-        files, failed = _complexipy.main([missing.as_posix()], False, [], False)
+        files, failed = _analyze_paths([missing])
 
         assert files == []
-        assert failed == [missing.as_posix()]
+        assert failed == [str(missing)]
 
     def test_path(self):
         path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 64 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 9 == total_complexity
 
     def test_break_continue(self):
         path = self.local_path / "src/test_break_continue.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_class(self):
         path = self.local_path / "src/test_class.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_decorator(self):
         path = self.local_path / "src/test_decorator.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_for(self):
         path = self.local_path / "src/test_for.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 5 == total_complexity
 
     def test_for_assign(self):
         path = self.local_path / "src/test_for_assign.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 2 == total_complexity
 
     def test_if(self):
         path = self.local_path / "src/test_if.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_main(self):
         path = self.local_path / "src/test_main.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_match(self):
         path = self.local_path / "src/test_match.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_multiple_func(self):
         path = self.local_path / "src/test_multiple_func.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_nested_func(self):
         path = self.local_path / "src/test_nested_func.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 2 == total_complexity
 
     def test_recursive(self):
         path = self.local_path / "src/test_recursive.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_ternary_op(self):
         path = self.local_path / "src/test_ternary_op.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 1 == total_complexity
 
     def test_try(self):
         path = self.local_path / "src/test_try.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 3 == total_complexity
 
     def test_try_nested(self):
         path = self.local_path / "src/test_try_nested.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 10 == total_complexity
 
@@ -197,9 +189,7 @@ def hello_world(s: str) -> str:
         This test ensures the regex replacement handles all Unicode safely.
         """
         path = self.local_path / "src/test_utf8_comment.py"
-        files, failed = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, failed = _analyze_paths([path])
         # All marker-commented functions should be ignored; only
         # not_ignored_normal (no marker) should count.
         total_complexity = sum([file.complexity for file in files])
@@ -210,85 +200,65 @@ def hello_world(s: str) -> str:
 
     def test_noqa_complexipy_ignore(self):
         path = self.local_path / "src/test_noqa_complex.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         # The only function has a noqa: complexipy, so it is ignored.
         assert 0 == total_complexity
 
     def test_noqa_complexipy_ignore_with_decorator(self):
         path = self.local_path / "src/test_noqa_decorator.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
     def test_complexipy_ignore(self):
         path = self.local_path / "src/test_complexipy_ignore.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         # The only complex function has a complexipy: ignore, so it is ignored.
         assert 0 == total_complexity
 
     def test_complexipy_ignore_with_decorator(self):
         path = self.local_path / "src/test_complexipy_ignore_decorator.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 0 == total_complexity
 
-    # ── --no-ignore tests ────────────────────────────────────────────
+    # ── no-ignore tests ──────────────────────────────────────────────
 
     def test_no_ignore_analyzes_ignored_function(self):
-        """With --no-ignore, functions with '# complexipy: ignore' are analyzed."""
+        """With no_ignore, functions with '# complexipy: ignore' are analyzed."""
         path = self.local_path / "src/test_complexipy_ignore.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False, True
-        )
+        files, _ = _analyze_paths([path], no_ignore=True)
         total_complexity = sum([file.complexity for file in files])
         assert total_complexity > 0
 
     def test_no_ignore_analyzes_noqa_function(self):
-        """With --no-ignore, functions with '# noqa: complexipy' are analyzed."""
+        """With no_ignore, functions with '# noqa: complexipy' are analyzed."""
         path = self.local_path / "src/test_noqa_complex.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False, True
-        )
+        files, _ = _analyze_paths([path], no_ignore=True)
         total_complexity = sum([file.complexity for file in files])
         assert total_complexity > 0
 
     def test_no_ignore_analyzes_decorated_ignored(self):
-        """With --no-ignore, decorated ignored functions are analyzed."""
+        """With no_ignore, decorated ignored functions are analyzed."""
         path = self.local_path / "src/test_complexipy_ignore_decorator.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False, True
-        )
+        files, _ = _analyze_paths([path], no_ignore=True)
         total_complexity = sum([file.complexity for file in files])
         assert total_complexity > 0
 
     def test_no_ignore_analyzes_decorated_noqa(self):
-        """With --no-ignore, decorated noqa functions are analyzed."""
+        """With no_ignore, decorated noqa functions are analyzed."""
         path = self.local_path / "src/test_noqa_decorator.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False, True
-        )
+        files, _ = _analyze_paths([path], no_ignore=True)
         total_complexity = sum([file.complexity for file in files])
         assert total_complexity > 0
 
     def test_no_ignore_false_is_default(self):
         """Without no_ignore, behavior is unchanged from before."""
         path = self.local_path / "src/test_complexipy_ignore.py"
-        files_default, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
-        files_explicit, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False, False
-        )
+        files_default, _ = _analyze_paths([path])
+        files_explicit, _ = _analyze_paths([path], no_ignore=False)
         assert sum(f.complexity for f in files_default) == sum(
             f.complexity for f in files_explicit
         )
@@ -321,295 +291,10 @@ def hello_world(s: str) -> str:
         assert result_without.complexity == 0
         assert result_with.complexity > 0
 
-    # ── --report-ignored CLI tests ───────────────────────────────────
-
-    def test_report_ignored_shows_locations(self, tmp_path, monkeypatch):
-        """--report-ignored prints file:line for each ignore comment."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def ignored(a, b):  # complexipy: ignore\n"
-            "    if a and b:\n"
-            "        return a + b\n"
-            "    return 0\n\n"
-            "def normal(a):\n"
-            "    return a\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app, ["--report-ignored", str(source_file)]
-        )
-        assert result.exit_code == 0
-        assert "sample.py:1" in result.output
-        assert "# complexipy: ignore" in result.output
-        assert "Found 1 suppressed location(s)" in result.output
-
-    def test_report_ignored_no_markers(self, tmp_path, monkeypatch):
-        """--report-ignored with no markers prints 'No ignore comments found'."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "clean.py"
-        source_file.write_text("def foo():\n    return 1\n", encoding="utf-8")
-
-        result = runner.invoke(
-            main_module.app, ["--report-ignored", str(source_file)]
-        )
-        assert result.exit_code == 0
-        assert "No ignore comments found" in result.output
-
-    def test_report_ignored_with_no_ignore(self, tmp_path, monkeypatch):
-        """--report-ignored --no-ignore: reports AND analyzes everything."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def ignored(a, b):  # complexipy: ignore\n"
-            "    if a and b:\n"
-            "        return a + b\n"
-            "    return 0\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--report-ignored", "--no-ignore", str(source_file)],
-        )
-        assert result.exit_code == 0
-        assert "sample.py:1" in result.output
-        assert "# complexipy: ignore" in result.output
-        assert "ignored" in result.output
-
-    def test_report_ignored_respects_exclude(self, tmp_path, monkeypatch):
-        """--report-ignored only scans files not excluded by --exclude."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        (tmp_path / "src").mkdir()
-        (tmp_path / "src" / "a.py").write_text(
-            "def foo():  # complexipy: ignore\n    pass\n", encoding="utf-8"
-        )
-        (tmp_path / "src" / "b.py").write_text(
-            "def bar():  # noqa: complexipy\n    pass\n", encoding="utf-8"
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--report-ignored", "--exclude", "b.py", str(tmp_path / "src")],
-        )
-        assert result.exit_code == 0
-        assert "a.py" in result.output
-        assert "b.py" not in result.output
-
-    def test_report_ignored_with_quiet(self, tmp_path, monkeypatch):
-        """--report-ignored still prints report even under --quiet."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def ignored(a, b):  # complexipy: ignore\n"
-            "    if a and b:\n"
-            "        return a + b\n"
-            "    return 0\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app, ["--report-ignored", "--quiet", str(source_file)]
-        )
-        assert result.exit_code == 0
-        assert "sample.py:1" in result.output
-        assert "Found 1 suppressed location(s)" in result.output
-
-    # ── Removable ignore comments tests ──────────────────────────────
-
-    def test_removable_ignores_reported_automatically(
-        self, tmp_path, monkeypatch
-    ):
-        """Runs report ignore comments whose function is within the limit."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def simple(a):  # complexipy: ignore\n"
-            "    return a\n"
-            "\n"
-            "def complex_fn(a, b):  # complexipy: ignore\n"
-            "    if a and b:\n"
-            "        return a + b\n"
-            "    elif a or b:\n"
-            "        return a or b\n"
-            "    else:\n"
-            "        return 0\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--max-complexity-allowed", "5", str(source_file)],
-        )
-        assert result.exit_code == 0
-        assert "sample.py:1" in result.output
-        assert "function=simple" in result.output
-        assert "complexity=0" in result.output
-        assert "function=complex_fn" not in result.output
-
-    def test_removable_ignores_at_threshold(self, tmp_path, monkeypatch):
-        """A marker is removable when complexity equals the allowed limit."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def simple(a):  # complexipy: ignore\n    return a\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--max-complexity-allowed", "0", str(source_file)],
-        )
-        assert result.exit_code == 0
-        assert "function=simple" in result.output
-        assert "complexity=0" in result.output
-
-    def test_removable_ignores_legacy_noqa_and_decorated(
-        self, tmp_path, monkeypatch
-    ):
-        """Line-above markers, decorators, and legacy noqa are reported."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "# complexipy: ignore\n"
-            "def above(a):\n"
-            "    return a\n"
-            "\n"
-            "@staticmethod\n"
-            "def decorated(a):  # noqa: complexipy\n"
-            "    return a\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(main_module.app, [str(source_file)])
-        assert result.exit_code == 0
-        assert "function=above" in result.output
-        assert "function=decorated" in result.output
-        assert "# noqa: complexipy" in result.output
-
-    def test_removable_ignores_no_markers(self, tmp_path, monkeypatch):
-        """A clean file produces no removable-ignore report."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "clean.py"
-        source_file.write_text("def foo():\n    return 1\n", encoding="utf-8")
-
-        result = runner.invoke(main_module.app, [str(source_file)])
-        assert result.exit_code == 0
-        assert "can be removed" not in result.output
-
-    def test_removable_ignores_suppressed_under_quiet(
-        self, tmp_path, monkeypatch
-    ):
-        """--quiet suppresses the automatic removable-ignore report."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def simple(a):  # complexipy: ignore\n    return a\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(main_module.app, ["--quiet", str(source_file)])
-        assert result.exit_code == 0
-        assert "can be removed" not in result.output
-
-    def test_removable_ignores_respects_exclude(self, tmp_path, monkeypatch):
-        """The removable-ignore report only scans files not excluded."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        (tmp_path / "src").mkdir()
-        (tmp_path / "src" / "a.py").write_text(
-            "def foo():  # complexipy: ignore\n    pass\n", encoding="utf-8"
-        )
-        (tmp_path / "src" / "b.py").write_text(
-            "def bar():  # complexipy: ignore\n    pass\n", encoding="utf-8"
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--exclude", "b.py", str(tmp_path / "src")],
-        )
-        assert result.exit_code == 0
-        assert "function=foo" in result.output
-        assert "function=bar" not in result.output
-
-    def test_removable_ignores_printed_with_failed(self, tmp_path, monkeypatch):
-        """The report still prints when --failed filters the display."""
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        source_file = tmp_path / "sample.py"
-        source_file.write_text(
-            "def simple(a):  # complexipy: ignore\n"
-            "    return a\n"
-            "\n"
-            "def no_marker(a, b):\n"
-            "    if a and b:\n"
-            "        return a + b\n"
-            "    elif a or b:\n"
-            "        return a or b\n"
-            "    else:\n"
-            "        return 0\n",
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(
-            main_module.app,
-            ["--failed", "--max-complexity-allowed", "5", str(source_file)],
-        )
-        assert result.exit_code == 1
-        assert "no_marker" in result.output
-        assert "function=simple" in result.output
+    # ── collect_removable_ignored_locations API ──────────────────────
 
     def test_collect_removable_ignored_locations_api(self, tmp_path):
         """Python API: collect_removable_ignored_locations returns removable markers."""
-        from complexipy import collect_removable_ignored_locations
-
         source = tmp_path / "app.py"
         source.write_text(
             "def simple(a):  # complexipy: ignore\n    return a\n",
@@ -626,294 +311,6 @@ def hello_world(s: str) -> str:
         assert removable[0].complexity == 0
         assert removable[0].comment == "# complexipy: ignore"
 
-    def test_exclude(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["test_exclude1.py"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        # Excluding only by basename that does not exist at the root
-        # should not exclude nested files anymore.
-        assert 64 == total_complexity
-
-    def test_exclude_full_path(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["exclude_dir/test_exclude1.py"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        assert 61 == total_complexity
-
-    def test_exclude_whole_directory(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["exclude_dir/**"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        assert 58 == total_complexity
-
-    def test_exclude_glob_single_file(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["**/test_exclude1.py"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        # **/test_exclude1.py should match exclude_dir/test_exclude1.py (complexity 3)
-        assert 61 == total_complexity
-
-    def test_exclude_glob_directory(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["**/exclude_dir/**"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        # **/exclude_dir/** should match all files under exclude_dir (complexity 6 total)
-        assert 58 == total_complexity
-
-    def test_exclude_glob_wildcard(self):
-        path = self.local_path / "src"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()],
-            False,
-            ["**/test_exclude*.py"],
-            False,
-        )
-        total_complexity = sum([file.complexity for file in files])
-        # **/test_exclude*.py matches both test_exclude1.py and test_exclude2.py (complexity 3+3=6)
-        assert 58 == total_complexity
-
-    def test_snapshot_watermark_passes_and_updates_snapshot(
-        self, tmp_path: Path
-    ):
-        source_file = tmp_path / self.tracked_path
-        source_file.write_text(
-            *self.tracked_function_body,
-            encoding="utf-8",
-        )
-
-        files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / self.complexipy_snapshot_file
-        handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
-        assert snapshot_path.exists()
-
-        snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
-        ok, messages = handle_snapshot_watermark(
-            True,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files,
-            snapshot_files,
-            0,
-        )
-
-        assert ok
-        assert messages == []
-
-        source_file.write_text(
-            "def tracked(value):\n    return value\n",
-            encoding="utf-8",
-        )
-        files_reduced, _ = self._analyze_paths([source_file])
-        snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
-        ok, messages = handle_snapshot_watermark(
-            True,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files_reduced,
-            snapshot_files,
-            0,
-        )
-
-        assert ok
-        assert messages == []
-        assert len(handle_snapshot_functions_load(str(snapshot_path))) == 0, (
-            "Snapshot should be empty after the regression is fixed"
-        )
-
-    def test_snapshot_watermark_detects_regressions(self, tmp_path: Path):
-        tracked_file = tmp_path / self.tracked_path
-        tracked_file.write_text(
-            "def tracked(value):\n    if value:\n        return value\n    return 0\n",
-            encoding="utf-8",
-        )
-
-        files, _ = self._analyze_paths([tracked_file])
-        snapshot_path = tmp_path / self.complexipy_snapshot_file
-        handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
-
-        tracked_file.write_text(
-            "def tracked(value):\n"
-            "    if value:\n"
-            "        if value > 1:\n"
-            "            return value\n"
-            "    return 0\n",
-            encoding="utf-8",
-        )
-        files_regressed, _ = self._analyze_paths([tracked_file])
-        snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
-        ok, messages = handle_snapshot_watermark(
-            True,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files_regressed,
-            snapshot_files,
-            0,
-        )
-
-        assert not ok
-        assert any("tracked.py:tracked" in message for message in messages)
-
-        tracked_file.write_text(
-            "def tracked(value):\n    if value:\n        return value\n    return 0\n",
-            encoding="utf-8",
-        )
-        new_file = tmp_path / "new_file.py"
-        new_file.write_text(
-            "def newcomer(value):\n    if value:\n        return value\n    return 0\n",
-            encoding="utf-8",
-        )
-        files_with_new, _ = self._analyze_paths([tracked_file, new_file])
-        snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
-        ok, messages = handle_snapshot_watermark(
-            True,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files_with_new,
-            snapshot_files,
-            0,
-        )
-
-        assert not ok
-        assert any("new_file.py:newcomer" in message for message in messages)
-
-    def test_snapshot_watermark_requires_existing_file(self, tmp_path: Path):
-        source_file = tmp_path / self.tracked_path
-        source_file.write_text(
-            *self.tracked_function_body,
-            encoding="utf-8",
-        )
-        files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / self.complexipy_snapshot_file
-
-        ok, messages = handle_snapshot_watermark(
-            True,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files,
-            [],
-            0,
-        )
-
-        assert not ok
-        assert "Snapshot watermark requested" in messages[0]
-
-    def test_snapshot_watermark_can_be_ignored(self, tmp_path: Path):
-        source_file = tmp_path / self.tracked_path
-        source_file.write_text(
-            *self.tracked_function_body,
-            encoding="utf-8",
-        )
-        files, _ = self._analyze_paths([source_file])
-        snapshot_path = tmp_path / self.complexipy_snapshot_file
-        handle_snapshot_file_creation(True, str(snapshot_path), 0, files)
-        snapshot_files = handle_snapshot_functions_load(str(snapshot_path))
-
-        ok, messages = handle_snapshot_watermark(
-            False,
-            snapshot_path.exists(),
-            str(snapshot_path),
-            files,
-            snapshot_files,
-            0,
-        )
-
-        assert ok
-        assert messages == []
-
-    def test_snapshot_watermark_passes_exits_with_code_0(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """Regression test for issue #136.
-
-        When a snapshot exists and the watermark passes (functions exceed the
-        threshold but haven't gotten worse since the snapshot was taken), the
-        CLI should exit with code 0 rather than 1.
-        """
-        import complexipy.main as main_module
-
-        runner = CliRunner()
-
-        # Create a file with a function whose complexity exceeds the default
-        # threshold of 15.  Six nested if-statements produces a cognitive
-        # complexity of 21 (1+2+3+4+5+6).
-        source_file = tmp_path / "complex.py"
-        source_file.write_text(
-            "def high_complexity(a, b, c, d, e, f):\n"
-            "    if a:\n"
-            "        if b:\n"
-            "            if c:\n"
-            "                if d:\n"
-            "                    if e:\n"
-            "                        if f:\n"
-            "                            return True\n"
-            "    return False\n",
-            encoding="utf-8",
-        )
-
-        # Point the module's snapshot output to tmp_path so we don't pollute
-        # the project directory and tests remain isolated.
-        monkeypatch.setattr(main_module, "INVOCATION_PATH", str(tmp_path))
-
-        # Step 1: create the snapshot – should exit 0 (watermark is satisfied
-        # because we just created the baseline).
-        result_create = runner.invoke(
-            main_module.app,
-            ["--snapshot-create", str(source_file)],
-        )
-        assert (tmp_path / "complexipy-snapshot.json").exists(), (
-            "Snapshot file was not created"
-        )
-        assert result_create.exit_code == 0, (
-            f"--snapshot-create exited with {result_create.exit_code}.\n"
-            f"Output:\n{result_create.output}"
-        )
-
-        # Step 2: re-run without --snapshot-create.  The function still
-        # exceeds the threshold, but it hasn't regressed since the snapshot,
-        # so the watermark passes and the exit code must be 0.
-        result_check = runner.invoke(
-            main_module.app,
-            [str(source_file)],
-        )
-        assert result_check.exit_code == 0, (
-            f"Expected exit code 0 when snapshot watermark passes, "
-            f"got {result_check.exit_code}.\n"
-            f"Output:\n{result_check.output}"
-        )
-        # The function should be displayed as passed (not failed) since it is
-        # grandfathered by the snapshot.
-        assert "PASSED" in result_check.output, (
-            f"Expected 'PASSED' in output.\nOutput:\n{result_check.output}"
-        )
-        assert "FAILED" not in result_check.output, (
-            f"Expected no 'FAILED' in output.\nOutput:\n{result_check.output}"
-        )
-
 
 class TestScriptComplexity:
     """Tests for module-level (script) complexity analysis."""
@@ -923,18 +320,14 @@ class TestScriptComplexity:
     def test_script_simple_default(self):
         """Default behavior: module-level code not reported as <module>."""
         path = self.local_path / "src/test_script_simple.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         assert len(files) == 1
         assert len(files[0].functions) == 0
 
     def test_script_simple_check_script(self):
         """Simple assignments have 0 complexity, <module> still emitted."""
         path = self.local_path / "src/test_script_simple.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], True
-        )
+        files, _ = _analyze_paths([path], check_script=True)
         assert len(files) == 1
         module_funcs = [f for f in files[0].functions if f.name == "<module>"]
         assert len(module_funcs) == 1
@@ -943,18 +336,14 @@ class TestScriptComplexity:
     def test_script_complex_default(self):
         """Default: complex script still reports 0 functions."""
         path = self.local_path / "src/test_script_complex.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], False
-        )
+        files, _ = _analyze_paths([path])
         assert len(files) == 1
         assert len(files[0].functions) == 0
 
     def test_script_complex_check_script(self):
         """With check_script: complex script reports <module>."""
         path = self.local_path / "src/test_script_complex.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], True
-        )
+        files, _ = _analyze_paths([path], check_script=True)
         assert len(files) == 1
         module_funcs = [f for f in files[0].functions if f.name == "<module>"]
         assert len(module_funcs) == 1
@@ -963,9 +352,7 @@ class TestScriptComplexity:
     def test_script_mixed_check_script(self):
         """Mixed file: both function and <module> reported."""
         path = self.local_path / "src/test_script_mixed.py"
-        files, _ = _complexipy.main(
-            [path.resolve().as_posix()], False, [], True
-        )
+        files, _ = _analyze_paths([path], check_script=True)
         assert len(files) == 1
         func_names = {f.name for f in files[0].functions}
         assert "simple_func" in func_names
@@ -989,43 +376,6 @@ class TestScriptComplexity:
         result = code_complexity(code)
         module_funcs = [f for f in result.functions if f.name == "<module>"]
         assert len(module_funcs) == 0
-
-    def test_cli_check_script(self):
-        """CLI: --check-script flag works end-to-end."""
-        from complexipy.main import app
-
-        runner = CliRunner()
-        path = str(self.local_path / "src/test_script_complex.py")
-        result = runner.invoke(app, [path, "--check-script"])
-        assert result.exit_code == 0
-        assert "<module>" in result.output
-
-    def test_cli_no_check_script(self):
-        """CLI: without --check-script, no <module> in output."""
-        from complexipy.main import app
-
-        runner = CliRunner()
-        path = str(self.local_path / "src/test_script_complex.py")
-        result = runner.invoke(app, [path])
-        assert "<module>" not in result.output
-
-    def test_cli_check_script_fails_on_threshold(self):
-        """CLI: --check-script exits 1 when module complexity exceeds threshold."""
-        from complexipy.main import app
-
-        runner = CliRunner()
-        path = str(self.local_path / "src/test_script_complex.py")
-        result = runner.invoke(app, [path, "--check-script", "-mx", "1"])
-        assert result.exit_code == 1
-
-    def test_cli_check_script_passes_within_threshold(self):
-        """CLI: --check-script exits 0 when module complexity is within threshold."""
-        from complexipy.main import app
-
-        runner = CliRunner()
-        path = str(self.local_path / "src/test_script_simple.py")
-        result = runner.invoke(app, [path, "--check-script", "-mx", "15"])
-        assert result.exit_code == 0
 
 
 class TestPaperConformance:

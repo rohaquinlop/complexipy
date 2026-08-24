@@ -31,6 +31,44 @@ class Applicability(Enum):
     Informational = "Informational"
     """Informational only, not directly actionable."""
 
+class DiffStatus(Enum):
+    """Comparison status of a function between two analyzed versions."""
+
+    REGRESSED = "REGRESSED"
+    """Complexity increased in the new version."""
+
+    IMPROVED = "IMPROVED"
+    """Complexity decreased in the new version."""
+
+    UNCHANGED = "UNCHANGED"
+    """Complexity stayed the same."""
+
+    NEW = "NEW"
+    """Function only exists in the new version."""
+
+    REMOVED = "REMOVED"
+    """Function only exists in the old version."""
+
+class DiffEntry:
+    """Comparison result for a single function between two versions."""
+
+    file_path: str
+    """Path of the file containing the function."""
+
+    func_name: str
+    """Name of the compared function."""
+
+    old_complexity: Optional[int]
+    """Complexity in the old version, or None if the function is new."""
+
+    new_complexity: Optional[int]
+    """Complexity in the new version, or None if the function was removed."""
+
+    @property
+    def status(self) -> DiffStatus:
+        """Comparison status derived from old and new complexity."""
+        ...
+
 class CodeSuggestion:
     """A concrete code suggestion with replacement text and applicability."""
 
@@ -742,6 +780,60 @@ def create_snapshot_file(
     files_complexities: List[FileComplexity],
 ) -> None: ...
 def load_snapshot_file(snapshot_file_path: str) -> List[FileComplexity]: ...
+def run_cli(argv: List[str], invocation_path: Optional[str] = None) -> int:
+    """
+    Run the Rust CLI with the given arguments and return its exit code.
+
+    This backs the `complexipy` console script; the whole CLI pipeline
+    runs in Rust. Errors and usage messages are printed to stderr.
+
+    Args:
+        argv: Command-line arguments, excluding the program name.
+        invocation_path: Working directory for the run; defaults to the
+            current working directory.
+
+    Returns:
+        Process exit code: 0 on success, 1 on gate failure, 2 on usage
+        errors.
+    """
+    ...
+
+def compute_diff(
+    current_files: List[FileComplexity],
+    git_ref: str,
+    invocation_path: Optional[str] = None,
+) -> List[DiffEntry]:
+    """
+    Compare the current complexity results against *git_ref*.
+
+    For each file in *current_files*, retrieves the file's content at
+    *git_ref* using ``git show`` and re-analyses it. Functions that
+    appear only in one version are marked NEW / REMOVED.
+
+    Args:
+        current_files: Complexity results of the current analysis.
+        git_ref: Git reference to compare against (branch, tag, or commit).
+        invocation_path: Working directory for git commands; defaults to
+            the current working directory.
+
+    Returns:
+        List of DiffEntry objects, one per function that changed or is
+        new/removed. Unchanged functions are included so callers can
+        choose how to filter.
+    """
+    ...
+
+def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
+    """
+    Return True if any entry represents a ratchet failure.
+
+    A ratchet failure is a REGRESSED function whose new complexity
+    exceeds *max_complexity*, or a NEW function whose complexity exceeds
+    *max_complexity*. Modified functions that increase in complexity but
+    stay at or below the threshold are not considered failures.
+    """
+    ...
+
 def collect_all_ignored_locations(
     paths: List[str],
     exclude: List[str],
