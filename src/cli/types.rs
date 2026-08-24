@@ -138,12 +138,13 @@ impl OutputFormat {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExitReport {
-    display_ok: bool,
-    snapshot_ok: bool,
-    paths_ok: bool,
-    diff_ok: bool,
-    enforce_diff: bool,
+    pub display_ok: bool,
+    pub snapshot_ok: bool,
+    pub paths_ok: bool,
+    pub diff_ok: bool,
+    pub enforce_diff: bool,
 }
 
 impl ExitReport {
@@ -156,6 +157,7 @@ impl ExitReport {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum DiffStatus {
     Regressed,
     Improved,
@@ -164,11 +166,12 @@ pub enum DiffStatus {
     Removed,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffEntry {
-    file_path: String,
-    func_name: String,
-    old_complexity: Option<u64>,
-    new_complexity: Option<u64>,
+    pub file_path: String,
+    pub func_name: String,
+    pub old_complexity: Option<u64>,
+    pub new_complexity: Option<u64>,
 }
 
 impl DiffEntry {
@@ -188,26 +191,28 @@ impl DiffEntry {
         }
     }
 
-    pub fn delta(&self) -> Option<u64> {
+    pub fn delta(&self) -> Option<i64> {
         match (self.old_complexity, self.new_complexity) {
             (None, ..) => None,
             (.., None) => None,
-            (Some(old), Some(new)) => Some(new - old),
+            (Some(old), Some(new)) => Some(new as i64 - old as i64),
         }
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionRow {
-    name: String,
-    complexity: u64,
-    passed: bool,
-    path: String,
-    file_name: String,
-    refactor_plans: Vec<RefactorPlan>,
-    additional_refactor_plans: u64,
+    pub name: String,
+    pub complexity: u64,
+    pub passed: bool,
+    pub path: String,
+    pub file_name: String,
+    pub refactor_plans: Vec<RefactorPlan>,
+    pub additional_refactor_plans: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileEntry {
-    path: String,
-    functions: Vec<FunctionRow>,
+    pub path: String,
+    pub functions: Vec<FunctionRow>,
 }

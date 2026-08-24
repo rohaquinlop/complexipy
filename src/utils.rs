@@ -1,13 +1,13 @@
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use regex::Regex;
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use ruff_python_ast::{self as ast, Stmt};
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use std::sync::OnceLock;
 
 #[cfg(any(feature = "python", feature = "cli"))]
 mod export_deps {
-    pub use crate::classes::FileComplexity;
+    pub use crate::classes::{FileComplexity, FunctionComplexity};
     pub use csv::Writer;
     pub use serde_json;
     pub use std::fs::File;
@@ -17,13 +17,15 @@ mod export_deps {
 #[cfg(feature = "python")]
 mod python_deps {
     pub use super::export_deps::*;
-    pub use crate::classes::FunctionComplexity;
     pub use pyo3::exceptions::{PyIOError, PyValueError};
     pub use pyo3::prelude::*;
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
+
+#[cfg(all(feature = "cli", not(feature = "python")))]
+use export_deps::*;
 
 #[cfg(any(feature = "python", feature = "cli"))]
 use std::fmt;
@@ -315,7 +317,7 @@ pub fn get_repo_name(url: &str) -> PyResult<String> {
         .to_string())
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn is_decorator(statement: Stmt) -> bool {
     let mut ans = false;
     if let Stmt::FunctionDef(f) = statement
@@ -328,7 +330,7 @@ pub fn is_decorator(statement: Stmt) -> bool {
     ans
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
@@ -404,7 +406,7 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
     complexity
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn count_comprehension(
     elements: &[ast::Expr],
     generators: &[ast::Comprehension],
@@ -429,7 +431,7 @@ fn count_comprehension(
     complexity
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
     let mut complexity: u64 = 0;
 
@@ -468,14 +470,14 @@ fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
     complexity
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
     let before_slice = &code[..byte_index];
     let newline_count = before_slice.chars().filter(|&c| c == '\n').count();
     (newline_count + 1) as u64
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn get_column_number(byte_index: usize, code: &str) -> u64 {
     let before_slice = &code[..byte_index];
     let column_start = match before_slice.rfind('\n') {
@@ -490,7 +492,7 @@ pub fn get_column_number(byte_index: usize, code: &str) -> u64 {
 /// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
 /// when the line contains the corresponding pattern (case-insensitive).
 /// Returns `None` if neither marker is found.
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn extract_comment_marker(line: &str) -> Option<String> {
     static IGNORE_RE: OnceLock<Regex> = OnceLock::new();
     static NOQA_RE: OnceLock<Regex> = OnceLock::new();
@@ -512,7 +514,7 @@ pub fn extract_comment_marker(line: &str) -> Option<String> {
 ///
 /// Returns `Some(comment_text)` when a marker is found that would
 /// trigger suppression, `None` otherwise.
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn find_noqa_comment(line_number: u64, code: &str) -> Option<String> {
     if line_number == 0 {
         return None;
@@ -574,7 +576,7 @@ pub fn find_noqa_comment(line_number: u64, code: &str) -> Option<String> {
     None
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
     find_noqa_comment(line_number, code).is_some()
 }
@@ -582,7 +584,7 @@ pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
 /// Collect ignored locations from code, only reporting markers that
 /// actually suppress a function definition (i.e., are adjacent to `def`
 /// or `@decorator` lines).
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     let mut results = Vec::new();
     let lines: Vec<&str> = code.lines().collect();
@@ -648,7 +650,7 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
 ///
 /// Returns `(line, comment, function_name, complexity)` for each removable
 /// marker; the function's complexity is measured without the marker applied.
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 pub fn filter_removable_ignores(
     locations: &[(u64, String)],
     functions: &[FunctionComplexity],

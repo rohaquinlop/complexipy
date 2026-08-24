@@ -1,7 +1,7 @@
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
@@ -23,10 +23,10 @@ pub struct LineComplexity {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodeSuggestion {
     pub replacement: String,
     pub applicability: Applicability,
@@ -39,7 +39,7 @@ pub struct CodeSuggestion {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -53,7 +53,7 @@ pub enum RuleCategory {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -68,10 +68,10 @@ pub enum Applicability {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RefactorPlan {
     pub kind: String,
     pub title: String,
@@ -99,7 +99,7 @@ pub struct RefactorPlan {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
@@ -118,12 +118,15 @@ pub struct FunctionComplexity {
     pub additional_refactor_plans: u64,
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
-#[cfg_attr(feature = "python", derive(Serialize, Deserialize, Clone))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm", feature = "cli"),
+    derive(Serialize, Deserialize, Clone)
+)]
 pub struct FileComplexity {
     pub path: String,
     pub file_name: String,
@@ -137,7 +140,7 @@ pub struct FileComplexity {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[cfg_attr(
-    any(feature = "python", feature = "wasm"),
+    any(feature = "python", feature = "wasm", feature = "cli"),
     derive(Serialize, Deserialize)
 )]
 #[derive(Clone)]
@@ -148,12 +151,15 @@ pub struct CodeComplexity {
     pub version: String,
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
-#[cfg_attr(feature = "python", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm", feature = "cli"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
 pub struct IgnoredLocation {
     pub path: String,
@@ -161,12 +167,15 @@ pub struct IgnoredLocation {
     pub comment: String,
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
-#[cfg_attr(feature = "python", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(feature = "python", feature = "wasm", feature = "cli"),
+    derive(Serialize, Deserialize)
+)]
 #[derive(Clone)]
 pub struct RemovableIgnore {
     pub path: String,

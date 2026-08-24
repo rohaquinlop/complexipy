@@ -1,4 +1,4 @@
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 mod shared_deps {
     pub use crate::classes::{FunctionComplexity, LineComplexity};
     pub use crate::refactor_plans::{
@@ -10,39 +10,29 @@ mod shared_deps {
     pub use ruff_python_ast::{self as ast, Stmt};
 }
 
-#[cfg(feature = "python")]
+#[cfg(any(feature = "python", feature = "cli"))]
 use crate::classes::CodeComplexity;
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 use shared_deps::*;
 
 #[cfg(feature = "python")]
 mod python_deps {
     pub use pyo3::exceptions::PyValueError;
     pub use pyo3::prelude::*;
-    pub use ruff_python_parser::parse_module;
 }
 
 #[cfg(feature = "python")]
 use python_deps::*;
 
-#[cfg(feature = "python")]
-#[pyfunction]
-#[pyo3(signature = (code, check_script=false, no_ignore=false))]
-pub fn code_complexity(
+#[cfg(any(feature = "python", feature = "cli"))]
+pub fn code_complexity_shared(
     code: &str,
     check_script: bool,
     no_ignore: bool,
-) -> PyResult<CodeComplexity> {
-    let parsed = match parse_module(code) {
-        Ok(parsed) => parsed,
-        Err(e) => {
-            return Err(PyValueError::new_err(format!(
-                "Failed to parse code: {}",
-                e
-            )));
-        }
-    };
+) -> Result<CodeComplexity, String> {
+    let parsed = ruff_python_parser::parse_module(code)
+        .map_err(|e| format!("Failed to parse code: {}", e))?;
     let ast_body = parsed.into_suite();
     let (functions, complexity) =
         function_level_cognitive_complexity_shared(&ast_body, code, check_script, no_ignore, true);
@@ -54,7 +44,18 @@ pub fn code_complexity(
     })
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (code, check_script=false, no_ignore=false))]
+pub fn code_complexity(
+    code: &str,
+    check_script: bool,
+    no_ignore: bool,
+) -> PyResult<CodeComplexity> {
+    code_complexity_shared(code, check_script, no_ignore).map_err(PyValueError::new_err)
+}
+
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 pub fn function_level_cognitive_complexity_shared(
     ast_body: &ast::Suite,
     code: &str,
@@ -133,13 +134,13 @@ pub fn function_level_cognitive_complexity_shared(
     (functions, complexity)
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
     let start_line = get_line_number(usize::from(f.range.start()), code);
     !no_ignore && has_noqa_complexipy(start_line, code)
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn analyze_function(
     node: &Stmt,
     f: &ast::StmtFunctionDef,
@@ -168,13 +169,13 @@ fn analyze_function(
     }
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 struct RecursionFinder<'a> {
     name: &'a str,
     found: Option<usize>,
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if self.found.is_some() {
@@ -204,14 +205,14 @@ impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
     }
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn detect_direct_recursion(body: &[Stmt], name: &str, code: &str) -> Option<u64> {
     let mut finder = RecursionFinder { name, found: None };
     ast::visitor::walk_body(&mut finder, body);
     finder.found.map(|offset| get_line_number(offset, code))
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn empty_result() -> ComplexityResult {
     ComplexityResult {
         complexity: 0,
@@ -220,33 +221,33 @@ fn empty_result() -> ComplexityResult {
     }
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn push_line(result: &mut ComplexityResult, line: u64, complexity: u64) {
     result
         .line_complexities
         .push(LineComplexity { line, complexity });
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn absorb(result: &mut ComplexityResult, child: ComplexityResult) {
     result.complexity += child.complexity;
     result.line_complexities.extend(child.line_complexities);
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn absorb_with_regions(result: &mut ComplexityResult, child: ComplexityResult) {
     result.complexity += child.complexity;
     result.line_complexities.extend(child.line_complexities);
     result.regions.extend(child.regions);
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn finalize_region(result: &mut ComplexityResult, mut region: ComplexityRegion) {
     region.total += sum_region_child_totals(&region.children);
     result.regions.push(region);
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn count_line_bool_ops(
     result: &mut ComplexityResult,
     exprs: Vec<ast::Expr>,
@@ -261,7 +262,7 @@ fn count_line_bool_ops(
     push_line(result, line, complexity);
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn collect_suite(
     suite: &ast::Suite,
     nesting_level: u64,
@@ -278,7 +279,7 @@ fn collect_suite(
     result
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn sum_region_child_totals(children: &[ComplexityRegion]) -> u64 {
     children
         .iter()
@@ -287,7 +288,7 @@ fn sum_region_child_totals(children: &[ComplexityRegion]) -> u64 {
         .sum()
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn push_bool_region(
     regions: &mut Vec<ComplexityRegion>,
     line_start: u64,
@@ -309,7 +310,7 @@ fn push_bool_region(
     }
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn loop_complexity(
     control: ast::Expr,
     body: &ast::Suite,
@@ -358,7 +359,7 @@ fn loop_complexity(
     result
 }
 
-#[cfg(any(feature = "python", feature = "wasm"))]
+#[cfg(any(feature = "python", feature = "wasm", feature = "cli"))]
 fn statement_cognitive_complexity_shared(
     statement: &Stmt,
     nesting_level: u64,

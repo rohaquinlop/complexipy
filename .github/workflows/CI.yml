@@ -105,3 +105,13 @@ jobs:
             ${{ runner.os }}-cargo-
       - name: cargo test
         run: cargo test --features python
+      - name: cargo test cli-only
+        run: cargo test --no-default-features --features cli
+      - name: cargo clippy
+        run: cargo clippy --features python --all-targets -- -D warnings
+      - name: cargo fmt
+        run: cargo fmt --check
+      - name: cargo check wasm
+        run: |-
+          rustup target add wasm32-unknown-unknown
+          cargo check --no-default-features --features wasm --target wasm32-unknown-unknown
