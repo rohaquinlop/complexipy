@@ -527,7 +527,7 @@ impl RefactorRule for CollapsibleIfRule {
             let pair_body_indent = get_indentation_from_str(lines[r_start]) + indent_step;
 
             let mut body_start = r_start + 1;
-            if !lines[r_start].trim_end().ends_with(':') {
+            if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
                 while body_start < next_start.min(lines.len()) {
                     if lines[body_start].trim_end().ends_with(':') {
                         body_start += 1;
