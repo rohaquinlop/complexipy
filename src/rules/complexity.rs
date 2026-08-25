@@ -510,13 +510,10 @@ impl RefactorRule for CollapsibleIfRule {
         }
 
         let outermost = chain[0];
-        let outer_indent =
-            get_indentation_from_str(lines[(outermost.line_start.saturating_sub(1)) as usize]);
         let indent_step = detect_indent_step(
             &lines[(outermost.line_start.saturating_sub(1)) as usize
                 ..((outermost.line_end as usize).min(lines.len()))],
         );
-        let body_indent = outer_indent + indent_step;
 
         for (i, r) in chain.iter().enumerate() {
             if i == chain.len() - 1 {
@@ -527,6 +524,7 @@ impl RefactorRule for CollapsibleIfRule {
             let r_end = (r.line_end as usize).min(lines.len());
             let next_start = (next.line_start as usize).saturating_sub(1);
             let next_end = (next.line_end as usize).min(lines.len());
+            let pair_body_indent = get_indentation_from_str(lines[r_start]) + indent_step;
 
             let mut body_start = r_start + 1;
             if !lines[r_start].trim_end().ends_with(':') {
@@ -542,7 +540,7 @@ impl RefactorRule for CollapsibleIfRule {
             for line in &lines[body_start..next_start.min(lines.len())] {
                 let trimmed = line.trim_start();
                 let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == body_indent {
+                if !trimmed.is_empty() && indent == pair_body_indent {
                     return None;
                 }
             }
@@ -550,7 +548,7 @@ impl RefactorRule for CollapsibleIfRule {
             for line in &lines[next_end..r_end] {
                 let trimmed = line.trim_start();
                 let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == body_indent {
+                if !trimmed.is_empty() && indent == pair_body_indent {
                     return None;
                 }
             }
