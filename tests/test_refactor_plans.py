@@ -77,9 +77,13 @@ def test_collapsible_if_skips_preceding_sibling_after_trailing_comment() -> (
     assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
 
 
-def test_collapsible_if_skips_nested_tail_after_multiline_trailing_comment() -> None:
+def test_collapsible_if_skips_nested_tail_after_multiline_trailing_comment() -> (
+    None
+):
     func = first_func(
-        load_source("collapsible_if_skips_multiline_trailing_comment_sibling.py")
+        load_source(
+            "collapsible_if_skips_multiline_trailing_comment_sibling.py"
+        )
     )
 
     assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
