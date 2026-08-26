@@ -529,7 +529,7 @@ impl RefactorRule for CollapsibleIfRule {
             let mut body_start = r_start + 1;
             if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
                 while body_start < next_start.min(lines.len()) {
-                    if lines[body_start].trim_end().ends_with(':') {
+                    if line_ends_with_statement_colon(lines[body_start]) {
                         body_start += 1;
                         break;
                     }
@@ -783,6 +783,47 @@ fn generate_predicate_suggestion(
 
 fn get_indentation_from_str(line: &str) -> usize {
     line.len() - line.trim_start().len()
+}
+
+fn line_ends_with_statement_colon(line: &str) -> bool {
+    let mut string_state: Option<(char, bool)> = None;
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    let mut last_code_char = None;
+
+    while i < chars.len() {
+        let c = chars[i];
+        if let Some((quote, triple)) = string_state {
+            if c == '\\' {
+                i += 2;
+                continue;
+            }
+            if triple {
+                if c == quote
+                    && chars.get(i + 1) == Some(&quote)
+                    && chars.get(i + 2) == Some(&quote)
+                {
+                    string_state = None;
+                    i += 3;
+                    continue;
+                }
+            } else if c == quote {
+                string_state = None;
+            }
+        } else if (c == '\'' || c == '"') {
+            let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
+            string_state = Some((c, triple));
+            i += if triple { 3 } else { 1 };
+            continue;
+        } else if c == '#' {
+            break;
+        } else if !c.is_whitespace() {
+            last_code_char = Some(c);
+        }
+        i += 1;
+    }
+
+    last_code_char == Some(':')
 }
 
 /// Extract the boolean condition text from an `if` / `elif` / `while` statement line.
