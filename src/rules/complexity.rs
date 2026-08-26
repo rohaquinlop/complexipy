@@ -510,26 +510,45 @@ impl RefactorRule for CollapsibleIfRule {
         }
 
         let outermost = chain[0];
-        let outer_indent =
-            get_indentation_from_str(lines[(outermost.line_start.saturating_sub(1)) as usize]);
         let indent_step = detect_indent_step(
             &lines[(outermost.line_start.saturating_sub(1)) as usize
                 ..((outermost.line_end as usize).min(lines.len()))],
         );
-        let body_indent = outer_indent + indent_step;
 
         for (i, r) in chain.iter().enumerate() {
             if i == chain.len() - 1 {
                 break;
             }
             let next = chain[i + 1];
+            let r_start = (r.line_start as usize).saturating_sub(1);
             let r_end = (r.line_end as usize).min(lines.len());
+            let next_start = (next.line_start as usize).saturating_sub(1);
             let next_end = (next.line_end as usize).min(lines.len());
+            let pair_body_indent = get_indentation_from_str(lines[r_start]) + indent_step;
+
+            let mut body_start = r_start + 1;
+            if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
+                while body_start < next_start.min(lines.len()) {
+                    if line_ends_with_statement_colon(lines[body_start]) {
+                        body_start += 1;
+                        break;
+                    }
+                    body_start += 1;
+                }
+            }
+
+            for line in &lines[body_start..next_start.min(lines.len())] {
+                let trimmed = line.trim_start();
+                let indent = get_indentation_from_str(line);
+                if !trimmed.is_empty() && indent == pair_body_indent {
+                    return None;
+                }
+            }
 
             for line in &lines[next_end..r_end] {
                 let trimmed = line.trim_start();
                 let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == body_indent {
+                if !trimmed.is_empty() && indent == pair_body_indent {
                     return None;
                 }
             }
@@ -764,6 +783,47 @@ fn generate_predicate_suggestion(
 
 fn get_indentation_from_str(line: &str) -> usize {
     line.len() - line.trim_start().len()
+}
+
+fn line_ends_with_statement_colon(line: &str) -> bool {
+    let mut string_state: Option<(char, bool)> = None;
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    let mut last_code_char = None;
+
+    while i < chars.len() {
+        let c = chars[i];
+        if let Some((quote, triple)) = string_state {
+            if c == '\\' {
+                i += 2;
+                continue;
+            }
+            if triple {
+                if c == quote
+                    && chars.get(i + 1) == Some(&quote)
+                    && chars.get(i + 2) == Some(&quote)
+                {
+                    string_state = None;
+                    i += 3;
+                    continue;
+                }
+            } else if c == quote {
+                string_state = None;
+            }
+        } else if c == '\'' || c == '"' {
+            let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
+            string_state = Some((c, triple));
+            i += if triple { 3 } else { 1 };
+            continue;
+        } else if c == '#' {
+            break;
+        } else if !c.is_whitespace() {
+            last_code_char = Some(c);
+        }
+        i += 1;
+    }
+
+    last_code_char == Some(':')
 }
 
 /// Extract the boolean condition text from an `if` / `elif` / `while` statement line.
