@@ -6,6 +6,26 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Cambiado
+
+- La CLI de Python se retira: `complexipy` ahora es una implementación
+  nativa en Rust expuesta a través de un shim de console-script delgado,
+  de modo que todo el pipeline se ejecuta sin intérprete de Python. La
+  API de Python no cambia y ahora incluye la comparación de diffs
+  (`compute_diff`, `has_regressions`, `DiffEntry`, `DiffStatus`)
+  respaldada por el mismo motor Rust que la CLI. El módulo de extensión
+  se sigue distribuyendo vía wheels de maturin.
+  ([#224](https://github.com/rohaquinlop/complexipy/issues/224), [#243](https://github.com/rohaquinlop/complexipy/issues/243))
+
+### Corregido
+
+- La regla C007 (collapsible-if) ya no sugiere fusionar un `if` anidado
+  cuando una sentencia con efectos secundarios del mismo nivel la
+  precede — la fusión cambiaría el comportamiento del programa. Los
+  comentarios en cabeceras multilínea y los comentarios finales se
+  manejan en lugar de poder ser desplazados por el reemplazo.
+  ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+
 ## [7.0.1] - 2026-08-12
 
 ### Cambiado

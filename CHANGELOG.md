@@ -15,6 +15,15 @@ release section links to its GitHub release notes for the full details.
   The extension module keeps being distributed via maturin wheels.
   ([#224](https://github.com/rohaquinlop/complexipy/issues/224), [#243](https://github.com/rohaquinlop/complexipy/issues/243))
 
+### Fixed
+
+- The C007 collapsible-if rule no longer suggests merging a nested `if`
+  when a same-level statement with side effects precedes it — the merge
+  would change program behavior. Comments in multiline headers and
+  trailing comments are handled instead of being misplaceable by the
+  replacement.
+  ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+
 ## [7.0.1] - 2026-08-12
 
 ### Changed
