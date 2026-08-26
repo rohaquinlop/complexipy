@@ -810,7 +810,7 @@ fn line_ends_with_statement_colon(line: &str) -> bool {
             } else if c == quote {
                 string_state = None;
             }
-        } else if (c == '\'' || c == '"') {
+        } else if c == '\'' || c == '"' {
             let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
             string_state = Some((c, triple));
             i += if triple { 3 } else { 1 };
