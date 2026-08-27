@@ -22,6 +22,7 @@ nav:
       - Reglas de Refactorización: refactoring-rules.md
   - Acerca de:
       - Acerca de complexipy: about.md
+      - Puntos de Referencia: benchmarks.md
 
 theme:
   name: material
