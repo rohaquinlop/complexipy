@@ -20,6 +20,7 @@ nav:
       - Refactoring Rules: refactoring-rules.md
   - About:
       - About complexipy: about.md
+      - Benchmarks: benchmarks.md
 
 theme:
   name: material
