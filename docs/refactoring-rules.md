@@ -97,9 +97,9 @@ def process_items(items):
 def process_items(items):
     total = 0
     for item in items:
-        if not item.active:
+        if not (item.active):
             continue
-        if not item.ready:
+        if not (item.ready):
             continue
         total += item.value
     return total
