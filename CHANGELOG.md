@@ -37,6 +37,13 @@ release section links to its GitHub release notes for the full details.
   `while` conditions stay `while` loops, and `elif` conditions get help
   text only instead of a broken standalone `if` replacement. The
   predicate body indent now follows the file's indent step.
+- C002 and C007 refuse machine suggestions when the shifted body holds a
+  multi-line string literal: dedenting would change the string's value.
+  The plans carry help text instead.
+- C002 loop guards strip a redundant top-level `not` from the guard
+  condition (`if not a:` becomes guard `if a:`), and C005 predicate names
+  get an underscore suffix when the source already defines the generated
+  name.
 
 ## [7.0.1] - 2026-08-12
 

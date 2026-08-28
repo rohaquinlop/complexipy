@@ -40,6 +40,13 @@ GitHub con todos los detalles.
   las condiciones `elif` reciben solo texto de ayuda en lugar de un
   reemplazo `if` independiente inválido. La sangría del cuerpo del
   predicado ahora sigue el paso de sangría del archivo.
+- C002 y C007 rechazan sugerencias de máquina cuando el cuerpo desplazado
+  contiene un literal de cadena multilínea: quitar sangría cambiaría su
+  valor. Los planes llevan texto de ayuda en su lugar.
+- Los guards de bucle C002 eliminan un `not` redundante de la condición
+  (`if not a:` se convierte en guard `if a:`), y los nombres de predicado
+  de C005 reciben un sufijo de guion bajo cuando el código fuente ya define
+  el nombre generado.
 
 ## [7.0.1] - 2026-08-12
 
