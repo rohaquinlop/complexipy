@@ -6,8 +6,8 @@
 
 use super::{
     collect_loop_if_chain, combine_conditions_chain, detect_indent_step,
-    extract_condition_from_line, fallback_boolean_count,
-    generate_loop_guard_suggestion, needs_parens_for_and,
+    extract_condition_from_line, fallback_boolean_count, generate_loop_guard_suggestion,
+    needs_parens_for_and,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
@@ -385,8 +385,7 @@ fn loop_guard_suggestion_keeps_statements_between_chain_members() {
 
 #[test]
 fn loop_guard_suggestion_shifts_between_statements_at_each_level() {
-    let source =
-        "for x in y:\n    if a:\n        if b:\n            stmt\n            if c:\n                pass\n";
+    let source = "for x in y:\n    if a:\n        if b:\n            stmt\n            if c:\n                pass\n";
     let region = loop_region(
         vec![ComplexityRegion {
             kind: RegionKind::If,
