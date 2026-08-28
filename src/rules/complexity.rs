@@ -45,8 +45,9 @@ impl RefactorRule for FlattenConditionRule {
                          at a lower indentation level."
                 .to_string(),
             help: Some(
-                "Invert the outer condition and return early. Move the main success path \
-                        one indentation level left. Repeat for inner nested conditions where safe."
+                "Invert the outer condition and exit early — `return` from the function, \
+                 or `continue`/`break` when the block sits inside a loop. Move the main \
+                 success path one indentation level left. Repeat for inner nested conditions where safe."
                     .to_string(),
             ),
             ..self.metadata().new_plan()
@@ -103,7 +104,7 @@ impl RefactorRule for LoopGuardsRule {
         let suggestion = generate_loop_guard_suggestion(region, source);
         let help = if suggestion.is_none() {
             Some(
-                "Add `if not <condition>: continue` guards at the top of the loop body \
+                "Add `if not (<condition>): continue` guards at the top of the loop body \
                  for each nested if condition, then dedent the remaining logic by one \
                  level per guard."
                     .to_string(),
@@ -685,7 +686,11 @@ fn generate_loop_guard_suggestion(
     );
 
     for (i, (member, guard)) in guards.iter().enumerate() {
-        result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
+        result.push(format!(
+            "{}if not ({}):",
+            " ".repeat(loop_body_indent),
+            guard
+        ));
         result.push(format!(
             "{}continue",
             " ".repeat(loop_body_indent + indent_step)

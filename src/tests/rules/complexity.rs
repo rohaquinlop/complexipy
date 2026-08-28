@@ -333,7 +333,7 @@ fn loop_guard_suggestion_is_faithful_for_a_pure_chain() {
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    pass"
+        "for x in y:\n    if not (a):\n        continue\n    if not (b):\n        continue\n    pass"
     );
 }
 
@@ -345,7 +345,19 @@ fn loop_guard_suggestion_keeps_leading_statements() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    total += x\n    if not a:\n        continue\n    pass"
+        "for x in y:\n    total += x\n    if not (a):\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_parenthesizes_inverted_or_conditions() {
+    let source = "for x in y:\n    if a or b:\n        pass\n";
+    let region = loop_region(vec![if_stmt(2, 3, 1)], 3);
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not (a or b):\n        continue\n    pass"
     );
 }
 
@@ -357,7 +369,7 @@ fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    pass\n    total += 1"
+        "for x in y:\n    if not (a):\n        continue\n    pass\n    total += 1"
     );
 }
 
@@ -379,7 +391,7 @@ fn loop_guard_suggestion_keeps_statements_between_chain_members() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    total += x\n    if not b:\n        continue\n    pass"
+        "for x in y:\n    if not (a):\n        continue\n    total += x\n    if not (b):\n        continue\n    pass"
     );
 }
 
@@ -408,7 +420,7 @@ fn loop_guard_suggestion_shifts_between_statements_at_each_level() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    stmt\n    if not c:\n        continue\n    pass"
+        "for x in y:\n    if not (a):\n        continue\n    if not (b):\n        continue\n    stmt\n    if not (c):\n        continue\n    pass"
     );
 }
 
@@ -430,7 +442,7 @@ fn loop_guard_suggestion_keeps_an_else_on_the_last_chain_member() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    if b:\n        pass\n    else:\n        pass"
+        "for x in y:\n    if not (a):\n        continue\n    if b:\n        pass\n    else:\n        pass"
     );
 }
 
@@ -445,7 +457,7 @@ fn loop_guard_suggestion_preserves_a_multiline_header() {
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
-        "for x in (\n    items):\n    if not a:\n        continue\n    pass"
+        "for x in (\n    items):\n    if not (a):\n        continue\n    pass"
     );
 }
 
@@ -504,6 +516,6 @@ fn loop_guard_suggestion_keeps_unextractable_members_in_the_survivor() {
     let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not a:\n        continue\n    if (b and\n            c):\n        pass"
+        "for x in y:\n    if not (a):\n        continue\n    if (b and\n            c):\n        pass"
     );
 }

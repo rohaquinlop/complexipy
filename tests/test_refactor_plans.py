@@ -323,7 +323,7 @@ def test_loop_guard_only_converts_outermost_if() -> None:
     )
     assert loop_guard_plan is not None
     assert loop_guard_plan.suggestion is not None
-    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
+    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
 
 
@@ -361,7 +361,7 @@ def test_loop_guard_preserves_inner_if_else() -> None:
     )
     assert loop_guard_plan is not None, "C002 should fire when C007 can't"
     assert loop_guard_plan.suggestion is not None
-    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
+    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
     # The inner if/else should be preserved
     assert (
@@ -379,9 +379,9 @@ def test_loop_guard_preserves_statement_between_members() -> None:
     replacement = plan.suggestion.replacement
 
     assert "total += x" in replacement
-    guard_1 = replacement.index("if not x > 0:")
+    guard_1 = replacement.index("if not (x > 0):")
     statement = replacement.index("total += x")
-    guard_2 = replacement.index("if not total > 100:")
+    guard_2 = replacement.index("if not (total > 100):")
     assert guard_1 < statement < guard_2
 
 
@@ -398,6 +398,24 @@ def test_loop_guard_preserves_multiline_statement_between_members() -> None:
     call_idx = replacement.index("total += calculate(")
     arg_idx = replacement.index("x, scale,")
     assert call_idx < arg_idx
+
+
+def test_loop_guard_parenthesizes_or_condition() -> None:
+    """C002 must parenthesize the inverted guard for `or` conditions."""
+    func = first_func(load_source("loop_guards_parenthesizes_or_condition.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if not (x < 0 or x > 100):" in replacement
+
+
+def test_loop_guard_parenthesizes_and_condition() -> None:
+    """C002 must parenthesize the inverted guard for `and` conditions."""
+    func = first_func(load_source("loop_guards_parenthesizes_and_condition.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if not (x > 0 and x < 50):" in replacement
 
 
 def test_collapsible_if_skips_when_outer_has_else() -> None:
