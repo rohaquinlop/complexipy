@@ -316,6 +316,8 @@ Extract complex boolean conditions into named predicate functions.
 
 This rule triggers when a boolean condition contains 2+ logical operators (and, or, not).
 
+The suggestion keeps the statement keyword: an `if` condition stays an `if`, a `while` condition stays a `while`. Conditions on `elif` lines only get help text, because an extracted function cannot be placed inside an if-chain.
+
 #### Example
 
 **Before:**
@@ -357,6 +359,8 @@ Merge nested if statements into a single if with combined conditions.
 #### When does it trigger?
 
 This rule triggers when an `if` statement's entire body is a single nested `if` with no `else` branch, for a chain of two or more such levels.
+
+The merge is skipped when any statement or comment sits between the outer and inner `if`, so the suggestion never drops code.
 
 #### Example
 

@@ -316,6 +316,8 @@ Extrae condiciones booleanas complejas en funciones predicado con nombre.
 
 Esta regla se activa cuando una condición booleana contiene 2+ operadores lógicos (and, or, not).
 
+La sugerencia conserva la palabra clave de la sentencia: una condición `if` sigue siendo `if`, una condición `while` sigue siendo `while`. Las condiciones en líneas `elif` solo reciben texto de ayuda, porque una función extraída no puede colocarse dentro de una cadena if.
+
 #### Ejemplo
 
 **Antes:**
@@ -357,6 +359,8 @@ Combina sentencias `if` anidadas en un único `if` con las condiciones combinada
 #### ¿Cuándo se activa?
 
 Esta regla se activa cuando el cuerpo completo de una sentencia `if` es un único `if` anidado sin rama `else`, para una cadena de dos o más niveles de este tipo.
+
+La fusión se omite cuando hay alguna sentencia o comentario entre el `if` exterior y el interior, de modo que la sugerencia nunca elimina código.
 
 #### Ejemplo
 
