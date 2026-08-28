@@ -47,6 +47,12 @@ GitHub con todos los detalles.
   (`if not a:` se convierte en guard `if a:`), y los nombres de predicado
   de C005 reciben un sufijo de guion bajo cuando el código fuente ya define
   el nombre generado.
+- La extracción de predicado C005 ahora emite un helper a nivel de módulo
+  cuyos parámetros son las variables libres de la condición (bases de
+  atributos incluidas, builtins excluidas), de modo que el helper es
+  testeable por unidad. El fragmento muestra el contexto que lo rodea en la
+  indentación real de la sentencia. Las condiciones que vinculan un nombre
+  (`:=`) o contienen un lambda/comprensión reciben solo texto de ayuda.
 
 ## [7.0.1] - 2026-08-12
 

@@ -44,6 +44,11 @@ release section links to its GitHub release notes for the full details.
   condition (`if not a:` becomes guard `if a:`), and C005 predicate names
   get an underscore suffix when the source already defines the generated
   name.
+- C005 extract-predicate now emits a module-level helper whose parameters
+  are the condition's free variables (attribute bases included, builtins
+  excluded), so the helper is unit-testable. The snippet shows the
+  enclosing context at the statement's real indentation. Conditions that
+  bind a name (`:=`) or contain a lambda/comprehension get help text only.
 
 ## [7.0.1] - 2026-08-12
 
