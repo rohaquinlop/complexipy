@@ -318,6 +318,8 @@ This rule triggers when a boolean condition contains 2+ logical operators (and, 
 
 The suggestion keeps the statement keyword: an `if` condition stays an `if`, a `while` condition stays a `while`. Conditions on `elif` lines only get help text, because an extracted function cannot be placed inside an if-chain.
 
+The extracted helper is emitted at module level with the condition's free variables as parameters (attribute bases included, builtins excluded), so it is unit-testable. The snippet shows the enclosing context at the statement's real indentation, with `...` placeholders for skipped statements. Conditions that bind a name with `:=` or contain a lambda/comprehension get help text only.
+
 #### Example
 
 **Before:**

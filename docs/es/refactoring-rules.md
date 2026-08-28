@@ -318,6 +318,8 @@ Esta regla se activa cuando una condición booleana contiene 2+ operadores lógi
 
 La sugerencia conserva la palabra clave de la sentencia: una condición `if` sigue siendo `if`, una condición `while` sigue siendo `while`. Las condiciones en líneas `elif` solo reciben texto de ayuda, porque una función extraída no puede colocarse dentro de una cadena if.
 
+El helper extraído se emite a nivel de módulo con las variables libres de la condición como parámetros (bases de atributos incluidas, builtins excluidas), de modo que es testeable por unidad. El fragmento muestra el contexto que lo rodea en la indentación real de la sentencia, con marcadores `...` para las sentencias omitidas. Las condiciones que vinculan un nombre con `:=` o contienen un lambda/comprensión reciben solo texto de ayuda.
+
 #### Ejemplo
 
 **Antes:**
