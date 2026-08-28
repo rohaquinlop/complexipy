@@ -546,27 +546,34 @@ impl RefactorRule for CollapsibleIfRule {
             }
         }
 
-        let suggestion = if conditions_extracted {
-            Some(generate_collapsible_if_suggestion_chain(
+        let mut suggestion = None;
+        let mut help = None;
+        if conditions_extracted {
+            match generate_collapsible_if_suggestion_chain(
                 outermost,
                 innermost,
                 &conditions,
                 &lines,
-            ))
+            ) {
+                Some(s) => suggestion = Some(s),
+                None => {
+                    help = Some(
+                        "Merge the nested if statements into a single `if <outer> and <inner>:` \
+                         block, adjusting the indentation of any multi-line string literals in \
+                         the body by hand — an automatic replacement would change their content."
+                            .to_string(),
+                    );
+                }
+            }
         } else {
-            None
-        };
-        let help = if conditions_extracted {
-            None
-        } else {
-            Some(
+            help = Some(
                 "Merge the nested if statements into a single `if <outer> and <inner>:` \
                  block. The exact condition text could not be extracted automatically \
                  (it may span multiple lines or contain content the parser could not \
                  confidently isolate) — combine the conditions with `and` manually."
                     .to_string(),
-            )
-        };
+            );
+        }
 
         let old_complexity = region.total;
         let boolean_count = if conditions_extracted {
@@ -670,6 +677,17 @@ fn generate_loop_guard_suggestion(
     let innermost_end = (innermost.line_end as usize).min(lines.len());
     let chain_start_idx = (guards[0].0.line_start.saturating_sub(1)) as usize;
 
+    for i in 0..guards.len().saturating_sub(1) {
+        let range_start = (guards[i].0.line_start as usize).min(lines.len());
+        let range_end = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
+        if contains_multiline_string(&lines[range_start..range_end.min(lines.len())]) {
+            return None;
+        }
+    }
+    if contains_multiline_string(&lines[(innermost_line_idx + 1)..innermost_end]) {
+        return None;
+    }
+
     // The body indent and step come from the first chain member's own line:
     // the header may span several lines, so its continuation lines cannot be
     // trusted to reveal the step. Header continuation lines fall into the
@@ -686,10 +704,14 @@ fn generate_loop_guard_suggestion(
     );
 
     for (i, (member, guard)) in guards.iter().enumerate() {
+        let guard_text = match strip_top_level_not(guard) {
+            Some(rest) => rest,
+            None => format!("not ({guard})"),
+        };
         result.push(format!(
-            "{}if not ({}):",
+            "{}if {}:",
             " ".repeat(loop_body_indent),
-            guard
+            guard_text
         ));
         result.push(format!(
             "{}continue",
@@ -796,7 +818,12 @@ fn generate_predicate_suggestion(
 
     let predicate_indent = " ".repeat(base_indent);
     let body_indent = " ".repeat(base_indent + indent_step);
-    let func_name = format!("_check_condition_L{}", region.line_start);
+    let mut func_name = format!("_check_condition_L{}", region.line_start);
+    let mut def_pattern = format!("def {func_name}(");
+    while lines.iter().any(|line| line.contains(&def_pattern)) {
+        func_name.push('_');
+        def_pattern = format!("def {func_name}(");
+    }
 
     let replacement = format!(
         "{predicate_indent}def {func_name}() -> bool:\n\
@@ -970,18 +997,72 @@ fn has_else_branch(region: &ComplexityRegion, lines: &[&str]) -> bool {
     }
 
     let base_indent = get_indentation_from_str(lines[start]);
+    let mut in_triple_string: Option<char> = None;
 
     for line in &lines[start..end] {
-        let trimmed = line.trim_start();
-        let current_indent = get_indentation_from_str(line);
+        if in_triple_string.is_none() {
+            let trimmed = line.trim_start();
+            let current_indent = get_indentation_from_str(line);
 
-        if current_indent == base_indent
-            && (trimmed.starts_with("else:") || trimmed.starts_with("elif "))
-        {
-            return true;
+            if current_indent == base_indent
+                && (trimmed.starts_with("else:") || trimmed.starts_with("elif "))
+            {
+                return true;
+            }
         }
+        update_triple_string_state(line, &mut in_triple_string);
     }
 
+    false
+}
+
+fn update_triple_string_state(line: &str, state: &mut Option<char>) {
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if let Some(quote) = *state {
+            if chars[i] == '\\' {
+                i += 2;
+                continue;
+            }
+            if chars[i] == quote
+                && i + 2 < chars.len()
+                && chars[i + 1] == quote
+                && chars[i + 2] == quote
+            {
+                *state = None;
+                i += 3;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        match chars[i] {
+            '#' => break,
+            '\'' | '"' => {
+                if i + 2 < chars.len() && chars[i + 1] == chars[i] && chars[i + 2] == chars[i] {
+                    *state = Some(chars[i]);
+                    i += 3;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+}
+
+/// True when any line in the slice lies inside a multi-line (triple-quoted)
+/// string. Dedenting such lines changes the string's value, so suggestions
+/// that shift a range must refuse when this returns true.
+fn contains_multiline_string(lines: &[&str]) -> bool {
+    let mut in_triple_string: Option<char> = None;
+    for line in lines {
+        if in_triple_string.is_some() {
+            return true;
+        }
+        update_triple_string_state(line, &mut in_triple_string);
+    }
     false
 }
 
@@ -990,17 +1071,21 @@ fn generate_collapsible_if_suggestion_chain(
     innermost: &ComplexityRegion,
     conditions: &[String],
     lines: &[&str],
-) -> CodeSuggestion {
+) -> Option<CodeSuggestion> {
     let outer_line_idx = (outermost.line_start.saturating_sub(1)) as usize;
     let inner_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
     let inner_end = (innermost.line_end as usize).min(lines.len());
+
+    let body_start = inner_line_idx + 1;
+    if contains_multiline_string(&lines[body_start..inner_end]) {
+        return None;
+    }
 
     let outer_indent = get_indentation_from_str(lines[outer_line_idx]);
     let indent_step = detect_indent_step(&lines[outer_line_idx..inner_end]);
 
     let combined = combine_conditions_chain(conditions);
 
-    let body_start = inner_line_idx + 1;
     let chain_depth = conditions.len();
     let mut body_lines = Vec::new();
     for line in &lines[body_start..inner_end] {
@@ -1018,12 +1103,12 @@ fn generate_collapsible_if_suggestion_chain(
     let indent = " ".repeat(outer_indent);
     let replacement = format!("{}if {}:\n{}", indent, combined, body_lines.join("\n"));
 
-    CodeSuggestion {
+    Some(CodeSuggestion {
         replacement,
         applicability: Applicability::MachineApplicable,
         spliceable: true,
         description: format!("Merge nested conditions into `if {}:`", combined),
-    }
+    })
 }
 
 /// Combine multiple conditions with 'and', wrapping 'or' conditions in parens.
@@ -1116,6 +1201,23 @@ fn mask_nested(condition: &str) -> String {
 fn needs_parens_for_and(condition: &str) -> bool {
     let masked = mask_nested(condition);
     masked.contains(" or ") || masked.contains(" if ") || masked.contains(":=")
+}
+
+/// Returns the remainder of `condition` when it is a single top-level
+/// `not <expr>` whose `<expr>` holds no top-level `and`/`or`/conditional/
+/// walrus. The guard can then render as `if <expr>:` instead of the redundant
+/// `if not (not <expr>):`. Returns `None` for anything less certain.
+fn strip_top_level_not(condition: &str) -> Option<String> {
+    let masked = mask_nested(condition);
+    let rest_masked = masked.strip_prefix("not ")?;
+    if rest_masked.contains(" and ")
+        || rest_masked.contains(" or ")
+        || rest_masked.contains(" if ")
+        || rest_masked.contains(":=")
+    {
+        return None;
+    }
+    Some(condition[4..].to_string())
 }
 
 fn combine_conditions_chain(conditions: &[String]) -> String {

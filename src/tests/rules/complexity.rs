@@ -5,9 +5,9 @@
 //! private helpers through `super::` without widening their visibility.
 
 use super::{
-    collect_loop_if_chain, combine_conditions_chain, detect_indent_step,
-    extract_condition_from_line, fallback_boolean_count, generate_loop_guard_suggestion,
-    needs_parens_for_and,
+    collect_loop_if_chain, combine_conditions_chain, contains_multiline_string, detect_indent_step,
+    extract_condition_from_line, fallback_boolean_count, generate_collapsible_if_suggestion_chain,
+    generate_loop_guard_suggestion, has_else_branch, needs_parens_for_and, strip_top_level_not,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
@@ -358,6 +358,87 @@ fn loop_guard_suggestion_parenthesizes_inverted_or_conditions() {
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a or b):\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_strips_a_redundant_not() {
+    let source = "for x in y:\n    if not a:\n        pass\n";
+    let region = loop_region(vec![if_stmt(2, 3, 1)], 3);
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if a:\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn strip_top_level_not_refuses_mixed_operators() {
+    assert_eq!(strip_top_level_not("not a"), Some("a".to_string()));
+    assert_eq!(
+        strip_top_level_not("not a == b"),
+        Some("a == b".to_string())
+    );
+    assert_eq!(
+        strip_top_level_not("not (a and b)"),
+        Some("(a and b)".to_string())
+    );
+    assert_eq!(strip_top_level_not("not a or b"), None);
+    assert_eq!(strip_top_level_not("not a and b"), None);
+    assert_eq!(strip_top_level_not("a not in b"), None);
+}
+
+#[test]
+fn has_else_branch_ignores_string_content_lines() {
+    let source = "if a:\n    x = \"\"\"foo\nelse:\nbar\"\"\"\n    if b:\n        pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    let region = if_stmt(1, 6, 0);
+
+    assert!(!has_else_branch(&region, &lines));
+}
+
+#[test]
+fn contains_multiline_string_detects_spanned_content() {
+    let plain: Vec<&str> = "x = 1\ny = 2\n".split('\n').collect();
+    assert!(!contains_multiline_string(&plain));
+
+    let single_line_triple: Vec<&str> = "x = \"\"\"foo\"\"\"\n".split('\n').collect();
+    assert!(!contains_multiline_string(&single_line_triple));
+
+    let spanned: Vec<&str> = "x = \"\"\"a\nb\"\"\"\n".split('\n').collect();
+    assert!(contains_multiline_string(&spanned));
+}
+
+#[test]
+fn loop_guard_suggestion_refuses_multiline_string_between_members() {
+    let source = "for x in y:\n    if a:\n        doc = \"\"\"x\n    else:\n    y\"\"\"\n        if b:\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 6,
+            nesting: 1,
+            children: vec![if_stmt(5, 6, 2)],
+            ..Default::default()
+        }],
+        6,
+    );
+
+    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+}
+
+#[test]
+fn collapsible_if_suggestion_refuses_multiline_string_body() {
+    let source = "if a:\n    if b:\n        doc = \"\"\"x\n            y\"\"\"\n";
+    let outermost = if_stmt(1, 4, 0);
+    let innermost = if_stmt(2, 4, 1);
+    let conditions = vec!["a".to_string(), "b".to_string()];
+    let lines: Vec<&str> = source.split('\n').collect();
+
+    assert!(
+        generate_collapsible_if_suggestion_chain(&outermost, &innermost, &conditions, &lines)
+            .is_none()
     );
 }
 

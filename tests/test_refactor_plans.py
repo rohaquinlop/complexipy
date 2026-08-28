@@ -85,6 +85,16 @@ def test_collapsible_if_skips_misaligned_comment_sibling() -> None:
     assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
 
 
+def test_collapsible_if_skips_multiline_string_body() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_multiline_string_body.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
 def test_collapsible_if_skips_sibling_after_innermost_if() -> None:
     func = first_func(load_source("collapsible_if_skips_nested_tail.py"))
 
@@ -416,6 +426,38 @@ def test_loop_guard_parenthesizes_and_condition() -> None:
     replacement = plan.suggestion.replacement
 
     assert "if not (x > 0 and x < 50):" in replacement
+
+
+def test_loop_guard_strips_redundant_not() -> None:
+    """C002 should invert `not a` guards into plain `if a:`."""
+    func = first_func(load_source("loop_guards_strips_redundant_not.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if item.active:" in replacement
+    assert "if not (not item.active):" not in replacement
+
+
+def test_loop_guard_skips_multiline_string_between_members() -> None:
+    """C002 must not dedent content lines of multi-line string literals."""
+    func = first_func(
+        load_source("loop_guards_skips_multiline_string_between.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_name_collision_gets_a_suffix() -> None:
+    """C005 must not reuse a predicate name the source already defines."""
+    func = first_func(load_source("extract_predicate_name_collision.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L2_()" in replacement
+    assert "if _check_condition_L2_():" in replacement
 
 
 def test_collapsible_if_skips_when_outer_has_else() -> None:
