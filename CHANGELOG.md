@@ -23,6 +23,18 @@ release section links to its GitHub release notes for the full details.
   trailing comments are handled instead of being misplaceable by the
   replacement.
   ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+- The C007 preceding-statement guard no longer fails when blank or
+  comment-only lines sit between the outer and inner `if`: the indent
+  step detection now skips such lines, so the merge is still rejected
+  instead of producing a replacement that drops code.
+  ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
+- The C002 loop-guards suggestion keeps statements that sit between the
+  chained `if`s: they now appear in the replacement between the
+  corresponding guards instead of being dropped.
+- The C005 extract-predicate suggestion keeps the statement keyword:
+  `while` conditions stay `while` loops, and `elif` conditions get help
+  text only instead of a broken standalone `if` replacement. The
+  predicate body indent now follows the file's indent step.
 
 ## [7.0.1] - 2026-08-12
 

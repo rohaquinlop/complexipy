@@ -25,6 +25,19 @@ GitHub con todos los detalles.
   comentarios en cabeceras multilínea y los comentarios finales se
   manejan en lugar de poder ser desplazados por el reemplazo.
   ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+- El guardián de la regla C007 ya no falla cuando hay líneas en blanco o
+  solo comentarios entre el `if` exterior y el interior: la detección del
+  paso de sangría ahora omite esas líneas, por lo que la fusión se sigue
+  rechazando en lugar de producir un reemplazo que elimina código.
+  ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
+- La sugerencia de guards de bucle C002 conserva las sentencias que quedan
+  entre los `if` encadenados: ahora aparecen en el reemplazo entre los
+  guards correspondientes en lugar de eliminarse.
+- La sugerencia de extracción de predicado C005 conserva la palabra clave
+  de la sentencia: las condiciones `while` siguen siendo bucles `while`, y
+  las condiciones `elif` reciben solo texto de ayuda en lugar de un
+  reemplazo `if` independiente inválido. La sangría del cuerpo del
+  predicado ahora sigue el paso de sangría del archivo.
 
 ## [7.0.1] - 2026-08-12
 
