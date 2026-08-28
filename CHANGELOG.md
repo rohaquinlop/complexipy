@@ -23,6 +23,32 @@ release section links to its GitHub release notes for the full details.
   trailing comments are handled instead of being misplaceable by the
   replacement.
   ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+- The C007 preceding-statement guard no longer fails when blank or
+  comment-only lines sit between the outer and inner `if`: the indent
+  step detection now skips such lines, so the merge is still rejected
+  instead of producing a replacement that drops code.
+  ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
+- The C002 loop-guards suggestion keeps statements that sit between the
+  chained `if`s: they now appear in the replacement between the
+  corresponding guards instead of being dropped. Guard conditions are now
+  parenthesized (`if not (<cond>):`), so inverting conditions with `and`
+  or `or` no longer silently changes what the guard skips.
+- The C005 extract-predicate suggestion keeps the statement keyword:
+  `while` conditions stay `while` loops, and `elif` conditions get help
+  text only instead of a broken standalone `if` replacement. The
+  predicate body indent now follows the file's indent step.
+- C002 and C007 refuse machine suggestions when the shifted body holds a
+  multi-line string literal: dedenting would change the string's value.
+  The plans carry help text instead.
+- C002 loop guards strip a redundant top-level `not` from the guard
+  condition (`if not a:` becomes guard `if a:`), and C005 predicate names
+  get an underscore suffix when the source already defines the generated
+  name.
+- C005 extract-predicate now emits a module-level helper whose parameters
+  are the condition's free variables (attribute bases included, builtins
+  excluded), so the helper is unit-testable. The snippet shows the
+  enclosing context at the statement's real indentation. Conditions that
+  bind a name (`:=`) or contain a lambda/comprehension get help text only.
 
 ## [7.0.1] - 2026-08-12
 

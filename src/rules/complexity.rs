@@ -2,6 +2,7 @@ use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::utils::count_bool_ops;
+use ruff_python_ast::visitor::{Visitor, walk_expr};
 use ruff_python_ast::{CmpOp, Expr};
 use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
@@ -45,8 +46,9 @@ impl RefactorRule for FlattenConditionRule {
                          at a lower indentation level."
                 .to_string(),
             help: Some(
-                "Invert the outer condition and return early. Move the main success path \
-                        one indentation level left. Repeat for inner nested conditions where safe."
+                "Invert the outer condition and exit early — `return` from the function, \
+                 or `continue`/`break` when the block sits inside a loop. Move the main \
+                 success path one indentation level left. Repeat for inner nested conditions where safe."
                     .to_string(),
             ),
             ..self.metadata().new_plan()
@@ -103,7 +105,7 @@ impl RefactorRule for LoopGuardsRule {
         let suggestion = generate_loop_guard_suggestion(region, source);
         let help = if suggestion.is_none() {
             Some(
-                "Add `if not <condition>: continue` guards at the top of the loop body \
+                "Add `if not (<condition>): continue` guards at the top of the loop body \
                  for each nested if condition, then dedent the remaining logic by one \
                  level per guard."
                     .to_string(),
@@ -510,10 +512,6 @@ impl RefactorRule for CollapsibleIfRule {
         }
 
         let outermost = chain[0];
-        let indent_step = detect_indent_step(
-            &lines[(outermost.line_start.saturating_sub(1)) as usize
-                ..((outermost.line_end as usize).min(lines.len()))],
-        );
 
         for (i, r) in chain.iter().enumerate() {
             if i == chain.len() - 1 {
@@ -524,7 +522,6 @@ impl RefactorRule for CollapsibleIfRule {
             let r_end = (r.line_end as usize).min(lines.len());
             let next_start = (next.line_start as usize).saturating_sub(1);
             let next_end = (next.line_end as usize).min(lines.len());
-            let pair_body_indent = get_indentation_from_str(lines[r_start]) + indent_step;
 
             let mut body_start = r_start + 1;
             if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
@@ -538,43 +535,46 @@ impl RefactorRule for CollapsibleIfRule {
             }
 
             for line in &lines[body_start..next_start.min(lines.len())] {
-                let trimmed = line.trim_start();
-                let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == pair_body_indent {
+                if !line.trim_start().is_empty() {
                     return None;
                 }
             }
 
             for line in &lines[next_end..r_end] {
-                let trimmed = line.trim_start();
-                let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == pair_body_indent {
+                if !line.trim_start().is_empty() {
                     return None;
                 }
             }
         }
 
-        let suggestion = if conditions_extracted {
-            Some(generate_collapsible_if_suggestion_chain(
+        let mut suggestion = None;
+        let mut help = None;
+        if conditions_extracted {
+            match generate_collapsible_if_suggestion_chain(
                 outermost,
                 innermost,
                 &conditions,
                 &lines,
-            ))
+            ) {
+                Some(s) => suggestion = Some(s),
+                None => {
+                    help = Some(
+                        "Merge the nested if statements into a single `if <outer> and <inner>:` \
+                         block, adjusting the indentation of any multi-line string literals in \
+                         the body by hand — an automatic replacement would change their content."
+                            .to_string(),
+                    );
+                }
+            }
         } else {
-            None
-        };
-        let help = if conditions_extracted {
-            None
-        } else {
-            Some(
+            help = Some(
                 "Merge the nested if statements into a single `if <outer> and <inner>:` \
                  block. The exact condition text could not be extracted automatically \
                  (it may span multiple lines or contain content the parser could not \
                  confidently isolate) — combine the conditions with `and` manually."
                     .to_string(),
-            )
-        };
+            );
+        }
 
         let old_complexity = region.total;
         let boolean_count = if conditions_extracted {
@@ -678,6 +678,17 @@ fn generate_loop_guard_suggestion(
     let innermost_end = (innermost.line_end as usize).min(lines.len());
     let chain_start_idx = (guards[0].0.line_start.saturating_sub(1)) as usize;
 
+    for i in 0..guards.len().saturating_sub(1) {
+        let range_start = (guards[i].0.line_start as usize).min(lines.len());
+        let range_end = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
+        if contains_multiline_string(&lines[range_start..range_end.min(lines.len())]) {
+            return None;
+        }
+    }
+    if contains_multiline_string(&lines[(innermost_line_idx + 1)..innermost_end]) {
+        return None;
+    }
+
     // The body indent and step come from the first chain member's own line:
     // the header may span several lines, so its continuation lines cannot be
     // trusted to reveal the step. Header continuation lines fall into the
@@ -693,12 +704,37 @@ fn generate_loop_guard_suggestion(
             .map(|line| (*line).to_string()),
     );
 
-    for (_, guard) in &guards {
-        result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
+    for (i, (member, guard)) in guards.iter().enumerate() {
+        let guard_text = match strip_top_level_not(guard) {
+            Some(rest) => rest,
+            None => format!("not ({guard})"),
+        };
+        result.push(format!(
+            "{}if {}:",
+            " ".repeat(loop_body_indent),
+            guard_text
+        ));
         result.push(format!(
             "{}continue",
             " ".repeat(loop_body_indent + indent_step)
         ));
+
+        if i + 1 < guards.len() {
+            let next_start = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
+            let range_start = (member.line_start as usize).min(lines.len());
+            let shift = indent_step * (i + 1);
+            for line in &lines[range_start..next_start.min(lines.len())] {
+                let trimmed = line.trim_start();
+                if trimmed.is_empty() {
+                    result.push(String::new());
+                    continue;
+                }
+                let current_indent = get_indentation_from_str(line);
+                let shifted = current_indent.saturating_sub(shift);
+                let padding = " ".repeat(shifted);
+                result.push(format!("{}{}", padding, trimmed));
+            }
+        }
     }
 
     for line in &lines[(innermost_line_idx + 1)..innermost_end] {
@@ -730,22 +766,35 @@ fn generate_loop_guard_suggestion(
 }
 
 /// Detect the indentation step (spaces per level) from a block of code.
+/// Blank and comment-only lines carry no structural indent; pairing them
+/// against a body statement would report the body's full indent as the step.
 fn detect_indent_step(lines: &[&str]) -> usize {
-    for i in 1..lines.len() {
-        let prev_indent = get_indentation_from_str(lines[i - 1]);
-        let curr_indent = get_indentation_from_str(lines[i]);
-        if curr_indent > prev_indent {
-            return curr_indent - prev_indent;
+    let mut prev_indent: Option<usize> = None;
+    for line in lines {
+        let trimmed = line.trim_start();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
         }
+        let indent = get_indentation_from_str(line);
+        match prev_indent {
+            Some(prev) if indent > prev => return indent - prev,
+            _ => {}
+        }
+        prev_indent = Some(indent);
     }
     4
 }
 
 /// Generate a concrete suggestion for extracting a complex boolean condition
-/// into a named predicate function. The rewritten `if` replaces the original
-/// statement at its own indentation (nesting it inside the helper would make it
-/// unreachable after the `return`); the `...` stands in for the caller's body and
-/// keeps the snippet parseable on its own.
+/// into a named predicate function. The rewritten statement keeps the
+/// original keyword (`if` or `while`) and the `...` stands in for the
+/// caller's body, keeping the snippet parseable on its own. The helper is
+/// emitted at module level with the condition's free variables as
+/// parameters, so it is importable and unit-testable; the call site passes
+/// the same names. `elif` conditions return `None`: a `def` cannot sit
+/// inside an if-chain, so no faithful replacement exists. Conditions that
+/// bind a name (`:=`) or hold a nested scope (lambda, comprehension) also
+/// return `None`: the parameter list could not be trusted.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -758,19 +807,40 @@ fn generate_predicate_suggestion(
     }
 
     let line = lines[start];
-    let condition = extract_condition_from_line(line.trim_start())?;
-    let base_indent = get_indentation_from_str(line);
+    let trimmed = line.trim_start();
+    let keyword = if trimmed.starts_with("if ") {
+        "if"
+    } else if trimmed.starts_with("while ") {
+        "while"
+    } else {
+        return None;
+    };
+    let condition = extract_condition_from_line(trimmed)?;
+    let parameters = collect_free_names(&condition)?;
+    let indent_step = detect_indent_step(&lines[start..]);
 
-    let predicate_indent = " ".repeat(base_indent);
-    let body_indent = " ".repeat(base_indent + 4);
-    let func_name = format!("_check_condition_L{}", region.line_start);
+    let helper_body_indent = " ".repeat(indent_step);
+    let mut func_name = format!("_check_condition_L{}", region.line_start);
+    let mut def_pattern = format!("def {func_name}(");
+    while lines.iter().any(|line| line.contains(&def_pattern)) {
+        func_name.push('_');
+        def_pattern = format!("def {func_name}(");
+    }
 
+    let parameters_text = parameters.join(", ");
+    let call_text = format!("{keyword} {func_name}({parameters_text}):");
+    let statement_context = match enclosing_header_indices(&lines, start) {
+        Some(headers) => render_statement_context(&headers, &lines, start, indent_step, &call_text),
+        None => format!(
+            "{call_text}\n\
+             {helper_body_indent}..."
+        ),
+    };
     let replacement = format!(
-        "{predicate_indent}def {func_name}() -> bool:\n\
-         {body_indent}return {condition}\n\
+        "def {func_name}({parameters_text}) -> bool:\n\
+         {helper_body_indent}return {condition}\n\
          \n\
-         {predicate_indent}if {func_name}():\n\
-         {body_indent}..."
+         {statement_context}"
     );
 
     Some(CodeSuggestion {
@@ -783,6 +853,265 @@ fn generate_predicate_suggestion(
 
 fn get_indentation_from_str(line: &str) -> usize {
     line.len() - line.trim_start().len()
+}
+
+const PYTHON_BUILTINS: &[&str] = &[
+    "__import__",
+    "abs",
+    "aiter",
+    "all",
+    "anext",
+    "any",
+    "ascii",
+    "bin",
+    "bool",
+    "breakpoint",
+    "bytearray",
+    "bytes",
+    "callable",
+    "chr",
+    "classmethod",
+    "compile",
+    "complex",
+    "delattr",
+    "dict",
+    "dir",
+    "divmod",
+    "enumerate",
+    "eval",
+    "exec",
+    "filter",
+    "float",
+    "format",
+    "frozenset",
+    "getattr",
+    "globals",
+    "hasattr",
+    "hash",
+    "help",
+    "hex",
+    "id",
+    "input",
+    "int",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "len",
+    "list",
+    "locals",
+    "map",
+    "max",
+    "memoryview",
+    "min",
+    "next",
+    "object",
+    "oct",
+    "open",
+    "ord",
+    "pow",
+    "print",
+    "property",
+    "range",
+    "repr",
+    "reversed",
+    "round",
+    "set",
+    "setattr",
+    "slice",
+    "sorted",
+    "staticmethod",
+    "str",
+    "sum",
+    "super",
+    "tuple",
+    "type",
+    "vars",
+    "zip",
+];
+
+struct FreeNameCollector<'a> {
+    builtins: &'a [&'a str],
+    names: Vec<String>,
+    disqualified: bool,
+}
+
+impl<'a> Visitor<'a> for FreeNameCollector<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Named(_) | Expr::Lambda(_) => {
+                self.disqualified = true;
+                return;
+            }
+            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {
+                self.disqualified = true;
+                return;
+            }
+            Expr::Name(name) => {
+                let is_new = !self.builtins.contains(&name.id.as_str())
+                    && !self.names.iter().any(|n| n == name.id.as_str());
+                if is_new {
+                    self.names.push(name.id.to_string());
+                }
+            }
+            _ => {}
+        }
+        walk_expr(self, expr);
+    }
+}
+
+/// The condition's free variables, in first-use order, with builtins
+/// excluded. Returns `None` when the condition binds a name (`:=`) or holds
+/// a nested scope (lambda, comprehension) — the parameter list could not be
+/// trusted, so callers fall back to help text.
+fn collect_free_names(condition: &str) -> Option<Vec<String>> {
+    let parsed = parse_expression(condition).ok()?;
+    let expr = *parsed.into_syntax().body;
+    let mut collector = FreeNameCollector {
+        builtins: PYTHON_BUILTINS,
+        names: Vec::new(),
+        disqualified: false,
+    };
+    collector.visit_expr(&expr);
+    if collector.disqualified {
+        return None;
+    }
+    Some(collector.names)
+}
+
+/// Line indices (outermost first) of the block headers enclosing the
+/// condition line, from module level down to the enclosing block. Returns
+/// `None` when the chain cannot be traced to column 0 (module-level
+/// condition, or a broken chain such as a bare statement at a lesser
+/// indent) — callers render the bare call then.
+fn enclosing_header_indices(lines: &[&str], start: usize) -> Option<Vec<usize>> {
+    let mut headers = Vec::new();
+    let mut current_indent = get_indentation_from_str(lines[start]);
+    let mut expect_chain_opener = false;
+    let mut i = start;
+    while i > 0 {
+        i -= 1;
+        let line = lines[i];
+        let trimmed = line.trim_start();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let indent = get_indentation_from_str(line);
+        if indent > current_indent {
+            continue;
+        }
+        if trimmed.starts_with('@') {
+            continue;
+        }
+        if !line_opens_block(trimmed) {
+            return None;
+        }
+        if expect_chain_opener {
+            if indent != current_indent {
+                return None;
+            }
+            headers.push(i);
+            if !is_continuation_header(trimmed) {
+                expect_chain_opener = false;
+                if indent == 0 {
+                    headers.reverse();
+                    return Some(headers);
+                }
+            }
+            continue;
+        }
+        if indent == current_indent {
+            return None;
+        }
+        headers.push(i);
+        current_indent = indent;
+        if is_continuation_header(trimmed) {
+            expect_chain_opener = true;
+        } else if indent == 0 {
+            headers.reverse();
+            return Some(headers);
+        }
+    }
+    None
+}
+
+fn is_continuation_header(trimmed: &str) -> bool {
+    trimmed.starts_with("elif ")
+        || trimmed.starts_with("else:")
+        || trimmed.starts_with("except")
+        || trimmed.starts_with("finally:")
+        || trimmed.starts_with("case ")
+}
+
+fn line_opens_block(trimmed: &str) -> bool {
+    if !line_ends_with_statement_colon(trimmed) {
+        return false;
+    }
+    [
+        "def ",
+        "class ",
+        "async def ",
+        "if ",
+        "elif ",
+        "else:",
+        "for ",
+        "async for ",
+        "while ",
+        "with ",
+        "async with ",
+        "try:",
+        "except",
+        "finally:",
+        "match ",
+        "case ",
+    ]
+    .iter()
+    .any(|head| trimmed.starts_with(head))
+}
+
+fn directly_follows(lines: &[&str], item_idx: usize, prev_idx: usize) -> bool {
+    (prev_idx + 1..item_idx).all(|k| {
+        let trimmed = lines[k].trim_start();
+        trimmed.is_empty() || trimmed.starts_with('#')
+    })
+}
+
+/// Render the enclosing blocks around the call statement at their real
+/// indentation, using `...` placeholders for skipped statements. The result
+/// parses on its own: every placeholder is an Ellipsis expression statement.
+fn render_statement_context(
+    headers: &[usize],
+    lines: &[&str],
+    start: usize,
+    indent_step: usize,
+    call_text: &str,
+) -> String {
+    let call_indent = get_indentation_from_str(lines[start]);
+    let mut out = String::new();
+    let mut prev_idx: Option<usize> = None;
+    for &header_idx in headers {
+        let header_indent = get_indentation_from_str(lines[header_idx]);
+        if let Some(prev) = prev_idx {
+            let prev_indent = get_indentation_from_str(lines[prev]);
+            if header_indent == prev_indent {
+                out.push_str(&format!("{}...\n", " ".repeat(prev_indent + indent_step)));
+            } else if !directly_follows(lines, header_idx, prev) {
+                out.push_str(&format!("{}...\n", " ".repeat(header_indent)));
+            }
+        }
+        out.push_str(lines[header_idx]);
+        out.push('\n');
+        prev_idx = Some(header_idx);
+    }
+    if let Some(prev) = prev_idx {
+        let prev_indent = get_indentation_from_str(lines[prev]);
+        if call_indent > prev_indent && !directly_follows(lines, start, prev) {
+            out.push_str(&format!("{}...\n", " ".repeat(call_indent)));
+        }
+    }
+    out.push_str(&format!("{}{}\n", " ".repeat(call_indent), call_text));
+    out.push_str(&format!("{}...\n", " ".repeat(call_indent + indent_step)));
+    out.push_str(&format!("{}...\n", " ".repeat(call_indent)));
+    out
 }
 
 fn line_ends_with_statement_colon(line: &str) -> bool {
@@ -937,18 +1266,72 @@ fn has_else_branch(region: &ComplexityRegion, lines: &[&str]) -> bool {
     }
 
     let base_indent = get_indentation_from_str(lines[start]);
+    let mut in_triple_string: Option<char> = None;
 
     for line in &lines[start..end] {
-        let trimmed = line.trim_start();
-        let current_indent = get_indentation_from_str(line);
+        if in_triple_string.is_none() {
+            let trimmed = line.trim_start();
+            let current_indent = get_indentation_from_str(line);
 
-        if current_indent == base_indent
-            && (trimmed.starts_with("else:") || trimmed.starts_with("elif "))
-        {
-            return true;
+            if current_indent == base_indent
+                && (trimmed.starts_with("else:") || trimmed.starts_with("elif "))
+            {
+                return true;
+            }
         }
+        update_triple_string_state(line, &mut in_triple_string);
     }
 
+    false
+}
+
+fn update_triple_string_state(line: &str, state: &mut Option<char>) {
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if let Some(quote) = *state {
+            if chars[i] == '\\' {
+                i += 2;
+                continue;
+            }
+            if chars[i] == quote
+                && i + 2 < chars.len()
+                && chars[i + 1] == quote
+                && chars[i + 2] == quote
+            {
+                *state = None;
+                i += 3;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        match chars[i] {
+            '#' => break,
+            '\'' | '"' => {
+                if i + 2 < chars.len() && chars[i + 1] == chars[i] && chars[i + 2] == chars[i] {
+                    *state = Some(chars[i]);
+                    i += 3;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+}
+
+/// True when any line in the slice lies inside a multi-line (triple-quoted)
+/// string. Dedenting such lines changes the string's value, so suggestions
+/// that shift a range must refuse when this returns true.
+fn contains_multiline_string(lines: &[&str]) -> bool {
+    let mut in_triple_string: Option<char> = None;
+    for line in lines {
+        if in_triple_string.is_some() {
+            return true;
+        }
+        update_triple_string_state(line, &mut in_triple_string);
+    }
     false
 }
 
@@ -957,17 +1340,21 @@ fn generate_collapsible_if_suggestion_chain(
     innermost: &ComplexityRegion,
     conditions: &[String],
     lines: &[&str],
-) -> CodeSuggestion {
+) -> Option<CodeSuggestion> {
     let outer_line_idx = (outermost.line_start.saturating_sub(1)) as usize;
     let inner_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
     let inner_end = (innermost.line_end as usize).min(lines.len());
+
+    let body_start = inner_line_idx + 1;
+    if contains_multiline_string(&lines[body_start..inner_end]) {
+        return None;
+    }
 
     let outer_indent = get_indentation_from_str(lines[outer_line_idx]);
     let indent_step = detect_indent_step(&lines[outer_line_idx..inner_end]);
 
     let combined = combine_conditions_chain(conditions);
 
-    let body_start = inner_line_idx + 1;
     let chain_depth = conditions.len();
     let mut body_lines = Vec::new();
     for line in &lines[body_start..inner_end] {
@@ -985,12 +1372,12 @@ fn generate_collapsible_if_suggestion_chain(
     let indent = " ".repeat(outer_indent);
     let replacement = format!("{}if {}:\n{}", indent, combined, body_lines.join("\n"));
 
-    CodeSuggestion {
+    Some(CodeSuggestion {
         replacement,
         applicability: Applicability::MachineApplicable,
         spliceable: true,
         description: format!("Merge nested conditions into `if {}:`", combined),
-    }
+    })
 }
 
 /// Combine multiple conditions with 'and', wrapping 'or' conditions in parens.
@@ -1083,6 +1470,23 @@ fn mask_nested(condition: &str) -> String {
 fn needs_parens_for_and(condition: &str) -> bool {
     let masked = mask_nested(condition);
     masked.contains(" or ") || masked.contains(" if ") || masked.contains(":=")
+}
+
+/// Returns the remainder of `condition` when it is a single top-level
+/// `not <expr>` whose `<expr>` holds no top-level `and`/`or`/conditional/
+/// walrus. The guard can then render as `if <expr>:` instead of the redundant
+/// `if not (not <expr>):`. Returns `None` for anything less certain.
+fn strip_top_level_not(condition: &str) -> Option<String> {
+    let masked = mask_nested(condition);
+    let rest_masked = masked.strip_prefix("not ")?;
+    if rest_masked.contains(" and ")
+        || rest_masked.contains(" or ")
+        || rest_masked.contains(" if ")
+        || rest_masked.contains(":=")
+    {
+        return None;
+    }
+    Some(condition[4..].to_string())
 }
 
 fn combine_conditions_chain(conditions: &[String]) -> String {

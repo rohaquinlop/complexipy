@@ -202,10 +202,12 @@ so `id` / `category` / `applicability` / `description` / `doc_url` can only ever
 from metadata; rules fill in the dynamic fields via `..metadata().new_plan()`.
 
 `RuleRegistry::analyze()` then, in order: collects plans over the region tree
-recursively, drops any plan with `estimated_reduction < 2` as noise, sorts by
-`effectiveness` desc → reduction desc → line asc, resolves overlapping line ranges by
-keeping the higher-effectiveness/higher-reduction plan, and caps at 5 plans per
-function.
+recursively, drops any plan with `estimated_reduction < 1` as noise, sorts by
+spliceable desc → `effectiveness` desc → reduction desc → line asc (a
+machine-applicable replacement beats a help-only plan of higher
+effectiveness), resolves overlapping line ranges by keeping the
+higher-spliceable/higher-effectiveness/higher-reduction plan, and caps at 5
+plans per function.
 
 `effectiveness` in `RuleMetadata` is the single source of truth for ranking — the
 registry reads it via `effectiveness_by_rule_id()`, so there is no `match rule_id`

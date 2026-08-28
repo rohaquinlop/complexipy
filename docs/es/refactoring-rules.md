@@ -97,9 +97,9 @@ def process_items(items):
 def process_items(items):
     total = 0
     for item in items:
-        if not item.active:
+        if not (item.active):
             continue
-        if not item.ready:
+        if not (item.ready):
             continue
         total += item.value
     return total
@@ -316,6 +316,10 @@ Extrae condiciones booleanas complejas en funciones predicado con nombre.
 
 Esta regla se activa cuando una condición booleana contiene 2+ operadores lógicos (and, or, not).
 
+La sugerencia conserva la palabra clave de la sentencia: una condición `if` sigue siendo `if`, una condición `while` sigue siendo `while`. Las condiciones en líneas `elif` solo reciben texto de ayuda, porque una función extraída no puede colocarse dentro de una cadena if.
+
+El helper extraído se emite a nivel de módulo con las variables libres de la condición como parámetros (bases de atributos incluidas, builtins excluidas), de modo que es testeable por unidad. El fragmento muestra el contexto que lo rodea en la indentación real de la sentencia, con marcadores `...` para las sentencias omitidas. Las condiciones que vinculan un nombre con `:=` o contienen un lambda/comprensión reciben solo texto de ayuda.
+
 #### Ejemplo
 
 **Antes:**
@@ -357,6 +361,8 @@ Combina sentencias `if` anidadas en un único `if` con las condiciones combinada
 #### ¿Cuándo se activa?
 
 Esta regla se activa cuando el cuerpo completo de una sentencia `if` es un único `if` anidado sin rama `else`, para una cadena de dos o más niveles de este tipo.
+
+La fusión se omite cuando hay alguna sentencia o comentario entre el `if` exterior y el interior, de modo que la sugerencia nunca elimina código.
 
 #### Ejemplo
 

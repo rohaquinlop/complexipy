@@ -61,6 +61,40 @@ def test_issue_228_does_not_merge_recursive_call_with_nested_if() -> None:
     assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
 
 
+def test_collapsible_if_skips_blank_line_before_preceding_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_blank_line_preceding_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_collapsible_if_skips_blank_line_before_comment_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_blank_line_before_comment_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_collapsible_if_skips_misaligned_comment_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_misaligned_comment_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_collapsible_if_skips_multiline_string_body() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_multiline_string_body.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
 def test_collapsible_if_skips_sibling_after_innermost_if() -> None:
     func = first_func(load_source("collapsible_if_skips_nested_tail.py"))
 
@@ -170,6 +204,35 @@ def test_boolean_heavy_condition_creates_predicate_plan() -> None:
     assert plan.help is None
 
 
+def test_predicate_while_keeps_while_keyword() -> None:
+    func = first_func(load_source("extract_predicate_while.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "while _check_condition_L3(i, items, limit):" in replacement
+    assert "\n    if _check_condition_L3(i, items, limit):" not in replacement
+
+
+def test_predicate_elif_emits_help_only() -> None:
+    func = first_func(load_source("extract_predicate_elif.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_uses_detected_indent_step() -> None:
+    func = first_func(load_source("extract_predicate_two_space_indent.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.replacement.startswith(
+        "def _check_condition_L2(user, order)"
+    )
+    assert "\n  return " in plan.suggestion.replacement
+
+
 def test_try_nested_through_with_creates_flatten_try_plan() -> None:
     func = first_func(load_source("flatten_try_with_nested.py"))
 
@@ -273,7 +336,7 @@ def test_loop_guard_only_converts_outermost_if() -> None:
     )
     assert loop_guard_plan is not None
     assert loop_guard_plan.suggestion is not None
-    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
+    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
 
 
@@ -311,13 +374,134 @@ def test_loop_guard_preserves_inner_if_else() -> None:
     )
     assert loop_guard_plan is not None, "C002 should fire when C007 can't"
     assert loop_guard_plan.suggestion is not None
-    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
+    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
     # The inner if/else should be preserved
     assert (
         "if item.value > threshold:" in loop_guard_plan.suggestion.replacement
     )
     assert "else:" in loop_guard_plan.suggestion.replacement
+
+
+def test_loop_guard_preserves_statement_between_members() -> None:
+    """C002 should keep statements between chained ifs in the replacement."""
+    func = first_func(
+        load_source("loop_guards_preserves_between_statements.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "total += x" in replacement
+    guard_1 = replacement.index("if not (x > 0):")
+    statement = replacement.index("total += x")
+    guard_2 = replacement.index("if not (total > 100):")
+    assert guard_1 < statement < guard_2
+
+
+def test_loop_guard_preserves_multiline_statement_between_members() -> None:
+    """C002 should keep multi-line statements between chained ifs aligned."""
+    func = first_func(
+        load_source("loop_guards_preserves_multiline_between_statement.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "total += calculate(" in replacement
+    assert "x, scale," in replacement
+    call_idx = replacement.index("total += calculate(")
+    arg_idx = replacement.index("x, scale,")
+    assert call_idx < arg_idx
+
+
+def test_loop_guard_parenthesizes_or_condition() -> None:
+    """C002 must parenthesize the inverted guard for `or` conditions."""
+    func = first_func(load_source("loop_guards_parenthesizes_or_condition.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if not (x < 0 or x > 100):" in replacement
+
+
+def test_loop_guard_parenthesizes_and_condition() -> None:
+    """C002 must parenthesize the inverted guard for `and` conditions."""
+    func = first_func(load_source("loop_guards_parenthesizes_and_condition.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if not (x > 0 and x < 50):" in replacement
+
+
+def test_loop_guard_strips_redundant_not() -> None:
+    """C002 should invert `not a` guards into plain `if a:`."""
+    func = first_func(load_source("loop_guards_strips_redundant_not.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "if item.active:" in replacement
+    assert "if not (not item.active):" not in replacement
+
+
+def test_loop_guard_skips_multiline_string_between_members() -> None:
+    """C002 must not dedent content lines of multi-line string literals."""
+    func = first_func(
+        load_source("loop_guards_skips_multiline_string_between.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_name_collision_gets_a_suffix() -> None:
+    """C005 must not reuse a predicate name the source already defines."""
+    func = first_func(load_source("extract_predicate_name_collision.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L2_(a, b)" in replacement
+    assert "if _check_condition_L2_(a, b):" in replacement
+
+
+def test_predicate_collects_parameters() -> None:
+    """C005 should pass free variables (attribute bases) as parameters."""
+    func = first_func(load_source("extract_predicate_parameters.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L2(user, order) -> bool:" in replacement
+    assert "if _check_condition_L2(user, order):" in replacement
+
+
+def test_predicate_passes_self_as_parameter() -> None:
+    func = first_func(load_source("extract_predicate_self.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L3(self, limit) -> bool:" in replacement
+    assert "if _check_condition_L3(self, limit):" in replacement
+
+
+def test_predicate_walrus_emits_help_only() -> None:
+    func = first_func(load_source("extract_predicate_walrus.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_shows_else_chain_context() -> None:
+    func = first_func(load_source("extract_predicate_else_context.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "if x > 0:" in replacement
+    assert "else:" in replacement
+    assert "if _check_condition_L5(y):" in replacement
+    ast.parse(textwrap.dedent(replacement))
 
 
 def test_collapsible_if_skips_when_outer_has_else() -> None:

@@ -25,6 +25,34 @@ GitHub con todos los detalles.
   comentarios en cabeceras multilínea y los comentarios finales se
   manejan en lugar de poder ser desplazados por el reemplazo.
   ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
+- El guardián de la regla C007 ya no falla cuando hay líneas en blanco o
+  solo comentarios entre el `if` exterior y el interior: la detección del
+  paso de sangría ahora omite esas líneas, por lo que la fusión se sigue
+  rechazando en lugar de producir un reemplazo que elimina código.
+  ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
+- La sugerencia de guards de bucle C002 conserva las sentencias que quedan
+  entre los `if` encadenados: ahora aparecen en el reemplazo entre los
+  guards correspondientes en lugar de eliminarse. Las condiciones de guarda
+  ahora se parentizan (`if not (<cond>):`), de modo que invertir condiciones
+  con `and` u `or` ya no cambia silenciosamente lo que omite la guarda.
+- La sugerencia de extracción de predicado C005 conserva la palabra clave
+  de la sentencia: las condiciones `while` siguen siendo bucles `while`, y
+  las condiciones `elif` reciben solo texto de ayuda en lugar de un
+  reemplazo `if` independiente inválido. La sangría del cuerpo del
+  predicado ahora sigue el paso de sangría del archivo.
+- C002 y C007 rechazan sugerencias de máquina cuando el cuerpo desplazado
+  contiene un literal de cadena multilínea: quitar sangría cambiaría su
+  valor. Los planes llevan texto de ayuda en su lugar.
+- Los guards de bucle C002 eliminan un `not` redundante de la condición
+  (`if not a:` se convierte en guard `if a:`), y los nombres de predicado
+  de C005 reciben un sufijo de guion bajo cuando el código fuente ya define
+  el nombre generado.
+- La extracción de predicado C005 ahora emite un helper a nivel de módulo
+  cuyos parámetros son las variables libres de la condición (bases de
+  atributos incluidas, builtins excluidas), de modo que el helper es
+  testeable por unidad. El fragmento muestra el contexto que lo rodea en la
+  indentación real de la sentencia. Las condiciones que vinculan un nombre
+  (`:=`) o contienen un lambda/comprensión reciben solo texto de ayuda.
 
 ## [7.0.1] - 2026-08-12
 
