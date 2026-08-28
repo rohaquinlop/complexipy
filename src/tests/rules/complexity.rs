@@ -5,15 +5,165 @@
 //! private helpers through `super::` without widening their visibility.
 
 use super::{
-    collect_loop_if_chain, combine_conditions_chain, contains_multiline_string, detect_indent_step,
-    extract_condition_from_line, fallback_boolean_count, generate_collapsible_if_suggestion_chain,
-    generate_loop_guard_suggestion, has_else_branch, needs_parens_for_and, strip_top_level_not,
+    collect_free_names, collect_loop_if_chain, combine_conditions_chain, contains_multiline_string,
+    detect_indent_step, enclosing_header_indices, extract_condition_from_line,
+    fallback_boolean_count, generate_collapsible_if_suggestion_chain,
+    generate_loop_guard_suggestion, generate_predicate_suggestion, has_else_branch,
+    needs_parens_for_and, render_statement_context, strip_top_level_not,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
 fn combine(parts: &[&str]) -> String {
     let owned: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
     combine_conditions_chain(&owned)
+}
+
+#[test]
+fn collect_free_names_includes_attribute_bases_and_skips_builtins() {
+    assert_eq!(
+        collect_free_names("user.is_active and len(items) > 0"),
+        Some(vec!["user".to_string(), "items".to_string()])
+    );
+}
+
+#[test]
+fn collect_free_names_deduplicates_in_first_use_order() {
+    assert_eq!(
+        collect_free_names("a > 1 and a < 2 or b"),
+        Some(vec!["a".to_string(), "b".to_string()])
+    );
+}
+
+#[test]
+fn collect_free_names_includes_self() {
+    assert_eq!(
+        collect_free_names("self.x > 0 and self.y < 1"),
+        Some(vec!["self".to_string()])
+    );
+}
+
+#[test]
+fn collect_free_names_returns_none_for_walrus() {
+    assert_eq!(collect_free_names("(n := len(items)) > 3 and n < 10"), None);
+}
+
+#[test]
+fn collect_free_names_returns_none_for_lambda() {
+    assert_eq!(collect_free_names("(lambda x: x > 0)(v) and v < 10"), None);
+}
+
+#[test]
+fn collect_free_names_returns_none_for_comprehension() {
+    assert_eq!(
+        collect_free_names("all(x > 0 for x in items) and items"),
+        None
+    );
+}
+
+#[test]
+fn collect_free_names_returns_empty_for_literal_only_conditions() {
+    assert_eq!(collect_free_names("1 < 2 and 3 < 4"), Some(vec![]));
+}
+
+#[test]
+fn enclosing_header_indices_finds_the_function_chain() {
+    let source = "def sample(a, b):\n    if a and b or a:\n        return 1\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 1), Some(vec![0]));
+}
+
+#[test]
+fn enclosing_header_indices_collects_nested_blocks() {
+    let source = "def f(items):\n    for item in items:\n        if item.active and item.ready:\n            pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 2), Some(vec![0, 1]));
+}
+
+#[test]
+fn enclosing_header_indices_skips_decorators() {
+    let source = "@deco\ndef f(x):\n    if x and x > 0:\n        pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 2), Some(vec![1]));
+}
+
+#[test]
+fn enclosing_header_indices_returns_none_for_module_level_conditions() {
+    let source = "if a and b:\n    pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 0), None);
+}
+
+#[test]
+fn enclosing_header_indices_returns_none_for_a_broken_chain() {
+    let source = "x = 1\n    def f():\n        if a and b:\n            pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 2), None);
+}
+
+#[test]
+fn enclosing_header_indices_collects_else_chains() {
+    let source = "if a:\n    pass\nelse:\n    if b and c:\n        pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 3), Some(vec![0, 2]));
+}
+
+#[test]
+fn enclosing_header_indices_collects_elif_chains() {
+    let source = "def f(x, y):\n    if x > 0:\n        pass\n    elif y > 0:\n        if y > 1 and y < 9:\n            pass\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    assert_eq!(enclosing_header_indices(&lines, 4), Some(vec![0, 1, 3]));
+}
+
+#[test]
+fn predicate_suggestion_shows_the_enclosing_function_context() {
+    let source = "def sample(a, b):\n    if a and b or a:\n        return 1\n    return 0\n";
+    let region = ComplexityRegion {
+        kind: RegionKind::BooleanCondition,
+        line_start: 2,
+        line_end: 2,
+        ..Default::default()
+    };
+
+    let suggestion = generate_predicate_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "def _check_condition_L2(a, b) -> bool:\n    return a and b or a\n\ndef sample(a, b):\n    if _check_condition_L2(a, b):\n        ...\n    ...\n"
+    );
+}
+
+#[test]
+fn predicate_suggestion_falls_back_to_a_bare_call_at_module_level() {
+    let source = "if a and b or a:\n    pass\n";
+    let region = ComplexityRegion {
+        kind: RegionKind::BooleanCondition,
+        line_start: 1,
+        line_end: 1,
+        ..Default::default()
+    };
+
+    let suggestion = generate_predicate_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "def _check_condition_L1(a, b) -> bool:\n    return a and b or a\n\nif _check_condition_L1(a, b):\n    ..."
+    );
+}
+
+#[test]
+fn render_statement_context_places_a_placeholder_for_skipped_statements() {
+    let source = "def wait_until(items, limit):\n    i = 0\n    while i < len(items) and i < limit:\n        i += 1\n";
+    let lines: Vec<&str> = source.split('\n').collect();
+    let context = render_statement_context(
+        &[0],
+        &lines,
+        2,
+        4,
+        "while _check_condition_L3(i, items, limit):",
+    );
+
+    assert_eq!(
+        context,
+        "def wait_until(items, limit):\n    ...\n    while _check_condition_L3(i, items, limit):\n        ...\n    ...\n"
+    );
 }
 
 #[test]

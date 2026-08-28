@@ -209,8 +209,9 @@ def test_predicate_while_keeps_while_keyword() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    assert "while _check_condition_L3():" in plan.suggestion.replacement
-    assert "\n    if _check_condition_L3():" not in plan.suggestion.replacement
+    replacement = plan.suggestion.replacement
+    assert "while _check_condition_L3(i, items, limit):" in replacement
+    assert "\n    if _check_condition_L3(i, items, limit):" not in replacement
 
 
 def test_predicate_elif_emits_help_only() -> None:
@@ -226,8 +227,10 @@ def test_predicate_uses_detected_indent_step() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    assert plan.suggestion.replacement.startswith("  def _check_condition_L2()")
-    assert "\n    return " in plan.suggestion.replacement
+    assert plan.suggestion.replacement.startswith(
+        "def _check_condition_L2(user, order)"
+    )
+    assert "\n  return " in plan.suggestion.replacement
 
 
 def test_try_nested_through_with_creates_flatten_try_plan() -> None:
@@ -456,8 +459,49 @@ def test_predicate_name_collision_gets_a_suffix() -> None:
 
     assert plan.suggestion is not None
     replacement = plan.suggestion.replacement
-    assert "def _check_condition_L2_()" in replacement
-    assert "if _check_condition_L2_():" in replacement
+    assert "def _check_condition_L2_(a, b)" in replacement
+    assert "if _check_condition_L2_(a, b):" in replacement
+
+
+def test_predicate_collects_parameters() -> None:
+    """C005 should pass free variables (attribute bases) as parameters."""
+    func = first_func(load_source("extract_predicate_parameters.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L2(user, order) -> bool:" in replacement
+    assert "if _check_condition_L2(user, order):" in replacement
+
+
+def test_predicate_passes_self_as_parameter() -> None:
+    func = first_func(load_source("extract_predicate_self.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "def _check_condition_L3(self, limit) -> bool:" in replacement
+    assert "if _check_condition_L3(self, limit):" in replacement
+
+
+def test_predicate_walrus_emits_help_only() -> None:
+    func = first_func(load_source("extract_predicate_walrus.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_shows_else_chain_context() -> None:
+    func = first_func(load_source("extract_predicate_else_context.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    replacement = plan.suggestion.replacement
+    assert "if x > 0:" in replacement
+    assert "else:" in replacement
+    assert "if _check_condition_L5(y):" in replacement
+    ast.parse(textwrap.dedent(replacement))
 
 
 def test_collapsible_if_skips_when_outer_has_else() -> None:

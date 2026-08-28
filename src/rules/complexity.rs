@@ -2,6 +2,7 @@ use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::utils::count_bool_ops;
+use ruff_python_ast::visitor::{Visitor, walk_expr};
 use ruff_python_ast::{CmpOp, Expr};
 use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
@@ -786,12 +787,14 @@ fn detect_indent_step(lines: &[&str]) -> usize {
 
 /// Generate a concrete suggestion for extracting a complex boolean condition
 /// into a named predicate function. The rewritten statement keeps the
-/// original keyword (`if` or `while`) and replaces the original statement at
-/// its own indentation (nesting it inside the helper would make it
-/// unreachable after the `return`); the `...` stands in for the caller's body
-/// and keeps the snippet parseable on its own. `elif` conditions return
-/// `None`: a `def` cannot sit inside an if-chain, so no faithful replacement
-/// exists.
+/// original keyword (`if` or `while`) and the `...` stands in for the
+/// caller's body, keeping the snippet parseable on its own. The helper is
+/// emitted at module level with the condition's free variables as
+/// parameters, so it is importable and unit-testable; the call site passes
+/// the same names. `elif` conditions return `None`: a `def` cannot sit
+/// inside an if-chain, so no faithful replacement exists. Conditions that
+/// bind a name (`:=`) or hold a nested scope (lambda, comprehension) also
+/// return `None`: the parameter list could not be trusted.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -813,11 +816,10 @@ fn generate_predicate_suggestion(
         return None;
     };
     let condition = extract_condition_from_line(trimmed)?;
-    let base_indent = get_indentation_from_str(line);
+    let parameters = collect_free_names(&condition)?;
     let indent_step = detect_indent_step(&lines[start..]);
 
-    let predicate_indent = " ".repeat(base_indent);
-    let body_indent = " ".repeat(base_indent + indent_step);
+    let helper_body_indent = " ".repeat(indent_step);
     let mut func_name = format!("_check_condition_L{}", region.line_start);
     let mut def_pattern = format!("def {func_name}(");
     while lines.iter().any(|line| line.contains(&def_pattern)) {
@@ -825,12 +827,20 @@ fn generate_predicate_suggestion(
         def_pattern = format!("def {func_name}(");
     }
 
+    let parameters_text = parameters.join(", ");
+    let call_text = format!("{keyword} {func_name}({parameters_text}):");
+    let statement_context = match enclosing_header_indices(&lines, start) {
+        Some(headers) => render_statement_context(&headers, &lines, start, indent_step, &call_text),
+        None => format!(
+            "{call_text}\n\
+             {helper_body_indent}..."
+        ),
+    };
     let replacement = format!(
-        "{predicate_indent}def {func_name}() -> bool:\n\
-         {body_indent}return {condition}\n\
+        "def {func_name}({parameters_text}) -> bool:\n\
+         {helper_body_indent}return {condition}\n\
          \n\
-         {predicate_indent}{keyword} {func_name}():\n\
-         {body_indent}..."
+         {statement_context}"
     );
 
     Some(CodeSuggestion {
@@ -843,6 +853,265 @@ fn generate_predicate_suggestion(
 
 fn get_indentation_from_str(line: &str) -> usize {
     line.len() - line.trim_start().len()
+}
+
+const PYTHON_BUILTINS: &[&str] = &[
+    "__import__",
+    "abs",
+    "aiter",
+    "all",
+    "anext",
+    "any",
+    "ascii",
+    "bin",
+    "bool",
+    "breakpoint",
+    "bytearray",
+    "bytes",
+    "callable",
+    "chr",
+    "classmethod",
+    "compile",
+    "complex",
+    "delattr",
+    "dict",
+    "dir",
+    "divmod",
+    "enumerate",
+    "eval",
+    "exec",
+    "filter",
+    "float",
+    "format",
+    "frozenset",
+    "getattr",
+    "globals",
+    "hasattr",
+    "hash",
+    "help",
+    "hex",
+    "id",
+    "input",
+    "int",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "len",
+    "list",
+    "locals",
+    "map",
+    "max",
+    "memoryview",
+    "min",
+    "next",
+    "object",
+    "oct",
+    "open",
+    "ord",
+    "pow",
+    "print",
+    "property",
+    "range",
+    "repr",
+    "reversed",
+    "round",
+    "set",
+    "setattr",
+    "slice",
+    "sorted",
+    "staticmethod",
+    "str",
+    "sum",
+    "super",
+    "tuple",
+    "type",
+    "vars",
+    "zip",
+];
+
+struct FreeNameCollector<'a> {
+    builtins: &'a [&'a str],
+    names: Vec<String>,
+    disqualified: bool,
+}
+
+impl<'a> Visitor<'a> for FreeNameCollector<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Named(_) | Expr::Lambda(_) => {
+                self.disqualified = true;
+                return;
+            }
+            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {
+                self.disqualified = true;
+                return;
+            }
+            Expr::Name(name) => {
+                let is_new = !self.builtins.contains(&name.id.as_str())
+                    && !self.names.iter().any(|n| n == name.id.as_str());
+                if is_new {
+                    self.names.push(name.id.to_string());
+                }
+            }
+            _ => {}
+        }
+        walk_expr(self, expr);
+    }
+}
+
+/// The condition's free variables, in first-use order, with builtins
+/// excluded. Returns `None` when the condition binds a name (`:=`) or holds
+/// a nested scope (lambda, comprehension) — the parameter list could not be
+/// trusted, so callers fall back to help text.
+fn collect_free_names(condition: &str) -> Option<Vec<String>> {
+    let parsed = parse_expression(condition).ok()?;
+    let expr = *parsed.into_syntax().body;
+    let mut collector = FreeNameCollector {
+        builtins: PYTHON_BUILTINS,
+        names: Vec::new(),
+        disqualified: false,
+    };
+    collector.visit_expr(&expr);
+    if collector.disqualified {
+        return None;
+    }
+    Some(collector.names)
+}
+
+/// Line indices (outermost first) of the block headers enclosing the
+/// condition line, from module level down to the enclosing block. Returns
+/// `None` when the chain cannot be traced to column 0 (module-level
+/// condition, or a broken chain such as a bare statement at a lesser
+/// indent) — callers render the bare call then.
+fn enclosing_header_indices(lines: &[&str], start: usize) -> Option<Vec<usize>> {
+    let mut headers = Vec::new();
+    let mut current_indent = get_indentation_from_str(lines[start]);
+    let mut expect_chain_opener = false;
+    let mut i = start;
+    while i > 0 {
+        i -= 1;
+        let line = lines[i];
+        let trimmed = line.trim_start();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let indent = get_indentation_from_str(line);
+        if indent > current_indent {
+            continue;
+        }
+        if trimmed.starts_with('@') {
+            continue;
+        }
+        if !line_opens_block(trimmed) {
+            return None;
+        }
+        if expect_chain_opener {
+            if indent != current_indent {
+                return None;
+            }
+            headers.push(i);
+            if !is_continuation_header(trimmed) {
+                expect_chain_opener = false;
+                if indent == 0 {
+                    headers.reverse();
+                    return Some(headers);
+                }
+            }
+            continue;
+        }
+        if indent == current_indent {
+            return None;
+        }
+        headers.push(i);
+        current_indent = indent;
+        if is_continuation_header(trimmed) {
+            expect_chain_opener = true;
+        } else if indent == 0 {
+            headers.reverse();
+            return Some(headers);
+        }
+    }
+    None
+}
+
+fn is_continuation_header(trimmed: &str) -> bool {
+    trimmed.starts_with("elif ")
+        || trimmed.starts_with("else:")
+        || trimmed.starts_with("except")
+        || trimmed.starts_with("finally:")
+        || trimmed.starts_with("case ")
+}
+
+fn line_opens_block(trimmed: &str) -> bool {
+    if !line_ends_with_statement_colon(trimmed) {
+        return false;
+    }
+    [
+        "def ",
+        "class ",
+        "async def ",
+        "if ",
+        "elif ",
+        "else:",
+        "for ",
+        "async for ",
+        "while ",
+        "with ",
+        "async with ",
+        "try:",
+        "except",
+        "finally:",
+        "match ",
+        "case ",
+    ]
+    .iter()
+    .any(|head| trimmed.starts_with(head))
+}
+
+fn directly_follows(lines: &[&str], item_idx: usize, prev_idx: usize) -> bool {
+    (prev_idx + 1..item_idx).all(|k| {
+        let trimmed = lines[k].trim_start();
+        trimmed.is_empty() || trimmed.starts_with('#')
+    })
+}
+
+/// Render the enclosing blocks around the call statement at their real
+/// indentation, using `...` placeholders for skipped statements. The result
+/// parses on its own: every placeholder is an Ellipsis expression statement.
+fn render_statement_context(
+    headers: &[usize],
+    lines: &[&str],
+    start: usize,
+    indent_step: usize,
+    call_text: &str,
+) -> String {
+    let call_indent = get_indentation_from_str(lines[start]);
+    let mut out = String::new();
+    let mut prev_idx: Option<usize> = None;
+    for &header_idx in headers {
+        let header_indent = get_indentation_from_str(lines[header_idx]);
+        if let Some(prev) = prev_idx {
+            let prev_indent = get_indentation_from_str(lines[prev]);
+            if header_indent == prev_indent {
+                out.push_str(&format!("{}...\n", " ".repeat(prev_indent + indent_step)));
+            } else if !directly_follows(lines, header_idx, prev) {
+                out.push_str(&format!("{}...\n", " ".repeat(header_indent)));
+            }
+        }
+        out.push_str(lines[header_idx]);
+        out.push('\n');
+        prev_idx = Some(header_idx);
+    }
+    if let Some(prev) = prev_idx {
+        let prev_indent = get_indentation_from_str(lines[prev]);
+        if call_indent > prev_indent && !directly_follows(lines, start, prev) {
+            out.push_str(&format!("{}...\n", " ".repeat(call_indent)));
+        }
+    }
+    out.push_str(&format!("{}{}\n", " ".repeat(call_indent), call_text));
+    out.push_str(&format!("{}...\n", " ".repeat(call_indent + indent_step)));
+    out.push_str(&format!("{}...\n", " ".repeat(call_indent)));
+    out
 }
 
 fn line_ends_with_statement_colon(line: &str) -> bool {
