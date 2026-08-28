@@ -5,14 +5,39 @@
 //! private helpers through `super::` without widening their visibility.
 
 use super::{
-    collect_loop_if_chain, combine_conditions_chain, extract_condition_from_line,
-    fallback_boolean_count, generate_loop_guard_suggestion, needs_parens_for_and,
+    collect_loop_if_chain, combine_conditions_chain, detect_indent_step,
+    extract_condition_from_line, fallback_boolean_count,
+    generate_loop_guard_suggestion, needs_parens_for_and,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 
 fn combine(parts: &[&str]) -> String {
     let owned: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
     combine_conditions_chain(&owned)
+}
+
+#[test]
+fn detect_indent_step_pairs_structural_lines() {
+    let lines = ["if a:", "    stmt"];
+    assert_eq!(detect_indent_step(&lines), 4);
+}
+
+#[test]
+fn detect_indent_step_skips_blank_lines_when_pairing() {
+    let lines = ["if a:", "", "    stmt"];
+    assert_eq!(detect_indent_step(&lines), 4);
+}
+
+#[test]
+fn detect_indent_step_skips_comment_lines_when_pairing() {
+    let lines = ["if a:", "", "    # note", "    stmt"];
+    assert_eq!(detect_indent_step(&lines), 4);
+}
+
+#[test]
+fn detect_indent_step_returns_default_without_an_increase() {
+    let lines = ["stmt", "", "stmt"];
+    assert_eq!(detect_indent_step(&lines), 4);
 }
 
 #[test]
@@ -333,6 +358,58 @@ fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not a:\n        continue\n    pass\n    total += 1"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_keeps_statements_between_chain_members() {
+    let source = "for x in y:\n    if a:\n        total += x\n        if b:\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 5,
+            nesting: 1,
+            children: vec![if_stmt(4, 5, 2)],
+            ..Default::default()
+        }],
+        5,
+    );
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    total += x\n    if not b:\n        continue\n    pass"
+    );
+}
+
+#[test]
+fn loop_guard_suggestion_shifts_between_statements_at_each_level() {
+    let source =
+        "for x in y:\n    if a:\n        if b:\n            stmt\n            if c:\n                pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 6,
+            nesting: 1,
+            children: vec![ComplexityRegion {
+                kind: RegionKind::If,
+                line_start: 3,
+                line_end: 6,
+                nesting: 2,
+                children: vec![if_stmt(5, 6, 3)],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        6,
+    );
+
+    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    stmt\n    if not c:\n        continue\n    pass"
     );
 }
 

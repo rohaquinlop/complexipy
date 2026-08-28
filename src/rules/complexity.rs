@@ -510,10 +510,6 @@ impl RefactorRule for CollapsibleIfRule {
         }
 
         let outermost = chain[0];
-        let indent_step = detect_indent_step(
-            &lines[(outermost.line_start.saturating_sub(1)) as usize
-                ..((outermost.line_end as usize).min(lines.len()))],
-        );
 
         for (i, r) in chain.iter().enumerate() {
             if i == chain.len() - 1 {
@@ -524,7 +520,6 @@ impl RefactorRule for CollapsibleIfRule {
             let r_end = (r.line_end as usize).min(lines.len());
             let next_start = (next.line_start as usize).saturating_sub(1);
             let next_end = (next.line_end as usize).min(lines.len());
-            let pair_body_indent = get_indentation_from_str(lines[r_start]) + indent_step;
 
             let mut body_start = r_start + 1;
             if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
@@ -538,17 +533,13 @@ impl RefactorRule for CollapsibleIfRule {
             }
 
             for line in &lines[body_start..next_start.min(lines.len())] {
-                let trimmed = line.trim_start();
-                let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == pair_body_indent {
+                if !line.trim_start().is_empty() {
                     return None;
                 }
             }
 
             for line in &lines[next_end..r_end] {
-                let trimmed = line.trim_start();
-                let indent = get_indentation_from_str(line);
-                if !trimmed.is_empty() && indent == pair_body_indent {
+                if !line.trim_start().is_empty() {
                     return None;
                 }
             }
@@ -693,12 +684,29 @@ fn generate_loop_guard_suggestion(
             .map(|line| (*line).to_string()),
     );
 
-    for (_, guard) in &guards {
+    for (i, (member, guard)) in guards.iter().enumerate() {
         result.push(format!("{}if not {}:", " ".repeat(loop_body_indent), guard));
         result.push(format!(
             "{}continue",
             " ".repeat(loop_body_indent + indent_step)
         ));
+
+        if i + 1 < guards.len() {
+            let next_start = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
+            let range_start = (member.line_start as usize).min(lines.len());
+            let shift = indent_step * (i + 1);
+            for line in &lines[range_start..next_start.min(lines.len())] {
+                let trimmed = line.trim_start();
+                if trimmed.is_empty() {
+                    result.push(String::new());
+                    continue;
+                }
+                let current_indent = get_indentation_from_str(line);
+                let shifted = current_indent.saturating_sub(shift);
+                let padding = " ".repeat(shifted);
+                result.push(format!("{}{}", padding, trimmed));
+            }
+        }
     }
 
     for line in &lines[(innermost_line_idx + 1)..innermost_end] {
@@ -730,22 +738,33 @@ fn generate_loop_guard_suggestion(
 }
 
 /// Detect the indentation step (spaces per level) from a block of code.
+/// Blank and comment-only lines carry no structural indent; pairing them
+/// against a body statement would report the body's full indent as the step.
 fn detect_indent_step(lines: &[&str]) -> usize {
-    for i in 1..lines.len() {
-        let prev_indent = get_indentation_from_str(lines[i - 1]);
-        let curr_indent = get_indentation_from_str(lines[i]);
-        if curr_indent > prev_indent {
-            return curr_indent - prev_indent;
+    let mut prev_indent: Option<usize> = None;
+    for line in lines {
+        let trimmed = line.trim_start();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
         }
+        let indent = get_indentation_from_str(line);
+        match prev_indent {
+            Some(prev) if indent > prev => return indent - prev,
+            _ => {}
+        }
+        prev_indent = Some(indent);
     }
     4
 }
 
 /// Generate a concrete suggestion for extracting a complex boolean condition
-/// into a named predicate function. The rewritten `if` replaces the original
-/// statement at its own indentation (nesting it inside the helper would make it
-/// unreachable after the `return`); the `...` stands in for the caller's body and
-/// keeps the snippet parseable on its own.
+/// into a named predicate function. The rewritten statement keeps the
+/// original keyword (`if` or `while`) and replaces the original statement at
+/// its own indentation (nesting it inside the helper would make it
+/// unreachable after the `return`); the `...` stands in for the caller's body
+/// and keeps the snippet parseable on its own. `elif` conditions return
+/// `None`: a `def` cannot sit inside an if-chain, so no faithful replacement
+/// exists.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -758,18 +777,27 @@ fn generate_predicate_suggestion(
     }
 
     let line = lines[start];
-    let condition = extract_condition_from_line(line.trim_start())?;
+    let trimmed = line.trim_start();
+    let keyword = if trimmed.starts_with("if ") {
+        "if"
+    } else if trimmed.starts_with("while ") {
+        "while"
+    } else {
+        return None;
+    };
+    let condition = extract_condition_from_line(trimmed)?;
     let base_indent = get_indentation_from_str(line);
+    let indent_step = detect_indent_step(&lines[start..]);
 
     let predicate_indent = " ".repeat(base_indent);
-    let body_indent = " ".repeat(base_indent + 4);
+    let body_indent = " ".repeat(base_indent + indent_step);
     let func_name = format!("_check_condition_L{}", region.line_start);
 
     let replacement = format!(
         "{predicate_indent}def {func_name}() -> bool:\n\
          {body_indent}return {condition}\n\
          \n\
-         {predicate_indent}if {func_name}():\n\
+         {predicate_indent}{keyword} {func_name}():\n\
          {body_indent}..."
     );
 

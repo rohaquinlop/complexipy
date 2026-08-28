@@ -61,6 +61,30 @@ def test_issue_228_does_not_merge_recursive_call_with_nested_if() -> None:
     assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
 
 
+def test_collapsible_if_skips_blank_line_before_preceding_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_blank_line_preceding_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_collapsible_if_skips_blank_line_before_comment_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_blank_line_before_comment_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
+def test_collapsible_if_skips_misaligned_comment_sibling() -> None:
+    func = first_func(
+        load_source("collapsible_if_skips_misaligned_comment_sibling.py")
+    )
+
+    assert all(plan.kind != "collapsible_if" for plan in func.refactor_plans)
+
+
 def test_collapsible_if_skips_sibling_after_innermost_if() -> None:
     func = first_func(load_source("collapsible_if_skips_nested_tail.py"))
 
@@ -168,6 +192,32 @@ def test_boolean_heavy_condition_creates_predicate_plan() -> None:
     assert plan.suggestion is not None
     assert "def _check_condition_L" in plan.suggestion.replacement
     assert plan.help is None
+
+
+def test_predicate_while_keeps_while_keyword() -> None:
+    func = first_func(load_source("extract_predicate_while.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    assert "while _check_condition_L3():" in plan.suggestion.replacement
+    assert "\n    if _check_condition_L3():" not in plan.suggestion.replacement
+
+
+def test_predicate_elif_emits_help_only() -> None:
+    func = first_func(load_source("extract_predicate_elif.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_predicate_uses_detected_indent_step() -> None:
+    func = first_func(load_source("extract_predicate_two_space_indent.py"))
+    plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.replacement.startswith("  def _check_condition_L2()")
+    assert "\n    return " in plan.suggestion.replacement
 
 
 def test_try_nested_through_with_creates_flatten_try_plan() -> None:
@@ -318,6 +368,36 @@ def test_loop_guard_preserves_inner_if_else() -> None:
         "if item.value > threshold:" in loop_guard_plan.suggestion.replacement
     )
     assert "else:" in loop_guard_plan.suggestion.replacement
+
+
+def test_loop_guard_preserves_statement_between_members() -> None:
+    """C002 should keep statements between chained ifs in the replacement."""
+    func = first_func(
+        load_source("loop_guards_preserves_between_statements.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "total += x" in replacement
+    guard_1 = replacement.index("if not x > 0:")
+    statement = replacement.index("total += x")
+    guard_2 = replacement.index("if not total > 100:")
+    assert guard_1 < statement < guard_2
+
+
+def test_loop_guard_preserves_multiline_statement_between_members() -> None:
+    """C002 should keep multi-line statements between chained ifs aligned."""
+    func = first_func(
+        load_source("loop_guards_preserves_multiline_between_statement.py")
+    )
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert "total += calculate(" in replacement
+    assert "x, scale," in replacement
+    call_idx = replacement.index("total += calculate(")
+    arg_idx = replacement.index("x, scale,")
+    assert call_idx < arg_idx
 
 
 def test_collapsible_if_skips_when_outer_has_else() -> None:

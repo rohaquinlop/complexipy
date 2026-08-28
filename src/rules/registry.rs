@@ -169,23 +169,30 @@ fn measure_reduction(
     Some(plan.current_complexity.saturating_sub(new_complexity))
 }
 
-/// Sorts by effectiveness/reduction/line, then keeps only non-overlapping
-/// plans (highest effectiveness/reduction wins any overlap), capped at 5.
-/// Split out from `RuleRegistry::analyze` so the selection logic can be unit
-/// tested directly against hand-built plans, without needing real rules to
-/// organically produce a given overlap shape.
+/// Sorts by spliceable/effectiveness/reduction/line, then keeps only
+/// non-overlapping plans (highest spliceable/effectiveness/reduction wins any
+/// overlap), capped at 5. A spliceable plan beats a help-only plan of higher
+/// effectiveness: the tool stands behind a faithful, measured replacement
+/// more than behind prose. Split out from `RuleRegistry::analyze` so the
+/// selection logic can be unit tested directly against hand-built plans,
+/// without needing real rules to organically produce a given overlap shape.
 fn select_non_overlapping(
     mut plans: Vec<RefactorPlan>,
     effectiveness: &HashMap<&str, u8>,
 ) -> (Vec<RefactorPlan>, u64) {
     let effectiveness_of = |rule_id: &str| *effectiveness.get(rule_id).unwrap_or(&1);
+    let spliceable_of =
+        |plan: &RefactorPlan| plan.suggestion.as_ref().is_some_and(|s| s.spliceable);
 
     plans.sort_by(|a, b| {
+        let spliceable_a = spliceable_of(a);
+        let spliceable_b = spliceable_of(b);
         let eff_a = effectiveness_of(&a.rule_id);
         let eff_b = effectiveness_of(&b.rule_id);
 
-        eff_b
-            .cmp(&eff_a)
+        spliceable_b
+            .cmp(&spliceable_a)
+            .then_with(|| eff_b.cmp(&eff_a))
             .then_with(|| b.estimated_reduction.cmp(&a.estimated_reduction))
             .then_with(|| a.line_start.cmp(&b.line_start))
     });
@@ -208,12 +215,16 @@ fn select_non_overlapping(
         }
 
         let eff_plan = effectiveness_of(&plan.rule_id);
+        let spliceable_plan = spliceable_of(&plan);
         let beats_all_overlaps = overlapping.iter().all(|&idx| {
             let existing = &selected[idx];
             let eff_existing = effectiveness_of(&existing.rule_id);
-            eff_plan > eff_existing
-                || (eff_plan == eff_existing
-                    && plan.estimated_reduction > existing.estimated_reduction)
+            let spliceable_existing = spliceable_of(existing);
+            spliceable_plan > spliceable_existing
+                || (spliceable_plan == spliceable_existing
+                    && (eff_plan > eff_existing
+                        || (eff_plan == eff_existing
+                            && plan.estimated_reduction > existing.estimated_reduction)))
         });
 
         if beats_all_overlaps {
