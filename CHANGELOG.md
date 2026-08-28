@@ -30,7 +30,9 @@ release section links to its GitHub release notes for the full details.
   ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
 - The C002 loop-guards suggestion keeps statements that sit between the
   chained `if`s: they now appear in the replacement between the
-  corresponding guards instead of being dropped.
+  corresponding guards instead of being dropped. Guard conditions are now
+  parenthesized (`if not (<cond>):`), so inverting conditions with `and`
+  or `or` no longer silently changes what the guard skips.
 - The C005 extract-predicate suggestion keeps the statement keyword:
   `while` conditions stay `while` loops, and `elif` conditions get help
   text only instead of a broken standalone `if` replacement. The

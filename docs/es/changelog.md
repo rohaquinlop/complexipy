@@ -32,7 +32,9 @@ GitHub con todos los detalles.
   ([#245](https://github.com/rohaquinlop/complexipy/issues/245))
 - La sugerencia de guards de bucle C002 conserva las sentencias que quedan
   entre los `if` encadenados: ahora aparecen en el reemplazo entre los
-  guards correspondientes en lugar de eliminarse.
+  guards correspondientes en lugar de eliminarse. Las condiciones de guarda
+  ahora se parentizan (`if not (<cond>):`), de modo que invertir condiciones
+  con `and` u `or` ya no cambia silenciosamente lo que omite la guarda.
 - La sugerencia de extracción de predicado C005 conserva la palabra clave
   de la sentencia: las condiciones `while` siguen siendo bucles `while`, y
   las condiciones `elif` reciben solo texto de ayuda en lugar de un
