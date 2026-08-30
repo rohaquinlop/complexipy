@@ -414,6 +414,10 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
 
+Las banderas booleanas aceptan un valor explícito solo en la forma
+adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
+y el argumento siguiente nunca se consume como su valor.
+
 Ejemplo:
 
 ```
