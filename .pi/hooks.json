@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "hooks": [
+    {
+      "id": "rust-checks",
+      "event": "postToolUse",
+      "matcher": "write|edit(*.rs)",
+      "command": ["sh", ".pi/hook-scripts/rust-checks.sh"],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "py-pytest",
+      "event": "postToolUse",
+      "matcher": "write|edit(*.py)",
+      "command": ["sh", ".pi/hook-scripts/py-pytest.sh"],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "py-ruff",
+      "event": "postToolUse",
+      "matcher": "write|edit(*.py)",
+      "command": ["sh", ".pi/hook-scripts/py-ruff.sh"],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "py-ty",
+      "event": "postToolUse",
+      "matcher": "write|edit(*.py)",
+      "command": ["sh", ".pi/hook-scripts/py-ty.sh"],
+      "timeoutMs": 600000
+    },
+    {
+      "id": "py-complexipy",
+      "event": "postToolUse",
+      "matcher": "write|edit(*.py)",
+      "command": ["sh", ".pi/hook-scripts/py-complexipy.sh"],
+      "timeoutMs": 600000
+    }
+  ]
+}
