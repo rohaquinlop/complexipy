@@ -1,4 +1,4 @@
-def multi_byte_before_marker(a):  # noqa: complexipy — multi-byte em-dash before marker
+def multi_byte_before_marker(a):  # noqa: complexipy - multi-byte em-dash before marker
     if a:
         return a
     elif a > 10:
@@ -27,7 +27,7 @@ def accent_before(b):  # noqa: complexipy café multi-byte accent after marker
 
 def mixed_comment_marker(
     a, b, c
-):  # complexipy: ignore — 🚀 mixed em-dash & emoji
+):  # complexipy: ignore - 🚀 mixed em-dash & emoji
     if a and b:
         return a + b
     elif b and c:
@@ -38,7 +38,7 @@ def mixed_comment_marker(
         return 0
 
 
-def uppercase_variants(x):  # NOQA: COMPLEXIPY — uppercase variant
+def uppercase_variants(x):  # NOQA: COMPLEXIPY - uppercase variant
     if x:
         return x
     elif x > 10:
@@ -47,7 +47,7 @@ def uppercase_variants(x):  # NOQA: COMPLEXIPY — uppercase variant
         return 0
 
 
-def mixed_case_ignore(y):  # Complexipy: Ignore — mixed case
+def mixed_case_ignore(y):  # Complexipy: Ignore - mixed case
     if y:
         return y * 2
     elif y < 0:

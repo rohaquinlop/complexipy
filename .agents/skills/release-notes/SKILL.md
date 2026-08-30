@@ -57,7 +57,7 @@ Release, and optionally create the git tag.
     git log -1 --format="%ci" <prev-tag>
     ```
 
-- Get all **merged PRs** in this range — prefer the merge-commit approach first
+- Get all **merged PRs** in this range - prefer the merge-commit approach first
   (more reliable), then cross-reference with `gh pr list` for author/URL details:
 
     ```bash
@@ -69,7 +69,7 @@ Release, and optionally create the git tag.
       --jq '.[] | select(.mergedAt > "<prev-tag-date>")'
     ```
 
-- **Verify version in source file matches intent** — if the version file shows a
+- **Verify version in source file matches intent** - if the version file shows a
   version different from what the user requested, check the git log for version
   bump commits to understand the actual state (e.g. a bumped-then-reverted scenario).
 
@@ -82,7 +82,7 @@ Release, and optionally create the git tag.
 ### 3. Update the changelog
 
 The project changelog lives in `CHANGELOG.md` (English, single source of
-truth). `docs/changelog.md` embeds it and must stay a stub — never edit its
+truth). `docs/changelog.md` embeds it and must stay a stub - never edit its
 content; only the root file changes. `docs/es/changelog.md` is the Spanish
 mirror.
 
@@ -108,7 +108,7 @@ it moves into a dated release section (step 8).
 
 ### 4. Study past release style
 
-Read the last 2–3 releases to detect the current format convention:
+Read the last 2-3 releases to detect the current format convention:
 
 ```bash
 gh release view <prev-tag> --json body,tagName
@@ -142,14 +142,14 @@ Group commits into sections based on their conventional commit prefix:
 | `revert`   | `## Fixed` or `## Changed`         | Reverts                                       |
 
 For **patch releases**, prefix sections with `##`. For **minor feature releases**,
-`##` or `###` both appear in past practice — follow the most recent style.
+`##` or `###` both appear in past practice - follow the most recent style.
 
 ### 6. Write the release notes body and save to file
 
 Use this structure, adapting to the detected project style:
 
 ```
-[Optional summary paragraph — one or two sentences summarising the release]
+[Optional summary paragraph - one or two sentences summarising the release]
 
 ## [Section header matching past style]
 
@@ -173,7 +173,7 @@ Use this structure, adapting to the detected project style:
 Rules:
 
 - Each change bullet should say **what** changed, **why** (context/pain point),
-  and optionally the **impact** — not just repeat the commit message.
+  and optionally the **impact** - not just repeat the commit message.
 - Patch releases (x.y.Z) should open with a concise summary paragraph.
 - Formatting: use backticks for code, file paths, flags, and types.
 - PR references: use `(#NN)` shorthand within sections, full link in PRs section.
@@ -197,7 +197,7 @@ into a dated release section:
 
 1. Rename `## Unreleased` to `## [<version>] - <date>` (date = the release
    date; use today unless a specific date is intended).
-2. Reset `## Unreleased` to an empty section — it accumulates the next
+2. Reset `## Unreleased` to an empty section - it accumulates the next
    release's changes.
 3. Append the release-link footer to the new section:
    `See the [release notes](https://github.com/<owner>/<repo>/releases/tag/<version>) for the full details.`
@@ -209,7 +209,7 @@ into a dated release section:
    the migration guide (`https://rohaquinlop.github.io/complexipy/migration/`;
    Spanish: `https://rohaquinlop.github.io/complexipy/es/migracion/`).
 
-Never edit `docs/changelog.md` — it embeds the root file via the
+Never edit `docs/changelog.md` - it embeds the root file via the
 pymdownx.snippets include (`--8<-- "CHANGELOG.md"`).
 
 ### 8. Create the tag (if requested)
@@ -217,7 +217,7 @@ pymdownx.snippets include (`--8<-- "CHANGELOG.md"`).
 If the user asks to publish or create the release:
 
 ```bash
-# Determine target commit — usually main HEAD
+# Determine target commit - usually main HEAD
 git log -1 --format="%H" main
 
 # Create the tag on latest main
@@ -225,7 +225,7 @@ git tag <version> <commit-hash>
 git push origin <version>
 ```
 
-Verify the tag points to the latest main commit — never to a detached or
+Verify the tag points to the latest main commit - never to a detached or
 stale commit.
 
 ### 9. Create the GitHub Release
@@ -271,7 +271,7 @@ Confirm the changelog is finalized: `## [<version>] - <date>` exists in
 | User wants a prerelease                         | Add `--prerelease` to the `gh release create` command                                                                                                      |
 | No PRs in the release range                     | Generate notes from raw commit messages, grouped by conventional commit type                                                                               |
 | `## Unreleased` is missing entries              | Add the missing changes from the gathered PR list to `CHANGELOG.md` (and the Spanish mirror) before drafting the release notes (step 3)                   |
-| `docs/changelog.md` was edited                  | Restore it to a stub containing only `--8<-- "CHANGELOG.md"` — the root file is the single source of truth                                               |
+| `docs/changelog.md` was edited                  | Restore it to a stub containing only `--8<-- "CHANGELOG.md"` - the root file is the single source of truth                                               |
 | Auto-release pipeline already created a release | Check with `gh release view <tag>`; if exists, prompt user before overwriting                                                                              |
 | Multiple repos                                  | Use the current working directory's git remote to infer owner/repo                                                                                         |
 
@@ -324,5 +324,5 @@ using `##` headers and descriptive bullet points that explain the "what",
 - `docs/es/changelog.md` mirrors the root file: same headings, dates, and
   PR references, translated.
 - At release time, Unreleased content moves into the dated section and
-  Unreleased resets empty — the changelog is the drafting ground for the
+  Unreleased resets empty - the changelog is the drafting ground for the
   GitHub release notes.

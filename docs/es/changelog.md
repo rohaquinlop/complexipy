@@ -21,7 +21,7 @@ GitHub con todos los detalles.
 
 - La regla C007 (collapsible-if) ya no sugiere fusionar un `if` anidado
   cuando una sentencia con efectos secundarios del mismo nivel la
-  precede — la fusión cambiaría el comportamiento del programa. Los
+  precede - la fusión cambiaría el comportamiento del programa. Los
   comentarios en cabeceras multilínea y los comentarios finales se
   manejan en lugar de poder ser desplazados por el reemplazo.
   ([#228](https://github.com/rohaquinlop/complexipy/issues/228), [#236](https://github.com/rohaquinlop/complexipy/issues/236))
@@ -90,7 +90,7 @@ para todos los detalles.
 ### Añadido
 
 - `--suggest-refactors` ahora es un sistema de lint estilo clippy: IDs de
-  reglas estables (C001–C005, C007, C011), metadatos de categoría y
+  reglas estables (C001-C005, C007, C011), metadatos de categoría y
   aplicabilidad, anclas `path:line:col` con span de caret, renderizado
   verbatim de las sugerencias y un enlace de documentación por regla. (#209)
 - Los hallazgos de refactorización se incluyen en las exportaciones JSON,
@@ -105,9 +105,9 @@ para todos los detalles.
 - `collect_removable_ignored_locations()` y `RemovableIgnore` se exportan
   desde la API de Python. Cada ejecución informa ahora de los comentarios
   de ignorado que ya no son necesarios (`path:line function=X complexity=N <comment>`) cuando la función suprimida vuelve a estar bajo el límite
-  permitido — el código de salida no se ve afectado, el informe se suprime
+  permitido - el código de salida no se ve afectado, el informe se suprime
   con `--quiet` y funciona con `--plain`. (#213)
-- Flag `--staged` para la comparación del índice git — responde "¿qué
+- Flag `--staged` para la comparación del índice git - responde "¿qué
   complejidad estoy a punto de commitear?" en lugar de solo lo que cambió
   en el working tree; `--staged` solo usa `HEAD` como baseline por defecto
   y aplica el umbral, mientras que `--diff <ref> --staged` aplica contra la
@@ -122,7 +122,7 @@ para todos los detalles.
   para cada sugerencia aplicable por máquina (C002, C007) el reemplazo se
   inserta en el código, se re-analiza y se vuelve a puntuar, de modo que
   `estimated_reduction` y `estimated_complexity_after` reportan el delta
-  literal de aplicar la sugerencia — y el ranking, la resolución de
+  literal de aplicar la sugerencia - y el ranking, la resolución de
   solapamientos y el filtro de ruido operan con valores medidos. El nuevo
   flag `reduction_is_measured` en `RefactorPlan` separa los planes medidos
   de las estimaciones por fórmula solo con ayuda, que la CLI muestra con
@@ -130,7 +130,7 @@ para todos los detalles.
   medidos se muestran sin él (`Reduction: -2`). Las sugerencias de guardas
   ahora son splices fieles para bucles con sentencias antes o después de la
   cadena de ifs y para cabeceras de bucle multilínea; los fallos de
-  medición caen a la estimación por fórmula — nunca un panic, nunca un
+  medición caen a la estimación por fórmula - nunca un panic, nunca un
   número fabricado. (#225)
 
 ### Cambiado
@@ -147,7 +147,7 @@ para todos los detalles.
   `:=` en lugar de un `rfind(':')` ingenuo. (#209)
 - `file_complexity()` ahora devuelve rutas relativas al cwd (igual que
   `git diff --name-only`), y las invocaciones anidadas resuelven las rutas
-  git mediante una búsqueda por basename con `git ls-files` — sin esto,
+  git mediante una búsqueda por basename con `git ls-files` - sin esto,
   comparar los resultados por archivo marcaba silenciosamente cada función
   como NEW. (#210)
 - Se añadieron archivos de estándares comunitarios: `CODE_OF_CONDUCT.md`,
@@ -167,13 +167,13 @@ para todos los detalles.
 
 ### Eliminado
 
-- `RefactorPlan.steps` — reemplazado por los campos concretos `suggestion`
+- `RefactorPlan.steps` - reemplazado por los campos concretos `suggestion`
   / `help` del plan. (#209)
 - `CodeSnippet` de la API pública; `CodeSuggestion` se exporta en su
   lugar. (#209)
 - `--output-json` / `-j`, `--output-csv` / `-c`, `--output-gitlab` y
-  `--output-sarif` / `-sr` — usa `--output-format` en su lugar. (#221)
-- `--ratchet` / `-R` — `--diff` aplica el umbral por defecto. (#221)
+  `--output-sarif` / `-sr` - usa `--output-format` en su lugar. (#221)
+- `--ratchet` / `-R` - `--diff` aplica el umbral por defecto. (#221)
 - Las claves TOML `output-json`, `output-csv`, `output-gitlab`,
   `output-sarif`, `staged` plana, `ratchet` plana y el alias no documentado
   `details = "low"`. (#221)
@@ -231,13 +231,13 @@ para más detalles.
 
 ### Cambiado
 
-- Se simplificó el CLI de diff — `--diff` ahora siempre aplica
+- Se simplificó el CLI de diff - `--diff` ahora siempre aplica
   `--max-complexity-allowed`, mientras que `--diff-only` ofrece la
   comparación solo visual. `--ratchet` queda deprecado en favor de este
   modelo. (#196)
 - Se integró la salida de diff en el flujo principal de análisis en lugar de
   producirla como un paso de post-procesamiento separado. (#196)
-- Se eliminó la sección redundante de "Failed functions" — las funciones que
+- Se eliminó la sección redundante de "Failed functions" - las funciones que
   fallan ahora se muestran en línea en el resumen por archivo. (#196)
 - Se añadió `AGENTS.md` para el contexto de asistentes de IA.
 - Se añadió un workflow de CI que notifica a los repositorios downstream en
@@ -263,7 +263,7 @@ para más detalles.
     Esta versión alinea el algoritmo de complejidad cognitiva con el white
     paper de SonarSource (v1.7). Las puntuaciones cambian para archivos que
     usan `match`, `try`/`except`, `with`, comprehensions, lambdas,
-    recursión o ternarios anidados — en la mayoría de los casos aumentan.
+    recursión o ternarios anidados - en la mayoría de los casos aumentan.
     Vuelve a ejecutar `complexipy` tras actualizar y revisa las nuevas
     puntuaciones; si usas `--max-complexity` / `--failed` en CI,
     probablemente necesitarás subir los umbrales. Consulta la
@@ -423,7 +423,7 @@ para más detalles.
 
 ### Eliminado
 
-- Se eliminó el scoring de complejidad de comprehensions — revierte el
+- Se eliminó el scoring de complejidad de comprehensions - revierte el
   manejo de nodos AST `ListComp`/`SetComp`/`Generator`/`DictComp` en
   `count_bool_ops()` y el helper `count_comprehension_complexity()` añadido
   en v5.3.0. (#166)
@@ -440,26 +440,26 @@ para más detalles.
 
 ### Añadido
 
-- Flag `--ratchet` — el CI falla solo cuando la complejidad aumenta por
+- Flag `--ratchet` - el CI falla solo cuando la complejidad aumenta por
   encima del umbral; las regresiones se bloquean, las mejoras siempre
   pasan. (#159)
-- Flag `--plain` — salida de texto plano legible por máquinas para scripting
+- Flag `--plain` - salida de texto plano legible por máquinas para scripting
   y pipes. (#158)
-- Flag `--top N` — muestra las N funciones más complejas, ordenadas
+- Flag `--top N` - muestra las N funciones más complejas, ordenadas
   globalmente entre todos los archivos. (#157)
-- Flags `--check-script` / `--script-strict` — analizan la complejidad a
+- Flags `--check-script` / `--script-strict` - analizan la complejidad a
   nivel de módulo (script) además de las funciones. (#156)
-- Destinos de salida unificados — enrutamiento consistente de `--output-*`
+- Destinos de salida unificados - enrutamiento consistente de `--output-*`
   en todos los formatos de reporte. (#155)
 - Reporte de GitLab Code Quality mediante `--output-gitlab`. (#153)
 - Salida SARIF 2.1.0 mediante `--output-sarif` para integración con IDE y
   GitHub Advanced Security. (#141)
-- Análisis de diff git — `--diff <ref>` informa de los cambios de
+- Análisis de diff git - `--diff <ref>` informa de los cambios de
   complejidad relativos a cualquier referencia git. (#140)
-- Complejidad de comprehensions — las comprehensions de lista/dict/set y las
+- Complejidad de comprehensions - las comprehensions de lista/dict/set y las
   expresiones generador ahora contribuyen a las puntuaciones de complejidad
   cognitiva. (#139)
-- `# complexipy: ignore` — nuevo comentario canónico de supresión en línea;
+- `# complexipy: ignore` - nuevo comentario canónico de supresión en línea;
   `# noqa: complexipy` queda deprecado. (#146)
 - Patrones glob en el campo `exclude` de la configuración. (#142)
 - Documentación en español. (#147)
@@ -592,7 +592,7 @@ para más detalles.
 ### Añadido
 
 - Soporte de configuración mediante `complexipy.toml` o `[tool.complexipy]`
-  en `pyproject.toml` — los usuarios pueden ahora definir argumentos por
+  en `pyproject.toml` - los usuarios pueden ahora definir argumentos por
   defecto.
 
 ### Corregido
@@ -612,7 +612,7 @@ para más detalles.
 
 ### Añadido
 
-- `--max-complexity-allowed` (`-mx`) — personaliza el umbral máximo de
+- `--max-complexity-allowed` (`-mx`) - personaliza el umbral máximo de
   complejidad cognitiva permitido por función. El valor por defecto sigue
   siendo 15 para mantener el comportamiento existente.
 - Integración con GitHub Actions para el umbral personalizado.
@@ -656,7 +656,7 @@ para más detalles.
 
 ### Añadido
 
-- Soporte de WebAssembly (WASM) — el motor de análisis central ahora puede
+- Soporte de WebAssembly (WASM) - el motor de análisis central ahora puede
   compilarse a WebAssembly, habilitando el análisis en el navegador y
   herramientas como la extensión de VSCode. (#72)
 - Salida JSON mediante `--output-json` (`-j`) para resultados legibles por
@@ -718,7 +718,7 @@ para más detalles.
 
 ### Añadido
 
-- Soporte de múltiples rutas — pasa varios paths para analizar a la
+- Soporte de múltiples rutas - pasa varios paths para analizar a la
   vez. (#56)
 
 ### Eliminado
@@ -735,7 +735,7 @@ para más detalles.
 
 ### Añadido
 
-- API de Python — llama a complexipy desde tu propio código Python con
+- API de Python - llama a complexipy desde tu propio código Python con
   `file_complexity()` y `code_complexity()`. (#45)
 - Uso de la librería documentado en el README. (#49)
 - Usabilidad del paquete mejorada. (#53)
@@ -799,7 +799,7 @@ para más detalles.
 
 ### Añadido
 
-- Análisis de complejidad a nivel de función por defecto — la complejidad
+- Análisis de complejidad a nivel de función por defecto - la complejidad
   máxima se evalúa para cada función dentro de los archivos Python; la
   complejidad cognitiva por archivo sigue disponible. (#21)
 - Nuevos parámetros. (#14)
@@ -810,7 +810,7 @@ para más detalles.
 
 ### Cambiado
 
-- Se mejoró el algoritmo de medición de la complejidad cognitiva — los
+- Se mejoró el algoritmo de medición de la complejidad cognitiva - los
   resultados se acercan más a la implementación de Sonar. (#18)
 - Se redujo la verbosidad, con más información sobre las etapas al ejecutar
   `complexipy` sobre repositorios git (usando la URL).

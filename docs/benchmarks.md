@@ -48,7 +48,7 @@ bash benchmarks/benchmark-cli.sh
 - **Output rendering is cheaper too.** Rendering the full results table
   on django costs ~0.4 s on the Rust CLI against ~1.5 s on the Python CLI
   (the default minus --quiet delta), so the wall-clock gap widens on large
-  trees when results are actually printed — the [render] rows measure that
+  trees when results are actually printed - the [render] rows measure that
   path end to end.
 - **Peak memory is lower across the board**, by roughly 10-25 MB,
   because the Python interpreter and its display libraries are gone from

@@ -47,6 +47,6 @@ uv run ruff format .
 ## Pull Requests
 
 - PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description` (e.g., `fix(diff): resolve path for nested invocation`). This is enforced by CI.
-- Keep code clean — no comments. Use descriptive variable and function names instead.
+- Keep code clean - no comments. Use descriptive variable and function names instead.
 - Run tests and linter before submitting.
 - Keep changes focused. One feature or fix per PR.

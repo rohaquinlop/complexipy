@@ -18,7 +18,7 @@ release section links to its GitHub release notes for the full details.
 ### Fixed
 
 - The C007 collapsible-if rule no longer suggests merging a nested `if`
-  when a same-level statement with side effects precedes it — the merge
+  when a same-level statement with side effects precedes it - the merge
   would change program behavior. Comments in multiline headers and
   trailing comments are handled instead of being misplaceable by the
   replacement.
@@ -85,7 +85,7 @@ for the full details.
 ### Added
 
 - `--suggest-refactors` is now a clippy-style lint system: stable rule IDs
-  (C001–C005, C007, C011), category and applicability metadata,
+  (C001-C005, C007, C011), category and applicability metadata,
   `path:line:col` anchors with caret spans, verbatim suggestion rendering,
   and a documentation link per rule. (#209)
 - Refactor-plan findings are included in JSON, SARIF, and GitLab exports
@@ -98,10 +98,10 @@ for the full details.
 - `collect_removable_ignored_locations()` and `RemovableIgnore` are exported
   from the Python API. Every run now reports ignore comments that are no
   longer necessary (`path:line function=X complexity=N <comment>`) when the
-  suppressed function is back under the allowed limit — the exit code is
+  suppressed function is back under the allowed limit - the exit code is
   unaffected, the report is suppressed under `--quiet`, and it works under
   `--plain`. (#213)
-- `--staged` flag for git-index comparison — answers "what complexity am I
+- `--staged` flag for git-index comparison - answers "what complexity am I
   about to commit?" instead of only what changed in the working tree;
   `--staged` alone defaults the baseline to `HEAD` and enforces, while
   `--diff <ref> --staged` enforces against the ref. (#218)
@@ -114,14 +114,14 @@ for the full details.
   machine-applicable suggestion (C002, C007) the replacement is spliced
   into the source, re-parsed, and re-scored, so `estimated_reduction` and
   `estimated_complexity_after` report the literal delta of applying the
-  suggestion — and ranking, overlap resolution, and the noise filter all
+  suggestion - and ranking, overlap resolution, and the noise filter all
   operate on measured values. The new `reduction_is_measured` flag on
   `RefactorPlan` separates measured plans from help-only formula
   estimates, which the CLI renders with a `~` qualifier
   (`Estimated reduction: ~-2`) while measured plans render plain
   (`Reduction: -2`). Guard suggestions are now faithful splices for loops
   with statements before or after the if-chain and for multi-line loop
-  headers; measurement failures fall back to the formula estimate — never
+  headers; measurement failures fall back to the formula estimate - never
   a panic, never a fabricated number. (#225)
 
 ### Changed
@@ -136,7 +136,7 @@ for the full details.
   string literals, and walrus `:=` instead of a naive `rfind(':')`. (#209)
 - `file_complexity()` now returns cwd-relative paths (matching
   `git diff --name-only`), and nested invocations resolve git paths via a
-  `git ls-files` basename lookup — without this, diffing per-file results
+  `git ls-files` basename lookup - without this, diffing per-file results
   silently marked every function as NEW. (#210)
 - Community standards files were added: `CODE_OF_CONDUCT.md`,
   `CONTRIBUTING.md`, `SECURITY.md`, issue templates, and a pull request
@@ -153,13 +153,13 @@ for the full details.
 
 ### Removed
 
-- `RefactorPlan.steps` — replaced by the concrete `suggestion` / `help`
+- `RefactorPlan.steps` - replaced by the concrete `suggestion` / `help`
   fields on the plan. (#209)
 - `CodeSnippet` from the public API; `CodeSuggestion` is exported in its
   place. (#209)
 - `--output-json` / `-j`, `--output-csv` / `-c`, `--output-gitlab`, and
-  `--output-sarif` / `-sr` — use `--output-format` instead. (#221)
-- `--ratchet` / `-R` — `--diff` enforces the threshold by default. (#221)
+  `--output-sarif` / `-sr` - use `--output-format` instead. (#221)
+- `--ratchet` / `-R` - `--diff` enforces the threshold by default. (#221)
 - TOML keys `output-json`, `output-csv`, `output-gitlab`, `output-sarif`,
   flat `staged`, flat `ratchet`, and the undocumented `details = "low"`
   alias. (#221)
@@ -192,7 +192,7 @@ for the full details.
   `utils/` modules (`config.py`, `paths.py`, `ignored.py`). (#199)
 - Introduced `RunConfig`, `ExitReport`, and `SnapshotEvaluation` dataclasses,
   replacing mutable accumulators and positional tuple unpacking. (#199)
-- Eliminated all `global console` declarations — the `console` instance is
+- Eliminated all `global console` declarations - the `console` instance is
   constructed once and passed explicitly. (#199)
 - Refactored `get_arguments_value` from a 20-parameter function returning a
   15-element tuple to a dict-based approach. (#199)
@@ -214,12 +214,12 @@ for the full details.
 
 ### Changed
 
-- Simplified the diff CLI — `--diff` now always enforces
+- Simplified the diff CLI - `--diff` now always enforces
   `--max-complexity-allowed`, while `--diff-only` provides the visual-only
   comparison. `--ratchet` is deprecated in favour of this model. (#196)
 - Integrated diff output into the main analysis flow instead of producing it
   as a separate post-processing step. (#196)
-- Removed the redundant "Failed functions" output section — failed functions
+- Removed the redundant "Failed functions" output section - failed functions
   are now shown inline in the per-file summary. (#196)
 - Added `AGENTS.md` for AI agent context.
 - Added a CI workflow that notifies downstream repositories on new
@@ -245,7 +245,7 @@ for the full details.
     This release brings the cognitive complexity algorithm into full
     conformance with the SonarSource white paper (v1.7). Scores change for
     files using `match`, `try`/`except`, `with`, comprehensions, lambdas,
-    recursion, or nested ternaries — in most cases they increase. Re-run
+    recursion, or nested ternaries - in most cases they increase. Re-run
     `complexipy` after upgrading and review the new scores; if you use
     `--max-complexity` / `--failed` in CI you will likely need to raise
     thresholds. See the [migration guide](https://rohaquinlop.github.io/complexipy/migration/)
@@ -394,7 +394,7 @@ for the full details.
 
 ### Removed
 
-- Removed comprehension complexity scoring — rolls back the
+- Removed comprehension complexity scoring - rolls back the
   `ListComp`/`SetComp`/`Generator`/`DictComp` AST node handling from
   `count_bool_ops()` and the `count_comprehension_complexity()` helper added
   in v5.3.0. (#166)
@@ -410,24 +410,24 @@ for the full details.
 
 ### Added
 
-- `--ratchet` flag — CI fails only when complexity increases past the
+- `--ratchet` flag - CI fails only when complexity increases past the
   threshold; regressions are blocked, improvements always pass. (#159)
-- `--plain` flag — machine-readable plain-text output for
+- `--plain` flag - machine-readable plain-text output for
   scripting/piping. (#158)
-- `--top N` flag — display the N most complex functions, globally sorted
+- `--top N` flag - display the N most complex functions, globally sorted
   across all files. (#157)
-- `--check-script` / `--script-strict` flags — analyse module-level (script)
+- `--check-script` / `--script-strict` flags - analyse module-level (script)
   complexity in addition to functions. (#156)
-- Unified output destinations — consistent `--output-*` routing across all
+- Unified output destinations - consistent `--output-*` routing across all
   report formats. (#155)
 - GitLab Code Quality report via `--output-gitlab`. (#153)
 - SARIF 2.1.0 output via `--output-sarif` for IDE and GitHub Advanced
   Security integration. (#141)
-- Git diff analysis — `--diff <ref>` reports complexity changes relative to
+- Git diff analysis - `--diff <ref>` reports complexity changes relative to
   any git reference. (#140)
-- Comprehension complexity — list/dict/set comprehensions and generator
+- Comprehension complexity - list/dict/set comprehensions and generator
   expressions now contribute to cognitive complexity scores. (#139)
-- `# complexipy: ignore` — new canonical inline suppression comment;
+- `# complexipy: ignore` - new canonical inline suppression comment;
   `# noqa: complexipy` is deprecated. (#146)
 - Glob patterns in the config `exclude` field. (#142)
 - Spanish documentation. (#147)
@@ -553,7 +553,7 @@ for the full details.
 ### Added
 
 - Configuration support via `complexipy.toml` or `[tool.complexipy]` in
-  `pyproject.toml` — users can now define default arguments.
+  `pyproject.toml` - users can now define default arguments.
 
 ### Fixed
 
@@ -572,7 +572,7 @@ for the full details.
 
 ### Added
 
-- `--max-complexity-allowed` (`-mx`) — customize the maximum allowed
+- `--max-complexity-allowed` (`-mx`) - customize the maximum allowed
   cognitive complexity threshold per function. The default remains 15 to
   maintain existing behavior.
 - GitHub Actions integration for the custom threshold.
@@ -615,7 +615,7 @@ for the full details.
 
 ### Added
 
-- WebAssembly (WASM) support — the core analysis engine can now be compiled
+- WebAssembly (WASM) support - the core analysis engine can now be compiled
   to WebAssembly, enabling browser-based analysis and tools like the
   VSCode extension. (#72)
 - JSON output via `--output-json` (`-j`) for machine-readable results. (#74)
@@ -673,7 +673,7 @@ for the full details.
 
 ### Added
 
-- Multiple paths support — pass several paths to analyze at once. (#56)
+- Multiple paths support - pass several paths to analyze at once. (#56)
 
 ### Removed
 
@@ -688,7 +688,7 @@ for the full details.
 
 ### Added
 
-- Python API — call complexipy from your own Python code with
+- Python API - call complexipy from your own Python code with
   `file_complexity()` and `code_complexity()`. (#45)
 - Library usage documented in the README. (#49)
 - Improved package usability. (#53)
@@ -752,7 +752,7 @@ for the full details.
 
 ### Added
 
-- Function-level complexity analysis by default — the maximum complexity is
+- Function-level complexity analysis by default - the maximum complexity is
   evaluated for each function inside the Python files; per-file cognitive
   complexity is still available. (#21)
 - New parameters. (#14)
@@ -763,7 +763,7 @@ for the full details.
 
 ### Changed
 
-- Enhanced the algorithm to measure cognitive complexity — results are
+- Enhanced the algorithm to measure cognitive complexity - results are
   closer to the Sonar implementation. (#18)
 - Reduced verbosity, with more information about the stages when running
   `complexipy` over git repositories (using the URL).

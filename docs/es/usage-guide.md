@@ -171,7 +171,7 @@ Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only`
 complexipy . --diff-only HEAD~1
 ```
 
-Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo — "¿qué complejidad estoy a punto de commitear?" — añade `--staged`:
+Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo - "¿qué complejidad estoy a punto de commitear?" - añade `--staged`:
 
 ```bash
 # Cambios staged vs HEAD (la línea base por defecto de --staged)
@@ -186,7 +186,7 @@ Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y fal
 Esto requiere `git` y una ruta dentro de un repositorio.
 
 En lugar de repetir la referencia en cada llamada, declara la política de
-comparación una sola vez en un archivo de configuración — ver
+comparación una sola vez en un archivo de configuración - ver
 [Configuración de Diff](#configuraci%C3%B3n-de-diff).
 
 ### Salida en Texto Plano
@@ -475,7 +475,7 @@ result = code_complexity(code, no_ignore=True)
 ### Comparar Contra una Referencia de Git
 
 `compute_diff` compara los resultados de complejidad actuales contra una
-referencia de git (commit, etiqueta o rama) y devuelve objetos `DiffEntry` —
+referencia de git (commit, etiqueta o rama) y devuelve objetos `DiffEntry` -
 uno por función que cambió, apareció o desapareció. `has_regressions` informa
 si alguna entrada supera un umbral de complejidad (una función REGRESSED o NEW
 por encima de *max_complexity*).
@@ -510,7 +510,7 @@ if has_regressions(entries, 15):
 `DiffEntry` expone `file_path`, `func_name`, `old_complexity` y
 `new_complexity` (cualquiera puede ser `None` para funciones NEW / REMOVED),
 más las propiedades `status` y `delta`. `status` es un miembro de
-`DiffStatus` — un enum basado en `str`, por lo que compara igual a su valor
+`DiffStatus` - un enum basado en `str`, por lo que compara igual a su valor
 de cadena (p. ej. `DiffStatus.REGRESSED == "REGRESSED"`).
 
 ```python
@@ -697,7 +697,7 @@ complexipy . --snapshot-ignore
 ]
 ```
 
-Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución — las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
+Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución - las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
 
 ## Ignorar en Línea
 
