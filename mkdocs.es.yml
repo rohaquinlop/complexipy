@@ -13,6 +13,7 @@ nav:
   - Inicio: index.md
   - Primeros Pasos:
       - Guía de Uso: usage-guide.md
+      - Referencia de la API: api-reference.md
       - Guía de Migración: migracion.md
   - Registro de Cambios: changelog.md
   - Entendiendo la Complejidad:

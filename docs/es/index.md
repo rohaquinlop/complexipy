@@ -15,7 +15,7 @@
     <a href="#instalación">Instalación</a> •
     <a href="#inicio-rápido">Inicio Rápido</a> •
     <a href="#integraciones">Integraciones</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/">Documentación</a> •
+    <a href="#aprende-más">Aprende Más</a> •
     <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
   </p>
 </div>
@@ -59,46 +59,26 @@ uv add complexipy
 # Analiza el directorio actual
 complexipy .
 
-# Analiza un directorio o archivo específico
-complexipy path/to/code.py
-
-# Analisis con un límite (threshold) personalizado
+# Establece un umbral personalizado
 complexipy . --max-complexity-allowed 10
 
-# Guarda los resultados en JSON/CSV
-complexipy . --output-format json --output-format csv
-
-# Muestra las 5 funciones más complejas
-complexipy . --top 5
-
-# Muestra sugerencias deterministas de refactorización para funciones fallidas
+# Muestra las funciones fallidas con sugerencias de refactorización
 complexipy . --failed --suggest-refactors
 
-# Emite texto plano para scripts o agentes de IA
-complexipy . --plain
+# Guarda los resultados en JSON
+complexipy . --output-format json
 
-# Incluye la complejidad del código a nivel de módulo como <module>
-complexipy . --check-script
+# Bloquea regresiones contra una referencia de git
+complexipy . --diff main
 
-# Guarda un reporte de GitLab en una ruta determinista
-complexipy . --output-format gitlab --output complexipy-code-quality.json
-
-# Compara la complejidad contra una referencia de git
-complexipy . --diff HEAD~1
-# Analiza el directorio actual excluyendo archivos o directorios con patrones glob
-complexipy . --exclude "tests/**" --exclude "path/to/exclude.py"
-
-# Ignorar todos los comentarios de ignore en línea
-complexipy . --no-ignore
-
-# Reportar todas las funciones ignoradas
-complexipy . --report-ignored
+# Excluye rutas con patrones glob
+complexipy . --exclude "tests/**"
 ```
 
 ### API de Python
 
 ```python
-from complexipy import file_complexity, code_complexity
+from complexipy import file_complexity
 
 # Analiza un archivo
 result = file_complexity("app.py", check_script=True)
@@ -106,18 +86,6 @@ print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
-
-# Analiza código en una cadena
-snippet = """
-def complex_function(data):
-    if data:
-        for item in data:
-            if item.is_valid():
-                process(item)
-"""
-
-result = code_complexity(snippet, check_script=True)
-print(f"Complexity: {result.complexity}")
 ```
 
 ## Integraciones
@@ -136,7 +104,7 @@ print(f"Complexity: {result.complexity}")
 </details>
 
 <details>
-<summary><strong>🪝 Pre-commit Hook</strong></summary>
+<summary><strong>🪝 Hook de Pre-commit</strong></summary>
 
 ```yaml
 repos:
@@ -149,306 +117,20 @@ repos:
 </details>
 
 <details>
-<summary><strong>🔌 VS Code Extension</strong></summary>
+<summary><strong>🔌 Extensión de VS Code</strong></summary>
 
 Instálala desde el [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) para tener análisis de complejidad en tiempo real con indicadores visuales.
 
 </details>
 
-## Configuración
-
-### Archivos de Configuración TOML
-
-complexipy admite configuración mediante archivos TOML. Los archivos de configuración se cargan en este orden de precedencia:
-
-1. `complexipy.toml` (configuración específica del proyecto)
-1. `.complexipy.toml` (archivo de configuración oculto)
-1. `pyproject.toml` (bajo la sección `[tool.complexipy]`)
-
-#### Configuración de Ejemplo
-
-```toml
-# complexipy.toml o .complexipy.toml
-paths = ["src", "tests"]
-max-complexity-allowed = 10
-snapshot-create = false
-snapshot-ignore = false
-quiet = false
-ignore-complexity = false
-failed = false
-color = "auto"
-sort = "asc"
-exclude = []
-check-script = false
-no-ignore = false
-report-ignored = false
-output-format = ["json", "gitlab"]
-output = "reports/"
-```
-
-```toml
-# pyproject.toml
-[tool.complexipy]
-paths = ["src", "tests"]
-max-complexity-allowed = 10
-snapshot-create = false
-snapshot-ignore = false
-quiet = false
-ignore-complexity = false
-failed = false
-color = "auto"
-sort = "asc"
-exclude = []
-check-script = false
-no-ignore = false
-report-ignored = false
-output-format = ["json"]
-output = "complexipy-results.json"
-```
-
-`check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
-
-### Opciones de CLI
-
-| Opción | Descripción | Predeterminado |
-| -- | -- | -- |
-| `--exclude` | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |  |
-| `--max-complexity-allowed` | Umbral de complejidad | `15` |
-| `--snapshot-create` | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json` | `false` |
-| `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
-| `--failed` | Muestra solo las funciones que superen el umbral de complejidad | `false` |
-| `--suggest-refactors` | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain` | `false` |
-| `--color <auto\|yes\|no>` | Usa color | `auto` |
-| `--sort <asc\|desc\|file_name>` | Ordena los resultados | `asc` |
-| `--quiet` | Suprime la salida | `false` |
-| `--ignore-complexity` | No termina con error al superar el umbral | `false` |
-| `--version` | Muestra la versión instalada de complexipy y sale | - |
-| `--top <n>` | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente | - |
-| `--plain` | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
-| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | - |
-| `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos | - |
-| `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](#diff-de-complejidad)) | - |
-| `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](#diff-de-complejidad)) | - |
-| `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
-| `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
-| `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
-
-Ejemplo:
-
-```
-# Excluye un directorio recursivamente bajo la raíz proporcionada
-complexipy . --exclude "tests/**"
-# Excluye un archivo específico
-complexipy . --exclude "src/legacy/old_code.py"
-```
-
-### Sugerencias de Refactorización
-
-Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de planes deterministas de refactorización junto a los resultados enriquecidos de la CLI:
-
-```bash
-complexipy . --failed --suggest-refactors
-```
-
-Salida de ejemplo (abreviada -- la salida real también muestra un tramo subrayado con acentos circunflejos, el código fuente circundante y un enlace a la documentación):
-
-```text
-      [1] C007 Merge nested if statements
-          --> sample.py:4:9
-          Category: ◆ Readability | Applicability: * Safe to apply
-          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
-
-          Suggestion: * Safe to apply
-          Merge nested conditions into `if item.active and item.ready:`
-```
-
-Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
-
-### Snapshots Base
-
-Usa snapshots para adoptar complexipy gradualmente en bases de código grandes y existentes sin tocar cada función heredada de una vez.
-
-```bash
-# Registra el estado actual (crea complexipy-snapshot.json en el directorio de trabajo)
-complexipy . --snapshot-create --max-complexity-allowed 15
-
-# Bloquea regresiones mientras permite las funciones previamente registradas
-complexipy . --max-complexity-allowed 15
-
-# Omite temporalmente el control de snapshots
-complexipy . --snapshot-ignore
-```
-
-El archivo de snapshot solo almacena las funciones cuya complejidad supera el umbral configurado. Cuando existe un archivo de snapshot, complexipy automáticamente:
-
-- falla si una nueva función supera el umbral,
-- falla si una función registrada se vuelve más compleja, y
-- pasa (y actualiza la snapshot) cuando todo es estable o ha mejorado, eliminando automáticamente las entradas que ahora cumplen el estándar.
-
-Las actualizaciones de la snapshot solo afectan a los archivos analizados en la ejecución: las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base.
-
-Usa `--snapshot-ignore` si necesitas omitir temporalmente el control de snapshot (por ejemplo, durante una refactorización o al regenerar la línea base).
-
-### Diff de Complejidad
-
-Compara la complejidad contra cualquier referencia de git para ver si una rama o commit mejoró o empeoró el código:
-
-```bash
-# Compara el working tree con el commit anterior
-complexipy . --diff HEAD~1
-
-# Compara contra una rama nombrada
-complexipy . --diff main
-```
-
-Por defecto `--diff` **aplica** el umbral de complejidad: la ejecución termina con código `1` solo cuando un cambio rompe el contrato definido por `--max-complexity-allowed`:
-
-- Se introduce una función nueva por encima del umbral, o
-- una función existente aumenta su complejidad **y** queda por encima del umbral (también falla cuando una función ya sobre el umbral empeora).
-
-Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `-mx 15`) no se marcan - el umbral sigue siendo el contrato principal, y `--diff` solo detecta las regresiones que realmente lo rompen.
-
-Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only` en su lugar:
-
-```bash
-complexipy . --diff-only HEAD~1
-```
-
-Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo - "¿qué complejidad estoy a punto de commitear?" - añade `--staged`:
-
-```bash
-# Cambios staged vs HEAD (la línea base por defecto de --staged)
-complexipy . --staged
-
-# Cambios staged vs una referencia específica
-complexipy . --diff main --staged
-```
-
-Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y falla cuando un cambio staged empuja una función por encima de `--max-complexity-allowed`. Las eliminaciones staged producen entradas `REMOVED` y las adiciones staged entradas `NEW`.
-
-Requiere que `git` esté disponible y que las rutas analizadas estén dentro de un repositorio git.
-
-### Complejidad de Script
-
-Usa `--check-script` cuando también quieras medir el flujo de control a nivel de módulo, no solo las funciones:
-
-```bash
-complexipy scripts/bootstrap.py --check-script
-```
-
-La misma capacidad está disponible en la API de Python mediante `check_script=True` tanto en `file_complexity()` como en `code_complexity()`.
-
-### Ignorar en Línea
-
-Puedes ignorar explícitamente una función compleja conocida en línea usando `# complexipy: ignore`:
-
-```python
-def legacy_adapter(x, y):  # complexipy: ignore (safe wrapper)
-    if x and y:
-        return x + y
-    return 0
-```
-
-Coloca `# complexipy: ignore` en la línea de definición de la función (o en la línea inmediatamente anterior). Se puede proporcionar un motivo opcional entre paréntesis; el analizador lo ignora.
-
-> **Nota:** La sintaxis `# noqa: complexipy` está obsoleta. Herramientas como [yesqa](https://github.com/asottile/yesqa) eliminan los comentarios `# noqa` no reconocidos, lo que eliminaría silenciosamente tus supresiones. Migra a `# complexipy: ignore` para evitar este problema.
-
-### Deshabilitar Ignorados en Línea
-
-Usa `--no-ignore` para ignorar todos los comentarios de ignore en línea y analizar cada función:
-
-```bash
-complexipy . --no-ignore
-```
-
-Las funciones previamente suprimidas se analizarán normalmente y pueden superar el umbral.
-
-### Reportar Funciones Ignoradas
-
-Usa `--report-ignored` para listar cada ubicación donde un comentario de ignore suprime una función:
-
-```bash
-complexipy . --report-ignored
-```
-
-Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`.
-
-## Referencia de la API
-
-```text
-# Funciones principales
-file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
-code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
-collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
-compute_diff(files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
-has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool
-
-# Tipos de retorno
-FileComplexity:
-  ├─ path: str (relative to the working directory, or absolute when outside it)
-  ├─ file_name: str
-  ├─ complexity: int
-  └─ functions: List[FunctionComplexity]
-
-FunctionComplexity:
-  ├─ name: str
-  ├─ complexity: int
-  ├─ line_start: int
-  ├─ line_end: int
-  ├─ line_complexities: List[LineComplexity]
-  └─ refactor_plans: List[RefactorPlan]
-
-RefactorPlan:
-  ├─ kind: str
-  ├─ title: str
-  ├─ line_start: int
-  ├─ line_end: int
-  ├─ column_start: int
-  ├─ current_complexity: int
-  ├─ estimated_reduction: int
-  ├─ estimated_complexity_after: int
-  ├─ rule_id: str
-  ├─ category: RuleCategory
-  ├─ applicability: Applicability
-  ├─ description: str
-  ├─ explanation: str
-  ├─ references: List[str]
-  ├─ suggestion: Optional[CodeSuggestion]
-  ├─ help: Optional[str]
-  └─ doc_url: str
-
-CodeSuggestion:
-  ├─ replacement: str
-  ├─ applicability: Applicability
-  └─ description: str
-
-RuleCategory: Complexity | Readability
-Applicability: MachineApplicable | MaybeIncorrect | Informational
-
-LineComplexity:
-  ├─ line: int
-  └─ complexity: int
-
-IgnoredLocation:
-  ├─ path: str
-  ├─ line: int
-  └─ comment: str
-
-CodeComplexity:
-  ├─ complexity: int
-  └─ functions: List[FunctionComplexity]
-
-DiffEntry:
-  ├─ file_path: str
-  ├─ func_name: str
-  ├─ old_complexity: Optional[int]
-  ├─ new_complexity: Optional[int]
-  ├─ status: DiffStatus (property)
-  └─ delta: Optional[int] (property)
-
-DiffStatus: REGRESSED | IMPROVED | UNCHANGED | NEW | REMOVED
-```
+## Aprende Más
+
+- [Guía de Uso](usage-guide.md) - todas las flags de CLI, archivos de configuración, snapshots, diff de complejidad e ignores en línea
+- [Referencia de la API](api-reference.md) - la API completa de Python
+- [Qué Significan las Puntuaciones](understanding-scores.md) - cómo funciona el algoritmo de puntuación
+- [Comparación con Ruff](comparison-with-ruff.md) - complejidad cognitiva vs ciclomática
+- [Reglas de Refactorización](refactoring-rules.md) - las reglas detrás de `--suggest-refactors`
+- [Registro de Cambios](changelog.md) - qué cambió en cada versión
 
 ______________________________________________________________________
 
