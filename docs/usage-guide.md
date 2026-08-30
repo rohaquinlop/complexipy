@@ -416,6 +416,10 @@ section to the same configuration file:
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
 
+Boolean flags take an explicit value only in the attached form
+`--flag=<true|false>`. A bare flag means `true`, and the following
+argument is never consumed as its value.
+
 Example:
 
 ```
