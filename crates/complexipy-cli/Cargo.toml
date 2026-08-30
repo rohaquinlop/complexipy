@@ -1,0 +1,34 @@
+[package]
+name = "complexipy-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "complexipy_cli"
+
+[[bin]]
+name = "complexipy"
+path = "src/main.rs"
+
+[dependencies]
+complexipy-core = { path = "../complexipy-core" }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+blake2 = { workspace = true }
+sha2 = { workspace = true }
+comfy-table = { workspace = true }
+owo-colors = { workspace = true }
+syntect = { workspace = true }
+terminal_size = { workspace = true }
+unicode-width = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

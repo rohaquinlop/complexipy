@@ -57,11 +57,12 @@ Documentation = "https://rohaquinlop.github.io/complexipy/"
 Repository = "https://github.com/rohaquinlop/complexipy"
 
 [tool.maturin]
+manifest-path = "crates/complexipy-python/Cargo.toml"
 module-name = "complexipy._complexipy"
 bindings = "pyo3"
 
 [tool.complexipy]
-paths = ["src", "complexipy"]
+paths = ["crates", "complexipy"]
 max-complexity-allowed = 15
 quiet = true
 ignore-complexity = false

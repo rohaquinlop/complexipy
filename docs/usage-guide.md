@@ -174,7 +174,7 @@ To see the diff visually without affecting the exit code, use `--diff-only` inst
 complexipy . --diff-only HEAD~1
 ```
 
-To compare the **staged** (git index) content instead of the working tree — "what complexity am I about to commit?" — add `--staged`:
+To compare the **staged** (git index) content instead of the working tree - "what complexity am I about to commit?" - add `--staged`:
 
 ```bash
 # Staged changes vs HEAD (the default baseline for --staged)
@@ -189,7 +189,7 @@ Like `--diff`, `--staged` enforces the threshold against the staged content and 
 This requires `git` and a repository-backed path.
 
 Instead of repeating the reference on every call, declare the comparison
-policy once in a configuration file — see [Diff Configuration](#diff-configuration).
+policy once in a configuration file - see [Diff Configuration](#diff-configuration).
 
 ### Ratchet Mode
 
@@ -476,7 +476,7 @@ for func in result.functions:
 ### Comparing Against a Git Reference
 
 `compute_diff` compares current complexity results against a git reference
-(commit, tag, or branch) and returns `DiffEntry` objects — one per function
+(commit, tag, or branch) and returns `DiffEntry` objects - one per function
 that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
 *max_complexity*).
@@ -510,7 +510,7 @@ if has_regressions(entries, 15):
 
 `DiffEntry` exposes `file_path`, `func_name`, `old_complexity`, and
 `new_complexity` (either may be `None` for NEW / REMOVED functions), plus the
-`status` and `delta` properties. `status` is a `DiffStatus` member — a
+`status` and `delta` properties. `status` is a `DiffStatus` member - a
 `str`-based enum, so it compares equal to its string value (e.g.
 `DiffStatus.REGRESSED == "REGRESSED"`).
 
@@ -698,7 +698,7 @@ Use this when:
 ]
 ```
 
-Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run — entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
+Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
 ## Inline Ignores
 

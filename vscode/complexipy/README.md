@@ -6,26 +6,26 @@ A Visual Studio Code extension that provides real-time cognitive complexity anal
 
 - **Real-time Complexity Analysis**: Automatically analyzes Python code as you type
 - **Visual Complexity Indicators**:
-  - Function complexity shown with `ƒ` symbol
-  - Line-level complexity shown with `+` symbol
-  - Color-coded indicators:
-    - Green: Low complexity (functions ≤ 15, lines ≤ 5)
-    - Red: High complexity (functions > 15, lines > 5)
+    - Function complexity shown with `ƒ` symbol
+    - Line-level complexity shown with `+` symbol
+    - Color-coded indicators:
+        - Green: Low complexity (functions ≤ 15, lines ≤ 5)
+        - Red: High complexity (functions > 15, lines > 5)
 - **Status Bar Integration**:
-  - Overall file complexity overview in the status bar
-  - Shows total functions and high-complexity function count
-  - Visual indicators (green/yellow/red) based on complexity levels
-  - Detailed tooltip with complexity grade and recommendations
-  - Clickable to trigger manual analysis
+    - Overall file complexity overview in the status bar
+    - Shows total functions and high-complexity function count
+    - Visual indicators (green/yellow/red) based on complexity levels
+    - Detailed tooltip with complexity grade and recommendations
+    - Clickable to trigger manual analysis
 - **Comprehensive Hover Information**:
-  - Detailed function complexity breakdown
-  - Line-level complexity explanations
-  - Actionable refactoring suggestions
-  - Educational content about cognitive complexity
+    - Detailed function complexity breakdown
+    - Line-level complexity explanations
+    - Actionable refactoring suggestions
+    - Educational content about cognitive complexity
 - **Automatic Updates**: Complexity analysis updates on:
-  - File save
-  - Active editor change
-  - Text changes
+    - File save
+    - Active editor change
+    - Text changes
 
 ## Requirements
 
@@ -35,9 +35,9 @@ A Visual Studio Code extension that provides real-time cognitive complexity anal
 ## Installation
 
 1. Open VS Code
-2. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
-3. Search for "complexipy"
-4. Click Install
+1. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
+1. Search for "complexipy"
+1. Click Install
 
 ## Usage
 
@@ -49,19 +49,22 @@ The extension automatically activates when you open a Python file. You'll see co
 ### Manual Analysis
 
 You can trigger a manual analysis by:
+
 1. Opening the Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
-2. Typing "complexipy"
-3. Selecting the "complexipy" command
+1. Typing "complexipy"
+1. Selecting the "complexipy" command
 
 ## Complexity Thresholds
 
 - **Function Complexity**:
-  - Low: ≤ 15
-  - High: > 15
+
+    - Low: ≤ 15
+    - High: > 15
 
 - **Line Complexity**:
-  - Low: ≤ 5
-  - High: > 5
+
+    - Low: ≤ 5
+    - High: > 5
 
 ## Contributing
 
@@ -69,7 +72,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Changelog
 
-### 0.2.0 — 2025-08-22
+### 0.2.0 - 2025-08-22
 
 - Breaking: Updated boolean operators complexity algorithm to count complexity based on boolean operators
 - Improved: Performance improvements

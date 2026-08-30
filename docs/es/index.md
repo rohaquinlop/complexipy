@@ -223,12 +223,12 @@ output = "complexipy-results.json"
 | `--quiet` | Suprime la salida | `false` |
 | `--ignore-complexity` | No termina con error al superar el umbral | `false` |
 | `--version` | Muestra la versión instalada de complexipy y sale | - |
-| `--top <n>` | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente | — |
+| `--top <n>` | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente | - |
 | `--plain` | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
-| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | — |
-| `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos | — |
-| `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](#diff-de-complejidad)) | — |
-| `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](#diff-de-complejidad)) | — |
+| `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | - |
+| `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos | - |
+| `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](#diff-de-complejidad)) | - |
+| `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](#diff-de-complejidad)) | - |
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
@@ -307,7 +307,7 @@ Por defecto `--diff` **aplica** el umbral de complejidad: la ejecución termina 
 - Se introduce una función nueva por encima del umbral, o
 - una función existente aumenta su complejidad **y** queda por encima del umbral (también falla cuando una función ya sobre el umbral empeora).
 
-Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `-mx 15`) no se marcan — el umbral sigue siendo el contrato principal, y `--diff` solo detecta las regresiones que realmente lo rompen.
+Las funciones que aumentan su complejidad pero se mantienen en o por debajo del umbral (por ejemplo `3 → 4` con `-mx 15`) no se marcan - el umbral sigue siendo el contrato principal, y `--diff` solo detecta las regresiones que realmente lo rompen.
 
 Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only` en su lugar:
 
@@ -315,7 +315,7 @@ Para ver el diff visualmente sin afectar el código de salida, usa `--diff-only`
 complexipy . --diff-only HEAD~1
 ```
 
-Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo — "¿qué complejidad estoy a punto de commitear?" — añade `--staged`:
+Para comparar el contenido **staged** (el índice de git) en lugar del árbol de trabajo - "¿qué complejidad estoy a punto de commitear?" - añade `--staged`:
 
 ```bash
 # Cambios staged vs HEAD (la línea base por defecto de --staged)

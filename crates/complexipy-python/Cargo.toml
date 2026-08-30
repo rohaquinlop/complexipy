@@ -1,0 +1,20 @@
+[package]
+name = "complexipy-python"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "complexipy"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+complexipy-core = { path = "../complexipy-core", features = ["python", "runner"] }
+complexipy-cli = { path = "../complexipy-cli" }
+pyo3 = { workspace = true }
+clap = { workspace = true }

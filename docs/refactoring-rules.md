@@ -473,7 +473,7 @@ confidence flag, `reduction_is_measured`:
 
 - **Measured** (`true`): the rule spliced its suggestion into the real
   source, re-parsed it, and re-ran the scorer. The number is the literal
-  answer to "apply this and re-score" — exactly what C002 and C007
+  answer to "apply this and re-score" - exactly what C002 and C007
   report, since they carry machine-applicable replacements. The CLI shows
   these without a qualifier: `Reduction: -2 complexity (7 -> 5)`.
 - **Estimated** (`false`): the number comes from the rule's hand-derived

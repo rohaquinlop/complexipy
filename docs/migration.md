@@ -28,11 +28,11 @@ instead:
 The CLI is being rewritten in Rust. The following old-version compatibility
 features are removed in the next major version:
 
-- **Git-URL analysis** (`complexipy <repository-url>`) — local paths only.
-- **Legacy cache migration** — the previous
+- **Git-URL analysis** (`complexipy <repository-url>`) - local paths only.
+- **Legacy cache migration** - the previous
   `.complexipy_cache/<hash>.json` layout is no longer migrated; existing
   legacy files are ignored and the delta history starts fresh.
-- **Legacy snapshot files** — snapshots created with older versions are no
+- **Legacy snapshot files** - snapshots created with older versions are no
   longer detected; recreate them with `--snapshot-create`.
 
 ## What each replacement does

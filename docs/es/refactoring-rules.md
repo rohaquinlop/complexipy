@@ -473,7 +473,7 @@ indicador de confianza, `reduction_is_measured`:
 
 - **Medida** (`true`): la regla insertó su sugerencia en el código real, lo
   re-analizó y volvió a ejecutar el puntuador. El número es la respuesta
-  literal a "aplica esto y vuelve a puntuar" — exactamente lo que
+  literal a "aplica esto y vuelve a puntuar" - exactamente lo que
   reportan C002 y C007, que llevan reemplazos aplicables por máquina. La
   CLI los muestra sin calificador: `Reduction: -2 complexity (7 -> 5)`.
 - **Estimada** (`false`): el número proviene de la fórmula manual de la

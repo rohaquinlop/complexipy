@@ -152,11 +152,11 @@ class RefactorPlan:
     """Current cognitive complexity of the function."""
 
     estimated_reduction: int
-    """Complexity reduction from applying this refactoring — measured when
+    """Complexity reduction from applying this refactoring - measured when
     `reduction_is_measured` is true, formula-estimated otherwise."""
 
     estimated_complexity_after: int
-    """Complexity after applying this refactoring — measured when
+    """Complexity after applying this refactoring - measured when
     `reduction_is_measured` is true, formula-estimated otherwise."""
 
     reduction_is_measured: bool

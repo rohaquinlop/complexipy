@@ -38,7 +38,7 @@ Output requirements:
 
 ### Template
 
-The file has two distinct sections — the title block and the body. The title is the first non-empty line after `## Title suggestion`. The body is everything from `## What` onwards.
+The file has two distinct sections - the title block and the body. The title is the first non-empty line after `## Title suggestion`. The body is everything from `## What` onwards.
 
 ```markdown
 ## Title suggestion
@@ -62,7 +62,7 @@ Brief context on why this change is needed.
 
 ## Workflow
 
-1. **Generate the PR description** following the format above — run `git diff <target-branch>...HEAD`, then create `PR_DESCRIPTION.md` with the title and body.
+1. **Generate the PR description** following the format above - run `git diff <target-branch>...HEAD`, then create `PR_DESCRIPTION.md` with the title and body.
 
 1. **Determine target branch**: if user specified a branch, use that; otherwise `main`.
 
@@ -93,7 +93,7 @@ Brief context on why this change is needed.
     - If the branch has no remote, prompt to push first with `git push -u origin HEAD`.
     - If `gh` is not authenticated, report error and stop.
 
-1. **Report result**: output the PR URL and a summary. Do NOT delete `PR_DESCRIPTION.md` — leave it for reference.
+1. **Report result**: output the PR URL and a summary. Do NOT delete `PR_DESCRIPTION.md` - leave it for reference.
 
 ## Edge Cases
 

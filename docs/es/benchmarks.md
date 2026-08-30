@@ -55,7 +55,7 @@ bash benchmarks/benchmark-cli.sh
   tabla completa de resultados en django cuesta ~0.4 s en la CLI de Rust
   frente a ~1.5 s en la CLI de Python (la diferencia entre el modo por
   defecto y --quiet), así que la brecha de tiempo crece en árboles grandes
-  cuando los resultados se imprimen de verdad — las filas [render] miden
+  cuando los resultados se imprimen de verdad - las filas [render] miden
   ese camino de extremo a extremo.
 - **La memoria máxima es menor en todos los casos**, entre 10 y 25 MB
   menos, porque el intérprete de Python y sus bibliotecas de presentación

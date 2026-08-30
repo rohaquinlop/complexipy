@@ -292,12 +292,12 @@ behavior.
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
-| `--top <n>` | Show only the `n` most complex functions, globally sorted by complexity descending | — |
+| `--top <n>` | Show only the `n` most complex functions, globally sorted by complexity descending | - |
 | `--plain` | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet` | `false` |
-| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`) | — |
-| `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | — |
-| `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | — |
-| `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff)) | — |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`) | - |
+| `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | - |
+| `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | - |
+| `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff)) | - |
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
@@ -374,7 +374,7 @@ By default `--diff` **enforces** the complexity threshold: the run exits with co
 - A new function is introduced above the threshold, or
 - an existing function's complexity increases **and** ends above the threshold (already-over functions getting worse also fail).
 
-Functions that regress but stay at or below the threshold (e.g. `3 → 4` with `-mx 15`) are **not** flagged — the threshold is still the main contract, and `--diff` only catches regressions that actually break it.
+Functions that regress but stay at or below the threshold (e.g. `3 → 4` with `-mx 15`) are **not** flagged - the threshold is still the main contract, and `--diff` only catches regressions that actually break it.
 
 To see the diff visually without affecting the exit code, use `--diff-only` instead:
 
@@ -382,7 +382,7 @@ To see the diff visually without affecting the exit code, use `--diff-only` inst
 complexipy . --diff-only HEAD~1
 ```
 
-To compare the **staged** (git index) content instead of the working tree — "what complexity am I about to commit?" — add `--staged`:
+To compare the **staged** (git index) content instead of the working tree - "what complexity am I about to commit?" - add `--staged`:
 
 ```bash
 # Staged changes vs HEAD (the default baseline for --staged)
