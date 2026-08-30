@@ -104,14 +104,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       - name: cargo test
-        run: cargo test --features python
-      - name: cargo test cli-only
-        run: cargo test --no-default-features --features cli
+        run: cargo test --workspace
       - name: cargo clippy
-        run: cargo clippy --features python --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: cargo fmt
         run: cargo fmt --check
       - name: cargo check wasm
         run: |-
           rustup target add wasm32-unknown-unknown
-          cargo check --no-default-features --features wasm --target wasm32-unknown-unknown
+          cargo check -p complexipy-wasm --target wasm32-unknown-unknown

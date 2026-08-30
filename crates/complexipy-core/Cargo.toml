@@ -1,0 +1,34 @@
+[package]
+name = "complexipy-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "complexipy_core"
+
+[features]
+default = ["runner"]
+runner = ["dep:ignore", "dep:globset", "dep:wax"]
+python = ["dep:pyo3"]
+wasm = []
+
+[dependencies]
+ruff_python_parser = { workspace = true }
+ruff_python_ast = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+csv = { workspace = true }
+ignore = { workspace = true, optional = true }
+globset = { workspace = true, optional = true }
+wax = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
