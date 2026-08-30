@@ -390,6 +390,41 @@ section to the same configuration file:
   the enforcement still applies. Fetch the branch or pass `--diff <ref>`
   with an existing reference instead.
 
+## CLI Options
+
+| Flag | Description | Default |
+| -- | -- | -- |
+| `--exclude` | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |  |
+| `--max-complexity-allowed` | Complexity threshold | `15` |
+| `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
+| `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
+| `--failed` | Show only functions above the complexity threshold | `false` |
+| `--suggest-refactors` | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain` | `false` |
+| `--color <auto\|yes\|no>` | Use color | `auto` |
+| `--sort <asc\|desc\|file_name>` | Sort results | `asc` |
+| `--quiet` | Suppress output | `false` |
+| `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
+| `--version` | Show installed complexipy version and exit | - |
+| `--top <n>` | Show only the `n` most complex functions, globally sorted by complexity descending | - |
+| `--plain` | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet` | `false` |
+| `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`) | - |
+| `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats | - |
+| `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](#complexity-diff)) | - |
+| `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](#complexity-diff)) | - |
+| `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
+| `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
+| `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
+| `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
+
+Example:
+
+```
+# Exclude a directory recursively under the provided root
+complexipy . --exclude "tests/**"
+# Exclude a specific file
+complexipy . --exclude "src/legacy/old_code.py"
+```
+
 ## Cache Configuration
 
 complexipy stores per-function complexity data between runs to power
@@ -836,6 +871,20 @@ Or run directly:
   run: |
       pip install complexipy
       complexipy . --max-complexity-allowed 15
+```
+
+### GitHub Code Scanning (SARIF)
+
+Upload complexity violations as inline PR annotations using SARIF:
+
+```yaml
+- name: Run complexipy
+  run: complexipy . --output-format sarif --output complexipy-results.sarif --ignore-complexity
+
+- name: Upload SARIF results
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+      sarif_file: complexipy-results.sarif
 ```
 
 ### Pre-commit Hook
