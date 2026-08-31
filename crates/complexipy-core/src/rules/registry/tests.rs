@@ -7,6 +7,7 @@ use super::{RuleRegistry, measure_reduction, select_non_overlapping, splice_plan
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
+use crate::utils::LineIndex;
 use ruff_python_parser::parse_module;
 use std::collections::HashMap;
 
@@ -206,12 +207,20 @@ fn every_registered_rule_produces_a_plan_consistent_with_its_own_metadata() {
         let meta = rule.metadata();
         let (region, source) = fixture_for(&meta.id);
 
-        let plan = rule.check(&region, &source, 10).unwrap_or_else(|| {
-            panic!(
-                "rule {} did not produce a plan for its own fixture",
-                meta.id
+        let plan = rule
+            .check(
+                &region,
+                &source,
+                &LineIndex::new(&source),
+                &Default::default(),
+                10,
             )
-        });
+            .unwrap_or_else(|| {
+                panic!(
+                    "rule {} did not produce a plan for its own fixture",
+                    meta.id
+                )
+            });
 
         assert_eq!(plan.rule_id, meta.id, "rule_id mismatch for {}", meta.id);
         assert_eq!(plan.kind, meta.name, "kind/name mismatch for {}", meta.id);
@@ -348,14 +357,27 @@ fn spliceable_plan_reports_the_measured_reduction() {
     let complexity = module_complexity(&source);
     let registry = RuleRegistry::new();
 
-    let (plans, _) = registry.analyze(&regions, &source, complexity, true);
+    let (plans, _) = registry.analyze(
+        &regions,
+        &source,
+        &LineIndex::new(&source),
+        &Default::default(),
+        complexity,
+        true,
+    );
 
     assert_eq!(plans.len(), 1);
     let plan = &plans[0];
     assert_eq!(plan.rule_id, "C002");
     assert!(plan.reduction_is_measured);
 
-    let spliced = splice_plan(plan, plan.suggestion.as_ref().unwrap(), &source).unwrap();
+    let spliced = splice_plan(
+        plan,
+        plan.suggestion.as_ref().unwrap(),
+        &source,
+        &LineIndex::new(&source),
+    )
+    .unwrap();
     let measured_after = module_complexity(&spliced);
     assert_eq!(
         plan.estimated_reduction,
@@ -379,7 +401,13 @@ fn unparseable_splice_measures_to_none() {
         spliceable: true,
     });
 
-    let measured = measure_reduction(&plan, plan.suggestion.as_ref().unwrap(), source, true);
+    let measured = measure_reduction(
+        &plan,
+        plan.suggestion.as_ref().unwrap(),
+        source,
+        &LineIndex::new(source),
+        true,
+    );
     assert!(measured.is_none());
 }
 
@@ -400,6 +428,12 @@ fn no_op_splice_measures_zero() {
         spliceable: true,
     });
 
-    let measured = measure_reduction(&plan, plan.suggestion.as_ref().unwrap(), source, false);
+    let measured = measure_reduction(
+        &plan,
+        plan.suggestion.as_ref().unwrap(),
+        source,
+        &LineIndex::new(source),
+        false,
+    );
     assert_eq!(measured, Some(0));
 }

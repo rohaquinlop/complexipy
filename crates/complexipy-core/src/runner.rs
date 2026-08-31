@@ -2,6 +2,7 @@ use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::helpers::exclude::get_paths_to_process;
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
+use rayon::prelude::*;
 use ruff_python_parser::parse_module;
 use std::path;
 
@@ -38,18 +39,27 @@ pub fn run_analysis_shared(
             no_ignore,
         };
 
+        let inv_abs = path::Path::new(invocation_path)
+            .canonicalize()
+            .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
         let (mut complexities, mut f_paths) = if path_obj.is_dir() {
-            evaluate_dir_shared(path, &opts, invocation_path)
+            evaluate_dir_shared(path, &opts, &inv_abs)
         } else {
-            match analyze_file_shared(path, &opts, invocation_path) {
+            match analyze_file_shared(path, &opts, &inv_abs) {
                 Ok(file_complexity) => (vec![file_complexity], vec![]),
                 Err(_) => (vec![], vec![path.to_string()]),
             }
         };
-        complexities
-            .iter_mut()
-            .for_each(|f| f.functions.sort_by_key(|f| (f.complexity, f.name.clone())));
-        complexities.sort_by_key(|f| (f.path.clone(), f.file_name.clone(), f.complexity));
+        complexities.iter_mut().for_each(|f| {
+            f.functions
+                .sort_by(|a, b| a.complexity.cmp(&b.complexity).then(a.name.cmp(&b.name)))
+        });
+        complexities.sort_by(|a, b| {
+            a.path
+                .cmp(&b.path)
+                .then(a.file_name.cmp(&b.file_name))
+                .then(a.complexity.cmp(&b.complexity))
+        });
         successful.append(&mut complexities);
         failed_paths.append(&mut f_paths);
     }
@@ -60,23 +70,24 @@ pub fn run_analysis_shared(
 fn evaluate_dir_shared(
     path: &str,
     opts: &ProcessOptions,
-    invocation_path: &str,
+    invocation_path: &path::Path,
 ) -> ComplexitiesAndFailedPaths {
-    let inv_abs = path::Path::new(invocation_path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
-    let base_dir = inv_abs.to_string_lossy().replace('\\', "/");
     let files_paths_to_process = match get_paths_to_process(path, opts.exclude.clone()) {
         Ok(paths) => paths,
         Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
     };
 
+    let results: Vec<Result<FileComplexity, String>> = files_paths_to_process
+        .par_iter()
+        .map(|file_path| analyze_file_shared(file_path, opts, invocation_path))
+        .collect();
+
     let mut complexities = Vec::new();
     let mut failed_paths = Vec::new();
-    for file_path in files_paths_to_process {
-        match analyze_file_shared(&file_path, opts, &base_dir) {
+    for (file_path, result) in files_paths_to_process.into_iter().zip(results) {
+        match result {
             Ok(file_complexity) => complexities.push(file_complexity),
-            Err(_) => failed_paths.push(file_path.clone()),
+            Err(_) => failed_paths.push(file_path),
         }
     }
     (complexities, failed_paths)
@@ -85,17 +96,14 @@ fn evaluate_dir_shared(
 fn analyze_file_shared(
     path: &str,
     opts: &ProcessOptions,
-    invocation_path: &str,
+    invocation_path: &path::Path,
 ) -> Result<FileComplexity, String> {
-    let inv_abs = path::Path::new(invocation_path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(invocation_path).to_path_buf());
-    let inv_str = inv_abs.to_string_lossy().replace('\\', "/");
+    let inv_str = invocation_path.to_string_lossy().replace('\\', "/");
     let file_abs = path::Path::new(path)
         .canonicalize()
         .unwrap_or_else(|_| path::Path::new(path).to_path_buf());
     let rel = file_abs
-        .strip_prefix(&inv_abs)
+        .strip_prefix(invocation_path)
         .ok()
         .and_then(|p| p.to_str())
         .unwrap_or(path);
@@ -196,8 +204,8 @@ fn collect_locations<T, F>(
     collect_file: F,
 ) -> Result<(Vec<T>, Vec<String>), String>
 where
-    T: Located,
-    F: Fn(&str, &str) -> Result<Vec<T>, String> + Copy,
+    T: Located + Send,
+    F: Fn(&str, &str) -> Result<Vec<T>, String> + Copy + Sync,
 {
     let mut all_locations = Vec::new();
     let mut failed_paths = Vec::new();
@@ -220,10 +228,12 @@ where
                 .unwrap_or(path::Path::new("."))
                 .to_string_lossy()
                 .replace('\\', "/");
-            for file_path in &files {
-                if let Ok(locs) = collect_file(file_path, &base_dir) {
-                    all_locations.extend(locs)
-                }
+            let results: Vec<Result<Vec<T>, String>> = files
+                .par_iter()
+                .map(|file_path| collect_file(file_path, &base_dir))
+                .collect();
+            for locs in results.into_iter().flatten() {
+                all_locations.extend(locs);
             }
         } else if path_obj.is_file() {
             let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");

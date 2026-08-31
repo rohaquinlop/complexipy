@@ -209,85 +209,117 @@ pub fn load_snapshot_file_shared(
         .map_err(|e| ExportError::Serialize(format!("Failed to parse snapshot JSON: {}", e)))
 }
 
-pub fn is_decorator(statement: Stmt) -> bool {
-    let mut ans = false;
+pub struct LineIndex {
+    newlines: Vec<usize>,
+}
+
+impl LineIndex {
+    pub fn new(code: &str) -> Self {
+        Self {
+            newlines: code
+                .bytes()
+                .enumerate()
+                .filter(|(_, b)| *b == b'\n')
+                .map(|(i, _)| i)
+                .collect(),
+        }
+    }
+
+    pub fn line_of(&self, byte: usize) -> u64 {
+        (self.newlines.partition_point(|&offset| offset < byte) + 1) as u64
+    }
+
+    pub fn column_of(&self, byte: usize, code: &str) -> u64 {
+        let idx = self.newlines.partition_point(|&offset| offset < byte);
+        let line_start = match idx {
+            0 => 0,
+            _ => self.newlines[idx - 1] + 1,
+        };
+        (code[line_start..byte].chars().count() + 1) as u64
+    }
+
+    pub fn byte_of_line(&self, line: u64) -> Option<usize> {
+        match line {
+            0 => None,
+            1 => Some(0),
+            _ => self.newlines.get((line - 2) as usize).map(|&i| i + 1),
+        }
+    }
+}
+
+pub fn is_decorator(statement: &Stmt) -> bool {
     if let Stmt::FunctionDef(f) = statement
         && f.body.len() == 2
     {
-        ans = matches!(f.body[0].clone(), Stmt::FunctionDef(..))
-            && matches!(f.body[1].clone(), Stmt::Return(..));
+        return matches!(&f.body[0], Stmt::FunctionDef(..))
+            && matches!(&f.body[1], Stmt::Return(..));
     }
-
-    ans
+    false
 }
 
-pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
+pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(..) => {
+        ast::Expr::BoolOp(b) => {
             complexity += 1;
-            if let Some(b) = expr.clone().bool_op_expr() {
-                for value in b.values.iter() {
-                    complexity += count_different_childs_type(value.clone(), expr.clone());
-                }
+            for value in b.values.iter() {
+                complexity += count_different_childs_type(value, expr);
             }
         }
-        ast::Expr::UnaryOp(..) => {
-            if let Some(u) = expr.clone().unary_op_expr() {
-                complexity += count_different_childs_type(*u.operand, expr.clone());
-            }
+        ast::Expr::UnaryOp(u) => {
+            complexity += count_different_childs_type(&u.operand, expr);
         }
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(*c.left, nesting_level);
+            complexity += count_bool_ops(&c.left, nesting_level);
             for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator.clone(), nesting_level);
+                complexity += count_bool_ops(comparator, nesting_level);
             }
         }
         ast::Expr::If(i) => {
             complexity += 1 + nesting_level;
-            complexity += count_bool_ops(*i.test, nesting_level);
-            complexity += count_bool_ops(*i.body, nesting_level + 1);
-            complexity += count_bool_ops(*i.orelse, nesting_level + 1);
+            complexity += count_bool_ops(&i.test, nesting_level);
+            complexity += count_bool_ops(&i.body, nesting_level + 1);
+            complexity += count_bool_ops(&i.orelse, nesting_level + 1);
         }
         ast::Expr::Lambda(l) => {
-            complexity += count_bool_ops(*l.body, nesting_level + 1);
+            complexity += count_bool_ops(&l.body, nesting_level + 1);
         }
         ast::Expr::ListComp(c) => {
-            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
         }
         ast::Expr::SetComp(c) => {
-            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
         }
         ast::Expr::Generator(c) => {
-            complexity += count_comprehension(&[*c.elt], &c.generators, nesting_level);
+            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
         }
         ast::Expr::DictComp(c) => {
-            complexity += count_comprehension(&[*c.key, *c.value], &c.generators, nesting_level);
+            complexity += count_comprehension(&[&c.key, &c.value], &c.generators, nesting_level);
         }
         ast::Expr::Call(c) => {
             for arg in c.arguments.args.iter() {
-                complexity += count_bool_ops(arg.clone(), nesting_level);
+                complexity += count_bool_ops(arg, nesting_level);
             }
         }
         ast::Expr::Tuple(t) => {
             for element in t.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::List(l) => {
             for element in l.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::Set(s) => {
             for element in s.elts.iter() {
-                complexity += count_bool_ops(element.clone(), nesting_level);
+                complexity += count_bool_ops(element, nesting_level);
             }
         }
         ast::Expr::Dict(d) => {
             for value in d.iter_values() {
-                complexity += count_bool_ops(value.clone(), nesting_level);
+                complexity += count_bool_ops(value, nesting_level);
             }
         }
         _ => {}
@@ -297,7 +329,7 @@ pub fn count_bool_ops(expr: ast::Expr, nesting_level: u64) -> u64 {
 }
 
 fn count_comprehension(
-    elements: &[ast::Expr],
+    elements: &[&ast::Expr],
     generators: &[ast::Comprehension],
     nesting_level: u64,
 ) -> u64 {
@@ -306,49 +338,46 @@ fn count_comprehension(
 
     for generator in generators.iter() {
         complexity += 1 + nesting_level;
-        complexity += count_bool_ops(generator.iter.clone(), nesting_level);
+        complexity += count_bool_ops(&generator.iter, nesting_level);
         for filter in generator.ifs.iter() {
             complexity += 1;
-            complexity += count_bool_ops(filter.clone(), inner_nesting);
+            complexity += count_bool_ops(filter, inner_nesting);
         }
     }
 
     for element in elements.iter() {
-        complexity += count_bool_ops(element.clone(), inner_nesting);
+        complexity += count_bool_ops(element, inner_nesting);
     }
 
     complexity
 }
 
-fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
+fn count_different_childs_type(expr: &ast::Expr, prev_pr: &ast::Expr) -> u64 {
     let mut complexity: u64 = 0;
 
     match expr {
-        ast::Expr::BoolOp(..) => match prev_pr {
+        ast::Expr::BoolOp(b) => match prev_pr {
             ast::Expr::BoolOp(p) => {
-                if let Some(b) = expr.clone().bool_op_expr()
-                    && b.op != p.op
-                {
+                if b.op != p.op {
                     complexity += 1;
                 }
-
-                for value in p.values {
-                    complexity += count_different_childs_type(value, expr.clone());
+                for value in p.values.iter() {
+                    complexity += count_different_childs_type(value, expr);
                 }
             }
             ast::Expr::UnaryOp(p) => {
-                complexity = 1 + count_different_childs_type(*p.operand, expr);
+                complexity = 1 + count_different_childs_type(&p.operand, expr);
             }
             _ => {}
         },
         ast::Expr::UnaryOp(..) => match prev_pr {
             ast::Expr::BoolOp(p) => {
-                for value in p.values {
-                    complexity += count_different_childs_type(value, expr.clone());
+                for value in p.values.iter() {
+                    complexity += count_different_childs_type(value, expr);
                 }
             }
             ast::Expr::UnaryOp(p) => {
-                complexity = count_different_childs_type(*p.operand, expr);
+                complexity = count_different_childs_type(&p.operand, expr);
             }
             _ => {}
         },
@@ -358,19 +387,33 @@ fn count_different_childs_type(expr: ast::Expr, prev_pr: ast::Expr) -> u64 {
     complexity
 }
 
-pub fn get_line_number(byte_index: usize, code: &str) -> u64 {
-    let before_slice = &code[..byte_index];
-    let newline_count = before_slice.chars().filter(|&c| c == '\n').count();
-    (newline_count + 1) as u64
+fn line_start_of(code: &str, offset: usize) -> usize {
+    code[..offset].rfind('\n').map_or(0, |i| i + 1)
 }
 
-pub fn get_column_number(byte_index: usize, code: &str) -> u64 {
-    let before_slice = &code[..byte_index];
-    let column_start = match before_slice.rfind('\n') {
-        Some(newline_index) => newline_index + 1,
-        None => 0,
-    };
-    (before_slice[column_start..].chars().count() + 1) as u64
+fn line_end_of(code: &str, offset: usize) -> usize {
+    code[offset..].find('\n').map_or(code.len(), |i| offset + i)
+}
+
+fn line_at(code: &str, line_start: usize) -> &str {
+    &code[line_start..line_end_of(code, line_start)]
+}
+
+fn next_line_start(code: &str, line_start: usize) -> Option<usize> {
+    let end = line_end_of(code, line_start);
+    (end < code.len()).then_some(end + 1)
+}
+
+pub fn collect_def_names(code: &str) -> std::collections::HashSet<String> {
+    code.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            let rest = trimmed
+                .strip_prefix("def ")
+                .or_else(|| trimmed.strip_prefix("async def "))?;
+            rest.split('(').next().map(|name| name.trim().to_string())
+        })
+        .collect()
 }
 
 /// Extract a canonical ignore comment marker from a line.
@@ -399,59 +442,59 @@ pub fn extract_comment_marker(line: &str) -> Option<String> {
 ///
 /// Returns `Some(comment_text)` when a marker is found that would
 /// trigger suppression, `None` otherwise.
-pub fn find_noqa_comment(line_number: u64, code: &str) -> Option<String> {
-    if line_number == 0 {
-        return None;
-    }
+pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<String> {
+    let line_start = line_start_of(code, byte_offset);
+    let current_line = line_at(code, line_start);
 
-    let lines: Vec<&str> = code.lines().collect();
-    let idx = (line_number as usize).saturating_sub(1);
-
-    let signature_has_marker = |def_idx: usize| -> Option<String> {
-        let max_scan = (def_idx + 20).min(lines.len());
-        for line in lines.iter().skip(def_idx).take(max_scan - def_idx) {
+    let signature_has_marker = |def_line_start: usize| -> Option<String> {
+        let mut pos = def_line_start;
+        for _ in 0..20 {
+            let line = line_at(code, pos);
             if let Some(marker) = extract_comment_marker(line) {
                 return Some(marker);
             }
             if line.contains(':') {
                 break;
             }
+            pos = next_line_start(code, pos)?;
         }
         None
     };
 
-    if idx < lines.len()
-        && let Some(marker) = extract_comment_marker(lines[idx])
-    {
+    if let Some(marker) = extract_comment_marker(current_line) {
         return Some(marker);
     }
 
-    if idx > 0
-        && let Some(marker) = extract_comment_marker(lines[idx - 1])
-    {
-        return Some(marker);
+    if line_start > 0 {
+        let prev_start = line_start_of(code, line_start - 1);
+        if let Some(marker) = extract_comment_marker(line_at(code, prev_start)) {
+            return Some(marker);
+        }
     }
 
-    if idx < lines.len() && lines[idx].trim_start().starts_with("def ") {
-        return signature_has_marker(idx);
+    if current_line.trim_start().starts_with("def ") {
+        return signature_has_marker(line_start);
     }
 
-    if idx < lines.len() && lines[idx].trim_start().starts_with('@') {
-        let max_scan = (idx + 10).min(lines.len());
-        for i in (idx + 1)..max_scan {
-            let line = lines[i].trim();
-            if line.starts_with("def ") {
-                if let Some(marker) = signature_has_marker(i) {
+    if current_line.trim_start().starts_with('@') {
+        let mut pos = line_start;
+        for _ in 0..10 {
+            pos = next_line_start(code, pos)?;
+            let line = line_at(code, pos);
+            let trimmed = line.trim();
+            if trimmed.starts_with("def ") {
+                if let Some(marker) = signature_has_marker(pos) {
                     return Some(marker);
                 }
-                if i > 0
-                    && let Some(marker) = extract_comment_marker(lines[i - 1])
-                {
-                    return Some(marker);
+                if pos > 0 {
+                    let prev_start = line_start_of(code, pos - 1);
+                    if let Some(marker) = extract_comment_marker(line_at(code, prev_start)) {
+                        return Some(marker);
+                    }
                 }
                 break;
             }
-            if !line.is_empty() && !line.trim_start().starts_with('@') {
+            if !trimmed.is_empty() && !line.trim_start().starts_with('@') {
                 break;
             }
         }
@@ -460,39 +503,38 @@ pub fn find_noqa_comment(line_number: u64, code: &str) -> Option<String> {
     None
 }
 
-pub fn has_noqa_complexipy(line_number: u64, code: &str) -> bool {
-    find_noqa_comment(line_number, code).is_some()
+pub fn has_noqa_complexipy(byte_offset: usize, code: &str) -> bool {
+    find_noqa_comment(byte_offset, code).is_some()
 }
 
 /// Collect ignored locations from code, only reporting markers that
 /// actually suppress a function definition (i.e., are adjacent to `def`
 /// or `@decorator` lines).
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
+    let index = LineIndex::new(code);
     let mut results = Vec::new();
-    let lines: Vec<&str> = code.lines().collect();
-    #[allow(clippy::needless_range_loop)]
-    let mut idx = 0;
-    while idx < lines.len() {
-        let trimmed = lines[idx].trim_start();
+    let mut line_start = 0;
+
+    while line_start < code.len() {
+        let line = line_at(code, line_start);
+        let trimmed = line.trim_start();
 
         if trimmed.starts_with("def ") {
-            let line_number = (idx + 1) as u64;
-            if let Some(comment) = find_noqa_comment(line_number, code) {
-                results.push((line_number, comment));
+            if let Some(comment) = find_noqa_comment(line_start, code) {
+                results.push((index.line_of(line_start), comment));
             }
-            idx += 1;
+            line_start = next_line_start(code, line_start).unwrap_or(code.len());
         } else if trimmed.starts_with('@') {
-            let max_scan = (idx + 10).min(lines.len());
-            let mut def_line_number = None;
-            for (inner_idx, inner_line) in lines
-                .iter()
-                .enumerate()
-                .skip(idx + 1)
-                .take(max_scan - (idx + 1))
-            {
-                let inner = inner_line.trim();
+            let mut def_offset = None;
+            let mut pos = line_start;
+            for _ in 0..10 {
+                let Some(next) = next_line_start(code, pos) else {
+                    break;
+                };
+                pos = next;
+                let inner = line_at(code, pos).trim();
                 if inner.starts_with("def ") {
-                    def_line_number = Some((inner_idx + 1) as u64);
+                    def_offset = Some(pos);
                     break;
                 }
                 if !inner.is_empty() && !inner.starts_with('@') {
@@ -500,27 +542,29 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
                 }
             }
             let mut reported = false;
-            if let Some(dln) = def_line_number
-                && let Some(comment) = find_noqa_comment(dln, code)
+            if let Some(def_line_start) = def_offset
+                && let Some(comment) = find_noqa_comment(def_line_start, code)
             {
-                results.push((dln, comment));
+                results.push((index.line_of(def_line_start), comment));
                 reported = true;
             }
-            while idx + 1 < lines.len() {
-                let next = lines[idx + 1].trim_start();
-                if next.starts_with('@') || next.is_empty() {
-                    idx += 1;
+            while let Some(next) = next_line_start(code, line_start) {
+                let next_line = line_at(code, next);
+                if next_line.trim_start().starts_with('@') || next_line.trim_start().is_empty() {
+                    line_start = next;
                 } else {
                     break;
                 }
             }
-            if reported && idx + 1 < lines.len() && lines[idx + 1].trim_start().starts_with("def ")
+            if reported
+                && let Some(next) = next_line_start(code, line_start)
+                && line_at(code, next).trim_start().starts_with("def ")
             {
-                idx += 1;
+                line_start = next;
             }
-            idx += 1;
+            line_start = next_line_start(code, line_start).unwrap_or(code.len());
         } else {
-            idx += 1;
+            line_start = next_line_start(code, line_start).unwrap_or(code.len());
         }
     }
 

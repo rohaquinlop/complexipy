@@ -1,6 +1,7 @@
 pub use crate::classes::{LineComplexity, RefactorPlan};
 
 use crate::rules::RuleRegistry;
+use crate::utils::LineIndex;
 use std::sync::OnceLock;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -40,9 +41,18 @@ pub fn build_refactor_plans(
     function_complexity: u64,
     regions: &[ComplexityRegion],
     source: &str,
+    index: &LineIndex,
+    def_names: &std::collections::HashSet<String>,
     is_module: bool,
 ) -> (Vec<RefactorPlan>, u64) {
     static REGISTRY: OnceLock<RuleRegistry> = OnceLock::new();
     let registry = REGISTRY.get_or_init(RuleRegistry::new);
-    registry.analyze(regions, source, function_complexity, is_module)
+    registry.analyze(
+        regions,
+        source,
+        index,
+        def_names,
+        function_complexity,
+        is_module,
+    )
 }

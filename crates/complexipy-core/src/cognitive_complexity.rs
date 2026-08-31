@@ -3,9 +3,7 @@ mod shared_deps {
     pub use crate::refactor_plans::{
         ComplexityRegion, ComplexityResult, RegionKind, build_refactor_plans,
     };
-    pub use crate::utils::{
-        count_bool_ops, get_column_number, get_line_number, has_noqa_complexipy, is_decorator,
-    };
+    pub use crate::utils::{LineIndex, count_bool_ops, has_noqa_complexipy, is_decorator};
     pub use ruff_python_ast::{self as ast, Stmt};
 }
 
@@ -38,6 +36,8 @@ pub fn function_level_cognitive_complexity_shared(
     no_ignore: bool,
     with_plans: bool,
 ) -> (Vec<FunctionComplexity>, u64) {
+    let index = LineIndex::new(code);
+    let def_names = crate::utils::collect_def_names(code);
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
     let mut module_complexity: u64 = 0;
@@ -53,6 +53,8 @@ pub fn function_level_cognitive_complexity_shared(
                         f,
                         f.name.to_string(),
                         code,
+                        &index,
+                        &def_names,
                         with_plans,
                     ));
                 }
@@ -67,13 +69,15 @@ pub fn function_level_cognitive_complexity_shared(
                             f,
                             format!("{}::{}", c.name, f.name),
                             code,
+                            &index,
+                            &def_names,
                             with_plans,
                         ));
                     }
                 }
             }
             _ => {
-                let result = statement_cognitive_complexity_shared(node, 0, code);
+                let result = statement_cognitive_complexity_shared(node, 0, code, &index);
                 if check_script {
                     module_complexity += result.complexity;
                     module_line_complexities.extend(result.line_complexities);
@@ -88,7 +92,14 @@ pub fn function_level_cognitive_complexity_shared(
     if check_script {
         let total_lines = code.lines().count() as u64;
         let (refactor_plans, additional_refactor_plans) = if with_plans {
-            build_refactor_plans(module_complexity, &module_regions, code, true)
+            build_refactor_plans(
+                module_complexity,
+                &module_regions,
+                code,
+                &index,
+                &def_names,
+                true,
+            )
         } else {
             (Vec::new(), 0)
         };
@@ -110,8 +121,7 @@ pub fn function_level_cognitive_complexity_shared(
 }
 
 fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
-    let start_line = get_line_number(usize::from(f.range.start()), code);
-    !no_ignore && has_noqa_complexipy(start_line, code)
+    !no_ignore && has_noqa_complexipy(usize::from(f.range.start()), code)
 }
 
 fn analyze_function(
@@ -119,23 +129,32 @@ fn analyze_function(
     f: &ast::StmtFunctionDef,
     name: String,
     code: &str,
+    index: &LineIndex,
+    def_names: &std::collections::HashSet<String>,
     with_plans: bool,
 ) -> FunctionComplexity {
-    let mut result = statement_cognitive_complexity_shared(node, 0, code);
-    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), code) {
+    let mut result = statement_cognitive_complexity_shared(node, 0, code, index);
+    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), index) {
         result.complexity += 1;
         push_line(&mut result, line, 1);
     }
     let (refactor_plans, additional_refactor_plans) = if with_plans {
-        build_refactor_plans(result.complexity, &result.regions, code, false)
+        build_refactor_plans(
+            result.complexity,
+            &result.regions,
+            code,
+            index,
+            def_names,
+            false,
+        )
     } else {
         (Vec::new(), 0)
     };
     FunctionComplexity {
         name,
         complexity: result.complexity,
-        line_start: get_line_number(usize::from(f.range.start()), code),
-        line_end: get_line_number(usize::from(f.range.end()), code),
+        line_start: index.line_of(usize::from(f.range.start())),
+        line_end: index.line_of(usize::from(f.range.end())),
         line_complexities: result.line_complexities,
         refactor_plans,
         additional_refactor_plans,
@@ -176,10 +195,10 @@ impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
     }
 }
 
-fn detect_direct_recursion(body: &[Stmt], name: &str, code: &str) -> Option<u64> {
+fn detect_direct_recursion(body: &[Stmt], name: &str, index: &LineIndex) -> Option<u64> {
     let mut finder = RecursionFinder { name, found: None };
     ast::visitor::walk_body(&mut finder, body);
-    finder.found.map(|offset| get_line_number(offset, code))
+    finder.found.map(|offset| index.line_of(offset))
 }
 
 fn empty_result() -> ComplexityResult {
@@ -214,12 +233,12 @@ fn finalize_region(result: &mut ComplexityResult, mut region: ComplexityRegion) 
 
 fn count_line_bool_ops(
     result: &mut ComplexityResult,
-    exprs: Vec<ast::Expr>,
+    exprs: &[&ast::Expr],
     line: u64,
     nesting_level: u64,
 ) {
     let complexity: u64 = exprs
-        .into_iter()
+        .iter()
         .map(|expr| count_bool_ops(expr, nesting_level))
         .sum();
     result.complexity += complexity;
@@ -230,11 +249,12 @@ fn collect_suite(
     suite: &ast::Suite,
     nesting_level: u64,
     code: &str,
+    index: &LineIndex,
     region_children: &mut Vec<ComplexityRegion>,
 ) -> ComplexityResult {
     let mut result = empty_result();
     for node in suite.iter() {
-        let child = statement_cognitive_complexity_shared(node, nesting_level, code);
+        let child = statement_cognitive_complexity_shared(node, nesting_level, code, index);
         result.complexity += child.complexity;
         result.line_complexities.extend(child.line_complexities);
         region_children.extend(child.regions);
@@ -272,18 +292,19 @@ fn push_bool_region(
 }
 
 fn loop_complexity(
-    control: ast::Expr,
+    control: &ast::Expr,
     body: &ast::Suite,
     orelse: &ast::Suite,
     range: (usize, usize),
     nesting_level: u64,
     code: &str,
+    index: &LineIndex,
 ) -> ComplexityResult {
     let mut result = empty_result();
     let (range_start, range_end) = range;
-    let line_start = get_line_number(range_start, code);
-    let line_end = get_line_number(range_end, code);
-    let column_start = get_column_number(range_start, code);
+    let line_start = index.line_of(range_start);
+    let line_end = index.line_of(range_end);
+    let column_start = index.column_of(range_start, code);
     let boolean = count_bool_ops(control, nesting_level);
     let own = 1 + nesting_level + boolean;
     result.complexity += own;
@@ -293,11 +314,11 @@ fn loop_complexity(
     push_bool_region(&mut children, line_start, line_start, column_start, boolean);
     absorb(
         &mut result,
-        collect_suite(body, nesting_level + 1, code, &mut children),
+        collect_suite(body, nesting_level + 1, code, index, &mut children),
     );
     absorb(
         &mut result,
-        collect_suite(orelse, nesting_level, code, &mut children),
+        collect_suite(orelse, nesting_level, code, index, &mut children),
     );
 
     finalize_region(
@@ -323,13 +344,14 @@ fn statement_cognitive_complexity_shared(
     statement: &Stmt,
     nesting_level: u64,
     code: &str,
+    index: &LineIndex,
 ) -> ComplexityResult {
     let mut result = empty_result();
 
-    if is_decorator(statement.clone())
+    if is_decorator(statement)
         && let Stmt::FunctionDef(f) = statement
     {
-        return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
+        return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code, index);
     }
 
     match statement {
@@ -342,7 +364,7 @@ fn statement_cognitive_complexity_shared(
                 };
                 absorb_with_regions(
                     &mut result,
-                    statement_cognitive_complexity_shared(node, next_nesting, code),
+                    statement_cognitive_complexity_shared(node, next_nesting, code, index),
                 );
             }
         }
@@ -351,67 +373,69 @@ fn statement_cognitive_complexity_shared(
                 if let Stmt::FunctionDef(..) = node {
                     absorb_with_regions(
                         &mut result,
-                        statement_cognitive_complexity_shared(node, nesting_level, code),
+                        statement_cognitive_complexity_shared(node, nesting_level, code, index),
                     );
                 }
             }
         }
         Stmt::Assign(a) => {
-            let line = get_line_number(usize::from(a.range.start()), code);
-            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
+            let line = index.line_of(usize::from(a.range.start()));
+            count_line_bool_ops(&mut result, &[&*a.value], line, nesting_level);
         }
         Stmt::AnnAssign(a) => {
-            if let Some(value) = a.value.clone() {
-                let line = get_line_number(usize::from(a.range.start()), code);
-                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
+            if let Some(value) = a.value.as_deref() {
+                let line = index.line_of(usize::from(a.range.start()));
+                count_line_bool_ops(&mut result, &[value], line, nesting_level);
             }
         }
         Stmt::AugAssign(a) => {
-            let line = get_line_number(usize::from(a.range.start()), code);
-            count_line_bool_ops(&mut result, vec![*a.value.clone()], line, nesting_level);
+            let line = index.line_of(usize::from(a.range.start()));
+            count_line_bool_ops(&mut result, &[&*a.value], line, nesting_level);
         }
         Stmt::For(f) => {
             result = loop_complexity(
-                *f.iter.clone(),
+                &f.iter,
                 &f.body,
                 &f.orelse,
                 (usize::from(f.range.start()), usize::from(f.range.end())),
                 nesting_level,
                 code,
+                index,
             );
         }
         Stmt::While(w) => {
             result = loop_complexity(
-                *w.test.clone(),
+                &w.test,
                 &w.body,
                 &w.orelse,
                 (usize::from(w.range.start()), usize::from(w.range.end())),
                 nesting_level,
                 code,
+                index,
             );
         }
         Stmt::If(i) => {
-            let boolean = count_bool_ops(*i.test.clone(), nesting_level);
+            let boolean = count_bool_ops(&i.test, nesting_level);
             let own = 1 + nesting_level + boolean;
             result.complexity += own;
-            let line_start = get_line_number(usize::from(i.range.start()), code);
-            let line_end = get_line_number(usize::from(i.range.end()), code);
-            let column_start = get_column_number(usize::from(i.range.start()), code);
+            let line_start = index.line_of(usize::from(i.range.start()));
+            let line_end = index.line_of(usize::from(i.range.end()));
+            let column_start = index.column_of(usize::from(i.range.start()), code);
             push_line(&mut result, line_start, own);
 
             let mut children = Vec::new();
             push_bool_region(&mut children, line_start, line_start, column_start, boolean);
             absorb(
                 &mut result,
-                collect_suite(&i.body, nesting_level + 1, code, &mut children),
+                collect_suite(&i.body, nesting_level + 1, code, index, &mut children),
             );
 
             let mut elif_count = 0;
-            for clause in i.elif_else_clauses.clone() {
-                let line = get_line_number(usize::from(clause.range.start()), code);
-                let column = get_column_number(usize::from(clause.range.start()), code);
+            for clause in i.elif_else_clauses.iter() {
+                let line = index.line_of(usize::from(clause.range.start()));
+                let column = index.column_of(usize::from(clause.range.start()), code);
                 let mut clause_complexity = 1;
-                if let Some(test) = clause.test.clone() {
+                if let Some(test) = clause.test.as_ref() {
                     elif_count += 1;
                     let clause_bool = count_bool_ops(test, nesting_level);
                     clause_complexity += clause_bool;
@@ -421,7 +445,7 @@ fn statement_cognitive_complexity_shared(
                 push_line(&mut result, line, clause_complexity);
                 absorb(
                     &mut result,
-                    collect_suite(&clause.body, nesting_level + 1, code, &mut children),
+                    collect_suite(&clause.body, nesting_level + 1, code, index, &mut children),
                 );
             }
 
@@ -448,13 +472,13 @@ fn statement_cognitive_complexity_shared(
             );
         }
         Stmt::Try(t) => {
-            let line_start = get_line_number(usize::from(t.range.start()), code);
-            let line_end = get_line_number(usize::from(t.range.end()), code);
-            let column_start = get_column_number(usize::from(t.range.start()), code);
+            let line_start = index.line_of(usize::from(t.range.start()));
+            let line_end = index.line_of(usize::from(t.range.end()));
+            let column_start = index.column_of(usize::from(t.range.start()), code);
             let mut children = Vec::new();
             absorb(
                 &mut result,
-                collect_suite(&t.body, nesting_level, code, &mut children),
+                collect_suite(&t.body, nesting_level, code, index, &mut children),
             );
 
             let mut structural = 0;
@@ -464,22 +488,22 @@ fn statement_cognitive_complexity_shared(
                 let handler_complexity = 1 + nesting_level;
                 own += handler_complexity;
                 result.complexity += handler_complexity;
-                let handler = handler.clone().expect_except_handler();
-                let line = get_line_number(usize::from(handler.range.start()), code);
+                let ast::ExceptHandler::ExceptHandler(handler) = handler;
+                let line = index.line_of(usize::from(handler.range.start()));
                 push_line(&mut result, line, handler_complexity);
                 absorb(
                     &mut result,
-                    collect_suite(&handler.body, nesting_level + 1, code, &mut children),
+                    collect_suite(&handler.body, nesting_level + 1, code, index, &mut children),
                 );
             }
 
             absorb(
                 &mut result,
-                collect_suite(&t.orelse, nesting_level, code, &mut children),
+                collect_suite(&t.orelse, nesting_level, code, index, &mut children),
             );
             absorb(
                 &mut result,
-                collect_suite(&t.finalbody, nesting_level, code, &mut children),
+                collect_suite(&t.finalbody, nesting_level, code, index, &mut children),
             );
 
             finalize_region(
@@ -500,16 +524,16 @@ fn statement_cognitive_complexity_shared(
         Stmt::Match(m) => {
             let own = 1 + nesting_level;
             result.complexity += own;
-            let line_start = get_line_number(usize::from(m.range.start()), code);
-            let line_end = get_line_number(usize::from(m.range.end()), code);
-            let column_start = get_column_number(usize::from(m.range.start()), code);
+            let line_start = index.line_of(usize::from(m.range.start()));
+            let line_end = index.line_of(usize::from(m.range.end()));
+            let column_start = index.column_of(usize::from(m.range.start()), code);
             push_line(&mut result, line_start, own);
 
             let mut children = Vec::new();
             for case in m.cases.iter() {
                 absorb(
                     &mut result,
-                    collect_suite(&case.body, nesting_level + 1, code, &mut children),
+                    collect_suite(&case.body, nesting_level + 1, code, index, &mut children),
                 );
             }
 
@@ -529,46 +553,46 @@ fn statement_cognitive_complexity_shared(
             );
         }
         Stmt::Return(r) => {
-            if let Some(value) = r.value.clone() {
-                let line = get_line_number(usize::from(r.range.start()), code);
-                count_line_bool_ops(&mut result, vec![*value], line, nesting_level);
+            if let Some(value) = r.value.as_deref() {
+                let line = index.line_of(usize::from(r.range.start()));
+                count_line_bool_ops(&mut result, &[value], line, nesting_level);
             }
         }
         Stmt::Raise(r) => {
-            let mut exprs = Vec::new();
-            if let Some(exc) = r.exc.clone() {
-                exprs.push(*exc);
+            let mut exprs: Vec<&ast::Expr> = Vec::new();
+            if let Some(exc) = r.exc.as_deref() {
+                exprs.push(exc);
             }
-            if let Some(cause) = r.cause.clone() {
-                exprs.push(*cause);
+            if let Some(cause) = r.cause.as_deref() {
+                exprs.push(cause);
             }
-            let line = get_line_number(usize::from(r.range.start()), code);
-            count_line_bool_ops(&mut result, exprs, line, nesting_level);
+            let line = index.line_of(usize::from(r.range.start()));
+            count_line_bool_ops(&mut result, &exprs, line, nesting_level);
         }
         Stmt::Assert(a) => {
-            let mut exprs = vec![*a.test.clone()];
-            if let Some(msg) = a.msg.clone() {
-                exprs.push(*msg);
+            let mut exprs: Vec<&ast::Expr> = vec![&*a.test];
+            if let Some(msg) = a.msg.as_deref() {
+                exprs.push(msg);
             }
-            let line = get_line_number(usize::from(a.range.start()), code);
-            count_line_bool_ops(&mut result, exprs, line, nesting_level);
+            let line = index.line_of(usize::from(a.range.start()));
+            count_line_bool_ops(&mut result, &exprs, line, nesting_level);
         }
         Stmt::With(w) => {
             let with_complexity: u64 = w
                 .items
                 .iter()
-                .map(|item| count_bool_ops(item.context_expr.clone(), nesting_level))
+                .map(|item| count_bool_ops(&item.context_expr, nesting_level))
                 .sum();
             result.complexity += with_complexity;
-            let line_start = get_line_number(usize::from(w.range.start()), code);
-            let line_end = get_line_number(usize::from(w.range.end()), code);
-            let column_start = get_column_number(usize::from(w.range.start()), code);
+            let line_start = index.line_of(usize::from(w.range.start()));
+            let line_end = index.line_of(usize::from(w.range.end()));
+            let column_start = index.column_of(usize::from(w.range.start()), code);
             push_line(&mut result, line_start, with_complexity);
 
             let mut children = Vec::new();
             absorb(
                 &mut result,
-                collect_suite(&w.body, nesting_level, code, &mut children),
+                collect_suite(&w.body, nesting_level, code, index, &mut children),
             );
 
             finalize_region(
@@ -587,8 +611,8 @@ fn statement_cognitive_complexity_shared(
             );
         }
         Stmt::Expr(e) => {
-            let line = get_line_number(usize::from(e.range.start()), code);
-            count_line_bool_ops(&mut result, vec![*e.value.clone()], line, nesting_level);
+            let line = index.line_of(usize::from(e.range.start()));
+            count_line_bool_ops(&mut result, &[&*e.value], line, nesting_level);
         }
         _ => {}
     }
