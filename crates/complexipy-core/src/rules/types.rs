@@ -4,6 +4,8 @@ pub use crate::classes::{Applicability, RuleCategory};
 
 use crate::classes::RefactorPlan;
 use crate::refactor_plans::ComplexityRegion;
+use crate::utils::LineIndex;
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuleMetadata {
@@ -62,6 +64,8 @@ pub trait RefactorRule: Sync + Send {
         &self,
         region: &ComplexityRegion,
         source: &str,
+        index: &LineIndex,
+        def_names: &HashSet<String>,
         function_complexity: u64,
     ) -> Option<crate::classes::RefactorPlan>;
 }

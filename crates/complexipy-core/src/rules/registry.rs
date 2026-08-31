@@ -2,6 +2,7 @@ use super::types::RefactorRule;
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::ComplexityRegion;
+use crate::utils::LineIndex;
 use ruff_python_parser::parse_module;
 use std::collections::HashMap;
 
@@ -51,32 +52,53 @@ impl RuleRegistry {
     }
 
     /// Returns the selected plans (capped at 5) plus a count of additional
-    /// plans that survived dedup but were dropped purely by the cap, so
-    /// callers can render "... and N more suggestions" instead of silently
-    /// truncating.
+    /// plans that survived dedup but were not emitted, so callers can render
+    /// "... and N more suggestions" instead of silently truncating. The count
+    /// covers both cap drops and selected plans whose measured reduction
+    /// fell below 1 after measurement.
     #[must_use]
     pub fn analyze(
         &self,
         regions: &[ComplexityRegion],
         source: &str,
+        index: &LineIndex,
+        def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
         is_module: bool,
     ) -> (Vec<RefactorPlan>, u64) {
         let mut plans = Vec::new();
 
-        self.collect_plans(regions, source, function_complexity, &mut plans);
-        self.measure_plans(&mut plans, source, is_module);
-
+        self.collect_plans(
+            regions,
+            source,
+            index,
+            def_names,
+            function_complexity,
+            &mut plans,
+        );
         plans.retain(|plan| plan.estimated_reduction >= 1);
 
         let effectiveness = self.effectiveness_by_rule_id();
-        select_non_overlapping(plans, &effectiveness)
+        let (mut selected, cap_dropped) = select_non_overlapping(plans, &effectiveness);
+
+        let measured_before = selected.len();
+        self.measure_plans(&mut selected, source, index, is_module);
+        selected.retain(|plan| plan.estimated_reduction >= 1);
+        let measurement_dropped = measured_before.saturating_sub(selected.len());
+
+        (selected, cap_dropped + measurement_dropped as u64)
     }
 
     /// Plans whose measurement fails keep their formula estimate with
     /// `reduction_is_measured = false` - never a panic, never a fabricated
     /// measured number.
-    fn measure_plans(&self, plans: &mut [RefactorPlan], source: &str, is_module: bool) {
+    fn measure_plans(
+        &self,
+        plans: &mut [RefactorPlan],
+        source: &str,
+        index: &LineIndex,
+        is_module: bool,
+    ) {
         for plan in plans.iter_mut() {
             let Some(suggestion) = &plan.suggestion else {
                 continue;
@@ -84,7 +106,8 @@ impl RuleRegistry {
             if !suggestion.spliceable {
                 continue;
             }
-            let Some(measured) = measure_reduction(plan, suggestion, source, is_module) else {
+            let Some(measured) = measure_reduction(plan, suggestion, source, index, is_module)
+            else {
                 continue;
             };
             plan.estimated_reduction = measured;
@@ -97,17 +120,28 @@ impl RuleRegistry {
         &self,
         regions: &[ComplexityRegion],
         source: &str,
+        index: &LineIndex,
+        def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
         plans: &mut Vec<RefactorPlan>,
     ) {
         for region in regions {
             for rule in &self.rules {
-                if let Some(plan) = rule.check(region, source, function_complexity) {
+                if let Some(plan) =
+                    rule.check(region, source, index, def_names, function_complexity)
+                {
                     plans.push(plan);
                 }
             }
 
-            self.collect_plans(&region.children, source, function_complexity, plans);
+            self.collect_plans(
+                &region.children,
+                source,
+                index,
+                def_names,
+                function_complexity,
+                plans,
+            );
         }
     }
 }
@@ -118,18 +152,27 @@ impl Default for RuleRegistry {
     }
 }
 
-fn splice_plan(plan: &RefactorPlan, suggestion: &CodeSuggestion, source: &str) -> Option<String> {
-    let start: usize = plan.line_start.saturating_sub(1) as usize;
-    let end: usize = plan.line_end as usize;
-    let lines: Vec<&str> = source.lines().collect();
-    if start > end || end > lines.len() {
+fn splice_plan(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    source: &str,
+    index: &LineIndex,
+) -> Option<String> {
+    let byte_start = index.byte_of_line(plan.line_start)?;
+    let byte_end = index
+        .byte_of_line(plan.line_end + 1)
+        .unwrap_or(source.len());
+    if byte_start > byte_end {
         return None;
     }
-    let mut spliced = Vec::with_capacity(lines.len() + 1);
-    spliced.extend(lines[..start].iter().copied());
-    spliced.push(suggestion.replacement.as_str());
-    spliced.extend(lines[end..].iter().copied());
-    Some(spliced.join("\n"))
+    let mut spliced = String::with_capacity(source.len() + suggestion.replacement.len());
+    spliced.push_str(&source[..byte_start]);
+    spliced.push_str(&suggestion.replacement);
+    if byte_end < source.len() {
+        spliced.push('\n');
+    }
+    spliced.push_str(&source[byte_end..]);
+    Some(spliced)
 }
 
 /// The target is `<module>` for script-mode plans (module-level regions
@@ -144,9 +187,10 @@ fn measure_reduction(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
     source: &str,
+    index: &LineIndex,
     is_module: bool,
 ) -> Option<u64> {
-    let spliced = splice_plan(plan, suggestion, source)?;
+    let spliced = splice_plan(plan, suggestion, source, index)?;
     let parsed = parse_module(&spliced).ok()?;
     let (functions, _) = function_level_cognitive_complexity_shared(
         &parsed.into_suite(),

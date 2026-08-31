@@ -44,19 +44,24 @@ bash benchmarks/benchmark-cli.sh
 ## Qué dicen los números
 
 - **Las cargas dominadas por el arranque ganan más.** La prueba de un
-  solo archivo es unas 3.7 veces más rápida: es el costo del intérprete de
+  solo archivo es unas 4 veces más rápida: es el costo del intérprete de
   Python y de la importación de typer/rich eliminado del camino crítico.
+- **La tabla de escalado** al final de los resultados mide el motor de
+  Rust con una fixture sintética en tamaños 1x, 2x y 4x. Razones
+  cercanas a 2 significan análisis lineal; razones cercanas a 4
+  significan comportamiento cuadrático. Las razones registradas rondan
+  1.1-1.2.
 - **Los árboles pequeños y medianos** (requests, flask) son
-  aproximadamente 1.7-2.7 veces más rápidos.
+  aproximadamente 5-6.4 veces más rápidos.
 - **Los árboles grandes** (django, ~2900 archivos) son aproximadamente
-  1.4-1.6 veces más rápidos; allí domina el motor compartido y queda menos
-  sobrecarga de CLI por eliminar.
+  16-24 veces más rápidos: el motor de Rust analiza el árbol en paralelo
+  en todos los núcleos, mientras que la CLI de Python lo procesaba en uno.
 - **La representación de la salida también es más barata.** Mostrar la
-  tabla completa de resultados en django cuesta ~0.4 s en la CLI de Rust
-  frente a ~1.5 s en la CLI de Python (la diferencia entre el modo por
+  tabla completa de resultados en django cuesta ~0.2 s en la CLI de Rust
+  frente a ~1.6 s en la CLI de Python (la diferencia entre el modo por
   defecto y --quiet), así que la brecha de tiempo crece en árboles grandes
   cuando los resultados se imprimen de verdad - las filas [render] miden
   ese camino de extremo a extremo.
-- **La memoria máxima es menor en todos los casos**, entre 10 y 25 MB
+- **La memoria máxima es menor en todos los casos**, entre 15 y 40 MB
   menos, porque el intérprete de Python y sus bibliotecas de presentación
   ya no están en el proceso.

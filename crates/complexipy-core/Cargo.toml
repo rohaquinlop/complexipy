@@ -14,7 +14,7 @@ name = "complexipy_core"
 
 [features]
 default = ["runner"]
-runner = ["dep:ignore", "dep:globset", "dep:wax"]
+runner = ["dep:ignore", "dep:globset", "dep:wax", "dep:rayon"]
 python = ["dep:pyo3"]
 wasm = []
 
@@ -28,6 +28,7 @@ csv = { workspace = true }
 ignore = { workspace = true, optional = true }
 globset = { workspace = true, optional = true }
 wax = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 
 [dev-dependencies]

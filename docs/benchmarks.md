@@ -39,17 +39,22 @@ bash benchmarks/benchmark-cli.sh
 ## What the numbers say
 
 - **Startup-dominated workloads win the most.** The single-file probe is
-  about 3.7x faster, which is the Python interpreter + typer/rich import
+  about 4x faster, which is the Python interpreter + typer/rich import
   cost removed from the hot path.
-- **Small and medium trees** (requests, flask) are roughly 1.7-2.7x
+- **The scaling table** at the bottom of the results measures the Rust
+  engine on a synthetic fixture at 1x, 2x, and 4x sizes. Ratios near 2
+  mean linear scoring; ratios near 4 mean quadratic behavior. The recorded
+  ratios sit near 1.1-1.2.
+- **Small and medium trees** (requests, flask) are roughly 5-6.4x
   faster.
-- **Large trees** (django, ~2900 files) are roughly 1.4-1.6x faster; the
-  shared engine dominates there and leaves less CLI overhead to remove.
+- **Large trees** (django, ~2900 files) are roughly 16-24x faster: the
+  Rust engine analyzes the tree in parallel across all cores, where the
+  Python CLI processed it on one.
 - **Output rendering is cheaper too.** Rendering the full results table
-  on django costs ~0.4 s on the Rust CLI against ~1.5 s on the Python CLI
+  on django costs ~0.2 s on the Rust CLI against ~1.6 s on the Python CLI
   (the default minus --quiet delta), so the wall-clock gap widens on large
   trees when results are actually printed - the [render] rows measure that
   path end to end.
-- **Peak memory is lower across the board**, by roughly 10-25 MB,
+- **Peak memory is lower across the board**, by roughly 15-40 MB,
   because the Python interpreter and its display libraries are gone from
   the process.

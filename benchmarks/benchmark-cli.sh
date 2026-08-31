@@ -13,6 +13,9 @@ RUNS="${RUNS:-5}"
 PROBE_RUNS="${PROBE_RUNS:-20}"
 WARMUP=3
 PROBE_WARMUP=5
+SCALING_DIR="${SCALING_DIR:-$HOME/.cache/complexipy-benchmarks/scaling}"
+BASE_FUNCTIONS="${BASE_FUNCTIONS:-285}"
+SCALING_RUNS="${SCALING_RUNS:-5}"
 
 workload_names="requests flask django"
 
@@ -128,6 +131,68 @@ measure_rss() {
     echo "$max"
 }
 
+scaling_mean() {
+    local out_json="$1"
+    shift
+    hyperfine \
+        --warmup "$WARMUP" \
+        --runs "$SCALING_RUNS" \
+        --style basic \
+        --export-json "$out_json" \
+        "$@" \
+        >/dev/null 2>&1
+    "$REPO_ROOT/.venv/bin/python" - "$out_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+print(f"{data['results'][0]['mean'] * 1000:.1f}")
+PY
+}
+
+measure_scaling() {
+    declare -ga scaling_rows
+    local counts=()
+    for size in 1 2 4; do
+        local file="$SCALING_DIR/scaling_${size}x.py"
+        local workdir
+        workdir="$(mktemp -d)"
+        (
+            cd "$workdir"
+            "$NEW_CLI" "$file" --output-format json --max-complexity-allowed 100000 \
+                >/dev/null 2>&1
+        ) || fail "scaling parity run failed for $file"
+        counts+=("$(grep -c '"function_name"' "$workdir/complexipy-results.json")")
+        rm -rf "$workdir"
+    done
+    [[ "${counts[1]}" -eq $((counts[0] * 2)) ]] || fail "2x function count ${counts[1]} != 2x ${counts[0]}"
+    [[ "${counts[2]}" -eq $((counts[0] * 4)) ]] || fail "4x function count ${counts[2]} != 4x ${counts[0]}"
+
+    local prev_ms=""
+    local prev_qms=""
+    for size in 1 2 4; do
+        local file="$SCALING_DIR/scaling_${size}x.py"
+        local lines
+        lines="$(wc -l < "$file" | tr -d ' ')"
+        local ms qms ratio qratio
+        ms="$(scaling_mean "$tmp/hf-scaling-$size.json" "$NEW_CLI $file")"
+        qms="$(scaling_mean "$tmp/hf-scaling-$size-quiet.json" "$NEW_CLI $file --quiet")"
+        ratio="-"
+        qratio="-"
+        if [[ -n "$prev_ms" ]]; then
+            ratio="$("$REPO_ROOT/.venv/bin/python" -c "print(f'{$ms / $prev_ms:.2f}')")"
+            qratio="$("$REPO_ROOT/.venv/bin/python" -c "print(f'{$qms / $prev_qms:.2f}')")"
+        fi
+        prev_ms="$ms"
+        prev_qms="$qms"
+        local rss
+        rss="$(measure_rss "$NEW_CLI" "$file" "--quiet" "$tmp/time-scaling.log")"
+        scaling_rows+=("| ${size}x ($lines lines) | ${ms} ms | $ratio | ${qms} ms | $qratio | $((rss / 1048576)) MB |")
+        echo "  [scaling] ${size}x: $ms ms (ratio $ratio), quiet $qms ms (ratio $qratio)"
+    done
+}
+
 echo "== provisioning =="
 provision_new_cli
 echo "  new CLI: $("$NEW_CLI" --version 2>&1 | head -1)"
@@ -137,11 +202,15 @@ provision_corpus
 echo "  corpus: $(for n in $workload_names; do echo -n "$n@$(git -C "$CORPUS_DIR/$n" rev-parse --short HEAD) "; done)"
 parity_check
 
+uv run python benchmarks/generate_scaling_fixture.py "$BASE_FUNCTIONS" "$SCALING_DIR" >/dev/null
+echo "  scaling fixture: $(wc -l < "$SCALING_DIR/scaling_1x.py" | tr -d ' ') lines (1x), sizes 1x/2x/4x"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 declare -a rows
 declare -a rss_rows
+declare -a scaling_rows
 
 for name in $workload_names; do
     target="$CORPUS_DIR/$name"
@@ -247,6 +316,8 @@ PY
     rss_rows+=("| single-file probe [$mode] | $((new_rss / 1048576)) MB | $((old_rss / 1048576)) MB |")
 done
 
+measure_scaling
+
 new_version="$("$NEW_CLI" --version 2>&1 | head -1)"
 old_version="$("$OLD_CLI" --version 2>&1 | head -1)"
 old_python="$("$BASELINE_DIR/.venv/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
@@ -267,6 +338,7 @@ new_python="$("$REPO_ROOT/.venv/bin/python" -c 'import sys; print(".".join(map(s
     echo "- hyperfine: $(hyperfine --version | head -1)"
     echo "- Runs: hyperfine warmup=$WARMUP runs=$RUNS (probe warmup=$PROBE_WARMUP runs=$PROBE_RUNS); RSS via /usr/bin/time -l, 3 runs, maximum"
     echo "- Modes: default, --quiet, --failed, and render (full output written to a file)"
+    echo "- Scaling fixture: $BASE_FUNCTIONS base functions, sizes 1x/2x/4x, $SCALING_RUNS runs each"
     echo "- Date: $(date -u +%Y-%m-%d)"
     echo
     echo "Corpus (shallow clones at pinned commits):"
@@ -281,6 +353,18 @@ new_python="$("$REPO_ROOT/.venv/bin/python" -c 'import sys; print(".".join(map(s
     echo "| Workload | 8.0.0 Rust CLI (pre-release) | 7.0.1 Python CLI | Speedup |"
     echo "| -- | -- | -- | -- |"
     for row in "${rows[@]}"; do echo "$row"; done
+    echo
+    echo "## Scaling (synthetic fixture)"
+    echo
+    echo "| Size | Mean | Ratio | --quiet mean | Ratio | Peak RSS |"
+    echo "| -- | -- | -- | -- | -- | -- |"
+    for row in "${scaling_rows[@]}"; do echo "$row"; done
+    echo
+    echo "The fixture is generated deterministically by"
+    echo "benchmarks/generate_scaling_fixture.py ($BASE_FUNCTIONS base functions,"
+    echo "sizes 1x/2x/4x, kept outside the repo under $SCALING_DIR; never"
+    echo "committed). Ratios near 2 mean linear scoring; ratios near 4 mean"
+    echo "quadratic behavior."
     echo
     echo "## Peak RSS"
     echo

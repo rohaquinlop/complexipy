@@ -5,12 +5,13 @@
 
 use super::{
     collect_free_names, collect_loop_if_chain, combine_conditions_chain, contains_multiline_string,
-    detect_indent_step, enclosing_header_indices, extract_condition_from_line,
-    fallback_boolean_count, generate_collapsible_if_suggestion_chain,
-    generate_loop_guard_suggestion, generate_predicate_suggestion, has_else_branch,
-    needs_parens_for_and, render_statement_context, strip_top_level_not,
+    enclosing_header_indices, extract_condition_from_line, fallback_boolean_count,
+    generate_collapsible_if_suggestion_chain, generate_loop_guard_suggestion,
+    generate_predicate_suggestion, has_else_branch, needs_parens_for_and, render_statement_context,
+    strip_top_level_not,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
+use crate::utils::LineIndex;
 
 fn combine(parts: &[&str]) -> String {
     let owned: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
@@ -67,50 +68,59 @@ fn collect_free_names_returns_empty_for_literal_only_conditions() {
 #[test]
 fn enclosing_header_indices_finds_the_function_chain() {
     let source = "def sample(a, b):\n    if a and b or a:\n        return 1\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 1), Some(vec![0]));
+    let index = LineIndex::new(source);
+    assert_eq!(enclosing_header_indices(source, &index, 2), Some(vec![1]));
 }
 
 #[test]
 fn enclosing_header_indices_collects_nested_blocks() {
     let source = "def f(items):\n    for item in items:\n        if item.active and item.ready:\n            pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 2), Some(vec![0, 1]));
+    let index = LineIndex::new(source);
+    assert_eq!(
+        enclosing_header_indices(source, &index, 3),
+        Some(vec![1, 2])
+    );
 }
 
 #[test]
 fn enclosing_header_indices_skips_decorators() {
     let source = "@deco\ndef f(x):\n    if x and x > 0:\n        pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 2), Some(vec![1]));
+    let index = LineIndex::new(source);
+    assert_eq!(enclosing_header_indices(source, &index, 3), Some(vec![2]));
 }
 
 #[test]
 fn enclosing_header_indices_returns_none_for_module_level_conditions() {
     let source = "if a and b:\n    pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 0), None);
+    let index = LineIndex::new(source);
+    assert_eq!(enclosing_header_indices(source, &index, 1), None);
 }
 
 #[test]
 fn enclosing_header_indices_returns_none_for_a_broken_chain() {
     let source = "x = 1\n    def f():\n        if a and b:\n            pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 2), None);
+    let index = LineIndex::new(source);
+    assert_eq!(enclosing_header_indices(source, &index, 3), None);
 }
 
 #[test]
 fn enclosing_header_indices_collects_else_chains() {
     let source = "if a:\n    pass\nelse:\n    if b and c:\n        pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 3), Some(vec![0, 2]));
+    let index = LineIndex::new(source);
+    assert_eq!(
+        enclosing_header_indices(source, &index, 4),
+        Some(vec![1, 3])
+    );
 }
 
 #[test]
 fn enclosing_header_indices_collects_elif_chains() {
     let source = "def f(x, y):\n    if x > 0:\n        pass\n    elif y > 0:\n        if y > 1 and y < 9:\n            pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
-    assert_eq!(enclosing_header_indices(&lines, 4), Some(vec![0, 1, 3]));
+    let index = LineIndex::new(source);
+    assert_eq!(
+        enclosing_header_indices(source, &index, 5),
+        Some(vec![1, 2, 4])
+    );
 }
 
 #[test]
@@ -123,7 +133,13 @@ fn predicate_suggestion_shows_the_enclosing_function_context() {
         ..Default::default()
     };
 
-    let suggestion = generate_predicate_suggestion(&region, source).unwrap();
+    let suggestion = generate_predicate_suggestion(
+        &region,
+        source,
+        &LineIndex::new(source),
+        &Default::default(),
+    )
+    .unwrap();
     assert_eq!(
         suggestion.replacement,
         "def _check_condition_L2(a, b) -> bool:\n    return a and b or a\n\ndef sample(a, b):\n    if _check_condition_L2(a, b):\n        ...\n    ...\n"
@@ -140,7 +156,13 @@ fn predicate_suggestion_falls_back_to_a_bare_call_at_module_level() {
         ..Default::default()
     };
 
-    let suggestion = generate_predicate_suggestion(&region, source).unwrap();
+    let suggestion = generate_predicate_suggestion(
+        &region,
+        source,
+        &LineIndex::new(source),
+        &Default::default(),
+    )
+    .unwrap();
     assert_eq!(
         suggestion.replacement,
         "def _check_condition_L1(a, b) -> bool:\n    return a and b or a\n\nif _check_condition_L1(a, b):\n    ..."
@@ -150,11 +172,11 @@ fn predicate_suggestion_falls_back_to_a_bare_call_at_module_level() {
 #[test]
 fn render_statement_context_places_a_placeholder_for_skipped_statements() {
     let source = "def wait_until(items, limit):\n    i = 0\n    while i < len(items) and i < limit:\n        i += 1\n";
-    let lines: Vec<&str> = source.split('\n').collect();
     let context = render_statement_context(
-        &[0],
-        &lines,
-        2,
+        &[1],
+        source,
+        &LineIndex::new(source),
+        3,
         4,
         "while _check_condition_L3(i, items, limit):",
     );
@@ -165,28 +187,32 @@ fn render_statement_context_places_a_placeholder_for_skipped_statements() {
     );
 }
 
+fn detect_step(source: &str, from_line: u64, to_line_excl: u64) -> usize {
+    super::detect_indent_step_range(source, &LineIndex::new(source), from_line, to_line_excl)
+}
+
 #[test]
 fn detect_indent_step_pairs_structural_lines() {
-    let lines = ["if a:", "    stmt"];
-    assert_eq!(detect_indent_step(&lines), 4);
+    let source = "if a:\n    stmt\n";
+    assert_eq!(detect_step(source, 1, 3), 4);
 }
 
 #[test]
 fn detect_indent_step_skips_blank_lines_when_pairing() {
-    let lines = ["if a:", "", "    stmt"];
-    assert_eq!(detect_indent_step(&lines), 4);
+    let source = "if a:\n\n    stmt\n";
+    assert_eq!(detect_step(source, 1, 4), 4);
 }
 
 #[test]
 fn detect_indent_step_skips_comment_lines_when_pairing() {
-    let lines = ["if a:", "", "    # note", "    stmt"];
-    assert_eq!(detect_indent_step(&lines), 4);
+    let source = "if a:\n\n    # note\n    stmt\n";
+    assert_eq!(detect_step(source, 1, 5), 4);
 }
 
 #[test]
 fn detect_indent_step_returns_default_without_an_increase() {
-    let lines = ["stmt", "", "stmt"];
-    assert_eq!(detect_indent_step(&lines), 4);
+    let source = "stmt\n\nstmt\n";
+    assert_eq!(detect_step(source, 1, 4), 4);
 }
 
 #[test]
@@ -354,19 +380,15 @@ fn if_region(nesting: u64, children: Vec<ComplexityRegion>) -> ComplexityRegion 
 
 #[test]
 fn collect_loop_if_chain_walks_a_pure_nested_chain() {
-    let lines = [
-        "for x in y:",
-        "    if a:",
-        "        if b:",
-        "            pass",
-    ];
+    let source = "for x in y:\n    if a:\n        if b:\n            pass\n";
+    let index = LineIndex::new(source);
     let loop_region = ComplexityRegion {
         kind: RegionKind::Loop,
         children: vec![if_region(1, vec![if_region(2, vec![])])],
         ..Default::default()
     };
 
-    let chain = collect_loop_if_chain(&loop_region, &lines);
+    let chain = collect_loop_if_chain(&loop_region, source, &index);
 
     assert_eq!(chain.len(), 2);
     assert_eq!(chain[0].nesting, 1);
@@ -375,14 +397,8 @@ fn collect_loop_if_chain_walks_a_pure_nested_chain() {
 
 #[test]
 fn collect_loop_if_chain_stops_at_an_else_branch() {
-    let lines = [
-        "for x in y:",
-        "    if a:",
-        "        if b:",
-        "            pass",
-        "        else:",
-        "            pass",
-    ];
+    let source = "for x in y:\n    if a:\n        if b:\n            pass\n        else:\n            pass\n";
+    let index = LineIndex::new(source);
     let loop_region = ComplexityRegion {
         kind: RegionKind::Loop,
         children: vec![ComplexityRegion {
@@ -402,7 +418,7 @@ fn collect_loop_if_chain_stops_at_an_else_branch() {
         ..Default::default()
     };
 
-    let chain = collect_loop_if_chain(&loop_region, &lines);
+    let chain = collect_loop_if_chain(&loop_region, source, &index);
 
     // The inner if has an else, so only the outer if is hoistable -- the
     // else-bearing if stays behind as the chain's untouched tail.
@@ -412,13 +428,13 @@ fn collect_loop_if_chain_stops_at_an_else_branch() {
 
 #[test]
 fn collect_loop_if_chain_is_empty_without_a_nested_if() {
-    let lines = ["for x in y:", "    pass"];
+    let source = "for x in y:\n    pass\n";
     let loop_region = ComplexityRegion {
         kind: RegionKind::Loop,
         ..Default::default()
     };
 
-    assert!(collect_loop_if_chain(&loop_region, &lines).is_empty());
+    assert!(collect_loop_if_chain(&loop_region, source, &LineIndex::new(source)).is_empty());
 }
 
 #[test]
@@ -478,7 +494,8 @@ fn loop_guard_suggestion_is_faithful_for_a_pure_chain() {
         4,
     );
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
@@ -491,7 +508,8 @@ fn loop_guard_suggestion_keeps_leading_statements() {
     let source = "for x in y:\n    total += x\n    if a:\n        pass\n";
     let region = loop_region(vec![if_stmt(3, 4, 1)], 4);
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    total += x\n    if not (a):\n        continue\n    pass"
@@ -503,7 +521,8 @@ fn loop_guard_suggestion_parenthesizes_inverted_or_conditions() {
     let source = "for x in y:\n    if a or b:\n        pass\n";
     let region = loop_region(vec![if_stmt(2, 3, 1)], 3);
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a or b):\n        continue\n    pass"
@@ -515,7 +534,8 @@ fn loop_guard_suggestion_strips_a_redundant_not() {
     let source = "for x in y:\n    if not a:\n        pass\n";
     let region = loop_region(vec![if_stmt(2, 3, 1)], 3);
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if a:\n        continue\n    pass"
@@ -541,10 +561,9 @@ fn strip_top_level_not_refuses_mixed_operators() {
 #[test]
 fn has_else_branch_ignores_string_content_lines() {
     let source = "if a:\n    x = \"\"\"foo\nelse:\nbar\"\"\"\n    if b:\n        pass\n";
-    let lines: Vec<&str> = source.split('\n').collect();
     let region = if_stmt(1, 6, 0);
 
-    assert!(!has_else_branch(&region, &lines));
+    assert!(!has_else_branch(&region, source, &LineIndex::new(source)));
 }
 
 #[test]
@@ -574,7 +593,7 @@ fn loop_guard_suggestion_refuses_multiline_string_between_members() {
         6,
     );
 
-    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+    assert!(generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).is_none());
 }
 
 #[test]
@@ -583,11 +602,16 @@ fn collapsible_if_suggestion_refuses_multiline_string_body() {
     let outermost = if_stmt(1, 4, 0);
     let innermost = if_stmt(2, 4, 1);
     let conditions = vec!["a".to_string(), "b".to_string()];
-    let lines: Vec<&str> = source.split('\n').collect();
 
     assert!(
-        generate_collapsible_if_suggestion_chain(&outermost, &innermost, &conditions, &lines)
-            .is_none()
+        generate_collapsible_if_suggestion_chain(
+            &outermost,
+            &innermost,
+            &conditions,
+            source,
+            &LineIndex::new(source)
+        )
+        .is_none()
     );
 }
 
@@ -596,7 +620,8 @@ fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
     let source = "for x in y:\n    if a:\n        pass\n    total += 1\n";
     let region = loop_region(vec![if_stmt(2, 3, 1)], 4);
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a):\n        continue\n    pass\n    total += 1"
@@ -618,7 +643,8 @@ fn loop_guard_suggestion_keeps_statements_between_chain_members() {
         5,
     );
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a):\n        continue\n    total += x\n    if not (b):\n        continue\n    pass"
@@ -647,7 +673,8 @@ fn loop_guard_suggestion_shifts_between_statements_at_each_level() {
         6,
     );
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a):\n        continue\n    if not (b):\n        continue\n    stmt\n    if not (c):\n        continue\n    pass"
@@ -669,7 +696,8 @@ fn loop_guard_suggestion_keeps_an_else_on_the_last_chain_member() {
         6,
     );
 
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a):\n        continue\n    if b:\n        pass\n    else:\n        pass"
@@ -683,7 +711,8 @@ fn loop_guard_suggestion_preserves_a_multiline_header() {
 
     // The header continuation lines pass through unchanged; only the body
     // is transformed.
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
@@ -697,7 +726,7 @@ fn loop_guard_suggestion_refuses_a_first_member_with_its_own_else() {
     let region = loop_region(vec![if_stmt(2, 4, 1)], 4);
 
     // The guard `if not a: continue` would skip the `else` branch entirely.
-    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+    assert!(generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).is_none());
 }
 
 #[test]
@@ -713,7 +742,7 @@ fn loop_guard_suggestion_refuses_a_loop_level_else() {
     };
 
     // The loop's own `else` would dangle after the guards.
-    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+    assert!(generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).is_none());
 }
 
 #[test]
@@ -722,7 +751,7 @@ fn loop_guard_suggestion_refuses_an_unextractable_condition() {
     let region = loop_region(vec![if_stmt(2, 4, 1)], 4);
 
     // The first chain member's condition spans lines; no guard text exists.
-    assert!(generate_loop_guard_suggestion(&region, source).is_none());
+    assert!(generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).is_none());
 }
 
 #[test]
@@ -743,7 +772,8 @@ fn loop_guard_suggestion_keeps_unextractable_members_in_the_survivor() {
 
     // The first member becomes a guard; the unextractable member stays in
     // the survivor block, dedented with it, unchanged.
-    let suggestion = generate_loop_guard_suggestion(&region, source).unwrap();
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
         "for x in y:\n    if not (a):\n        continue\n    if (b and\n            c):\n        pass"

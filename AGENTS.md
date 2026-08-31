@@ -121,6 +121,18 @@ uv run complexipy . --diff main --max-complexity-allowed 15
 uv run complexipy complexipy --failed          # dogfood the tool on itself
 ```
 
+### Benchmarks
+
+```bash
+./benchmarks/benchmark-cli.sh # corpus comparison plus synthetic scaling guard
+```
+
+`benchmark-cli.sh` compares the current CLI against the 7.0.1 baseline on
+pinned real repos, then times a generated synthetic fixture at 1x/2x/4x
+sizes (generated into `~/.cache/complexipy-benchmarks/scaling/`, never
+committed) and records the scaling ratios in `benchmarks/results.md`,
+which the docs pages include via pymdownx snippets.
+
 ### WASM / web demo
 
 ```bash

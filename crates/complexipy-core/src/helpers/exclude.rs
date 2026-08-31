@@ -1,4 +1,5 @@
 use ignore::Walk;
+use std::collections::HashSet;
 use wax::walk::{Entry, FileIterator};
 use wax::{Glob, any};
 
@@ -16,7 +17,7 @@ pub fn get_paths_to_process(
         .collect();
 
     let gitignore_walk = Walk::new(&normalized_root);
-    let non_ignored: Vec<String> = gitignore_walk
+    let non_ignored: HashSet<String> = gitignore_walk
         .filter_map(|result| match result {
             Ok(entry) => entry.path().to_str().map(|s| s.replace('\\', "/")),
             Err(_) => None,

@@ -1,7 +1,7 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
-use crate::utils::count_bool_ops;
+use crate::utils::{LineIndex, count_bool_ops};
 use ruff_python_ast::visitor::{Visitor, walk_expr};
 use ruff_python_ast::{CmpOp, Expr};
 use ruff_python_parser::parse_expression;
@@ -27,6 +27,8 @@ impl RefactorRule for FlattenConditionRule {
         &self,
         region: &ComplexityRegion,
         _source: &str,
+        _index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::If || region.nesting < 2 || region.total < 4 {
@@ -77,14 +79,15 @@ impl RefactorRule for LoopGuardsRule {
         &self,
         region: &ComplexityRegion,
         source: &str,
+        index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::Loop || region.total < 5 {
             return None;
         }
 
-        let lines: Vec<&str> = source.lines().collect();
-        let chain = collect_loop_if_chain(region, &lines);
+        let chain = collect_loop_if_chain(region, source, index);
 
         if chain.is_empty() {
             return None;
@@ -102,7 +105,7 @@ impl RefactorRule for LoopGuardsRule {
             return None;
         }
 
-        let suggestion = generate_loop_guard_suggestion(region, source);
+        let suggestion = generate_loop_guard_suggestion(region, source, index);
         let help = if suggestion.is_none() {
             Some(
                 "Add `if not (<condition>): continue` guards at the top of the loop body \
@@ -153,6 +156,8 @@ impl RefactorRule for ExtractHelperRule {
         &self,
         region: &ComplexityRegion,
         _source: &str,
+        _index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         let line_count = region.line_end.saturating_sub(region.line_start) + 1;
@@ -208,6 +213,8 @@ impl RefactorRule for SplitDispatcherRule {
         &self,
         region: &ComplexityRegion,
         source: &str,
+        index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::ElifChain || region.elif_count < 3 {
@@ -222,8 +229,7 @@ impl RefactorRule for SplitDispatcherRule {
             return None;
         }
 
-        let lines: Vec<&str> = source.lines().collect();
-        let help = if let Some(subject) = single_variable_equality_subject(region, &lines) {
+        let help = if let Some(subject) = single_variable_equality_subject(region, source, index) {
             format!(
                 "This chain only compares `{subject}` against literal values, so it can \
                  become `match {subject}:` with one `case <value>:` per branch. Unlike an \
@@ -257,18 +263,21 @@ impl RefactorRule for SplitDispatcherRule {
     }
 }
 
-fn single_variable_equality_subject(region: &ComplexityRegion, lines: &[&str]) -> Option<String> {
-    let start = (region.line_start.saturating_sub(1)) as usize;
-    let end = (region.line_end as usize).min(lines.len());
-    if start >= end {
+fn single_variable_equality_subject(
+    region: &ComplexityRegion,
+    source: &str,
+    index: &LineIndex,
+) -> Option<String> {
+    let lines = span_lines(source, index, region.line_start, region.line_end)?;
+    if lines.is_empty() {
         return None;
     }
 
-    let base_indent = get_indentation_from_str(lines[start]);
+    let base_indent = get_indentation_from_str(lines[0]);
     let mut subject: Option<String> = None;
     let mut clause_count = 0;
 
-    for line in &lines[start..end] {
+    for line in &lines {
         if get_indentation_from_str(line) != base_indent {
             continue;
         }
@@ -353,13 +362,15 @@ impl RefactorRule for ExtractPredicateRule {
         &self,
         region: &ComplexityRegion,
         source: &str,
+        index: &LineIndex,
+        def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::BooleanCondition || region.boolean < 2 {
             return None;
         }
 
-        let suggestion = generate_predicate_suggestion(region, source);
+        let suggestion = generate_predicate_suggestion(region, source, index, def_names);
         let help = if suggestion.is_none() {
             Some(
                 "Extract this boolean condition into a small named function that returns \
@@ -412,6 +423,8 @@ impl RefactorRule for FlattenTryRule {
         &self,
         region: &ComplexityRegion,
         _source: &str,
+        _index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::Try {
@@ -480,14 +493,15 @@ impl RefactorRule for CollapsibleIfRule {
         &self,
         region: &ComplexityRegion,
         source: &str,
+        index: &LineIndex,
+        _def_names: &std::collections::HashSet<String>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::If {
             return None;
         }
 
-        let lines: Vec<&str> = source.lines().collect();
-        let chain = collect_if_chain(region, &lines);
+        let chain = collect_if_chain(region, source, index);
 
         if chain.len() < 2 {
             return None;
@@ -498,11 +512,8 @@ impl RefactorRule for CollapsibleIfRule {
         let mut conditions = Vec::new();
         let mut conditions_extracted = true;
         for r in &chain {
-            let line_idx = (r.line_start.saturating_sub(1)) as usize;
-            if line_idx >= lines.len() {
-                return None;
-            }
-            match extract_condition_from_line(lines[line_idx].trim_start()) {
+            let line = line_at(source, index, r.line_start)?;
+            match extract_condition_from_line(line.trim_start()) {
                 Some(cond) => conditions.push(cond),
                 None => {
                     conditions_extracted = false;
@@ -518,15 +529,17 @@ impl RefactorRule for CollapsibleIfRule {
                 break;
             }
             let next = chain[i + 1];
-            let r_start = (r.line_start as usize).saturating_sub(1);
-            let r_end = (r.line_end as usize).min(lines.len());
-            let next_start = (next.line_start as usize).saturating_sub(1);
-            let next_end = (next.line_end as usize).min(lines.len());
 
-            let mut body_start = r_start + 1;
-            if extract_condition_from_line(lines[r_start].trim_start()).is_none() {
-                while body_start < next_start.min(lines.len()) {
-                    if line_ends_with_statement_colon(lines[body_start]) {
+            let mut body_start = r.line_start + 1;
+            let r_start_line = line_at(source, index, r.line_start);
+            if r_start_line
+                .is_none_or(|line| extract_condition_from_line(line.trim_start()).is_none())
+            {
+                while body_start < next.line_start {
+                    let Some(body_line) = line_at(source, index, body_start) else {
+                        break;
+                    };
+                    if line_ends_with_statement_colon(body_line) {
                         body_start += 1;
                         break;
                     }
@@ -534,16 +547,26 @@ impl RefactorRule for CollapsibleIfRule {
                 }
             }
 
-            for line in &lines[body_start..next_start.min(lines.len())] {
-                if !line.trim_start().is_empty() {
+            let mut gap_line = body_start;
+            while gap_line < next.line_start {
+                let Some(gap_text) = line_at(source, index, gap_line) else {
+                    break;
+                };
+                if !gap_text.trim_start().is_empty() {
                     return None;
                 }
+                gap_line += 1;
             }
 
-            for line in &lines[next_end..r_end] {
-                if !line.trim_start().is_empty() {
+            let mut tail_line = next.line_end + 1;
+            while tail_line <= r.line_end {
+                let Some(tail_text) = line_at(source, index, tail_line) else {
+                    break;
+                };
+                if !tail_text.trim_start().is_empty() {
                     return None;
                 }
+                tail_line += 1;
             }
         }
 
@@ -554,7 +577,8 @@ impl RefactorRule for CollapsibleIfRule {
                 outermost,
                 innermost,
                 &conditions,
-                &lines,
+                source,
+                index,
             ) {
                 Some(s) => suggestion = Some(s),
                 None => {
@@ -580,7 +604,7 @@ impl RefactorRule for CollapsibleIfRule {
         let boolean_count = if conditions_extracted {
             let combined = combine_conditions_chain(&conditions);
             match parse_expression(&combined) {
-                Ok(parsed) => count_bool_ops(*parsed.into_syntax().body, region.nesting),
+                Ok(parsed) => count_bool_ops(&parsed.into_syntax().body, region.nesting),
                 Err(_) => fallback_boolean_count(&chain),
             }
         } else {
@@ -620,16 +644,20 @@ impl RefactorRule for CollapsibleIfRule {
 fn generate_loop_guard_suggestion(
     region: &ComplexityRegion,
     source: &str,
+    index: &LineIndex,
 ) -> Option<CodeSuggestion> {
-    let lines: Vec<&str> = source.lines().collect();
-    let start = (region.line_start.saturating_sub(1)) as usize;
-    let end = (region.line_end as usize).min(lines.len());
-
-    if start >= lines.len() {
+    let lines = span_lines(source, index, region.line_start, region.line_end)?;
+    if lines.is_empty() {
         return None;
     }
 
-    let base_indent = get_indentation_from_str(lines[start]);
+    let base = region.line_start;
+    let span_idx = |line: u64| -> Option<usize> {
+        let idx = line.checked_sub(base)? as usize;
+        (idx < lines.len()).then_some(idx)
+    };
+
+    let base_indent = get_indentation_from_str(lines[0]);
 
     let mut guards = Vec::new();
     let mut current_region: Option<&ComplexityRegion> = None;
@@ -642,10 +670,9 @@ fn generate_loop_guard_suggestion(
     }
 
     while let Some(r) = current_region {
-        let line_idx = (r.line_start.saturating_sub(1)) as usize;
-        if line_idx >= lines.len() {
+        let Some(line_idx) = span_idx(r.line_start) else {
             break;
-        }
+        };
         let condition = match extract_condition_from_line(lines[line_idx].trim_start()) {
             Some(cond) => cond,
             None => break,
@@ -654,8 +681,8 @@ fn generate_loop_guard_suggestion(
 
         if r.children.len() == 1
             && r.children[0].kind == RegionKind::If
-            && !has_else_branch(r, &lines)
-            && !has_else_branch(&r.children[0], &lines)
+            && !has_else_branch(r, source, index)
+            && !has_else_branch(&r.children[0], source, index)
         {
             current_region = Some(&r.children[0]);
             continue;
@@ -668,24 +695,26 @@ fn generate_loop_guard_suggestion(
     // dangling `else` inside the body. A first chain member with its own
     // `else`/`elif` cannot become a guard either - the guard would skip the
     // `else` branch entirely.
-    if has_else_branch(region, &lines) || guards.is_empty() || has_else_branch(guards[0].0, &lines)
+    if has_else_branch(region, source, index)
+        || guards.is_empty()
+        || has_else_branch(guards[0].0, source, index)
     {
         return None;
     }
 
     let innermost = guards.last().unwrap().0;
-    let innermost_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
-    let innermost_end = (innermost.line_end as usize).min(lines.len());
-    let chain_start_idx = (guards[0].0.line_start.saturating_sub(1)) as usize;
+    let innermost_start = span_idx(innermost.line_start)?;
+    let innermost_end = span_idx(innermost.line_end + 1).unwrap_or(lines.len());
+    let chain_start = span_idx(guards[0].0.line_start)?;
 
     for i in 0..guards.len().saturating_sub(1) {
-        let range_start = (guards[i].0.line_start as usize).min(lines.len());
-        let range_end = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
+        let range_start = span_idx(guards[i].0.line_start + 1).unwrap_or(lines.len());
+        let range_end = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
         if contains_multiline_string(&lines[range_start..range_end.min(lines.len())]) {
             return None;
         }
     }
-    if contains_multiline_string(&lines[(innermost_line_idx + 1)..innermost_end]) {
+    if contains_multiline_string(&lines[(innermost_start + 1)..innermost_end]) {
         return None;
     }
 
@@ -693,16 +722,12 @@ fn generate_loop_guard_suggestion(
     // the header may span several lines, so its continuation lines cannot be
     // trusted to reveal the step. Header continuation lines fall into the
     // leading range below and pass through unchanged.
-    let loop_body_indent = get_indentation_from_str(lines[chain_start_idx]);
+    let loop_body_indent = get_indentation_from_str(lines[chain_start]);
     let indent_step = loop_body_indent.saturating_sub(base_indent);
 
     let mut result = Vec::new();
-    result.push(lines[start].to_string());
-    result.extend(
-        lines[(start + 1)..chain_start_idx]
-            .iter()
-            .map(|line| (*line).to_string()),
-    );
+    result.push(lines[0].to_string());
+    result.extend(lines[1..chain_start].iter().map(|line| (*line).to_string()));
 
     for (i, (member, guard)) in guards.iter().enumerate() {
         let guard_text = match strip_top_level_not(guard) {
@@ -720,8 +745,8 @@ fn generate_loop_guard_suggestion(
         ));
 
         if i + 1 < guards.len() {
-            let next_start = (guards[i + 1].0.line_start.saturating_sub(1)) as usize;
-            let range_start = (member.line_start as usize).min(lines.len());
+            let next_start = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
+            let range_start = span_idx(member.line_start + 1).unwrap_or(lines.len());
             let shift = indent_step * (i + 1);
             for line in &lines[range_start..next_start.min(lines.len())] {
                 let trimmed = line.trim_start();
@@ -737,7 +762,7 @@ fn generate_loop_guard_suggestion(
         }
     }
 
-    for line in &lines[(innermost_line_idx + 1)..innermost_end] {
+    for line in &lines[(innermost_start + 1)..innermost_end] {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             result.push(String::new());
@@ -749,7 +774,7 @@ fn generate_loop_guard_suggestion(
         result.push(format!("{}{}", padding, trimmed));
     }
     result.extend(
-        lines[innermost_end..end]
+        lines[innermost_end..]
             .iter()
             .map(|line| (*line).to_string()),
     );
@@ -765,22 +790,58 @@ fn generate_loop_guard_suggestion(
     })
 }
 
-/// Detect the indentation step (spaces per level) from a block of code.
+/// Detect the indentation step (spaces per level) from a line range.
 /// Blank and comment-only lines carry no structural indent; pairing them
 /// against a body statement would report the body's full indent as the step.
-fn detect_indent_step(lines: &[&str]) -> usize {
+fn detect_indent_step_range(
+    source: &str,
+    index: &LineIndex,
+    from_line: u64,
+    to_line_excl: u64,
+) -> usize {
     let mut prev_indent: Option<usize> = None;
-    for line in lines {
+    let mut line_no = from_line;
+    while line_no < to_line_excl {
+        let Some(line) = line_at(source, index, line_no) else {
+            break;
+        };
         let trimmed = line.trim_start();
         if trimmed.is_empty() || trimmed.starts_with('#') {
+            line_no += 1;
             continue;
         }
         let indent = get_indentation_from_str(line);
-        match prev_indent {
-            Some(prev) if indent > prev => return indent - prev,
-            _ => {}
+        if let Some(prev) = prev_indent
+            && indent > prev
+        {
+            return indent - prev;
         }
         prev_indent = Some(indent);
+        line_no += 1;
+    }
+    4
+}
+
+/// Detect the indentation step (spaces per level) forward from a header line.
+/// The scan stops at the first blank-or-comment-free line that does not open
+/// a deeper block: the enclosing block's body always follows a header, so the
+/// step is the indent delta of that first deeper line.
+fn detect_indent_step_from(source: &str, index: &LineIndex, start_line: u64) -> usize {
+    let Some(first) = line_at(source, index, start_line) else {
+        return 4;
+    };
+    let base_indent = get_indentation_from_str(first);
+    let mut line_no = start_line + 1;
+    while let Some(line) = line_at(source, index, line_no) {
+        let trimmed = line.trim_start();
+        if !trimmed.is_empty() && !trimmed.starts_with('#') {
+            let indent = get_indentation_from_str(line);
+            if indent > base_indent {
+                return indent - base_indent;
+            }
+            return 4;
+        }
+        line_no += 1;
     }
     4
 }
@@ -798,15 +859,10 @@ fn detect_indent_step(lines: &[&str]) -> usize {
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
+    index: &LineIndex,
+    def_names: &std::collections::HashSet<String>,
 ) -> Option<CodeSuggestion> {
-    let lines: Vec<&str> = source.lines().collect();
-    let start = (region.line_start.saturating_sub(1)) as usize;
-
-    if start >= lines.len() {
-        return None;
-    }
-
-    let line = lines[start];
+    let line = line_at(source, index, region.line_start)?;
     let trimmed = line.trim_start();
     let keyword = if trimmed.starts_with("if ") {
         "if"
@@ -817,20 +873,25 @@ fn generate_predicate_suggestion(
     };
     let condition = extract_condition_from_line(trimmed)?;
     let parameters = collect_free_names(&condition)?;
-    let indent_step = detect_indent_step(&lines[start..]);
+    let indent_step = detect_indent_step_from(source, index, region.line_start);
 
     let helper_body_indent = " ".repeat(indent_step);
     let mut func_name = format!("_check_condition_L{}", region.line_start);
-    let mut def_pattern = format!("def {func_name}(");
-    while lines.iter().any(|line| line.contains(&def_pattern)) {
+    while def_names.contains(&func_name) {
         func_name.push('_');
-        def_pattern = format!("def {func_name}(");
     }
 
     let parameters_text = parameters.join(", ");
     let call_text = format!("{keyword} {func_name}({parameters_text}):");
-    let statement_context = match enclosing_header_indices(&lines, start) {
-        Some(headers) => render_statement_context(&headers, &lines, start, indent_step, &call_text),
+    let statement_context = match enclosing_header_indices(source, index, region.line_start) {
+        Some(headers) => render_statement_context(
+            &headers,
+            source,
+            index,
+            region.line_start,
+            indent_step,
+            &call_text,
+        ),
         None => format!(
             "{call_text}\n\
              {helper_body_indent}..."
@@ -849,6 +910,28 @@ fn generate_predicate_suggestion(
         spliceable: false,
         description: format!("Extract condition into named predicate function `{func_name}`"),
     })
+}
+
+fn line_at<'a>(source: &'a str, index: &LineIndex, line: u64) -> Option<&'a str> {
+    let start = index.byte_of_line(line)?;
+    let end = source[start..]
+        .find('\n')
+        .map_or(source.len(), |i| start + i);
+    Some(&source[start..end])
+}
+
+fn span_lines<'a>(
+    source: &'a str,
+    index: &LineIndex,
+    start_line: u64,
+    end_line: u64,
+) -> Option<Vec<&'a str>> {
+    let start_byte = index.byte_of_line(start_line)?;
+    let end_byte = index.byte_of_line(end_line + 1).unwrap_or(source.len());
+    if end_byte < start_byte {
+        return Some(Vec::new());
+    }
+    Some(source[start_byte..end_byte].lines().collect())
 }
 
 fn get_indentation_from_str(line: &str) -> usize {
@@ -983,14 +1066,14 @@ fn collect_free_names(condition: &str) -> Option<Vec<String>> {
 /// `None` when the chain cannot be traced to column 0 (module-level
 /// condition, or a broken chain such as a bare statement at a lesser
 /// indent) - callers render the bare call then.
-fn enclosing_header_indices(lines: &[&str], start: usize) -> Option<Vec<usize>> {
+fn enclosing_header_indices(source: &str, index: &LineIndex, start_line: u64) -> Option<Vec<u64>> {
     let mut headers = Vec::new();
-    let mut current_indent = get_indentation_from_str(lines[start]);
+    let mut current_indent = get_indentation_from_str(line_at(source, index, start_line)?);
     let mut expect_chain_opener = false;
-    let mut i = start;
-    while i > 0 {
-        i -= 1;
-        let line = lines[i];
+    let mut line_no = start_line;
+    while line_no > 1 {
+        line_no -= 1;
+        let line = line_at(source, index, line_no)?;
         let trimmed = line.trim_start();
         if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
@@ -1009,7 +1092,7 @@ fn enclosing_header_indices(lines: &[&str], start: usize) -> Option<Vec<usize>> 
             if indent != current_indent {
                 return None;
             }
-            headers.push(i);
+            headers.push(line_no);
             if !is_continuation_header(trimmed) {
                 expect_chain_opener = false;
                 if indent == 0 {
@@ -1022,7 +1105,7 @@ fn enclosing_header_indices(lines: &[&str], start: usize) -> Option<Vec<usize>> 
         if indent == current_indent {
             return None;
         }
-        headers.push(i);
+        headers.push(line_no);
         current_indent = indent;
         if is_continuation_header(trimmed) {
             expect_chain_opener = true;
@@ -1068,9 +1151,12 @@ fn line_opens_block(trimmed: &str) -> bool {
     .any(|head| trimmed.starts_with(head))
 }
 
-fn directly_follows(lines: &[&str], item_idx: usize, prev_idx: usize) -> bool {
-    (prev_idx + 1..item_idx).all(|k| {
-        let trimmed = lines[k].trim_start();
+fn directly_follows(source: &str, index: &LineIndex, item_line: u64, prev_line: u64) -> bool {
+    (prev_line + 1..item_line).all(|line_no| {
+        let trimmed = line_at(source, index, line_no)
+            .unwrap_or("")
+            .trim_start()
+            .to_string();
         trimmed.is_empty() || trimmed.starts_with('#')
     })
 }
@@ -1079,32 +1165,34 @@ fn directly_follows(lines: &[&str], item_idx: usize, prev_idx: usize) -> bool {
 /// indentation, using `...` placeholders for skipped statements. The result
 /// parses on its own: every placeholder is an Ellipsis expression statement.
 fn render_statement_context(
-    headers: &[usize],
-    lines: &[&str],
-    start: usize,
+    headers: &[u64],
+    source: &str,
+    index: &LineIndex,
+    start_line: u64,
     indent_step: usize,
     call_text: &str,
 ) -> String {
-    let call_indent = get_indentation_from_str(lines[start]);
+    let call_indent = get_indentation_from_str(line_at(source, index, start_line).unwrap_or(""));
     let mut out = String::new();
-    let mut prev_idx: Option<usize> = None;
-    for &header_idx in headers {
-        let header_indent = get_indentation_from_str(lines[header_idx]);
-        if let Some(prev) = prev_idx {
-            let prev_indent = get_indentation_from_str(lines[prev]);
+    let mut prev_line: Option<u64> = None;
+    for &header_line in headers {
+        let header_text = line_at(source, index, header_line).unwrap_or("");
+        let header_indent = get_indentation_from_str(header_text);
+        if let Some(prev) = prev_line {
+            let prev_indent = get_indentation_from_str(line_at(source, index, prev).unwrap_or(""));
             if header_indent == prev_indent {
                 out.push_str(&format!("{}...\n", " ".repeat(prev_indent + indent_step)));
-            } else if !directly_follows(lines, header_idx, prev) {
+            } else if !directly_follows(source, index, header_line, prev) {
                 out.push_str(&format!("{}...\n", " ".repeat(header_indent)));
             }
         }
-        out.push_str(lines[header_idx]);
+        out.push_str(header_text);
         out.push('\n');
-        prev_idx = Some(header_idx);
+        prev_line = Some(header_line);
     }
-    if let Some(prev) = prev_idx {
-        let prev_indent = get_indentation_from_str(lines[prev]);
-        if call_indent > prev_indent && !directly_follows(lines, start, prev) {
+    if let Some(prev) = prev_line {
+        let prev_indent = get_indentation_from_str(line_at(source, index, prev).unwrap_or(""));
+        if call_indent > prev_indent && !directly_follows(source, index, start_line, prev) {
             out.push_str(&format!("{}...\n", " ".repeat(call_indent)));
         }
     }
@@ -1257,18 +1345,18 @@ fn extract_condition_from_line(line: &str) -> Option<String> {
     Some(condition.to_string())
 }
 
-fn has_else_branch(region: &ComplexityRegion, lines: &[&str]) -> bool {
-    let start = (region.line_start.saturating_sub(1)) as usize;
-    let end = (region.line_end as usize).min(lines.len());
-
-    if start >= lines.len() {
+fn has_else_branch(region: &ComplexityRegion, source: &str, index: &LineIndex) -> bool {
+    let Some(lines) = span_lines(source, index, region.line_start, region.line_end) else {
+        return false;
+    };
+    if lines.is_empty() {
         return false;
     }
 
-    let base_indent = get_indentation_from_str(lines[start]);
+    let base_indent = get_indentation_from_str(lines[0]);
     let mut in_triple_string: Option<char> = None;
 
-    for line in &lines[start..end] {
+    for line in &lines {
         if in_triple_string.is_none() {
             let trimmed = line.trim_start();
             let current_indent = get_indentation_from_str(line);
@@ -1335,38 +1423,66 @@ fn contains_multiline_string(lines: &[&str]) -> bool {
     false
 }
 
+/// True when any line in the range lies inside a multi-line (triple-quoted)
+/// string. Dedenting such lines changes the string's value, so suggestions
+/// that shift a range must refuse when this returns true.
+fn contains_multiline_string_lines(
+    source: &str,
+    index: &LineIndex,
+    from_line: u64,
+    to_line_excl: u64,
+) -> bool {
+    let mut in_triple_string: Option<char> = None;
+    let mut line_no = from_line;
+    while line_no < to_line_excl {
+        let Some(line) = line_at(source, index, line_no) else {
+            break;
+        };
+        if in_triple_string.is_some() {
+            return true;
+        }
+        update_triple_string_state(line, &mut in_triple_string);
+        line_no += 1;
+    }
+    false
+}
+
 fn generate_collapsible_if_suggestion_chain(
     outermost: &ComplexityRegion,
     innermost: &ComplexityRegion,
     conditions: &[String],
-    lines: &[&str],
+    source: &str,
+    index: &LineIndex,
 ) -> Option<CodeSuggestion> {
-    let outer_line_idx = (outermost.line_start.saturating_sub(1)) as usize;
-    let inner_line_idx = (innermost.line_start.saturating_sub(1)) as usize;
-    let inner_end = (innermost.line_end as usize).min(lines.len());
-
-    let body_start = inner_line_idx + 1;
-    if contains_multiline_string(&lines[body_start..inner_end]) {
+    let outer_line = line_at(source, index, outermost.line_start)?;
+    let inner_start = innermost.line_start + 1;
+    let inner_end = innermost.line_end + 1;
+    if contains_multiline_string_lines(source, index, inner_start, inner_end) {
         return None;
     }
 
-    let outer_indent = get_indentation_from_str(lines[outer_line_idx]);
-    let indent_step = detect_indent_step(&lines[outer_line_idx..inner_end]);
+    let outer_indent = get_indentation_from_str(outer_line);
+    let indent_step = detect_indent_step_range(source, index, outermost.line_start, inner_end);
 
     let combined = combine_conditions_chain(conditions);
 
     let chain_depth = conditions.len();
     let mut body_lines = Vec::new();
-    for line in &lines[body_start..inner_end] {
+    let mut line_no = inner_start;
+    while line_no < inner_end {
+        let Some(line) = line_at(source, index, line_no) else {
+            break;
+        };
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             body_lines.push(String::new());
-            continue;
+        } else {
+            let current_indent = get_indentation_from_str(line);
+            let shifted = current_indent.saturating_sub(indent_step * (chain_depth - 1));
+            let padding = " ".repeat(shifted);
+            body_lines.push(format!("{}{}", padding, trimmed));
         }
-        let current_indent = get_indentation_from_str(line);
-        let shifted = current_indent.saturating_sub(indent_step * (chain_depth - 1));
-        let padding = " ".repeat(shifted);
-        body_lines.push(format!("{}{}", padding, trimmed));
+        line_no += 1;
     }
 
     let indent = " ".repeat(outer_indent);
@@ -1508,7 +1624,11 @@ fn combine_conditions_chain(conditions: &[String]) -> String {
 /// - Current region has != 1 child
 /// - Child is not an If
 /// - Current or child has else/elif
-fn collect_if_chain<'a>(region: &'a ComplexityRegion, lines: &[&str]) -> Vec<&'a ComplexityRegion> {
+fn collect_if_chain<'a>(
+    region: &'a ComplexityRegion,
+    source: &str,
+    index: &LineIndex,
+) -> Vec<&'a ComplexityRegion> {
     let mut chain = vec![region];
     let mut current = region;
 
@@ -1520,7 +1640,7 @@ fn collect_if_chain<'a>(region: &'a ComplexityRegion, lines: &[&str]) -> Vec<&'a
         if child.kind != RegionKind::If {
             break;
         }
-        if has_else_branch(current, lines) || has_else_branch(child, lines) {
+        if has_else_branch(current, source, index) || has_else_branch(child, source, index) {
             break;
         }
         chain.push(child);
@@ -1542,7 +1662,8 @@ fn fallback_boolean_count(chain: &[&ComplexityRegion]) -> u64 {
 /// (a branch, an else/elif, or the end of the nesting).
 fn collect_loop_if_chain<'a>(
     region: &'a ComplexityRegion,
-    lines: &[&str],
+    source: &str,
+    index: &LineIndex,
 ) -> Vec<&'a ComplexityRegion> {
     let mut chain = Vec::new();
     let mut current = region.children.iter().find(|c| c.kind == RegionKind::If);
@@ -1551,8 +1672,8 @@ fn collect_loop_if_chain<'a>(
         chain.push(r);
         current = if r.children.len() == 1
             && r.children[0].kind == RegionKind::If
-            && !has_else_branch(r, lines)
-            && !has_else_branch(&r.children[0], lines)
+            && !has_else_branch(r, source, index)
+            && !has_else_branch(&r.children[0], source, index)
         {
             Some(&r.children[0])
         } else {
