@@ -23,10 +23,10 @@ instead:
 | `staged = true` | `[tool.complexipy.diff] staged = true` |
 | `details = "low"` | `failed = true` |
 
-## Removed in the next major release
+## Removed in 8.0.0
 
-The CLI is being rewritten in Rust. The following old-version compatibility
-features are removed in the next major version:
+The CLI was rewritten in Rust. The following old-version compatibility
+features were removed:
 
 - **Git-URL analysis** (`complexipy <repository-url>`) - local paths only.
 - **Legacy cache migration** - the previous
@@ -34,6 +34,7 @@ features are removed in the next major version:
   legacy files are ignored and the delta history starts fresh.
 - **Legacy snapshot files** - snapshots created with older versions are no
   longer detected; recreate them with `--snapshot-create`.
+- **`-mx` short flag** - use `--max-complexity-allowed` instead.
 
 ## What each replacement does
 

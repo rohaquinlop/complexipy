@@ -35,11 +35,10 @@ Las siguientes flags de CLI y claves TOML se eliminaron. Usa sus reemplazos:
 - `failed = true` muestra solo las funciones por encima del umbral de
   complejidad.
 
-## Eliminado en la próxima versión mayor
+## Eliminado en 8.0.0
 
-La CLI se está reescribiendo en Rust. Las siguientes características de
-compatibilidad con versiones antiguas se eliminan en la próxima versión
-mayor:
+La CLI se reescribió en Rust. Las siguientes características de
+compatibilidad con versiones antiguas se eliminaron:
 
 - **Análisis por URL de Git** (`complexipy <repository-url>`) - solo rutas
   locales.
@@ -48,3 +47,4 @@ mayor:
   existentes se ignoran y el historial de diferencias comienza vacío.
 - **Archivos de snapshot heredados** - los snapshots creados con versiones
   antiguas ya no se detectan; vuelve a crearlos con `--snapshot-create`.
+- **Flag corta `-mx`** - usa `--max-complexity-allowed` en su lugar.
