@@ -1,0 +1,4582 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Blazingly fast cognitive complexity analysis for Python, written in Rust.">
+      
+      
+      
+        <link rel="canonical" href="https://rohaquinlop.github.io/complexipy/changelog/">
+      
+      
+        <link rel="prev" href="../migration/">
+      
+      
+        <link rel="next" href="../understanding-scores/">
+      
+      
+        
+          <link rel="alternate" href="/complexipy/" hreflang="en">
+        
+          <link rel="alternate" href="/complexipy/es/" hreflang="es">
+        
+      
+      
+      <link rel="icon" href="../img/complexipy_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Changelog - complexipy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#changelog" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="complexipy" class="md-header__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            complexipy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="/complexipy/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="/complexipy/es/" hreflang="es" class="md-select__link">
+              Español
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rohaquinlop/complexipy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="complexipy" class="md-nav__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    complexipy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rohaquinlop/complexipy" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#800-2026-09-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [8.0.0] - 2026-09-03
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[8.0.0] - 2026-09-03">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#701-2026-08-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [7.0.1] - 2026-08-12
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[7.0.1] - 2026-08-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#700-2026-08-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [7.0.0] - 2026-08-10
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[7.0.0] - 2026-08-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#620-2026-07-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.2.0] - 2026-07-23
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.2.0] - 2026-07-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#610-2026-07-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.1.0] - 2026-07-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.1.0] - 2026-07-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#601-2026-07-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.0.1] - 2026-07-03
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.0.1] - 2026-07-03">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#600-2026-06-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.0.0] - 2026-06-26
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.0.0] - 2026-06-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#561-2026-06-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.6.1] - 2026-06-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.6.1] - 2026-06-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#560-2026-06-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.6.0] - 2026-06-14
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.6.0] - 2026-06-14">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#550-2026-05-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.5.0] - 2026-05-22
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.5.0] - 2026-05-22">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#541-2026-05-05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.4.1] - 2026-05-05
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.4.1] - 2026-05-05">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#540-2026-04-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.4.0] - 2026-04-25
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.4.0] - 2026-04-25">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#removed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#530-2026-04-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.3.0] - 2026-04-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.3.0] - 2026-04-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#520-2026-01-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.2.0] - 2026-01-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.2.0] - 2026-01-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#510-2025-12-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.1.0] - 2025-12-09
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.1.0] - 2025-12-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#500-2025-11-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.0.0] - 2025-11-26
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.0.0] - 2025-11-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#420-2025-09-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.2.0] - 2025-09-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.2.0] - 2025-09-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#410-2025-09-08" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.1.0] - 2025-09-08
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.1.0] - 2025-09-08">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#402-2025-08-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.2] - 2025-08-22
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#401-2025-08-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.1] - 2025-08-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.0.1] - 2025-08-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#400-2025-08-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.0] - 2025-08-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.0.0] - 2025-08-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#330-2025-07-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.3.0] - 2025-07-17
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.3.0] - 2025-07-17">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#320-2025-07-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.2.0] - 2025-07-09
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.2.0] - 2025-07-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#311-2025-07-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.1.1] - 2025-07-06
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.1.1] - 2025-07-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#300-2025-06-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.0.0] - 2025-06-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.0.0] - 2025-06-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#211-2025-04-24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.1.1] - 2025-04-24
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.1.1] - 2025-04-24">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#210-2025-04-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.1.0] - 2025-04-23
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.1.0] - 2025-04-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#200-2025-04-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.0.0] - 2025-04-18
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.0.0] - 2025-04-18">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#120-2024-12-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.0] - 2024-12-15
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.0] - 2024-12-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#110-2024-12-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.1.0] - 2024-12-14
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.1.0] - 2024-12-14">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#050-2024-10-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.5.0] - 2024-10-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.5.0] - 2024-10-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#040-2024-06-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.4.0] - 2024-06-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.4.0] - 2024-06-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#033-2024-04-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.3] - 2024-04-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.3] - 2024-04-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#032-2024-03-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.2] - 2024-03-22
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.2] - 2024-03-22">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#031-2024-03-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.1] - 2024-03-13
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.1] - 2024-03-13">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#030-2024-03-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.0] - 2024-03-07
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.0] - 2024-03-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#022-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.2] - 2024-02-27
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#021-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.1] - 2024-02-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.2.1] - 2024-02-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#020-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.0] - 2024-02-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.2.0] - 2024-02-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Understanding Complexity
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Understanding Complexity
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../understanding-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Scores Mean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison-with-ruff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparison with Ruff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Refactoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Refactoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../refactoring-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Refactoring Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About complexipy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#800-2026-09-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [8.0.0] - 2026-09-03
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[8.0.0] - 2026-09-03">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#701-2026-08-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [7.0.1] - 2026-08-12
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[7.0.1] - 2026-08-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#700-2026-08-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [7.0.0] - 2026-08-10
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[7.0.0] - 2026-08-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#620-2026-07-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.2.0] - 2026-07-23
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.2.0] - 2026-07-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#610-2026-07-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.1.0] - 2026-07-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.1.0] - 2026-07-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#601-2026-07-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.0.1] - 2026-07-03
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.0.1] - 2026-07-03">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#600-2026-06-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [6.0.0] - 2026-06-26
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[6.0.0] - 2026-06-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#561-2026-06-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.6.1] - 2026-06-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.6.1] - 2026-06-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#560-2026-06-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.6.0] - 2026-06-14
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.6.0] - 2026-06-14">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#550-2026-05-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.5.0] - 2026-05-22
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.5.0] - 2026-05-22">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#541-2026-05-05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.4.1] - 2026-05-05
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.4.1] - 2026-05-05">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#540-2026-04-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.4.0] - 2026-04-25
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.4.0] - 2026-04-25">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#removed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#530-2026-04-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.3.0] - 2026-04-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.3.0] - 2026-04-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#520-2026-01-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.2.0] - 2026-01-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.2.0] - 2026-01-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#510-2025-12-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.1.0] - 2025-12-09
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.1.0] - 2025-12-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#500-2025-11-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.0.0] - 2025-11-26
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.0.0] - 2025-11-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#420-2025-09-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.2.0] - 2025-09-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.2.0] - 2025-09-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#410-2025-09-08" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.1.0] - 2025-09-08
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.1.0] - 2025-09-08">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#402-2025-08-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.2] - 2025-08-22
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#401-2025-08-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.1] - 2025-08-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.0.1] - 2025-08-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#400-2025-08-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.0] - 2025-08-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.0.0] - 2025-08-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#330-2025-07-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.3.0] - 2025-07-17
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.3.0] - 2025-07-17">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#320-2025-07-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.2.0] - 2025-07-09
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.2.0] - 2025-07-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#311-2025-07-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.1.1] - 2025-07-06
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.1.1] - 2025-07-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#300-2025-06-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.0.0] - 2025-06-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.0.0] - 2025-06-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#211-2025-04-24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.1.1] - 2025-04-24
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.1.1] - 2025-04-24">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#210-2025-04-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.1.0] - 2025-04-23
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.1.0] - 2025-04-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#200-2025-04-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.0.0] - 2025-04-18
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.0.0] - 2025-04-18">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#120-2024-12-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.0] - 2024-12-15
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.0] - 2024-12-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#110-2024-12-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.1.0] - 2024-12-14
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.1.0] - 2024-12-14">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#050-2024-10-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.5.0] - 2024-10-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.5.0] - 2024-10-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#040-2024-06-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.4.0] - 2024-06-21
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.4.0] - 2024-06-21">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#033-2024-04-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.3] - 2024-04-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.3] - 2024-04-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#032-2024-03-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.2] - 2024-03-22
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.2] - 2024-03-22">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#031-2024-03-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.1] - 2024-03-13
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.1] - 2024-03-13">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#030-2024-03-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.3.0] - 2024-03-07
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.3.0] - 2024-03-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#022-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.2] - 2024-02-27
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#021-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.1] - 2024-02-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.2.1] - 2024-02-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#020-2024-02-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [0.2.0] - 2024-02-27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[0.2.0] - 2024-02-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/rohaquinlop/complexipy/edit/main/docs/changelog.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/rohaquinlop/complexipy/raw/main/docs/changelog.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
+    </a>
+  
+
+
+<h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<p>All notable changes to complexipy are documented here, newest first. Each
+release section links to its GitHub release notes for the full details.</p>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="800-2026-09-03">[8.0.0] - 2026-09-03<a class="headerlink" href="#800-2026-09-03" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p>See the <a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for the breaking changes below.</p>
+</div>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The Python CLI is retired: <code>complexipy</code> is now a native Rust
+  implementation exposed through a thin console-script shim, so the whole
+  pipeline runs without a Python interpreter. The Python API is unchanged
+  and now includes the diff comparison (<code>compute_diff</code>, <code>has_regressions</code>,
+  <code>DiffEntry</code>, <code>DiffStatus</code>) backed by the same Rust engine as the CLI.
+  The extension module keeps being distributed via maturin wheels.
+  (<a href="https://github.com/rohaquinlop/complexipy/issues/224">#224</a>, <a href="https://github.com/rohaquinlop/complexipy/issues/243">#243</a>)</li>
+</ul>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Git-URL analysis</strong> (<code>complexipy &lt;repository-url&gt;</code>) - local paths only.</li>
+<li><strong>Legacy cache migration</strong> - the previous
+  <code>.complexipy_cache/&lt;hash&gt;.json</code> layout is no longer migrated; existing
+  legacy files are ignored and the delta history starts fresh.</li>
+<li><strong>Legacy snapshot files</strong> - snapshots created with older versions are no
+  longer detected; recreate them with <code>--snapshot-create</code>.</li>
+<li><strong><code>-mx</code> short flag</strong> for <code>--max-complexity-allowed</code> - carried over from
+  the Python CLI but never ported to the clap-based parser; use
+  <code>--max-complexity-allowed</code> instead.</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The C007 collapsible-if rule no longer suggests merging a nested <code>if</code>
+  when a same-level statement with side effects precedes it - the merge
+  would change program behavior. Comments in multiline headers and
+  trailing comments are handled instead of being misplaceable by the
+  replacement.
+  (<a href="https://github.com/rohaquinlop/complexipy/issues/228">#228</a>, <a href="https://github.com/rohaquinlop/complexipy/issues/236">#236</a>)</li>
+<li>The C007 preceding-statement guard no longer fails when blank or
+  comment-only lines sit between the outer and inner <code>if</code>: the indent
+  step detection now skips such lines, so the merge is still rejected
+  instead of producing a replacement that drops code.
+  (<a href="https://github.com/rohaquinlop/complexipy/issues/245">#245</a>)</li>
+<li>The C002 loop-guards suggestion keeps statements that sit between the
+  chained <code>if</code>s: they now appear in the replacement between the
+  corresponding guards instead of being dropped. Guard conditions are now
+  parenthesized (<code>if not (&lt;cond&gt;):</code>), so inverting conditions with <code>and</code>
+  or <code>or</code> no longer silently changes what the guard skips.</li>
+<li>The C005 extract-predicate suggestion keeps the statement keyword:
+  <code>while</code> conditions stay <code>while</code> loops, and <code>elif</code> conditions get help
+  text only instead of a broken standalone <code>if</code> replacement. The
+  predicate body indent now follows the file's indent step.</li>
+<li>C002 and C007 refuse machine suggestions when the shifted body holds a
+  multi-line string literal: dedenting would change the string's value.
+  The plans carry help text instead.</li>
+<li>C002 loop guards strip a redundant top-level <code>not</code> from the guard
+  condition (<code>if not a:</code> becomes guard <code>if a:</code>), and C005 predicate names
+  get an underscore suffix when the source already defines the generated
+  name.</li>
+<li>C005 extract-predicate now emits a module-level helper whose parameters
+  are the condition's free variables (attribute bases included, builtins
+  excluded), so the helper is unit-testable. The snippet shows the
+  enclosing context at the statement's real indentation. Conditions that
+  bind a name (<code>:=</code>) or contain a lambda/comprehension get help text only.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/8.0.0">release notes</a>
+for the full details.</p>
+<h2 id="701-2026-08-12">[7.0.1] - 2026-08-12<a class="headerlink" href="#701-2026-08-12" title="Permanent link">&para;</a></h2>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The release pipeline now retries artifact uploads with pinned workflow
+  versions and only notifies downstream repositories on tag releases,
+  keeping non-tag pushes silent.</li>
+<li>Pinned maturin version in the release workflow to avoid GitHub API
+  rate limits when resolving the latest version inside Docker build
+  containers.</li>
+</ul>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Snapshot entries for analyzed files are updated in place instead of
+  being moved to the end of the file: partial runs (e.g. pre-commit hooks
+  analyzing only staged files) no longer reorder the snapshot, so the
+  snapshot stays byte-identical across commits that do not change
+  complexity. (<a href="https://github.com/rohaquinlop/complexipy/issues/226">#226</a>)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/7.0.1">release notes</a>
+for the full details.</p>
+<h2 id="700-2026-08-10">[7.0.0] - 2026-08-10<a class="headerlink" href="#700-2026-08-10" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p>The deprecated <code>--output-json</code>, <code>--output-csv</code>, <code>--output-gitlab</code>,
+<code>--output-sarif</code>, and <code>--ratchet</code> flags and their TOML keys were
+removed; use <code>--output-format</code> and <code>--diff</code> instead. See the
+<a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for each removed flag and key with its replacement.</p>
+</div>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--suggest-refactors</code> is now a clippy-style lint system: stable rule IDs
+  (C001-C005, C007, C011), category and applicability metadata,
+  <code>path:line:col</code> anchors with caret spans, verbatim suggestion rendering,
+  and a documentation link per rule. (#209)</li>
+<li>Refactor-plan findings are included in JSON, SARIF, and GitLab exports
+  when <code>--suggest-refactors</code> is passed; the SARIF rule catalog is built
+  dynamically from the plans encountered. (#209)</li>
+<li><code>compute_diff</code>, <code>has_regressions</code>, <code>DiffEntry</code>, and <code>DiffStatus</code> are now
+  part of the public Python API, so CI tools can consume diff results as
+  objects instead of parsing terminal output; <code>DiffStatus</code> provides named
+  constants such as <code>DiffStatus.REGRESSED</code>. (#210)</li>
+<li><code>collect_removable_ignored_locations()</code> and <code>RemovableIgnore</code> are exported
+  from the Python API. Every run now reports ignore comments that are no
+  longer necessary (<code>path:line function=X complexity=N &lt;comment&gt;</code>) when the
+  suppressed function is back under the allowed limit - the exit code is
+  unaffected, the report is suppressed under <code>--quiet</code>, and it works under
+  <code>--plain</code>. (#213)</li>
+<li><code>--staged</code> flag for git-index comparison - answers "what complexity am I
+  about to commit?" instead of only what changed in the working tree;
+  <code>--staged</code> alone defaults the baseline to <code>HEAD</code> and enforces, while
+  <code>--diff &lt;ref&gt; --staged</code> enforces against the ref. (#218)</li>
+<li><code>[tool.complexipy.diff]</code> TOML section so the comparison policy lives in
+  the repository config: <code>branch = "main"</code> makes a plain <code>complexipy .</code> run
+  behave like <code>--diff main</code> (enforcement included), <code>staged = true</code> enables
+  staged comparison by default, and <code>branch = ""</code> opts out. CLI flags take
+  precedence over the section. (#219)</li>
+<li>Refactor reductions are now measured instead of estimated: for every
+  machine-applicable suggestion (C002, C007) the replacement is spliced
+  into the source, re-parsed, and re-scored, so <code>estimated_reduction</code> and
+  <code>estimated_complexity_after</code> report the literal delta of applying the
+  suggestion - and ranking, overlap resolution, and the noise filter all
+  operate on measured values. The new <code>reduction_is_measured</code> flag on
+  <code>RefactorPlan</code> separates measured plans from help-only formula
+  estimates, which the CLI renders with a <code>~</code> qualifier
+  (<code>Estimated reduction: ~-2</code>) while measured plans render plain
+  (<code>Reduction: -2</code>). Guard suggestions are now faithful splices for loops
+  with statements before or after the if-chain and for multi-line loop
+  headers; measurement failures fall back to the formula estimate - never
+  a panic, never a fabricated number. (#225)</li>
+</ul>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Refactor-plan reduction estimates are now honest: the reduction math was
+  rewritten and validated against measured before/after complexity, C004 no
+  longer suggests splitting <code>match</code> statements, C006 was deleted because its
+  gate could never fire, and C011 now fires on <code>try</code> → <code>with</code> → <code>try</code>
+  chains. Overlapping plans are deduped against every overlap and capped at
+  5, reporting dropped ones as "... and N more suggestions". (#209)</li>
+<li>Condition extraction in the refactor rules now tracks bracket depth,
+  string literals, and walrus <code>:=</code> instead of a naive <code>rfind(':')</code>. (#209)</li>
+<li><code>file_complexity()</code> now returns cwd-relative paths (matching
+  <code>git diff --name-only</code>), and nested invocations resolve git paths via a
+  <code>git ls-files</code> basename lookup - without this, diffing per-file results
+  silently marked every function as NEW. (#210)</li>
+<li>Community standards files were added: <code>CODE_OF_CONDUCT.md</code>,
+  <code>CONTRIBUTING.md</code>, <code>SECURITY.md</code>, issue templates, and a pull request
+  template. (#201)</li>
+</ul>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Snapshot updates now merge with the existing snapshot instead of
+  replacing it: only the files analyzed in a run are touched, so partial
+  runs (e.g. pre-commit hooks analyzing only staged files) no longer erase
+  the baseline for unanalyzed files. (#215)</li>
+<li>The docs footer now renders its links as styled links instead of raw
+  markdown text, on both the English and Spanish landing pages. (#216)</li>
+</ul>
+<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>RefactorPlan.steps</code> - replaced by the concrete <code>suggestion</code> / <code>help</code>
+  fields on the plan. (#209)</li>
+<li><code>CodeSnippet</code> from the public API; <code>CodeSuggestion</code> is exported in its
+  place. (#209)</li>
+<li><code>--output-json</code> / <code>-j</code>, <code>--output-csv</code> / <code>-c</code>, <code>--output-gitlab</code>, and
+  <code>--output-sarif</code> / <code>-sr</code> - use <code>--output-format</code> instead. (#221)</li>
+<li><code>--ratchet</code> / <code>-R</code> - <code>--diff</code> enforces the threshold by default. (#221)</li>
+<li>TOML keys <code>output-json</code>, <code>output-csv</code>, <code>output-gitlab</code>, <code>output-sarif</code>,
+  flat <code>staged</code>, flat <code>ratchet</code>, and the undocumented <code>details = "low"</code>
+  alias. (#221)</li>
+</ul>
+<p>These removals land in 7.0.0. See the
+<a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a> for
+each removed flag and key with its replacement.</p>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/7.0.0">release notes</a>
+for the full details.</p>
+<h2 id="620-2026-07-23">[6.2.0] - 2026-07-23<a class="headerlink" href="#620-2026-07-23" title="Permanent link">&para;</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--exclude</code> and <code>--output-format</code> now accept comma-separated values
+  (<code>--exclude tests/**,src/**</code>), avoiding shell expansion issues. (#199)</li>
+</ul>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Output now shows the correct relative path from the current working
+  directory when analyzing a single file or a directory. (#198)</li>
+<li><code>--output-sarif</code> help text now carries a deprecation notice, clarifying
+  that SARIF output is moving to a different mechanism. (#199)</li>
+</ul>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Decomposed the monolithic 316-line <code>main()</code> function into a clean
+  orchestrator (~80 lines) with extracted business logic in domain-specific
+  <code>utils/</code> modules (<code>config.py</code>, <code>paths.py</code>, <code>ignored.py</code>). (#199)</li>
+<li>Introduced <code>RunConfig</code>, <code>ExitReport</code>, and <code>SnapshotEvaluation</code> dataclasses,
+  replacing mutable accumulators and positional tuple unpacking. (#199)</li>
+<li>Eliminated all <code>global console</code> declarations - the <code>console</code> instance is
+  constructed once and passed explicitly. (#199)</li>
+<li>Refactored <code>get_arguments_value</code> from a 20-parameter function returning a
+  15-element tuple to a dict-based approach. (#199)</li>
+<li>Added 30 new tests covering config resolution and snapshot evaluation
+  logic. (#199)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/6.2.0">release notes</a>
+for the full details.</p>
+<h2 id="610-2026-07-21">[6.1.0] - 2026-07-21<a class="headerlink" href="#610-2026-07-21" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed git path resolution when running <code>--diff</code> from a nested subdirectory
+  inside a repository, which previously caused "not a git repository"
+  errors. (#196)</li>
+<li>Fixed ruff lint configuration to use a glob pattern instead of a directory
+  exclusion for test files. (#196)</li>
+</ul>
+<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Simplified the diff CLI - <code>--diff</code> now always enforces
+  <code>--max-complexity-allowed</code>, while <code>--diff-only</code> provides the visual-only
+  comparison. <code>--ratchet</code> is deprecated in favour of this model. (#196)</li>
+<li>Integrated diff output into the main analysis flow instead of producing it
+  as a separate post-processing step. (#196)</li>
+<li>Removed the redundant "Failed functions" output section - failed functions
+  are now shown inline in the per-file summary. (#196)</li>
+<li>Added <code>AGENTS.md</code> for AI agent context.</li>
+<li>Added a CI workflow that notifies downstream repositories on new
+  releases. (#197)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/6.1.0">release notes</a>
+for the full details.</p>
+<h2 id="601-2026-07-03">[6.0.1] - 2026-07-03<a class="headerlink" href="#601-2026-07-03" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Normalized Windows paths for wax glob compatibility in the exclude
+  handling. (#194)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/6.0.1">release notes</a>
+for the full details.</p>
+<h2 id="600-2026-06-26">[6.0.0] - 2026-06-26<a class="headerlink" href="#600-2026-06-26" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p>This release brings the cognitive complexity algorithm into full
+conformance with the SonarSource white paper (v1.7). Scores change for
+files using <code>match</code>, <code>try</code>/<code>except</code>, <code>with</code>, comprehensions, lambdas,
+recursion, or nested ternaries - in most cases they increase. Re-run
+<code>complexipy</code> after upgrading and review the new scores; if you use
+<code>--max-complexity</code> / <code>--failed</code> in CI you will likely need to raise
+thresholds. See the <a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for upgrade guidance.</p>
+</div>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>match</code> statements now apply a structural + nesting increment per the
+  paper, instead of being scored as 0. (#192)</li>
+<li><code>try</code>/<code>else</code>/<code>finally</code> blocks are now collected at the current nesting
+  level instead of <code>+1</code>, matching the paper's rule. (#192)</li>
+<li><code>except</code> handlers now charge <code>1 + nesting_level</code> instead of a flat
+  <code>+1</code>. (#192)</li>
+<li><code>with</code> blocks no longer incorrectly raise the nesting level. (#192)</li>
+<li>Direct recursion now emits <code>+1</code> for each self-call via a scope-aware
+  <code>RecursionFinder</code>, correctly skipping nested function/class definitions
+  and lambdas. (#192)</li>
+<li>Lambda expressions are now included in boolean-op counting, recursing
+  into the body at <code>nesting_level + 1</code>. (#192)</li>
+<li>Comprehensions (<code>ListComp</code>, <code>SetComp</code>, <code>DictComp</code>, <code>Generator</code>) now charge
+  <code>1 + nesting_level</code> per generator and <code>+1</code> per <code>if</code> filter. (#192)</li>
+<li>Nested ternaries now recurse at <code>nesting_level + 1</code>, so inner ternaries
+  receive the correct nesting increment. (#192)</li>
+<li><code>for</code>/<code>while</code> <code>else</code> clauses are now collected at the loop's own nesting
+  level, not <code>+1</code>. (#192)</li>
+<li>Bare expression statements now count boolean ops (e.g.
+  <code>foo(a and b)</code>). (#192)</li>
+<li>The <code>for</code> iterable now counts boolean ops, for parity with <code>while</code>. (#192)</li>
+</ul>
+<h3 id="changed_5">Changed<a class="headerlink" href="#changed_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Extracted all path orchestration (file I/O, directory traversal, URL
+  cloning) from <code>cognitive_complexity.rs</code> into a new <code>src/runner.rs</code> module,
+  gated <code>#[cfg(feature = "python")]</code>, which also resolves a pre-existing
+  wasm build failure. (#192)</li>
+<li>Extracted <code>push_line</code>, <code>absorb</code>, <code>absorb_with_regions</code>, <code>finalize_region</code>,
+  <code>count_line_bool_ops</code>, <code>loop_complexity</code>, <code>is_ignored</code>, and
+  <code>analyze_function</code> helpers to eliminate the repeated fold/push pattern
+  across all statement arms. (#192)</li>
+<li>Unified structurally identical <code>Stmt::For</code> and <code>Stmt::While</code> handling into
+  a single <code>loop_complexity</code> call. (#192)</li>
+<li>Collapsed 7 near-identical statement arms through
+  <code>count_line_bool_ops</code>. (#192)</li>
+<li>Derived <code>Default</code> on <code>ComplexityRegion</code> and <code>RegionKind</code>. (#192)</li>
+<li>Eliminated <code>merge_child</code> and its internal <code>child.regions.clone()</code>. (#192)</li>
+<li>Hardened the Windows release unit-test job against transient Cargo HTTP/2
+  framing failures. (#189)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/6.0.0">release notes</a>
+for the full details.</p>
+<h2 id="561-2026-06-16">[5.6.1] - 2026-06-16<a class="headerlink" href="#561-2026-06-16" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed a panic in <code>extract_comment_marker</code> when a multi-byte UTF-8
+  character (em-dash, emoji, accented letters, CJK) straddles byte offset 16
+  of a comment, which previously aborted analysis of the entire directory.
+  Error-prone byte-slicing was replaced with regex-based matching. (#187)</li>
+</ul>
+<h3 id="removed_2">Removed<a class="headerlink" href="#removed_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Removed the unreliable <code>release-plz.yml</code> auto-release workflow and its
+  supporting files (<code>CHANGELOG.md</code>, <code>cliff.toml</code>). Manual releases via
+  <code>release.yml</code> (tag → build → test → publish) are now the standard
+  path. (#188)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.6.1">release notes</a>
+for the full details.</p>
+<h2 id="560-2026-06-14">[5.6.0] - 2026-06-14<a class="headerlink" href="#560-2026-06-14" title="Permanent link">&para;</a></h2>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--no-ignore</code> flag to disregard <code># complexipy: ignore</code> and
+  <code># noqa: complexipy</code> comments. (#182)</li>
+<li><code>--report-ignored</code> flag to list all suppressed functions, with optional
+  JSON export to <code>complexipy-ignored.json</code>. (#182)</li>
+<li><code>IgnoredLocation</code> type and <code>collect_all_ignored_locations()</code> to the
+  Python API. (#182)</li>
+</ul>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed diff mode showing all files as NEW on Windows. (#177)</li>
+</ul>
+<h3 id="changed_6">Changed<a class="headerlink" href="#changed_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Migrated pyo3 to 0.29 and updated CI runners. (#185)</li>
+<li>Added musllinux_1_2 wheel builds for Alpine Linux support. (#180)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.6.0">release notes</a>
+for the full details.</p>
+<h2 id="550-2026-05-22">[5.5.0] - 2026-05-22<a class="headerlink" href="#550-2026-05-22" title="Permanent link">&para;</a></h2>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Deterministic refactor plans: a new algorithm generates actionable,
+  deterministic suggestions to reduce cognitive complexity. Plans are
+  displayed in the rich CLI output and included in JSON output.</li>
+<li>Recursive exclude globs: exclude patterns now support <code>**</code> (e.g.
+  <code>tests/**</code>). The glob engine was replaced with <code>wax</code> for correct recursive
+  matching relative to the caller's working directory.</li>
+</ul>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed unbounded growth of target-set entries in the cache that could
+  degrade performance on large projects.</li>
+</ul>
+<h3 id="changed_7">Changed<a class="headerlink" href="#changed_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Output internals now use typed <code>FunctionRow</code> / <code>FileEntry</code> dataclasses
+  instead of untyped <code>Dict</code> structures, extracted into
+  <code>complexipy/utils/dataclasses.py</code>.</li>
+<li>Docs deploys now trigger only on release events, not on every push.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.5.0">release notes</a>
+for the full details.</p>
+<h2 id="541-2026-05-05">[5.4.1] - 2026-05-05<a class="headerlink" href="#541-2026-05-05" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Stabilized snapshot output by omitting transient line-level fields from
+  Python-facing serialized Rust structures.</li>
+<li>Moved shared output constants into <code>complexipy.utils.constants</code> so output
+  filenames, legacy CLI flags, and legacy TOML keys are defined in one
+  place.</li>
+<li>Clarified deprecated output flag messaging for <code>--output-csv</code>,
+  <code>--output-json</code>, and <code>--output-gitlab</code> to point users at
+  <code>--output-format</code>.</li>
+</ul>
+<h3 id="changed_8">Changed<a class="headerlink" href="#changed_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Updated CI so pull requests run a faster quick-test matrix, while full
+  wheel builds, source distribution builds, and full platform test jobs run
+  for tags or manual workflow dispatches.</li>
+<li>Enabled uv dependency caching in CI jobs.</li>
+<li>Updated README and docs to match the current Python API return types and
+  the current JSON array snapshot format.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.4.1">release notes</a>
+for the full details.</p>
+<h2 id="540-2026-04-25">[5.4.0] - 2026-04-25<a class="headerlink" href="#540-2026-04-25" title="Permanent link">&para;</a></h2>
+<h3 id="removed_3">Removed<a class="headerlink" href="#removed_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Removed comprehension complexity scoring - rolls back the
+  <code>ListComp</code>/<code>SetComp</code>/<code>Generator</code>/<code>DictComp</code> AST node handling from
+  <code>count_bool_ops()</code> and the <code>count_comprehension_complexity()</code> helper added
+  in v5.3.0. (#166)</li>
+</ul>
+<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed feature gating for WASM builds and included version metadata. (#164)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.4.0">release notes</a>
+for the full details.</p>
+<h2 id="530-2026-04-16">[5.3.0] - 2026-04-16<a class="headerlink" href="#530-2026-04-16" title="Permanent link">&para;</a></h2>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--ratchet</code> flag - CI fails only when complexity increases past the
+  threshold; regressions are blocked, improvements always pass. (#159)</li>
+<li><code>--plain</code> flag - machine-readable plain-text output for
+  scripting/piping. (#158)</li>
+<li><code>--top N</code> flag - display the N most complex functions, globally sorted
+  across all files. (#157)</li>
+<li><code>--check-script</code> / <code>--script-strict</code> flags - analyse module-level (script)
+  complexity in addition to functions. (#156)</li>
+<li>Unified output destinations - consistent <code>--output-*</code> routing across all
+  report formats. (#155)</li>
+<li>GitLab Code Quality report via <code>--output-gitlab</code>. (#153)</li>
+<li>SARIF 2.1.0 output via <code>--output-sarif</code> for IDE and GitHub Advanced
+  Security integration. (#141)</li>
+<li>Git diff analysis - <code>--diff &lt;ref&gt;</code> reports complexity changes relative to
+  any git reference. (#140)</li>
+<li>Comprehension complexity - list/dict/set comprehensions and generator
+  expressions now contribute to cognitive complexity scores. (#139)</li>
+<li><code># complexipy: ignore</code> - new canonical inline suppression comment;
+  <code># noqa: complexipy</code> is deprecated. (#146)</li>
+<li>Glob patterns in the config <code>exclude</code> field. (#142)</li>
+<li>Spanish documentation. (#147)</li>
+</ul>
+<h3 id="fixed_12">Fixed<a class="headerlink" href="#fixed_12" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--top</code> results now preserve global descending order across multi-file
+  runs.</li>
+<li><code>--top N</code> rejects <code>N ≤ 0</code> with a clear error.</li>
+<li><code>--script-strict</code> now correctly requires <code>--check-script</code>.</li>
+<li>Ignore markers (<code># complexipy: ignore</code>) now work on multiline function
+  definitions.</li>
+<li>JSON output includes a final newline (POSIX compliance). (#148)</li>
+<li>Snapshot-allowed functions are now shown as <code>PASSED</code> in output.</li>
+<li>The snapshot watermark correctly drives the exit code when active.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.3.0">release notes</a>
+for the full details.</p>
+<h2 id="520-2026-01-28">[5.2.0] - 2026-01-28<a class="headerlink" href="#520-2026-01-28" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_13">Fixed<a class="headerlink" href="#fixed_13" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed <code># noqa: complexipy</code> comments on decorated functions. (#128)</li>
+</ul>
+<h3 id="changed_9">Changed<a class="headerlink" href="#changed_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Updated the pre-commit complexipy version in the docs. (#126)</li>
+<li>Updated the documentation. (#132)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.2.0">release notes</a>
+for the full details.</p>
+<h2 id="510-2025-12-09">[5.1.0] - 2025-12-09<a class="headerlink" href="#510-2025-12-09" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_14">Fixed<a class="headerlink" href="#fixed_14" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed invalid results output paths on Windows. (#120)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.1.0">release notes</a>
+for the full details.</p>
+<h2 id="500-2025-11-26">[5.0.0] - 2025-11-26<a class="headerlink" href="#500-2025-11-26" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p>Conditional scoring now counts each <code>elif</code>/<code>else</code> branch as +1
+complexity (plus its boolean test), aligning with Sonar's
+cognitive-complexity rules. Expect higher scores for branching. See the
+<a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for upgrade guidance.</p>
+</div>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Snapshots: <code>--snapshot-create</code> writes <code>complexipy-snapshot.json</code>;
+  comparisons block regressions, auto-refresh on improvements, and can be
+  bypassed with <code>--snapshot-ignore</code>. (#111)</li>
+<li>Change tracking: a per-target cache in <code>.complexipy_cache</code> shows
+  deltas/new failures for over-threshold functions using stable BLAKE2
+  keys. (#115)</li>
+<li>Output controls: <code>--failed</code> to show only violations (#114); <code>--color auto|yes|no</code>
+  (#109); richer summaries of failing functions and invalid paths.</li>
+<li>Python 3.14 support. (#106)</li>
+</ul>
+<h3 id="changed_10">Changed<a class="headerlink" href="#changed_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Excludes and errors: exclude entries are resolved relative to the root and
+  only applied when they match real files/dirs; missing paths are reported
+  cleanly instead of panicking. (#113)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/5.0.0">release notes</a>
+for the full details.</p>
+<h2 id="420-2025-09-21">[4.2.0] - 2025-09-21<a class="headerlink" href="#420-2025-09-21" title="Permanent link">&para;</a></h2>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Exclude files from analysis.</li>
+<li>Inline ignores to exclude functions from analysis.</li>
+</ul>
+<h3 id="fixed_15">Fixed<a class="headerlink" href="#fixed_15" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Python 3.8 support. (#96)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/4.2.0">release notes</a>
+for the full details.</p>
+<h2 id="410-2025-09-08">[4.1.0] - 2025-09-08<a class="headerlink" href="#410-2025-09-08" title="Permanent link">&para;</a></h2>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Version support. (#93)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/4.1.0">release notes</a>
+for the full details.</p>
+<h2 id="402-2025-08-22">[4.0.2] - 2025-08-22<a class="headerlink" href="#402-2025-08-22" title="Permanent link">&para;</a></h2>
+<p>Patch release; no changes were recorded in its release notes.</p>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/4.0.2">release notes</a>
+for the full details.</p>
+<h2 id="401-2025-08-21">[4.0.1] - 2025-08-21<a class="headerlink" href="#401-2025-08-21" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_16">Fixed<a class="headerlink" href="#fixed_16" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed the PyPI README error.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/4.0.1">release notes</a>
+for the full details.</p>
+<h2 id="400-2025-08-21">[4.0.0] - 2025-08-21<a class="headerlink" href="#400-2025-08-21" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p>The logic for counting boolean operators in conditions was updated to
+align with the definition from the original paper. Existing functions
+may report higher complexities. See the
+<a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for upgrade guidance.</p>
+</div>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Configuration support via <code>complexipy.toml</code> or <code>[tool.complexipy]</code> in
+  <code>pyproject.toml</code> - users can now define default arguments.</li>
+</ul>
+<h3 id="fixed_17">Fixed<a class="headerlink" href="#fixed_17" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed an infinite loop when analyzing modules with invalid Python
+  syntax. (#85, resolved in #88)</li>
+</ul>
+<h3 id="changed_11">Changed<a class="headerlink" href="#changed_11" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Improved performance and Rust implementation details.</li>
+<li>Updated and improved documentation.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/4.0.0">release notes</a>
+for the full details.</p>
+<h2 id="330-2025-07-17">[3.3.0] - 2025-07-17<a class="headerlink" href="#330-2025-07-17" title="Permanent link">&para;</a></h2>
+<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--max-complexity-allowed</code> (<code>-mx</code>) - customize the maximum allowed
+  cognitive complexity threshold per function. The default remains 15 to
+  maintain existing behavior.</li>
+<li>GitHub Actions integration for the custom threshold.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/3.3.0">release notes</a>
+for the full details.</p>
+<h2 id="320-2025-07-09">[3.2.0] - 2025-07-09<a class="headerlink" href="#320-2025-07-09" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_18">Fixed<a class="headerlink" href="#fixed_18" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed an error when using complexipy on Windows, related to the <code>rich</code>
+  library used to draw the console output with emojis.</li>
+<li>Fixed the <code>quiet</code> parameter still drawing output that wasn't handled in
+  the Rust code.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/3.2.0">release notes</a>
+for the full details.</p>
+<h2 id="311-2025-07-06">[3.1.1] - 2025-07-06<a class="headerlink" href="#311-2025-07-06" title="Permanent link">&para;</a></h2>
+<h3 id="changed_12">Changed<a class="headerlink" href="#changed_12" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The maximum complexity threshold is now <code>15</code>, matching the Sonar
+  threshold to make adoption of the library easier. (#78)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/3.1.1">release notes</a>
+for the full details.</p>
+<h2 id="300-2025-06-16">[3.0.0] - 2025-06-16<a class="headerlink" href="#300-2025-06-16" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Migration</p>
+<p><code>--max-complexity</code> was removed; complexipy now uses a fixed cognitive
+complexity threshold of 15. The tool exits with an error when a function
+meets or exceeds the threshold. Use <code>--ignore-complexity</code> (<code>-i</code>) to show
+all functions regardless of their complexity score. See the
+<a href="https://rohaquinlop.github.io/complexipy/migration/">migration guide</a>
+for upgrade guidance.</p>
+</div>
+<h3 id="added_10">Added<a class="headerlink" href="#added_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>WebAssembly (WASM) support - the core analysis engine can now be compiled
+  to WebAssembly, enabling browser-based analysis and tools like the
+  VSCode extension. (#72)</li>
+<li>JSON output via <code>--output-json</code> (<code>-j</code>) for machine-readable results. (#74)</li>
+<li><code>--ignore-complexity</code> (<code>-i</code>) flag to display all functions regardless of
+  whether they exceed the complexity threshold. (#73)</li>
+<li><code>--details</code> (<code>-d</code>) now also affects CSV and JSON outputs. (#73)</li>
+<li>Sort results by complexity score (<code>asc</code>, <code>desc</code>) or by <code>name</code>. (#73)</li>
+<li>Pre-commit hook support with documentation for easy setup. (#75)</li>
+</ul>
+<h3 id="removed_4">Removed<a class="headerlink" href="#removed_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>--max-complexity</code> argument. (#73)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/3.0.0">release notes</a>
+for the full details.</p>
+<h2 id="211-2025-04-24">[2.1.1] - 2025-04-24<a class="headerlink" href="#211-2025-04-24" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_19">Fixed<a class="headerlink" href="#fixed_19" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed compatibility with Python 3.8. (#66)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/2.1.1">release notes</a>
+for the full details.</p>
+<h2 id="210-2025-04-23">[2.1.0] - 2025-04-23<a class="headerlink" href="#210-2025-04-23" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_20">Fixed<a class="headerlink" href="#fixed_20" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed dictionary expression bool op counting. (#64)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/2.1.0">release notes</a>
+for the full details.</p>
+<h2 id="200-2025-04-18">[2.0.0] - 2025-04-18<a class="headerlink" href="#200-2025-04-18" title="Permanent link">&para;</a></h2>
+<h3 id="changed_13">Changed<a class="headerlink" href="#changed_13" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Changed the parser from <code>rustpython</code> to <code>ruff_python_parser</code>. (#62)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/2.0.0">release notes</a>
+for the full details.</p>
+<h2 id="120-2024-12-15">[1.2.0] - 2024-12-15<a class="headerlink" href="#120-2024-12-15" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_21">Fixed<a class="headerlink" href="#fixed_21" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed the <code>output_summary</code> function call that was missing the
+  <code>files_complexities</code> argument. (#58)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/1.2.0">release notes</a>
+for the full details.</p>
+<h2 id="110-2024-12-14">[1.1.0] - 2024-12-14<a class="headerlink" href="#110-2024-12-14" title="Permanent link">&para;</a></h2>
+<h3 id="added_11">Added<a class="headerlink" href="#added_11" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Multiple paths support - pass several paths to analyze at once. (#56)</li>
+</ul>
+<h3 id="removed_5">Removed<a class="headerlink" href="#removed_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The deprecated <code>-l</code> option, simplifying the command-line interface. (#56)</li>
+<li>File-level analysis, in order to focus on functions instead of the whole
+  file. (#56)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/1.1.0">release notes</a>
+for the full details.</p>
+<h2 id="050-2024-10-28">[0.5.0] - 2024-10-28<a class="headerlink" href="#050-2024-10-28" title="Permanent link">&para;</a></h2>
+<h3 id="added_12">Added<a class="headerlink" href="#added_12" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Python API - call complexipy from your own Python code with
+  <code>file_complexity()</code> and <code>code_complexity()</code>. (#45)</li>
+<li>Library usage documented in the README. (#49)</li>
+<li>Improved package usability. (#53)</li>
+<li>Updated documentation. (#54)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.5.0">release notes</a>
+for the full details.</p>
+<h2 id="040-2024-06-21">[0.4.0] - 2024-06-21<a class="headerlink" href="#040-2024-06-21" title="Permanent link">&para;</a></h2>
+<h3 id="added_13">Added<a class="headerlink" href="#added_13" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The cognitive complexity now considers the <code>If Expression</code> used in the
+  code, including when used inside a <code>Call Expression</code> and so on. (#44)</li>
+</ul>
+<h3 id="fixed_22">Fixed<a class="headerlink" href="#fixed_22" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed an edge case that could cause a memory overflow by filtering the
+  cognitive complexity of the <code>orelse</code> values in an <code>If Statement</code> and
+  keeping the nesting level subtraction propagation. (#44)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.4.0">release notes</a>
+for the full details.</p>
+<h2 id="033-2024-04-27">[0.3.3] - 2024-04-27<a class="headerlink" href="#033-2024-04-27" title="Permanent link">&para;</a></h2>
+<h3 id="changed_14">Changed<a class="headerlink" href="#changed_14" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Updated CI and removed unused dependencies. (#43)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.3.3">release notes</a>
+for the full details.</p>
+<h2 id="032-2024-03-22">[0.3.2] - 2024-03-22<a class="headerlink" href="#032-2024-03-22" title="Permanent link">&para;</a></h2>
+<h3 id="changed_15">Changed<a class="headerlink" href="#changed_15" title="Permanent link">&para;</a></h3>
+<ul>
+<li>When using <code>--details low</code>, an empty summary table is no longer printed;
+  an informational message is shown instead. (#38)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.3.2">release notes</a>
+for the full details.</p>
+<h2 id="031-2024-03-13">[0.3.1] - 2024-03-13<a class="headerlink" href="#031-2024-03-13" title="Permanent link">&para;</a></h2>
+<h3 id="added_14">Added<a class="headerlink" href="#added_14" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>-s</code> / <code>--sort</code> optional parameter to sort the output. (#30)</li>
+<li>Python &gt;= 3.8 requirement. (#35)</li>
+</ul>
+<h3 id="fixed_23">Fixed<a class="headerlink" href="#fixed_23" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fixed the logic used to calculate cognitive complexity: assignment
+  statements only add complexity when <code>IfExp</code> is used, and <code>BinOp</code> by
+  itself does not add complexity. (#34)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.3.1">release notes</a>
+for the full details.</p>
+<h2 id="030-2024-03-07">[0.3.0] - 2024-03-07<a class="headerlink" href="#030-2024-03-07" title="Permanent link">&para;</a></h2>
+<h3 id="added_15">Added<a class="headerlink" href="#added_15" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Function-level complexity analysis by default - the maximum complexity is
+  evaluated for each function inside the Python files; per-file cognitive
+  complexity is still available. (#21)</li>
+<li>New parameters. (#14)</li>
+<li>Progress bars. (#24)</li>
+<li><code>--quiet</code> option. (#26)</li>
+<li>Unit testing. (#20)</li>
+<li>Cognitive complexity explanation in the docs. (#22)</li>
+</ul>
+<h3 id="changed_16">Changed<a class="headerlink" href="#changed_16" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Enhanced the algorithm to measure cognitive complexity - results are
+  closer to the Sonar implementation. (#18)</li>
+<li>Reduced verbosity, with more information about the stages when running
+  <code>complexipy</code> over git repositories (using the URL).</li>
+<li>CSV report generation is now implemented in Rust instead of Python,
+  improving performance.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.3.0">release notes</a>
+for the full details.</p>
+<h2 id="022-2024-02-27">[0.2.2] - 2024-02-27<a class="headerlink" href="#022-2024-02-27" title="Permanent link">&para;</a></h2>
+<p>Patch release; no changes were recorded in its release notes.</p>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.2.2">release notes</a>
+for the full details.</p>
+<h2 id="021-2024-02-27">[0.2.1] - 2024-02-27<a class="headerlink" href="#021-2024-02-27" title="Permanent link">&para;</a></h2>
+<h3 id="changed_17">Changed<a class="headerlink" href="#changed_17" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Updated the README.</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.2.1">release notes</a>
+for the full details.</p>
+<h2 id="020-2024-02-27">[0.2.0] - 2024-02-27<a class="headerlink" href="#020-2024-02-27" title="Permanent link">&para;</a></h2>
+<h3 id="added_16">Added<a class="headerlink" href="#added_16" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ignore paths support. (#6)</li>
+<li>Git repository URL support. (#7)</li>
+<li>CSV output format. (#8)</li>
+<li>Cognitive complexity algorithm fixes. (#10)</li>
+<li>Updated README. (#9)</li>
+</ul>
+<p>See the <a href="https://github.com/rohaquinlop/complexipy/releases/tag/0.2.0">release notes</a>
+for the full details.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../migration/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Migration Guide">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Migration Guide
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../understanding-scores/" class="md-footer__link md-footer__link--next" aria-label="Next: What Scores Mean">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                What Scores Mean
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/robin-hafid-quintero-lopez/" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+      <div class="md-consent" data-md-component="consent" id="__consent" hidden>
+        <div class="md-consent__overlay"></div>
+        <aside class="md-consent__inner">
+          <form class="md-consent__form md-grid md-typeset" name="consent">
+            
+
+
+  
+
+
+<h4>Cookie consent</h4>
+<p>We use cookies to recognize your repeated visits and preferences, as well as to measure the effectiveness of our documentation and whether users find what they're searching for. With your consent, you're helping us to make our documentation better.</p>
+<input class="md-toggle" type="checkbox" id="__settings" >
+<div class="md-consent__settings">
+  <ul class="task-list">
+    
+    
+      
+    
+    
+      
+        
+  
+  
+    
+    
+  
+  <li class="task-list-item">
+    <label class="task-list-control">
+      <input type="checkbox" name="github" checked>
+      <span class="task-list-indicator"></span>
+      GitHub
+    </label>
+  </li>
+
+      
+    
+    
+  </ul>
+</div>
+<div class="md-consent__controls">
+  
+    
+      <button class="md-button md-button--primary">Accept</button>
+    
+    
+    
+  
+    
+    
+    
+      <label class="md-button" for="__settings">Manage settings</label>
+    
+  
+</div>
+          </form>
+        </aside>
+      </div>
+      <script>var consent=__md_get("__consent");if(consent)for(var input of document.forms.consent.elements)input.name&&(input.checked=consent[input.name]||!1);else"file:"!==location.protocol&&setTimeout((function(){document.querySelector("[data-md-component=consent]").hidden=!1}),250);var form=document.forms.consent;for(var action of["submit","reset"])form.addEventListener(action,(function(e){if(e.preventDefault(),"reset"===e.type)for(var n of document.forms.consent.elements)n.name&&(n.checked=!1);__md_set("__consent",Object.fromEntries(Array.from(new FormData(form).keys()).map((function(e){return[e,!0]})))),location.hash="",location.reload()}))</script>
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.tooltips", "content.action.edit", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
