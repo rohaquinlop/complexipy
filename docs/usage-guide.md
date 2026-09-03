@@ -191,8 +191,6 @@ This requires `git` and a repository-backed path.
 Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file - see [Diff Configuration](#diff-configuration).
 
-### Ratchet Mode
-
 ### Plain Output
 
 Use plain output when you need one machine-friendly line per function:
@@ -200,7 +198,7 @@ Use plain output when you need one machine-friendly line per function:
 ```bash
 complexipy . --plain
 complexipy . --plain --top 5
-complexipy . --plain --failed -mx 10
+complexipy . --plain --failed --max-complexity-allowed 10
 ```
 
 Each line is emitted as:
@@ -218,7 +216,7 @@ Use `--check-script` to include module-level code in the results as
 
 ```bash
 complexipy path/to/script.py --check-script
-complexipy path/to/script.py --check-script -mx 5
+complexipy path/to/script.py --check-script --max-complexity-allowed 5
 ```
 
 This is useful for scripts with complex top-level control flow outside

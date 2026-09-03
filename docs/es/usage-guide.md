@@ -197,7 +197,7 @@ función:
 ```bash
 complexipy . --plain
 complexipy . --plain --top 5
-complexipy . --plain --failed -mx 10
+complexipy . --plain --failed --max-complexity-allowed 10
 ```
 
 Cada línea se emite con este formato:
@@ -215,7 +215,7 @@ como `<module>`:
 
 ```bash
 complexipy path/to/script.py --check-script
-complexipy path/to/script.py --check-script -mx 5
+complexipy path/to/script.py --check-script --max-complexity-allowed 5
 ```
 
 Esto es útil para scripts con flujo de control complejo en el nivel superior,
