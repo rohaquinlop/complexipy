@@ -60,6 +60,7 @@ Repository = "https://github.com/rohaquinlop/complexipy"
 manifest-path = "crates/complexipy-python/Cargo.toml"
 module-name = "complexipy._complexipy"
 bindings = "pyo3"
+include = ["LICENSE"]
 
 [tool.complexipy]
 paths = ["crates", "complexipy"]
