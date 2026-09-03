@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-cli"
-version = "7.0.1"
+version = "8.0.0"
 dependencies = [
  "blake2",
  "clap",
@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-core"
-version = "7.0.1"
+version = "8.0.0"
 dependencies = [
  "csv",
  "globset",
@@ -300,7 +300,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-python"
-version = "7.0.1"
+version = "8.0.0"
 dependencies = [
  "clap",
  "complexipy-cli",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-wasm"
-version = "7.0.1"
+version = "8.0.0"
 dependencies = [
  "complexipy-core",
  "console_error_panic_hook",
