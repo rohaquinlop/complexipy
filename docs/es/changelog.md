@@ -6,6 +6,13 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [8.0.0] - 2026-09-03
+
+!!! note "Migration"
+
+    Consulta la [guía de migración](https://rohaquinlop.github.io/complexipy/es/migracion/)
+    para los cambios incompatibles descritos abajo.
+
 ### Cambiado
 
 - La CLI de Python se retira: `complexipy` ahora es una implementación
@@ -16,6 +23,19 @@ GitHub con todos los detalles.
   respaldada por el mismo motor Rust que la CLI. El módulo de extensión
   se sigue distribuyendo vía wheels de maturin.
   ([#224](https://github.com/rohaquinlop/complexipy/issues/224), [#243](https://github.com/rohaquinlop/complexipy/issues/243))
+
+### Eliminado
+
+- **Análisis por URL de Git** (`complexipy <repository-url>`) - solo rutas
+  locales.
+- **Migración de caché heredada** - el diseño anterior
+  `.complexipy_cache/<hash>.json` ya no se migra; los archivos heredados
+  existentes se ignoran y el historial de diferencias comienza vacío.
+- **Archivos de snapshot heredados** - los snapshots creados con versiones
+  antiguas ya no se detectan; vuelve a crearlos con `--snapshot-create`.
+- **Flag corta `-mx`** para `--max-complexity-allowed` - venía de la CLI de
+  Python pero nunca se portó al parser basado en clap; usa
+  `--max-complexity-allowed` en su lugar.
 
 ### Corregido
 
@@ -53,6 +73,9 @@ GitHub con todos los detalles.
   testeable por unidad. El fragmento muestra el contexto que lo rodea en la
   indentación real de la sentencia. Las condiciones que vinculan un nombre
   (`:=`) o contienen un lambda/comprensión reciben solo texto de ayuda.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.0.0)
+para todos los detalles.
 
 ## [7.0.1] - 2026-08-12
 

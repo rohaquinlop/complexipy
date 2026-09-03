@@ -5,6 +5,13 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+## [8.0.0] - 2026-09-03
+
+!!! note "Migration"
+
+    See the [migration guide](https://rohaquinlop.github.io/complexipy/migration/)
+    for the breaking changes below.
+
 ### Changed
 
 - The Python CLI is retired: `complexipy` is now a native Rust
@@ -14,6 +21,18 @@ release section links to its GitHub release notes for the full details.
   `DiffEntry`, `DiffStatus`) backed by the same Rust engine as the CLI.
   The extension module keeps being distributed via maturin wheels.
   ([#224](https://github.com/rohaquinlop/complexipy/issues/224), [#243](https://github.com/rohaquinlop/complexipy/issues/243))
+
+### Removed
+
+- **Git-URL analysis** (`complexipy <repository-url>`) - local paths only.
+- **Legacy cache migration** - the previous
+  `.complexipy_cache/<hash>.json` layout is no longer migrated; existing
+  legacy files are ignored and the delta history starts fresh.
+- **Legacy snapshot files** - snapshots created with older versions are no
+  longer detected; recreate them with `--snapshot-create`.
+- **`-mx` short flag** for `--max-complexity-allowed` - carried over from
+  the Python CLI but never ported to the clap-based parser; use
+  `--max-complexity-allowed` instead.
 
 ### Fixed
 
@@ -49,6 +68,9 @@ release section links to its GitHub release notes for the full details.
   excluded), so the helper is unit-testable. The snippet shows the
   enclosing context at the statement's real indentation. Conditions that
   bind a name (`:=`) or contain a lambda/comprehension get help text only.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/8.0.0)
+for the full details.
 
 ## [7.0.1] - 2026-08-12
 
