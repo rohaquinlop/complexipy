@@ -24,7 +24,7 @@ Corpus (shallow clones at pinned commits):
 
 ## Wall time
 
-| Workload | 8.0.0 Rust CLI (pre-release) | 7.0.1 Python CLI | Speedup |
+| Workload | 8.0.0 Rust CLI | 7.0.1 Python CLI | Speedup |
 | -- | -- | -- | -- |
 | requests (37 files) [default] | 0.067 s ± 0.001 s | 0.373 s ± 0.002 s | 5.56x |
 | requests (37 files) [quiet] | 0.064 s ± 0.002 s | 0.331 s ± 0.001 s | 5.16x |
@@ -59,7 +59,7 @@ quadratic behavior.
 
 ## Peak RSS
 
-| Workload | 8.0.0 Rust CLI (pre-release) | 7.0.1 Python CLI |
+| Workload | 8.0.0 Rust CLI | 7.0.1 Python CLI |
 | -- | -- | -- |
 | requests (37 files) [default] | 70 MB | 106 MB |
 | requests (37 files) [quiet] | 69 MB | 105 MB |
