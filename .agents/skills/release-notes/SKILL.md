@@ -283,6 +283,26 @@ Confirm the changelog is finalized: `## [<version>] - <date>` exists in
 `CHANGELOG.md` and `docs/es/changelog.md`, `## Unreleased` is empty, and
 `docs/changelog.md` is still just the include stub.
 
+**Verify the rendered body.** GitHub renders every newline in a release body
+as a hard line break, same as issues and PRs - a hard-wrapped body (e.g.
+from a `RELEASE_NOTES_<version>.md` file wrapped at 80 columns) renders as
+broken, line-per-line text. Fetch the rendered HTML and confirm there are
+zero `<br>` tags outside code blocks:
+
+```bash
+gh api graphql -f query='query { repository(owner:"<owner>", name:"<repo>") { release(tagName:"<version>") { descriptionHTML } } }' \
+  --jq '.data.repository.release.descriptionHTML' | grep -c "<br"
+```
+
+Expect `0`. If nonzero, the body was wrapped somewhere before publishing -
+fix and re-edit with `gh release edit <version> --notes-file -`, then
+re-verify.
+
+Once verified, delete `RELEASE_NOTES_<version>.md` - it was a drafting
+scratch file to let the user review before publishing, not something to
+leave in the repo where a later broad `git add` could sweep it into a
+commit.
+
 ## Edge Cases
 
 | Scenario                                        | Action                                                                                                                                                     |
