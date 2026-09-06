@@ -93,7 +93,19 @@ Brief context on why this change is needed.
     - If the branch has no remote, prompt to push first with `git push -u origin HEAD`.
     - If `gh` is not authenticated, report error and stop.
 
-1. **Report result**: output the PR URL and a summary. Do NOT delete `PR_DESCRIPTION.md` - leave it for reference.
+1. **Verify the rendered body.** GitHub renders every newline as a hard line break - fetch the rendered HTML and confirm there are zero `<br>` tags outside code blocks:
+
+    ```bash
+    gh pr view <pr-number> --json body --jq '.body' # sanity check raw body
+    gh api graphql -f query='query { repository(owner:"<owner>", name:"<repo>") { pullRequest(number:<pr-number>) { bodyHTML } } }' \
+      --jq '.data.repository.pullRequest.bodyHTML' | grep -c "<br"
+    ```
+
+    Expect `0`. If it's nonzero, the body was wrapped somewhere before submission - fix and re-edit with `gh pr edit <pr-number> --body "..."`, then re-verify.
+
+1. **Clean up.** Once the PR is created and the body verified, delete `PR_DESCRIPTION.md` - it was a drafting scratch file, not something to leave in the repo where a later broad `git add` could sweep it into a commit.
+
+1. **Report result**: output the PR URL and a summary.
 
 ## Edge Cases
 
