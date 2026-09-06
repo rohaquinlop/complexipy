@@ -212,7 +212,30 @@ into a dated release section:
 Never edit `docs/changelog.md` - it embeds the root file via the
 pymdownx.snippets include (`--8<-- "CHANGELOG.md"`).
 
-### 8. Create the tag (if requested)
+### 8. Verify the build before tagging
+
+Before creating the tag, verify the package builds correctly and version
+numbers are consistent - this catches issues before they reach PyPI/npm.
+
+- **Version consistency**: confirm the version in `pyproject.toml` matches
+  `Cargo.toml` (and any other version file - docs, `__init__.py`, etc.) and
+  matches the version being released. A mismatch means a bump was missed.
+
+- **Sdist contents**: build the sdist and confirm required files (LICENSE,
+  README) are actually included - a packaging config regression (e.g.
+  `[tool.maturin] include` losing an entry) silently drops them without
+  failing the build:
+
+    ```bash
+    uv run maturin sdist -o /tmp/complexipy-sdist-check
+    tar -tzf /tmp/complexipy-sdist-check/*.tar.gz | grep -iE 'license|readme'
+    ```
+
+  If either is missing, fix `pyproject.toml`'s `[tool.maturin] include` (or
+  the project's equivalent packaging config) before continuing - do not tag
+  a release with a known-broken sdist.
+
+### 9. Create the tag (if requested)
 
 If the user asks to publish or create the release:
 
@@ -228,7 +251,7 @@ git push origin <version>
 Verify the tag points to the latest main commit - never to a detached or
 stale commit.
 
-### 9. Create the GitHub Release
+### 10. Create the GitHub Release
 
 Draft the release body from the `## [<version>] - <date>` section that just
 moved out of `## Unreleased`: keep the changelog's bullets, and add the
@@ -248,7 +271,7 @@ After creation, set the release title to match the version:
 gh release edit <version> --title "<version>"
 ```
 
-### 10. Verify
+### 11. Verify
 
 Confirm with:
 
