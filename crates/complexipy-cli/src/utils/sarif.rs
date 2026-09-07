@@ -9,8 +9,8 @@ use complexipy_core::utils::ExportError;
 
 const RULE_ID: &str = "CC001";
 const SCHEMA: &str = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json";
-const INFO_URI: &str = "https://rohaquinlop.github.io/complexipy/";
-const HELP_URI: &str = "https://rohaquinlop.github.io/complexipy/understanding-scores/";
+const INFO_URI: &str = "https://complexipy.com/";
+const HELP_URI: &str = "https://complexipy.com/understanding-scores/";
 
 pub fn store_sarif(
     output_path: &str,

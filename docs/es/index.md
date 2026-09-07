@@ -138,7 +138,7 @@ ______________________________________________________________________
 
 <p style="margin: 0.25rem 0"><sub>Inspirado en la investigación de <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Complejidad Cognitiva</a> de G. Ann Campbell</sub></p>
 <p style="margin: 0.25rem 0"><sub>complexipy es un proyecto independiente y no está afiliado ni respaldado por SonarSource</sub></p>
-<p style="margin: 0.25rem 0"><strong><a href="https://rohaquinlop.github.io/complexipy/">Documentación</a> • <a href="https://pypi.org/project/complexipy/">PyPI</a> • <a href="https://github.com/rohaquinlop/complexipy">GitHub</a></strong></p>
+<p style="margin: 0.25rem 0"><strong><a href="https://complexipy.com/">Documentación</a> • <a href="https://pypi.org/project/complexipy/">PyPI</a> • <a href="https://github.com/rohaquinlop/complexipy">GitHub</a></strong></p>
 <p style="margin: 0.25rem 0"><sub>Desarrollado con ❤️ por <a href="https://github.com/rohaquinlop">@rohaquinlop</a> y <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">colaboradores</a></sub></p>
 
 </div>

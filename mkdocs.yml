@@ -1,7 +1,7 @@
 ---
 site_name: complexipy
 site_description: Blazingly fast cognitive complexity analysis for Python, written in Rust.
-site_url: https://rohaquinlop.github.io/complexipy/
+site_url: https://complexipy.com/
 repo_name: rohaquinlop/complexipy
 repo_url: https://github.com/rohaquinlop/complexipy
 edit_uri: edit/main/docs/
