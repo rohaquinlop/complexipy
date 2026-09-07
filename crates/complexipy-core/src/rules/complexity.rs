@@ -16,10 +16,13 @@ impl RefactorRule for FlattenConditionRule {
             id: "C001".to_string(),
             name: "flatten_condition".to_string(),
             category: RuleCategory::Complexity,
-            description: "Flatten nested condition blocks by using guard clauses with early returns".to_string(),
+            description:
+                "Flatten nested condition blocks by using guard clauses with early returns"
+                    .to_string(),
             applicability: Applicability::Informational,
             effectiveness: 4,
-            doc_url: "https://complexipy.com/refactoring-rules/#c001-flatten-nested-conditions".to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c001-flatten-nested-conditions"
+                .to_string(),
         })
     }
 
@@ -70,8 +73,7 @@ impl RefactorRule for LoopGuardsRule {
             description: "Use continue guards at the top of loops to reduce nesting".to_string(),
             applicability: Applicability::MachineApplicable,
             effectiveness: 3,
-            doc_url: "https://complexipy.com/refactoring-rules/#c002-loop-guards"
-                .to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c002-loop-guards".to_string(),
         })
     }
 
@@ -148,7 +150,8 @@ impl RefactorRule for ExtractHelperRule {
             description: "Extract complex code blocks into separate helper functions".to_string(),
             applicability: Applicability::Informational,
             effectiveness: 2,
-            doc_url: "https://complexipy.com/refactoring-rules/#c003-extract-helper-function".to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c003-extract-helper-function"
+                .to_string(),
         })
     }
 
@@ -203,9 +206,7 @@ impl RefactorRule for SplitDispatcherRule {
             description: "Split long elif chains into separate handlers".to_string(),
             applicability: Applicability::Informational,
             effectiveness: 2,
-            doc_url:
-                "https://complexipy.com/refactoring-rules/#c004-split-dispatcher"
-                    .to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c004-split-dispatcher".to_string(),
         })
     }
 
@@ -352,9 +353,7 @@ impl RefactorRule for ExtractPredicateRule {
                 .to_string(),
             applicability: Applicability::MachineApplicable,
             effectiveness: 2,
-            doc_url:
-                "https://complexipy.com/refactoring-rules/#c005-extract-predicate"
-                    .to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c005-extract-predicate".to_string(),
         })
     }
 
@@ -413,9 +412,7 @@ impl RefactorRule for FlattenTryRule {
                 .to_string(),
             applicability: Applicability::Informational,
             effectiveness: 2,
-            doc_url:
-                "https://complexipy.com/refactoring-rules/#c011-flatten-tryexcept"
-                    .to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c011-flatten-tryexcept".to_string(),
         })
     }
 
@@ -483,9 +480,7 @@ impl RefactorRule for CollapsibleIfRule {
                 .to_string(),
             applicability: Applicability::MachineApplicable,
             effectiveness: 5,
-            doc_url:
-                "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
-                    .to_string(),
+            doc_url: "https://complexipy.com/refactoring-rules/#c007-collapsible-if".to_string(),
         })
     }
 
