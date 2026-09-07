@@ -96,11 +96,11 @@ Before writing the release notes, make sure `## Unreleased` in
 - Removed flags, keys, and API breaks go under `### Removed`; a major
   release with breaking changes gets a `!!! note "Migration"` callout
   linking to the migration guide
-  (`https://rohaquinlop.github.io/complexipy/migration/`).
+  (`https://complexipy.com/migration/`).
 - Mirror every entry in `docs/es/changelog.md` under `## Sin publicar`
   (`### Añadido`, `### Cambiado`, `### Corregido`, `### Eliminado`); the ES
   migration link points to
-  `https://rohaquinlop.github.io/complexipy/es/migracion/`.
+  `https://complexipy.com/es/migracion/`.
 
 If a change is missing from `## Unreleased`, add it before drafting the
 notes. The release notes are drafted from this section, and at publish time
@@ -206,8 +206,8 @@ into a dated release section:
    `## Sin publicar` to empty.
 5. If this is a major release with breaking changes, add a
    `!!! note "Migration"` callout at the top of the new section linking to
-   the migration guide (`https://rohaquinlop.github.io/complexipy/migration/`;
-   Spanish: `https://rohaquinlop.github.io/complexipy/es/migracion/`).
+   the migration guide (`https://complexipy.com/migration/`;
+   Spanish: `https://complexipy.com/es/migracion/`).
 
 Never edit `docs/changelog.md` - it embeds the root file via the
 pymdownx.snippets include (`--8<-- "CHANGELOG.md"`).

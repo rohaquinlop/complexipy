@@ -16,8 +16,8 @@
     <a href="#quick-start">Quick Start</a> •
     <a href="#integrations">Integrations</a> •
     <a href="#learn-more">Learn More</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/changelog/">Changelog</a> •
+    <a href="https://complexipy.com/">Documentation</a> •
+    <a href="https://complexipy.com/changelog/">Changelog</a> •
     <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
   </p>
 </div>
@@ -36,13 +36,13 @@ Unlike traditional metrics like cyclomatic complexity, cognitive complexity acco
 
 ## Common Questions
 
-**[How is complexity calculated?](https://rohaquinlop.github.io/complexipy/understanding-scores/)**
+**[How is complexity calculated?](https://complexipy.com/understanding-scores/)**
 Learn about the scoring algorithm, what each control structure contributes, and how nesting affects the final score.
 
-**[How does this compare to Ruff's PLR0912?](https://rohaquinlop.github.io/complexipy/comparison-with-ruff/)**
+**[How does this compare to Ruff's PLR0912?](https://complexipy.com/comparison-with-ruff/)**
 Understand the key differences between cyclomatic complexity (Ruff) and cognitive complexity (complexipy), and why you might want to use both.
 
-**[Is this a SonarSource/Sonar product?](https://rohaquinlop.github.io/complexipy/about/)**
+**[Is this a SonarSource/Sonar product?](https://complexipy.com/about/)**
 No. complexipy is an independent project inspired by G. Ann Campbell's research, but it's not affiliated with or endorsed by SonarSource.
 
 ## Installation
@@ -127,12 +127,12 @@ Install from the [marketplace](https://marketplace.visualstudio.com/items?itemNa
 
 ## Learn More
 
-- [Usage Guide](https://rohaquinlop.github.io/complexipy/usage-guide/) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
-- [API Reference](https://rohaquinlop.github.io/complexipy/api-reference/) - the complete Python API
-- [Understanding Scores](https://rohaquinlop.github.io/complexipy/understanding-scores/) - how the scoring algorithm works
-- [Comparison with Ruff](https://rohaquinlop.github.io/complexipy/comparison-with-ruff/) - cognitive vs cyclomatic complexity
-- [Refactoring Rules](https://rohaquinlop.github.io/complexipy/refactoring-rules/) - the rules behind `--suggest-refactors`
-- [Changelog](https://rohaquinlop.github.io/complexipy/changelog/) - what changed in each release
+- [Usage Guide](https://complexipy.com/usage-guide/) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
+- [API Reference](https://complexipy.com/api-reference/) - the complete Python API
+- [Understanding Scores](https://complexipy.com/understanding-scores/) - how the scoring algorithm works
+- [Comparison with Ruff](https://complexipy.com/comparison-with-ruff/) - cognitive vs cyclomatic complexity
+- [Refactoring Rules](https://complexipy.com/refactoring-rules/) - the rules behind `--suggest-refactors`
+- [Changelog](https://complexipy.com/changelog/) - what changed in each release
 
 ______________________________________________________________________
 
@@ -141,7 +141,7 @@ ______________________________________________________________________
 <sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by G. Ann Campbell</sub><br>
 <sub>complexipy is an independent project and is not affiliated with or endorsed by SonarSource</sub>
 
-**[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
+**[Documentation](https://complexipy.com/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
 
 <sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub>
 

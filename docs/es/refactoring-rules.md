@@ -461,7 +461,7 @@ La salida JSON incluye todos los metadatos de las reglas para consumo programát
   "help": null,
   "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
   "references": [],
-  "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
+  "doc_url": "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
 }
 ```
 

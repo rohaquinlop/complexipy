@@ -275,7 +275,7 @@ Plans are based on the Rust AST analysis only; no AI is used and no code is rewr
                     "description": "Merge nested conditions into `if item.active and item.ready:`"
                 },
                 "help": null,
-                "doc_url": "https://rohaquinlop.github.io/complexipy/refactoring-rules/#c007-collapsible-if"
+                "doc_url": "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
             }
         ]
     }
