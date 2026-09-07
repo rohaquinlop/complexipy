@@ -178,7 +178,7 @@ fn sarif_rule_defined() {
     assert_eq!(rules[0]["name"], "CognitiveComplexity");
     assert_eq!(
         rules[0]["helpUri"],
-        "https://rohaquinlop.github.io/complexipy/understanding-scores/"
+        "https://complexipy.com/understanding-scores/"
     );
 }
 
