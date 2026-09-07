@@ -6,6 +6,23 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [8.0.1] - 2026-09-06
+
+### Cambiado
+
+- La documentación, los metadatos del paquete y los enlaces embebidos (URLs
+  de reglas en la salida de `--suggest-refactors`, URIs del reporte SARIF)
+  ahora apuntan al dominio propio `complexipy.com` en lugar del dominio
+  predeterminado de GitHub Pages. (#252)
+
+### Corregido
+
+- El sdist ahora incluye el archivo `LICENSE`, que anteriormente faltaba en
+  la distribución de código fuente publicada.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.0.1)
+para todos los detalles.
+
 ## [8.0.0] - 2026-09-03
 
 !!! note "Migration"
