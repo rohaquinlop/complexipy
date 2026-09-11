@@ -798,6 +798,20 @@ def run_cli(argv: List[str], invocation_path: Optional[str] = None) -> int:
     """
     ...
 
+def run_lsp() -> int:
+    """
+    Run the complexipy language server over stdio and return its exit code.
+
+    This backs the ``lsp`` argument of the ``complexipy`` console script.
+    The server speaks the Language Server Protocol on stdin and stdout,
+    so stdout carries protocol frames only and every log line goes to
+    stderr. The call blocks for the lifetime of the server and releases
+    the interpreter lock while it runs.
+
+    Returns:
+        Process exit code: 0 after a clean shutdown, 1 otherwise.
+    """
+    ...
 def compute_diff(
     current_files: List[FileComplexity],
     git_ref: str,

@@ -189,6 +189,11 @@ mod _complexipy {
     }
 
     #[pyfunction]
+    fn run_lsp(py: Python<'_>) -> i32 {
+        py.detach(complexipy_lsp::run_server)
+    }
+
+    #[pyfunction]
     fn compute_diff(
         current_files: Vec<FileComplexity>,
         git_ref: &str,
@@ -220,6 +225,7 @@ mod _complexipy {
         m.add_function(wrap_pyfunction!(collect_all_ignored_locations, m)?)?;
         m.add_function(wrap_pyfunction!(collect_removable_ignored_locations, m)?)?;
         m.add_function(wrap_pyfunction!(run_cli, m)?)?;
+        m.add_function(wrap_pyfunction!(run_lsp, m)?)?;
         m.add_function(wrap_pyfunction!(compute_diff, m)?)?;
         m.add_function(wrap_pyfunction!(has_regressions, m)?)?;
         m.add_class::<DiffEntry>()?;
