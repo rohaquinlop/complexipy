@@ -2,6 +2,8 @@
 pub mod api;
 pub mod classes;
 pub mod cognitive_complexity;
+#[cfg(feature = "config")]
+pub mod config;
 pub mod diff;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
@@ -21,6 +23,8 @@ pub use classes::{
     IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
 };
 pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_regressions};
+#[cfg(feature = "runner")]
+pub use helpers::exclude::{is_path_excluded, validate_exclude_patterns};
 #[cfg(feature = "runner")]
 pub use runner::{
     collect_all_ignored_locations_shared as collect_all_ignored_locations,

@@ -1,7 +1,38 @@
 use ignore::Walk;
 use std::collections::HashSet;
 use wax::walk::{Entry, FileIterator};
-use wax::{Glob, any};
+use wax::{Glob, Program, any};
+
+pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
+    if patterns.is_empty() {
+        return false;
+    }
+
+    let normalized_path = path.replace('\\', "/");
+    let normalized_root = root.replace('\\', "/");
+    let relative = normalized_path
+        .strip_prefix(normalized_root.trim_end_matches('/'))
+        .map(|rest| rest.trim_start_matches('/'))
+        .unwrap_or(normalized_path.as_str());
+    let pattern_refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
+
+    match any(pattern_refs) {
+        Ok(any) => any.is_match(relative),
+        Err(_) => false,
+    }
+}
+
+pub fn validate_exclude_patterns(patterns: &[String]) -> Result<(), String> {
+    if patterns.is_empty() {
+        return Ok(());
+    }
+
+    let pattern_refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
+
+    any(pattern_refs)
+        .map(|_| ())
+        .map_err(|error| format!("invalid exclude pattern: {}", error))
+}
 
 pub fn get_paths_to_process(
     root_path: &str,
