@@ -6,6 +6,37 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Añadido
+
+- Un servidor de lenguaje: `complexipy lsp` habla el Language Server Protocol
+  por stdio, así que cualquier editor con cliente LSP obtiene complejidad sin
+  código específico por editor. Responde a las peticiones de inlay hints con la
+  complejidad cognitiva de cada función y, opcionalmente, con el incremento que
+  aporta cada línea; responde al hover con el total de la función, su estado
+  respecto al umbral y la mejor sugerencia de refactorización; y publica una
+  advertencia por cada función por encima de `max-complexity-allowed`. Los
+  diagnósticos respetan los comentarios de ignorado en línea, así que el editor
+  y la CLI coinciden. Consulta
+  [Integración con Editores](https://complexipy.com/es/editors/) para la
+  configuración de Neovim y Zed.
+  ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+- Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
+  (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las
+  pistas se filtran por `max-complexity-allowed` por defecto, así que un
+  proyecto sin opciones recibe información solo donde importa.
+- `complexipy-core` incorpora una feature `config` que posee el descubrimiento
+  de archivos de configuración, para que la CLI y el servidor lean
+  `complexipy.toml`, `.complexipy.toml` y `pyproject.toml` por un único camino.
+
+### Cambiado
+
+- `complexipy-core` ahora posee el descubrimiento de archivos de configuración
+  detrás de una nueva feature `config`, y `StringOrList` se movió allí desde
+  `complexipy-cli::types` (sigue reexportado desde su ruta anterior). Todos los
+  crates del workspace siguen siendo `publish = false`, así que no cambia
+  ninguna API pública de Rust.
+
 ## [8.0.1] - 2026-09-06
 
 ### Cambiado
