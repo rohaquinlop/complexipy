@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import json
 import os
-import select
+import queue
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -47,12 +48,13 @@ SUPPRESSED = """def heavy(a, b):  # noqa: complexipy
 class LspSession:
     """Minimal LSP client over the stdio transport.
 
-    The child's stdout is read as a raw pipe with ``os.read``, so every byte
-    the server writes is inspected as it arrives.
+    A reader thread parses stdout into frames and hands them to the main
+    thread through a queue. That avoids polling the pipe, because `select`
+    only accepts sockets on Windows, and it reads through a raw file
+    descriptor so every byte the server writes is inspected as it arrives.
     """
 
     def __init__(self, root: Path, extra_args: list[str] | None = None) -> None:
-        stdout_read, stdout_write = os.pipe()
         self.process = subprocess.Popen(
             [
                 sys.executable,
@@ -62,15 +64,17 @@ class LspSession:
                 *(extra_args or []),
             ],
             stdin=subprocess.PIPE,
-            stdout=stdout_write,
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=str(root),
         )
-        os.close(stdout_write)
-        self.stdout = stdout_read
+        self.stdout_fd = self.process.stdout.fileno()
+        self.inbox: queue.Queue = queue.Queue()
         self.buffer = b""
         self.request_id = 0
         self.closed = False
+        self.reader = threading.Thread(target=self.read_frames, daemon=True)
+        self.reader.start()
 
     def __enter__(self) -> LspSession:
         return self
@@ -82,7 +86,6 @@ class LspSession:
         if self.closed:
             return
         self.closed = True
-        os.close(self.stdout)
         if self.process.poll() is None:
             self.process.kill()
         self.process.communicate()
@@ -133,6 +136,22 @@ class LspSession:
                 return message.get("params")
 
     def read_message(self) -> dict:
+        try:
+            kind, payload = self.inbox.get(timeout=TIMEOUT)
+        except queue.Empty:
+            self.fail(f"timed out after {TIMEOUT}s waiting for the server")
+        if kind == "error":
+            raise payload
+        return payload
+
+    def read_frames(self) -> None:
+        try:
+            while True:
+                self.inbox.put(("message", self.read_frame()))
+        except BaseException as error:  # noqa: BLE001 - forwarded to the test thread
+            self.inbox.put(("error", error))
+
+    def read_frame(self) -> dict:
         headers: dict[bytes, bytes] = {}
         while True:
             line = self.read_line()
@@ -141,9 +160,10 @@ class LspSession:
             name, _, value = line.partition(b":")
             headers[name.strip().lower()] = value.strip()
         length = headers.get(b"content-length")
-        assert length is not None, (
-            f"stdout carried a non-protocol line: {headers!r}"
-        )
+        if length is None:
+            raise AssertionError(
+                f"stdout carried a non-protocol line: {headers!r}"
+            )
         return json.loads(self.read_exactly(int(length)))
 
     def read_line(self) -> bytes:
@@ -157,12 +177,11 @@ class LspSession:
 
     def read_exactly(self, count: int) -> bytes:
         while len(self.buffer) < count:
-            readable, _, _ = select.select([self.stdout], [], [], TIMEOUT)
-            if not readable:
-                self.fail(f"timed out after {TIMEOUT}s waiting for the server")
-            chunk = os.read(self.stdout, READ_CHUNK)
+            chunk = os.read(self.stdout_fd, READ_CHUNK)
             if not chunk:
-                self.fail("the server closed stdout before answering")
+                raise AssertionError(
+                    "the server closed stdout before answering"
+                )
             self.buffer += chunk
         chunk, self.buffer = self.buffer[:count], self.buffer[count:]
         return chunk
