@@ -36,15 +36,17 @@ complexipy/
 │   │       ├── runner.rs                 # File/dir/git-URL walk + shared entry points
 │   │       ├── diff.rs                   # git-diff comparison (compute_diff, DiffEntry)
 │   │       ├── api.rs                    # Rust-level code_complexity / file_complexity
+│   │       ├── config.rs                 # Config file discovery + LspConfig (config feature)
 │   │       ├── utils.rs                  # CSV/JSON writers, snapshot I/O, AST helpers
 │   │       └── helpers/exclude.rs        # Glob-based file exclusion
 │   ├── complexipy-cli/           # CLI: clap args, output rendering, run orchestration
+│   ├── complexipy-lsp/           # Language server: stdio protocol loop (library + debug bin)
 │   ├── complexipy-python/        # PyO3 module (_complexipy) + py_diff wrappers
 │   └── complexipy-wasm/          # wasm-bindgen entry point
 │
 ├── complexipy/                   # Python package: thin re-export layer over Rust
 │   ├── __init__.py               # Public API: imports _complexipy, file_complexity wrapper
-│   ├── cli.py                    # Console-script bootstrap → _complexipy.run_cli
+│   ├── cli.py                    # Console-script bootstrap → run_cli, or run_lsp for `lsp`
 │   ├── py.typed                  # PEP 561 marker
 │   └── _complexipy.pyi           # Type stubs for the Rust extension
 │
@@ -140,6 +142,13 @@ which the docs pages include via pymdownx snippets.
 ./serve-web-version.sh   # serve web/ on :8080
 ```
 
+### Language server
+
+```bash
+complexipy lsp           # stdio LSP server, the command editors spawn
+cargo run -p complexipy-lsp   # same server from the working tree, for protocol work
+```
+
 ### Docs
 
 ```bash
@@ -155,6 +164,7 @@ complexipy/cli.py        console-script bootstrap: sys.argv → _complexipy.run_
 complexipy/__init__.py   public API: re-exports _complexipy names + file_complexity wrapper
   └─ complexipy._complexipy  PyO3 module (crates/complexipy-python)
        ├─ run_cli → complexipy_cli::run::run_at()   clap args → RunConfig → display/exit
+       ├─ run_lsp → complexipy_lsp::run_server()    stdio LSP server, `complexipy lsp`
        ├─ code_complexity / file_complexity         engine entry points (complexipy-core)
        └─ compute_diff / has_regressions            diff ratchet (complexipy-core)
 ```
@@ -177,6 +187,10 @@ types.
 `DiffEntry` / `DiffStatus` types. Those exports, their signatures, and the
 `DiffStatus` values are a compatibility promise - internal refactors must keep them
 stable, and new exports belong in `__init__.py` + `__all__` with docs in `docs/` (EN + ES).
+
+`run_lsp` is the one exception: it is a process-bootstrap function, declared in
+`complexipy/_complexipy.pyi` and deliberately absent from `__all__`. Add names to
+that category only for process entry points, never for analysis APIs.
 
 ### Rust core
 
@@ -227,21 +241,56 @@ Guiding principle for rule output: never emit a suggestion the tool cannot stand
 behind. If a heuristic isn't confident, emit `help` text rather than a wrong
 `suggestion`, and never print a complexity number the code knows is fabricated.
 
+### The language server
+
+`crates/complexipy-lsp` implements the protocol over stdio with `lsp-server` and
+`lsp-types`. It is synchronous on purpose: a single document is parsed and
+walked in a few milliseconds, so an async runtime would add weight to the wheel
+and a GIL-versus-runtime interaction inside the extension without buying any
+concurrency.
+
+The server declares full document sync, inlay hints, and hover, and it analyzes
+only documents the client has open. Hints and diagnostics come from
+`code_complexity_shared` and are gated by `complexipy-core`'s `LspConfig`,
+which the server reads through the same `config` module the CLI uses.
+
+A function hint sits at the end of the line holding the `def` keyword, which
+`analysis::definition_line` locates inside the function's line range.
+`FunctionComplexity::line_start` covers decorators instead, because the engine
+uses that range for ignore-comment matching, so do not use it for placement.
+
+Two invariants are load-bearing:
+
+- stdout carries protocol frames and nothing else. Every log line goes to
+  stderr, and the `lsp` branch of `complexipy/cli.py` must never print.
+- A result whose document version no longer matches the store is discarded
+  before it is published. `Documents::change` bumps the version, and
+  `analysis::is_stale` is the guard.
+
+A function is over the threshold when its complexity is **strictly greater**
+than `max-complexity-allowed`, matching the CLI. Inline ignore comments are
+honored unless `no-ignore` is set, so the editor and the CLI agree.
+
 ### Dual-target Rust
 
-The workspace splits the three build targets across crates instead of feature
+The workspace splits the build targets across crates instead of feature
 flags:
 
 - `complexipy-core` - target-agnostic engine. Features: `default = ["runner"]`,
   `runner` (file-walker deps `ignore`/`globset`/`wax`), `python` (pyo3 `#[pyclass]`
-  attributes on shared types), `wasm` (adds `CodeComplexity.version`).
-- `complexipy-cli` - clap args + output rendering; depends on core (default features).
-- `complexipy-python` - PyO3 module; depends on core (`python`, `runner`) and the
-  cli crate (for `run_cli`). Built by maturin via `manifest-path` in pyproject.toml.
+  attributes on shared types), `wasm` (adds `CodeComplexity.version`), `config`
+  (config file discovery and `LspConfig`, and the only place `toml` is compiled).
+- `complexipy-cli` - clap args + output rendering; depends on core (`config`).
+- `complexipy-lsp` - LSP server; depends on core (`runner`, `config`) and on
+  `lsp-server`/`lsp-types`. Never on the cli crate, so no clap, `syntect`,
+  `comfy-table`, or `owo-colors` reaches the server.
+- `complexipy-python` - PyO3 module; depends on core (`python`, `runner`, `config`),
+  the cli crate (for `run_cli`), and the lsp crate (for `run_lsp`). Built by maturin
+  via `manifest-path` in pyproject.toml.
 - `complexipy-wasm` - wasm-bindgen entry; depends on core with
   `default-features = false` and `features = ["wasm"]`.
 
-Dependency direction is one-way: python → cli → core, wasm → core. Never the
+Dependency direction is one-way: python → lsp, cli, core; wasm → core. Never the
 reverse. Adding a dependency means adding it to the crate that uses it.
 
 ## Testing
@@ -256,10 +305,23 @@ reverse. Adding a dependency means adding it to the crate that uses it.
   of the `tests/src/` complexity corpus so rule work doesn't perturb the asserted
   totals.
 - Rust tests live next to their module. Public-API tests go in the crate's
-  `tests/` directory; tests that need private items are a `mod tests;` child module
-  in a sibling file (e.g. `crates/complexipy-core/src/utils.rs` →
-  `crates/complexipy-core/src/utils/tests.rs`). No `#[path]`
-  wiring - a new test file is invisible until the owning module declares it.
+  `tests/` directory, one file per concern (e.g.
+  `crates/complexipy-lsp/tests/protocol.rs`). Tests that need private items are
+  a `mod tests;` child module in a sibling file (e.g.
+  `crates/complexipy-core/src/utils.rs` →
+  `crates/complexipy-core/src/utils/tests.rs`), never a literal inline
+  `mod tests { }` block. No `#[path]` wiring - a new test file is invisible
+  until the owning module declares it.
+- `crates/complexipy-lsp` tests drive the server through an in-memory
+  `Connection::memory()` pair, so protocol behavior is asserted without spawning
+  a process. `tests/test_lsp.py` then acts as a real client over pipes, which is
+  the only way to prove that stdout carries protocol frames and nothing else. Read
+  the child's stdout with `os.read` on a raw fd, never a `BufferedReader`: a
+  buffered read swallows the whole frame and the following `select` then reports
+  an empty pipe.
+- Note that `cargo test -p complexipy-core` alone does not compile the `config`
+  feature, so its tests are skipped. Run `cargo test --workspace` to exercise
+  them, which is what CI does.
 - `pyproject.toml` sets `python_files = ["test_*.py", "main.py"]`, so `tests/main.py` is
   a test module (not a script), and `norecursedirs = ["tests/src"]` keeps the fixture
   `.py` files from being collected.
@@ -285,6 +347,10 @@ reverse. Adding a dependency means adding it to the crate that uses it.
 - `crates/complexipy-core/src/rules/registry.rs` - Rule registration, noise filtering, effectiveness ranking, overlap resolution
 - `crates/complexipy-core/src/diff.rs` - Git diff comparison, `DiffEntry`/`DiffStatus`, `compute_diff`, `has_regressions`
 - `crates/complexipy-core/src/runner.rs` - Shared entry points: `run_analysis_shared`, `file_complexity_shared`, ignored-location collectors
+- `crates/complexipy-core/src/config.rs` - `config_candidates`, `load_candidate_value`, `read_complexipy_config`, `LspConfig`, `StringOrList`
+- `crates/complexipy-lsp/src/server.rs` - LSP handshake, capability set, debounced analysis, diagnostics, hints, hover
+- `crates/complexipy-lsp/src/analysis.rs` - `DocumentAnalysis`: hint and diagnostic construction, threshold gating, `is_stale`
+- `crates/complexipy-lsp/src/documents.rs` - Open-document store keyed by URI, `uri_to_path`
 - `crates/complexipy-python/src/lib.rs` - PyO3 module `_complexipy`, pyfunctions, `py_diff` wrappers
 - `crates/complexipy-cli/src/run.rs` - `run_at()`: config → analysis → snapshot → display → exit code
 - `crates/complexipy-cli/src/utils/config.rs` - `resolve_config()`: merges CLI args + TOML into `RunConfig`
@@ -294,6 +360,7 @@ reverse. Adding a dependency means adding it to the crate that uses it.
 - `crates/complexipy-wasm/src/lib.rs` - wasm-bindgen entry over `code_complexity_shared`
 - `complexipy/__init__.py` - Public Python API surface (`__all__` compatibility promise)
 - `complexipy/_complexipy.pyi` - Type stubs for the Rust extension module
+- `docs/editors.md` - Editor integration: LSP install, Neovim and Zed snippets, settings (mirrored in `docs/es/editors.md`)
 - `tests/main.py` - Core test suite including SonarSource paper conformance tests
 
 ## Conventions

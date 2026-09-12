@@ -388,6 +388,47 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
   aplicación del umbral sigue activa. Haz fetch de la rama o pasa
   `--diff <ref>` con una referencia existente.
 
+### Configuración del Servidor de Lenguaje
+
+El [servidor de lenguaje](editors.md) lee los mismos archivos de configuración
+que la CLI, desde la raíz del espacio de trabajo, más una sección `lsp` que
+controla lo que muestra el editor:
+
+=== "complexipy.toml"
+
+    ```toml
+    max-complexity-allowed = 15
+    exclude = ["migrations/**"]
+
+    [lsp]
+    inlay-hints = "threshold"
+    per-line-hints = false
+    diagnostics = true
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    [tool.complexipy]
+    max-complexity-allowed = 15
+    exclude = ["migrations/**"]
+
+    [tool.complexipy.lsp]
+    inlay-hints = "threshold"
+    per-line-hints = false
+    diagnostics = true
+    ```
+
+| Clave | Descripción | Valor por defecto |
+| -- | -- | -- |
+| `inlay-hints` | `threshold` muestra la pista por función solo por encima de `max-complexity-allowed`, `always` la muestra en cada función, `never` oculta todas las pistas | `threshold` |
+| `per-line-hints` | Muestra además la complejidad que aporta cada línea, como `+2`. Las líneas que no aportan nada se omiten | `false` |
+| `diagnostics` | Publica una advertencia por cada función por encima de `max-complexity-allowed` | `true` |
+
+Las claves de nivel superior `max-complexity-allowed`, `exclude` y `no-ignore`
+se aplican al servidor igual que en una ejecución de la CLI. Una función cuya
+complejidad es igual al umbral pasa, igual que en la línea de comandos.
+
 ## Opciones de CLI
 
 | Opción | Descripción | Predeterminado |
@@ -954,6 +995,8 @@ Instala la [extensión de complexipy](https://marketplace.visualstudio.com/items
 - Tooltips al pasar el cursor con detalles
 - Indicadores con código de color
 - Sugerencias de corrección rápida
+
+Cualquier otro editor usa el [servidor de lenguaje](editors.md).
 
 ## Consejos y Mejores Prácticas
 

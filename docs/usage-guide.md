@@ -388,6 +388,47 @@ section to the same configuration file:
   the enforcement still applies. Fetch the branch or pass `--diff <ref>`
   with an existing reference instead.
 
+### Language Server Settings
+
+The [language server](editors.md) reads the same configuration files as the
+CLI, from the workspace root, plus an `lsp` section that controls what the
+editor shows:
+
+=== "complexipy.toml"
+
+    ```toml
+    max-complexity-allowed = 15
+    exclude = ["migrations/**"]
+
+    [lsp]
+    inlay-hints = "threshold"
+    per-line-hints = false
+    diagnostics = true
+    ```
+
+=== "pyproject.toml"
+
+    ```toml
+    [tool.complexipy]
+    max-complexity-allowed = 15
+    exclude = ["migrations/**"]
+
+    [tool.complexipy.lsp]
+    inlay-hints = "threshold"
+    per-line-hints = false
+    diagnostics = true
+    ```
+
+| Key | Description | Default |
+| -- | -- | -- |
+| `inlay-hints` | `threshold` shows the per-function hint only above `max-complexity-allowed`, `always` shows it for every function, `never` suppresses every hint | `threshold` |
+| `per-line-hints` | Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped | `false` |
+| `diagnostics` | Publish a warning for every function above `max-complexity-allowed` | `true` |
+
+The top-level `max-complexity-allowed`, `exclude`, and `no-ignore` keys apply
+to the server exactly as they do to a CLI run. A function whose complexity
+equals the threshold passes, as it does on the command line.
+
 ## CLI Options
 
 | Flag | Description | Default |
@@ -952,6 +993,8 @@ Install the [complexipy extension](https://marketplace.visualstudio.com/items?it
 - Hover tooltips with details
 - Color-coded indicators
 - Quick-fix suggestions
+
+Every other editor uses the [language server](editors.md) instead.
 
 ## Tips and Best Practices
 

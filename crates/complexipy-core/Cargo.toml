@@ -17,6 +17,7 @@ default = ["runner"]
 runner = ["dep:ignore", "dep:globset", "dep:wax", "dep:rayon"]
 python = ["dep:pyo3"]
 wasm = []
+config = ["dep:toml"]
 
 [dependencies]
 ruff_python_parser = { workspace = true }
@@ -30,6 +31,7 @@ globset = { workspace = true, optional = true }
 wax = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

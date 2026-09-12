@@ -5,6 +5,34 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Added
+
+- A language server: `complexipy lsp` speaks the Language Server Protocol on
+  stdio, so any editor with an LSP client gets complexity feedback with no
+  per-editor code. It answers inlay hint requests with the cognitive
+  complexity of each function and, optionally, the increment contributed by
+  each line; it answers hover requests with the function total, its threshold
+  status, and the top refactoring suggestion; and it publishes a warning for
+  every function above `max-complexity-allowed`. Diagnostics respect inline
+  ignore comments, so the editor and the CLI agree. See
+  [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
+  setup. ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+- A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
+  (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.
+  Hints are gated on `max-complexity-allowed` by default, so a project that
+  sets no options sees feedback only where it matters.
+- `complexipy-core` gains a `config` feature that owns configuration file
+  discovery, so the CLI and the server read `complexipy.toml`,
+  `.complexipy.toml`, and `pyproject.toml` through one code path.
+
+### Changed
+
+- `complexipy-core` now owns configuration file discovery behind a new
+  `config` feature, and `StringOrList` moved there from `complexipy-cli::types`
+  (still re-exported from its old path). Every workspace crate remains
+  `publish = false`, so no published Rust API changes.
+
 ## [8.0.1] - 2026-09-06
 
 ### Changed
