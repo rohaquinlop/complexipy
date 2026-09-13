@@ -125,9 +125,17 @@ Install from the [marketplace](https://marketplace.visualstudio.com/items?itemNa
 
 </details>
 
+<details>
+<summary><strong>🧩 Editor Integration</strong></summary>
+
+Every other editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings. See [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed setup.
+
+</details>
+
 ## Learn More
 
 - [Usage Guide](https://complexipy.com/usage-guide/) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
+- [Editor Integration](https://complexipy.com/editors/) - the language server, inlay hints, and the Neovim and Zed setup
 - [API Reference](https://complexipy.com/api-reference/) - the complete Python API
 - [Understanding Scores](https://complexipy.com/understanding-scores/) - how the scoring algorithm works
 - [Comparison with Ruff](https://complexipy.com/comparison-with-ruff/) - cognitive vs cyclomatic complexity

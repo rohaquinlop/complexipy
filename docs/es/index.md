@@ -123,9 +123,17 @@ Instálala desde el [marketplace](https://marketplace.visualstudio.com/items?ite
 
 </details>
 
+<details>
+<summary><strong>🧩 Integración con Editores</strong></summary>
+
+Cualquier otro editor usa `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias. Consulta [Integración con Editores](editors.md) para la configuración de Neovim y Zed.
+
+</details>
+
 ## Aprende Más
 
 - [Guía de Uso](usage-guide.md) - todas las flags de CLI, archivos de configuración, snapshots, diff de complejidad e ignores en línea
+- [Integración con Editores](editors.md) - el servidor de lenguaje, los inlay hints y la configuración de Neovim y Zed
 - [Referencia de la API](api-reference.md) - la API completa de Python
 - [Qué Significan las Puntuaciones](understanding-scores.md) - cómo funciona el algoritmo de puntuación
 - [Comparación con Ruff](comparison-with-ruff.md) - complejidad cognitiva vs ciclomática
