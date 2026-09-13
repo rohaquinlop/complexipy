@@ -13,7 +13,7 @@ use lsp_types::{
 };
 use serde::Deserialize;
 
-use crate::analysis::{self, DocumentAnalysis};
+use crate::analysis::{self, DocumentAnalysis, ParseFailure};
 use crate::documents::{Documents, uri_to_path};
 
 pub const SERVER_NAME: &str = "complexipy-lsp";
@@ -144,6 +144,7 @@ struct Server {
     refresh_support: bool,
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
+    failures: HashMap<String, ParseFailure>,
     dirty: BTreeSet<String>,
     deadline: Option<Instant>,
     next_request_id: i32,
@@ -158,6 +159,7 @@ impl Server {
             refresh_support: initialized.refresh_support,
             documents: Documents::default(),
             analyses: HashMap::new(),
+            failures: HashMap::new(),
             dirty: BTreeSet::new(),
             deadline: None,
             next_request_id: 1,
@@ -169,13 +171,7 @@ impl Server {
             match self.next_message() {
                 Ok(Some(Message::Request(request))) => {
                     if request.method == SHUTDOWN {
-                        return match self.connection.handle_shutdown(&request) {
-                            Ok(_) => EXIT_CODE_CLEAN,
-                            Err(error) => {
-                                eprintln!("{}: {}", SERVER_NAME, error);
-                                EXIT_CODE_FAILURE
-                            }
-                        };
+                        return self.shutdown(request);
                     }
 
                     self.handle_request(request);
@@ -190,6 +186,24 @@ impl Server {
                 Ok(Some(Message::Response(_))) => {}
                 Ok(None) => self.flush_dirty(),
                 Err(()) => return EXIT_CODE_FAILURE,
+            }
+        }
+    }
+
+    fn shutdown(&self, request: Request) -> i32 {
+        self.send(Response::new_ok(request.id, ()));
+
+        self.await_exit()
+    }
+
+    fn await_exit(&self) -> i32 {
+        loop {
+            match self.connection.receiver.recv() {
+                Ok(Message::Notification(notification)) if notification.method == EXIT => {
+                    return EXIT_CODE_CLEAN;
+                }
+                Ok(_) => {}
+                Err(_) => return EXIT_CODE_CLEAN,
             }
         }
     }
@@ -240,8 +254,12 @@ impl Server {
             DID_OPEN => {
                 if let Ok(params) = notification.extract::<DidOpenTextDocumentParams>(DID_OPEN) {
                     let item = params.text_document;
-                    self.documents
-                        .open(item.uri.clone(), item.text, item.version);
+                    self.documents.open(
+                        item.uri.clone(),
+                        item.text,
+                        item.version,
+                        item.language_id,
+                    );
                     self.mark_dirty(item.uri);
                 }
             }
@@ -268,6 +286,19 @@ impl Server {
             return;
         }
 
+        if params
+            .content_changes
+            .iter()
+            .any(|change| change.range.is_some())
+        {
+            eprintln!(
+                "{}: {}: ignoring an incremental change, complexipy declares full document sync",
+                SERVER_NAME,
+                uri.as_str()
+            );
+            return;
+        }
+
         let Some(change) = params.content_changes.into_iter().next_back() else {
             return;
         };
@@ -282,12 +313,15 @@ impl Server {
         let key = Documents::key(&uri);
         self.documents.close(&uri);
         self.analyses.remove(&key);
+        self.failures.remove(&key);
         self.dirty.remove(&key);
         self.send_diagnostics(uri, Vec::new(), None);
     }
 
     fn reload_config(&mut self) {
         self.config = load_config(&self.root);
+        self.analyses.clear();
+        self.failures.clear();
 
         for key in self.documents.keys() {
             self.mark_dirty_key(key);
@@ -317,7 +351,7 @@ impl Server {
                 continue;
             };
 
-            published |= self.analyze_and_publish(&uri);
+            published |= self.refresh(&uri);
         }
 
         if published && self.refresh_support {
@@ -325,47 +359,103 @@ impl Server {
         }
     }
 
-    fn analyze_and_publish(&mut self, uri: &Uri) -> bool {
-        let Some(document) = self.documents.get(uri) else {
+    fn refresh(&mut self, uri: &Uri) -> bool {
+        let key = Documents::key(uri);
+        let Some((text, version)) = self
+            .documents
+            .get(uri)
+            .map(|document| (document.text.clone(), document.version))
+        else {
             return false;
         };
 
-        let text = document.text.clone();
-        let version = document.version;
-        let analysis = self.compute(&text, version, uri);
-
-        self.publish(uri, analysis)
-    }
-
-    fn compute(&self, text: &str, version: i32, uri: &Uri) -> DocumentAnalysis {
-        if self.is_excluded(uri) {
-            return DocumentAnalysis::empty(version);
+        if self
+            .failures
+            .get(&key)
+            .is_some_and(|failure| failure.version == version)
+        {
+            return false;
         }
 
-        match analysis::analyze(text, version, &self.config) {
-            Ok(analysis) => analysis,
-            Err(error) => {
-                eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), error);
-                DocumentAnalysis::empty(version)
+        if let Some(analysis) = self.analyses.get(&key).cloned()
+            && !analysis::is_stale(analysis.version, Some(version))
+        {
+            return self.publish(uri, analysis);
+        }
+
+        match self.compute(&text, version, uri) {
+            Ok(analysis) => self.publish(uri, analysis),
+            Err(failure) => {
+                self.handle_failure(uri, version, failure);
+
+                false
             }
         }
     }
 
-    fn current_analysis(&mut self, uri: &Uri) -> Option<DocumentAnalysis> {
-        let document = self.documents.get(uri)?;
-        let version = document.version;
-        let text = document.text.clone();
-
-        if let Some(analysis) = self.analyses.get(&Documents::key(uri))
-            && !analysis::is_stale(analysis.version, Some(version))
-        {
-            return Some(analysis.clone());
+    fn compute(
+        &self,
+        text: &str,
+        version: i32,
+        uri: &Uri,
+    ) -> Result<DocumentAnalysis, ParseFailure> {
+        if !self.documents.is_python(uri) || self.is_excluded(uri) {
+            return Ok(DocumentAnalysis::empty(version));
         }
 
-        let analysis = self.compute(&text, version, uri);
-        self.analyses.insert(Documents::key(uri), analysis.clone());
+        analysis::analyze(text, version, &self.config)
+    }
 
-        Some(analysis)
+    fn current_analysis(&mut self, uri: &Uri) -> Option<DocumentAnalysis> {
+        let key = Documents::key(uri);
+        let (text, version) = self
+            .documents
+            .get(uri)
+            .map(|document| (document.text.clone(), document.version))?;
+
+        if self
+            .failures
+            .get(&key)
+            .is_some_and(|failure| failure.version == version)
+        {
+            return self.analyses.get(&key).cloned();
+        }
+
+        if let Some(analysis) = self.analyses.get(&key).cloned()
+            && !analysis::is_stale(analysis.version, Some(version))
+        {
+            return Some(analysis);
+        }
+
+        match self.compute(&text, version, uri) {
+            Ok(analysis) => {
+                self.failures.remove(&key);
+                self.analyses.insert(key, analysis.clone());
+
+                Some(analysis)
+            }
+            Err(failure) => {
+                self.handle_failure(uri, version, failure);
+
+                self.analyses.get(&Documents::key(uri)).cloned()
+            }
+        }
+    }
+
+    fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
+        let diagnostics = self.failure_diagnostics(&failure);
+
+        eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), failure.message);
+        self.failures.insert(Documents::key(uri), failure);
+        self.send_diagnostics(uri.clone(), diagnostics, Some(version));
+    }
+
+    fn failure_diagnostics(&self, failure: &ParseFailure) -> Vec<Diagnostic> {
+        if self.config.lsp.diagnostics {
+            vec![failure.diagnostic()]
+        } else {
+            Vec::new()
+        }
     }
 
     fn is_excluded(&self, uri: &Uri) -> bool {
@@ -382,14 +472,10 @@ impl Server {
             return false;
         }
 
-        let text = self
-            .documents
-            .get(uri)
-            .map(|document| document.text.clone())
-            .unwrap_or_default();
         let version = analysis.version;
-        let diagnostics = analysis.diagnostics(&text, &self.config);
+        let diagnostics = analysis.diagnostics(&self.config);
 
+        self.failures.remove(&Documents::key(uri));
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
         self.analyses.insert(Documents::key(uri), analysis);
 
@@ -417,15 +503,9 @@ impl Server {
     }
 
     fn respond_inlay_hints(&mut self, id: RequestId, params: InlayHintParams) {
-        let hints = match self.current_analysis(&params.text_document.uri) {
-            Some(analysis) => {
-                let text = self
-                    .documents
-                    .get(&params.text_document.uri)
-                    .map(|document| document.text.clone())
-                    .unwrap_or_default();
-                analysis.hints(&text, &self.config, Some(params.range))
-            }
+        let analysis = self.current_analysis(&params.text_document.uri);
+        let hints = match analysis {
+            Some(analysis) => analysis.hints(&self.config, Some(params.range)),
             None => Vec::new(),
         };
 
@@ -435,15 +515,11 @@ impl Server {
     fn respond_hover(&mut self, id: RequestId, params: HoverParams) {
         let position = params.text_document_position_params.position;
         let uri = params.text_document_position_params.text_document.uri;
-
-        let hover = self.current_analysis(&uri).and_then(|analysis| {
-            let text = self
-                .documents
-                .get(&uri)
-                .map(|document| document.text.clone())
-                .unwrap_or_default();
-            analysis.hover(&text, &self.config, position)
-        });
+        let analysis = self.current_analysis(&uri);
+        let hover = match analysis {
+            Some(analysis) => analysis.hover(&self.config, position),
+            None => None,
+        };
 
         self.send(Response::new_ok(id, hover));
     }

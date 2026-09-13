@@ -148,6 +148,37 @@ impl Session {
         );
     }
 
+    fn change_with_range(&mut self, uri: &Uri, version: i32, text: &str) {
+        self.notify(
+            DID_CHANGE,
+            DidChangeTextDocumentParams {
+                text_document: VersionedTextDocumentIdentifier {
+                    uri: uri.clone(),
+                    version,
+                },
+                content_changes: vec![TextDocumentContentChangeEvent {
+                    range: Some(Range::new(Position::new(0, 0), Position::new(0, 0))),
+                    range_length: None,
+                    text: text.to_string(),
+                }],
+            },
+        );
+    }
+
+    fn open_as(&mut self, uri: &Uri, text: &str, language_id: &str) {
+        self.notify(
+            DID_OPEN,
+            DidOpenTextDocumentParams {
+                text_document: TextDocumentItem {
+                    uri: uri.clone(),
+                    language_id: language_id.to_string(),
+                    version: 1,
+                    text: text.to_string(),
+                },
+            },
+        );
+    }
+
     fn close(&mut self, uri: &Uri) {
         self.notify(
             DID_CLOSE,
@@ -387,6 +418,88 @@ fn exit_without_shutdown_is_a_failure() {
     session.send(Notification::new(EXIT.to_string(), ()));
 
     assert_eq!(session.join(), EXIT_CODE_FAILURE);
+}
+
+#[test]
+fn stray_messages_during_shutdown_keep_the_exit_code_clean() {
+    let mut session = start();
+    session.initialize();
+    let id = session.next_id();
+    session.publish(id.clone(), SHUTDOWN, ());
+    session.result(id);
+
+    session.send(Message::Response(lsp_server::Response::new_ok(
+        RequestId::from(9),
+        serde_json::Value::Null,
+    )));
+    session.notify("textDocument/didChange", serde_json::json!({}));
+    session.send(Notification::new(EXIT.to_string(), ()));
+
+    assert_eq!(session.join(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn range_carrying_changes_are_rejected() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert_eq!(session.diagnostics(&uri).len(), 1);
+
+    session.change_with_range(&uri, 2, "# comment\n");
+
+    assert_eq!(session.inlay_hints(&uri).len(), 1);
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn non_python_documents_stay_silent() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("data.json");
+    session.open_as(&uri, "{\"a\": 1}", "json");
+
+    assert!(session.diagnostics(&uri).is_empty());
+    assert!(session.inlay_hints(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_transient_syntax_error_keeps_the_last_analysis() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert_eq!(session.diagnostics(&uri).len(), 1);
+
+    session.change(&uri, 2, "def broken(:\n");
+
+    let diagnostics = session.diagnostics(&uri);
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics[0].code,
+        Some(lsp_types::NumberOrString::String(
+            complexipy_lsp::analysis::PARSE_ERROR_CODE.to_string()
+        ))
+    );
+    let hints = session.inlay_hints(&uri);
+    assert_eq!(hints.len(), 1);
+    assert_eq!(hints[0].position, Position::new(4, 16));
+
+    session.change(&uri, 3, SAMPLE);
+
+    let diagnostics = session.diagnostics(&uri);
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics[0].code,
+        Some(lsp_types::NumberOrString::String(
+            complexipy_lsp::analysis::DIAGNOSTIC_CODE.to_string()
+        ))
+    );
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }
 
 #[test]

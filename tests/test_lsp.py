@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 import complexipy
+from complexipy import cli
 from complexipy._complexipy import run_lsp
 
 TIMEOUT = 15.0
@@ -204,12 +205,26 @@ class LspSession:
         self.notify("exit", {})
         return self.process.wait(timeout=TIMEOUT)
 
+    def change(self, uri: str, version: int, text: str) -> None:
+        self.notify(
+            "textDocument/didChange",
+            {
+                "textDocument": {"uri": uri, "version": version},
+                "contentChanges": [{"text": text}],
+            },
+        )
 
-def document(uri: str, text: str) -> dict:
+    def stderr_text(self) -> str:
+        if self.process.stderr is None:
+            return ""
+        return self.process.stderr.read().decode(errors="replace")
+
+
+def document(uri: str, text: str, language_id: str = "python") -> dict:
     return {
         "textDocument": {
             "uri": uri,
-            "languageId": "python",
+            "languageId": language_id,
             "version": 1,
             "text": text,
         }
@@ -364,7 +379,7 @@ def test_hint_refresh_is_requested_when_the_client_supports_it(
         assert session.shutdown() == 0
 
 
-def test_syntax_errors_clear_output_without_failing(tmp_path: Path) -> None:
+def test_syntax_errors_publish_one_parse_diagnostic(tmp_path: Path) -> None:
     (tmp_path / "complexipy.toml").write_text(STRICT_CONFIG)
     uri = (tmp_path / "broken.py").as_uri()
 
@@ -375,11 +390,75 @@ def test_syntax_errors_clear_output_without_failing(tmp_path: Path) -> None:
             "textDocument/publishDiagnostics"
         )
 
+        assert len(diagnostics["diagnostics"]) == 1
+        assert diagnostics["diagnostics"][0]["code"] == "complexipy-parse-error"
+        assert diagnostics["diagnostics"][0]["severity"] == 2
+        assert (
+            session.request("textDocument/inlayHint", hints_request(uri)) == []
+        )
+        assert session.shutdown() == 0
+
+
+def test_a_transient_syntax_error_keeps_the_last_analysis(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "complexipy.toml").write_text(STRICT_CONFIG)
+    uri = (tmp_path / "heavy.py").as_uri()
+
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.notify("textDocument/didOpen", document(uri, HEAVY))
+        session.await_notification("textDocument/publishDiagnostics")
+
+        session.change(uri, 2, "def broken(:\n")
+        # An editor asks for hints before the debounce flush fires.
+        session.send(
+            {
+                "jsonrpc": "2.0",
+                "id": 900,
+                "method": "textDocument/inlayHint",
+                "params": hints_request(uri),
+            }
+        )
+        diagnostics = session.await_notification(
+            "textDocument/publishDiagnostics"
+        )
+
+        assert len(diagnostics["diagnostics"]) == 1
+        assert diagnostics["diagnostics"][0]["code"] == "complexipy-parse-error"
+        hints = session.await_response(900)
+        assert len(hints) == 1
+        assert hints[0]["label"] == "cognitive: 3"
+
+        session.change(uri, 3, HEAVY)
+        diagnostics = session.await_notification(
+            "textDocument/publishDiagnostics"
+        )
+
+        assert len(diagnostics["diagnostics"]) == 1
+        assert diagnostics["diagnostics"][0]["code"] == "cognitive-complexity"
+        assert session.shutdown() == 0
+
+
+def test_non_python_documents_stay_silent(tmp_path: Path) -> None:
+    (tmp_path / "complexipy.toml").write_text(STRICT_CONFIG)
+    uri = (tmp_path / "data.json").as_uri()
+
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.notify(
+            "textDocument/didOpen", document(uri, '{"a": 1}', "json")
+        )
+        diagnostics = session.await_notification(
+            "textDocument/publishDiagnostics"
+        )
+
         assert diagnostics["diagnostics"] == []
         assert (
             session.request("textDocument/inlayHint", hints_request(uri)) == []
         )
         assert session.shutdown() == 0
+        assert "Failed to parse" not in session.stderr_text()
 
 
 def test_lsp_ignores_trailing_arguments(tmp_path: Path) -> None:
@@ -420,6 +499,53 @@ def test_other_arguments_still_reach_the_cli(tmp_path: Path) -> None:
 
     assert process.returncode == 0
     assert b"complexipy" in process.stdout
+
+
+class InteractiveStdin:
+    """Stand-in for the terminal a person types on."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class EditorStdin:
+    """Stand-in for the pipe an editor hands to the server."""
+
+    def isatty(self) -> bool:
+        return False
+
+
+def test_lsp_shadow_warning_only_appears_on_a_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "stdin", InteractiveStdin())
+
+    assert cli.lsp_shadow_warning() is None
+
+    (tmp_path / "lsp").mkdir()
+
+    assert cli.lsp_shadow_warning() is not None
+
+    monkeypatch.setattr(sys, "stdin", EditorStdin())
+
+    assert cli.lsp_shadow_warning() is None
+
+
+def test_the_escape_hatch_analyzes_an_lsp_path(tmp_path: Path) -> None:
+    (tmp_path / "lsp").mkdir()
+    (tmp_path / "lsp" / "mod.py").write_text(HEAVY)
+    (tmp_path / "complexipy.toml").write_text(STRICT_CONFIG)
+
+    process = subprocess.run(
+        [sys.executable, "-m", "complexipy.cli", "--plain", "--", "lsp"],
+        capture_output=True,
+        cwd=str(tmp_path),
+        timeout=TIMEOUT,
+    )
+
+    assert process.returncode == 1
+    assert b"mod.py" in process.stdout
 
 
 def test_configuration_reload_is_honoured(tmp_path: Path) -> None:

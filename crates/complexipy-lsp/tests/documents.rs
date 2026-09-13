@@ -1,4 +1,4 @@
-use complexipy_lsp::documents::{Documents, uri_to_path};
+use complexipy_lsp::documents::{Documents, is_python_path, uri_to_path};
 use lsp_types::Uri;
 
 fn uri(value: &str) -> Uri {
@@ -10,7 +10,7 @@ fn keeps_text_and_version() {
     let mut documents = Documents::default();
     let target = uri("file:///repo/a.py");
 
-    documents.open(target.clone(), "first".to_string(), 1);
+    documents.open(target.clone(), "first".to_string(), 1, "python".to_string());
     documents.change(&target, "second".to_string(), 2);
 
     let document = documents.get(&target).unwrap();
@@ -32,7 +32,7 @@ fn close_removes_the_document() {
     let mut documents = Documents::default();
     let target = uri("file:///repo/a.py");
 
-    documents.open(target.clone(), "text".to_string(), 1);
+    documents.open(target.clone(), "text".to_string(), 1, "python".to_string());
     documents.close(&target);
 
     assert!(documents.get(&target).is_none());
@@ -43,12 +43,59 @@ fn close_removes_the_document() {
 fn keys_track_open_documents() {
     let mut documents = Documents::default();
 
-    documents.open(uri("file:///repo/a.py"), "a".to_string(), 1);
-    documents.open(uri("file:///repo/b.py"), "b".to_string(), 1);
+    documents.open(
+        uri("file:///repo/a.py"),
+        "a".to_string(),
+        1,
+        "python".to_string(),
+    );
+    documents.open(
+        uri("file:///repo/b.py"),
+        "b".to_string(),
+        1,
+        "python".to_string(),
+    );
 
     let mut keys = documents.keys();
     keys.sort();
     assert_eq!(keys, vec!["file:///repo/a.py", "file:///repo/b.py"]);
+}
+
+#[test]
+fn python_documents_are_marked_by_language_or_path() {
+    let mut documents = Documents::default();
+
+    documents.open(
+        uri("file:///repo/a.py"),
+        "text".to_string(),
+        1,
+        "".to_string(),
+    );
+    documents.open(
+        uri("file:///repo/b"),
+        "text".to_string(),
+        1,
+        "python".to_string(),
+    );
+    documents.open(
+        uri("file:///repo/c.json"),
+        "text".to_string(),
+        1,
+        "json".to_string(),
+    );
+
+    assert!(documents.is_python(&uri("file:///repo/a.py")));
+    assert!(documents.is_python(&uri("file:///repo/b")));
+    assert!(!documents.is_python(&uri("file:///repo/c.json")));
+    assert!(!documents.is_python(&uri("file:///repo/missing.py")));
+}
+
+#[test]
+fn python_paths_ignore_query_and_fragment() {
+    assert!(is_python_path("/repo/a.py"));
+    assert!(is_python_path("/repo/a.py?version=1"));
+    assert!(!is_python_path("/repo/a.pyi"));
+    assert!(!is_python_path("/repo/a"));
 }
 
 #[test]

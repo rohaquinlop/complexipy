@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use lsp_types::Uri;
 
+pub const PYTHON_LANGUAGE_ID: &str = "python";
+pub const PYTHON_EXTENSION: &str = ".py";
+
 #[derive(Debug, Clone)]
 pub struct Document {
     pub uri: Uri,
     pub text: String,
     pub version: i32,
+    pub language_id: String,
 }
 
 #[derive(Debug, Default)]
@@ -19,9 +23,22 @@ impl Documents {
         uri.as_str().to_string()
     }
 
-    pub fn open(&mut self, uri: Uri, text: String, version: i32) {
-        self.open
-            .insert(Self::key(&uri), Document { uri, text, version });
+    pub fn open(&mut self, uri: Uri, text: String, version: i32, language_id: String) {
+        self.open.insert(
+            Self::key(&uri),
+            Document {
+                uri,
+                text,
+                version,
+                language_id,
+            },
+        );
+    }
+
+    pub fn is_python(&self, uri: &Uri) -> bool {
+        self.get(uri).is_some_and(|document| {
+            document.language_id == PYTHON_LANGUAGE_ID || is_python_path(document.uri.as_str())
+        })
     }
 
     pub fn change(&mut self, uri: &Uri, text: String, version: i32) {
@@ -52,6 +69,13 @@ impl Documents {
     pub fn keys(&self) -> Vec<String> {
         self.open.keys().cloned().collect()
     }
+}
+
+pub fn is_python_path(path: &str) -> bool {
+    path.split(['?', '#'])
+        .next()
+        .unwrap_or(path)
+        .ends_with(PYTHON_EXTENSION)
 }
 
 pub fn uri_to_path(uri: &Uri) -> Option<String> {
