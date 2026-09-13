@@ -45,6 +45,22 @@ fn pattern_outside_root_does_not_match() {
 }
 
 #[test]
+fn root_is_matched_as_a_path_not_as_a_text_prefix() {
+    let patterns = vec!["y/**".to_string()];
+
+    assert!(!is_path_excluded("/repo/xy/a.py", "/repo/x", &patterns));
+    assert!(is_path_excluded("/repo/x/y/a.py", "/repo/x", &patterns));
+}
+
+#[test]
+fn root_itself_holds_no_relative_path() {
+    let patterns = vec!["legacy/**".to_string()];
+
+    assert!(!is_path_excluded("/repo", "/repo", &patterns));
+    assert!(is_path_excluded("/repo/legacy/a.py", "/repo", &patterns));
+}
+
+#[test]
 fn multiple_patterns_are_alternatives() {
     let patterns = vec!["build/**".to_string(), "dist/*.py".to_string()];
 

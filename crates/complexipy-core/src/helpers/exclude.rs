@@ -10,9 +10,7 @@ pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
 
     let normalized_path = path.replace('\\', "/");
     let normalized_root = root.replace('\\', "/");
-    let relative = normalized_path
-        .strip_prefix(normalized_root.trim_end_matches('/'))
-        .map(|rest| rest.trim_start_matches('/'))
+    let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
         .unwrap_or(normalized_path.as_str());
     let pattern_refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
 
@@ -20,6 +18,18 @@ pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
         Ok(any) => any.is_match(relative),
         Err(_) => false,
     }
+}
+
+fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
+    if root.is_empty() {
+        return Some(path.trim_start_matches('/'));
+    }
+
+    if path == root {
+        return Some("");
+    }
+
+    path.strip_prefix(root)?.strip_prefix('/')
 }
 
 pub fn validate_exclude_patterns(patterns: &[String]) -> Result<(), String> {
@@ -83,3 +93,6 @@ pub fn get_paths_to_process(
 
     Ok(files_paths)
 }
+
+#[cfg(test)]
+mod tests;
