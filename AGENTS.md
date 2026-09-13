@@ -254,22 +254,43 @@ only documents the client has open. Hints and diagnostics come from
 `code_complexity_shared` and are gated by `complexipy-core`'s `LspConfig`,
 which the server reads through the same `config` module the CLI uses.
 
-A function hint sits at the end of the line holding the `def` keyword, which
-`analysis::definition_line` locates inside the function's line range.
+A function hint sits at the end of the line that closes the function
+declaration. `analysis::declaration_start_line` finds the declaration inside the
+function's line range - a `def` candidate must open a body, which rejects a
+`def`-looking line inside a decorator string - and
+`analysis::declaration_end_line` walks to the line that closes the signature, so
+a wrapped signature keeps the hint on its closing line.
 `FunctionComplexity::line_start` covers decorators instead, because the engine
 uses that range for ignore-comment matching, so do not use it for placement.
 
-Two invariants are load-bearing:
+`DocumentAnalysis` precomputes two things in `analyze`: a `LineBounds` table of
+UTF-16 line lengths, and the declaration line of every function. Hints and hover
+are table lookups, never per-function text scans, and both gates (threshold and
+requested range) run before a position is computed. A hint request sits on the
+client's hot path, so it stays O(lines + hints).
+
+Three invariants are load-bearing:
 
 - stdout carries protocol frames and nothing else. Every log line goes to
   stderr, and the `lsp` branch of `complexipy/cli.py` must never print.
 - A result whose document version no longer matches the store is discarded
   before it is published. `Documents::change` bumps the version, and
   `analysis::is_stale` is the guard.
+- A document that does not parse keeps the last successful analysis for hints
+  and hover, and gains one `complexipy-parse-error` diagnostic until it parses
+  again. `Server::failures` holds the version of the failed parse, so a failing
+  version is never parsed twice.
 
 A function is over the threshold when its complexity is **strictly greater**
 than `max-complexity-allowed`, matching the CLI. Inline ignore comments are
-honored unless `no-ignore` is set, so the editor and the CLI agree.
+honored unless `no-ignore` is set, so the editor and the CLI agree. The server
+analyzes only `python` documents, or paths ending in `.py`.
+
+`exclude` has two matchers: the walker's `glob.walk(root).not(any(patterns))`
+filter, which prunes matching directories during the walk, and
+`helpers::exclude::is_path_excluded`, which the server uses for open documents.
+`crates/complexipy-core/src/helpers/exclude/tests.rs` pins them together over a
+temporary tree, so a change to either matcher has to keep both in agreement.
 
 ### Dual-target Rust
 
