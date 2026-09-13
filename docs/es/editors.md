@@ -145,11 +145,27 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | `lsp.per-line-hints` | `false` | Muestra además un hint `+N` en cada línea con un incremento de complejidad distinto de cero. |
 | `lsp.diagnostics` | `true` | Publica advertencias para las funciones por encima de `max-complexity-allowed`. |
 
+El servidor ignora el resto de claves del mismo archivo: `paths`, `quiet`,
+`failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
+`snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
+`report-ignored` y `diff`. Esas claves se usan con `complexipy <path>`.
+
 ### Inlay hints
 
-El hint se coloca al final de la línea `def`. En una función decorada es la
-línea `def`, no la línea `@decorator` de encima, y en una firma que ocupa
-varias líneas es la línea donde empieza la firma.
+El hint se coloca al final de la última línea de la declaración de la función:
+la línea que cierra la firma. En una firma de una sola línea esa es la línea
+`def`, y en una función decorada es la línea `def` y no la línea `@decorator`
+de encima. En una firma que ocupa varias líneas el hint queda tras el `)` o el
+`):` de cierre:
+
+```python
+def heavy(
+    a,
+    b,
+):
+```
+
+En este ejemplo el hint queda al final de la línea `):`.
 
 - `inlay-hints = "threshold"` (el predeterminado) muestra el hint por función
   (`cognitive: 18`) solo cuando la función está **por encima** de
@@ -174,6 +190,12 @@ función padre.
   complejidad **es igual** a `max-complexity-allowed` pasa. Solo se reportan
   los valores estrictamente mayores, como
   `cognitive complexity 18 exceeds the allowed 15`.
+- Un documento que el analizador sintáctico no puede leer produce exactamente
+  una advertencia con el código `complexipy-parse-error` en su primera línea.
+  Mientras esa advertencia está presente, los hints y el hover siguen
+  respondiendo con el último texto que sí se analizó, así que el archivo no se
+  queda en blanco mientras escribes. La advertencia desaparece en cuanto el
+  documento vuelve a analizarse.
 
 ### Ignorados y exclusiones
 
@@ -241,3 +263,20 @@ Las comprobaciones de ratchet con `--diff` y las compuertas por código de
 salida siguen siendo solo de la CLI. El servidor de lenguaje está pensado para
 guiarte mientras escribes, no para sustituir el contrato de CI, así que el uso
 actual de CI no cambia.
+
+Otros límites del servidor actual:
+
+- El servidor solo analiza documentos de Python. Un documento cuyo lenguaje no
+  sea `python` y cuya ruta no termine en `.py` no produce hints ni
+  advertencias.
+- El servidor declara sincronización completa del documento, así que espera el
+  búfer entero en cada cambio. Un cambio que lleve un rango se ignora y se
+  escribe una línea en el registro del servidor.
+- Un espacio de trabajo con varias raíces usa la primera carpeta para
+  descubrir la configuración y para emparejar `exclude`.
+- Las `initializationOptions` del cliente se ignoran. La configuración sale del
+  archivo de configuración.
+- La palabra `lsp` reserva el primer argumento: `complexipy lsp` arranca el
+  servidor. Para analizar un archivo o directorio llamado `lsp`, ejecuta
+  `complexipy -- lsp`. En una terminal, el servidor imprime esa pista cuando
+  existe una ruta llamada `lsp`.

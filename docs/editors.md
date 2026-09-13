@@ -142,11 +142,27 @@ at the workspace root:
 | `lsp.per-line-hints` | `false` | Also show a `+N` hint on every line with a non-zero complexity increment. |
 | `lsp.diagnostics` | `true` | Publish warnings for functions above `max-complexity-allowed`. |
 
+The server ignores every other key of the same file: `paths`, `quiet`,
+`failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
+`snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
+`report-ignored`, and `diff`. Run those keys through `complexipy <path>`.
+
 ### Inlay hints
 
-The hint is placed at the end of the `def` line. For a decorated function that
-is the `def` line, not the `@decorator` line above it, and for a signature that
-spans several lines it is the line where the signature starts.
+The hint is placed at the end of the last line of the function declaration: the
+line that closes the signature. For a single-line signature that is the `def`
+line, and for a decorated function it is the `def` line rather than the
+`@decorator` line above it. For a signature that spans several lines the hint
+sits after the closing `)` or `):`:
+
+```python
+def heavy(
+    a,
+    b,
+):
+```
+
+Here the hint sits at the end of the `):` line.
 
 - `inlay-hints = "threshold"` (the default) shows the per-function hint
   (`cognitive: 18`) only when the function is **above** `max-complexity-allowed`.
@@ -168,6 +184,11 @@ nested function therefore shows its parent.
   complexity **equals** `max-complexity-allowed` passes. Only strictly greater
   values are reported, as
   `cognitive complexity 18 exceeds the allowed 15`.
+- A document the parser cannot read produces exactly one warning with the code
+  `complexipy-parse-error` on its first line. While that warning is present,
+  hints and hover keep answering from the last text that parsed, so the file
+  does not go blank while you type. The warning clears itself as soon as the
+  document parses again.
 
 ### Ignores and exclusions
 
@@ -229,3 +250,20 @@ window in Zed).
 The `--diff` ratchet checks and the exit-code gates remain CLI-only. The
 language server is meant to guide you while you write, not to replace the CI
 contract, so existing CI usage is unchanged.
+
+Other limits of the current server:
+
+- The server analyzes Python documents only. A document whose language is not
+  `python` and whose path does not end in `.py` produces no hints and no
+  warnings.
+- The server declares full document sync, so it expects the whole buffer on
+  every change. A change that carries a range is ignored, and one line is
+  written to the server log.
+- A workspace with several roots uses the first folder for configuration
+  discovery and for `exclude` matching.
+- The `initializationOptions` of the client are ignored. Settings come from the
+  configuration file.
+- The `lsp` word reserves the first command-line argument: `complexipy lsp`
+  starts the server. To analyze a file or directory named `lsp`, run
+  `complexipy -- lsp`. On a terminal the server prints that hint when a path
+  named `lsp` exists.
