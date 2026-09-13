@@ -16,7 +16,11 @@ GitHub con todos los detalles.
   respecto al umbral y la mejor sugerencia de refactorización; y publica una
   advertencia por cada función por encima de `max-complexity-allowed`. Los
   diagnósticos respetan los comentarios de ignorado en línea, así que el editor
-  y la CLI coinciden. Consulta
+  y la CLI coinciden. El hint por función se coloca al final de la línea que
+  cierra la declaración, así que una firma repartida en varias líneas conserva
+  el hint en su línea de cierre, y un documento que no se puede analizar
+  conserva los últimos hints analizados más una advertencia
+  `complexipy-parse-error` hasta que vuelve a analizarse. Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
   configuración de Neovim y Zed.
   ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
@@ -31,11 +35,14 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
-- `complexipy-core` ahora posee el descubrimiento de archivos de configuración
-  detrás de una nueva feature `config`, y `StringOrList` se movió allí desde
-  `complexipy-cli::types` (sigue reexportado desde su ruta anterior). Todos los
-  crates del workspace siguen siendo `publish = false`, así que no cambia
-  ninguna API pública de Rust.
+- `lsp` es un primer argumento reservado: `complexipy lsp` arranca el servidor
+  de lenguaje, así que un archivo o directorio con ese nombre necesita
+  `complexipy -- lsp` para analizarse. En una terminal, el servidor imprime esa
+  pista cuando están presentes la palabra reservada y una ruta llamada `lsp`.
+- `StringOrList` se movió de `complexipy-cli::types` al nuevo módulo `config`
+  de `complexipy-core`, y la CLI lo sigue reexportando desde su ruta anterior.
+  Todos los crates del workspace siguen siendo `publish = false`, así que no
+  cambia ninguna API pública de Rust.
 
 ## [8.0.1] - 2026-09-06
 
