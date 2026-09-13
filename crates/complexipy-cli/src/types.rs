@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 pub use complexipy_core::classes::RefactorPlan;
+use complexipy_core::config::DEFAULT_MAX_COMPLEXITY_ALLOWED;
 pub use complexipy_core::config::StringOrList;
 use serde::Deserialize;
 
@@ -41,7 +42,7 @@ pub struct Config {
 }
 
 fn default_max_complexity() -> u64 {
-    15
+    DEFAULT_MAX_COMPLEXITY_ALLOWED
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
