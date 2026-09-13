@@ -425,9 +425,12 @@ controla lo que muestra el editor:
 | `per-line-hints` | Muestra además la complejidad que aporta cada línea, como `+2`. Las líneas que no aportan nada se omiten | `false` |
 | `diagnostics` | Publica una advertencia por cada función por encima de `max-complexity-allowed` | `true` |
 
-Las claves de nivel superior `max-complexity-allowed`, `exclude` y `no-ignore`
-se aplican al servidor igual que en una ejecución de la CLI. Una función cuya
-complejidad es igual al umbral pasa, igual que en la línea de comandos.
+El servidor lee las claves de nivel superior `max-complexity-allowed`,
+`exclude` y `no-ignore`, e ignora el resto de claves del mismo archivo:
+`paths`, `quiet`, `failed`, `sort`, `color`, `output`, `output-format`,
+`cache-dir`, `snapshot-create`, `snapshot-ignore`, `ignore-complexity`,
+`check-script`, `report-ignored` y `diff`. Una función cuya complejidad es
+igual al umbral pasa, igual que en la línea de comandos.
 
 ## Opciones de CLI
 

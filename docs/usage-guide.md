@@ -425,9 +425,12 @@ editor shows:
 | `per-line-hints` | Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped | `false` |
 | `diagnostics` | Publish a warning for every function above `max-complexity-allowed` | `true` |
 
-The top-level `max-complexity-allowed`, `exclude`, and `no-ignore` keys apply
-to the server exactly as they do to a CLI run. A function whose complexity
-equals the threshold passes, as it does on the command line.
+The server reads the top-level `max-complexity-allowed`, `exclude`, and
+`no-ignore` keys, and it ignores every other key of the same file: `paths`,
+`quiet`, `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
+`snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
+`report-ignored`, and `diff`. A function whose complexity equals the threshold
+passes, as it does on the command line.
 
 ## CLI Options
 
