@@ -21,17 +21,23 @@ jobs:
       matrix:
         platform:
           - runner: ubuntu-latest
-            target: x86_64
+            target: x86_64-unknown-linux-gnu
+            arch: x86_64
           - runner: ubuntu-latest
-            target: x86
+            target: i686-unknown-linux-gnu
+            arch: x86
           - runner: ubuntu-latest
-            target: aarch64
+            target: aarch64-unknown-linux-gnu
+            arch: aarch64
           - runner: ubuntu-latest
-            target: armv7
+            target: armv7-unknown-linux-gnueabihf
+            arch: armv7
           - runner: ubuntu-latest
-            target: s390x
+            target: s390x-unknown-linux-gnu
+            arch: s390x
           - runner: ubuntu-latest
-            target: ppc64le
+            target: powerpc64le-unknown-linux-gnu
+            arch: ppc64le
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +60,7 @@ jobs:
         with:
           action: actions/upload-artifact@v7.0.1
           with: |
-            name: wheels-linux-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            name: wheels-linux-${{ matrix.platform.arch }}-${{ matrix.python-version }}
             path: dist
             overwrite: true
           attempt_limit: 3
@@ -66,9 +72,11 @@ jobs:
       matrix:
         platform:
           - runner: ubuntu-latest
-            target: x86_64
+            target: x86_64-unknown-linux-musl
+            arch: x86_64
           - runner: ubuntu-latest
-            target: aarch64
+            target: aarch64-unknown-linux-musl
+            arch: aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +99,7 @@ jobs:
         with:
           action: actions/upload-artifact@v7.0.1
           with: |
-            name: wheels-musllinux-${{ matrix.platform.target }}-${{ matrix.python-version }}
+            name: wheels-musllinux-${{ matrix.platform.arch }}-${{ matrix.python-version }}
             path: dist
             overwrite: true
           attempt_limit: 3
