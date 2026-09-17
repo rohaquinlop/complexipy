@@ -5,7 +5,7 @@ use complexipy_lsp::server::{
     DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN,
     EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHUTDOWN, serve,
 };
-use lsp_server::{Connection, Message, Notification, Request, RequestId};
+use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, Hover, HoverContents, HoverParams, InitializeParams,
@@ -399,6 +399,24 @@ fn unknown_requests_get_an_error_response() {
 
     assert!(session.response(id).is_err());
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn an_unparseable_initialize_gets_an_error_response() {
+    let mut session = start();
+    let id = session.next_id();
+    session.send(Request::new(
+        id.clone(),
+        "initialize".to_string(),
+        serde_json::json!({ "rootUri": 42 }),
+    ));
+
+    let error = session
+        .response(id)
+        .expect_err("initialize should be rejected");
+
+    assert_eq!(error.code, ErrorCode::InvalidParams as i32);
+    assert_eq!(session.join(), EXIT_CODE_FAILURE);
 }
 
 #[test]

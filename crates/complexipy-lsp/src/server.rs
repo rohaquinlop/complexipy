@@ -54,8 +54,18 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
     let (id, params) = connection
         .initialize_start()
         .map_err(|error| error.to_string())?;
-    let params: InitializeParams =
-        serde_json::from_value(params).map_err(|error| error.to_string())?;
+    let params: InitializeParams = match serde_json::from_value(params) {
+        Ok(params) => params,
+        Err(error) => {
+            let message = error.to_string();
+
+            let _ = connection.sender.send(
+                Response::new_err(id, ErrorCode::InvalidParams as i32, message.clone()).into(),
+            );
+
+            return Err(message);
+        }
+    };
 
     let root = workspace_root(&params);
     let refresh_support = params
