@@ -128,12 +128,26 @@ def exported_names() -> set[str]:
     return {name for name in dir(extension) if not name.startswith("__")}
 
 
-def can_be_built(cls: type) -> bool:
-    return cls.__new__ is not object.__new__
-
-
 def is_enum(cls: type) -> bool:
     return issubclass(cls, enum.Enum)
+
+
+def has_constructor(cls: type) -> bool:
+    """Report whether calling the class reaches a constructor.
+
+    The answer comes from calling the class, not from inspecting
+    ``__new__``: CPython exposes that attribute differently before and
+    after 3.9, while the refusal message is PyO3's own wording.
+    """
+    if is_enum(cls):
+        return False
+
+    try:
+        cls()
+    except TypeError as error:
+        return "cannot create" not in str(error)
+
+    return True
 
 
 def is_property(member: ast.FunctionDef) -> bool:
@@ -276,16 +290,12 @@ def test_stub_declares_nothing_the_module_lacks() -> None:
 def test_stub_constructors_match_the_extension() -> None:
     for name, members in declared_classes().items():
         cls = getattr(extension, name)
-
-        if is_enum(cls):
-            continue
-
         declared = "__init__" in members
-        supported = can_be_built(cls)
+        supported = has_constructor(cls)
 
         assert declared == supported, (
             f"{name} declares __init__={declared}, but the extension "
-            f"answers can_be_built={supported}"
+            f"answers has_constructor={supported}"
         )
 
 
@@ -293,7 +303,7 @@ def test_the_extension_refuses_classes_without_a_declared_constructor() -> None:
     refused = [
         name
         for name, members in declared_classes().items()
-        if "__init__" not in members and not is_enum(getattr(extension, name))
+        if "__init__" not in members
     ]
 
     assert refused
