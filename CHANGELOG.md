@@ -29,6 +29,10 @@ release section links to its GitHub release notes for the full details.
 - `complexipy-core` gains a `config` feature that owns configuration file
   discovery, so the CLI and the server read `complexipy.toml`,
   `.complexipy.toml`, and `pyproject.toml` through one code path.
+- The server applies `exclude` one pattern at a time: a malformed pattern is
+  reported once per configuration load and skipped while the remaining patterns
+  keep applying, and a list too large to compile as one program is reported once
+  and still applied. A CLI run stops on either.
 
 ### Changed
 
@@ -44,9 +48,9 @@ release section links to its GitHub release notes for the full details.
   release matrix now separates the Rust toolchain triple (`target`) from
   the platform shorthand (`arch`), which keeps the existing wheel and
   artifact names unchanged. (#259)
-- A malformed `exclude` glob no longer disables the other patterns for the
-  language server: the server reports it once per configuration load and keeps
-  applying the rest. A CLI run still stops on the same pattern.
+- `RuleCategory`, `Applicability`, and `DiffStatus` are real `enum.Enum`
+  subclasses: they iterate, they carry `.name` and `.value`, and
+  `isinstance(x, enum.Enum)` holds.
 
 ## [8.0.1] - 2026-09-06
 
