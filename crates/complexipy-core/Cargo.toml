@@ -15,11 +15,12 @@ name = "complexipy_core"
 [features]
 default = ["runner"]
 runner = ["dep:ignore", "dep:globset", "dep:wax", "dep:rayon"]
-python = ["dep:pyo3"]
+python = ["dep:pyo3", "complexipy-types/python"]
 wasm = []
 config = ["dep:toml"]
 
 [dependencies]
+complexipy-types = { path = "../complexipy-types" }
 ruff_python_parser = { workspace = true }
 ruff_python_ast = { workspace = true }
 regex = { workspace = true }

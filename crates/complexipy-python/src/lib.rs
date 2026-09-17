@@ -3,6 +3,8 @@ use pyo3::prelude::*;
 mod py_diff {
     use pyo3::prelude::*;
 
+    pub use complexipy_types::DiffStatus;
+
     #[pyclass(module = "complexipy", get_all, from_py_object)]
     #[derive(Clone)]
     pub struct DiffEntry {
@@ -10,21 +12,6 @@ mod py_diff {
         pub func_name: String,
         pub old_complexity: Option<u64>,
         pub new_complexity: Option<u64>,
-    }
-
-    #[pyclass(module = "complexipy", get_all, from_py_object)]
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    pub enum DiffStatus {
-        #[pyo3(name = "REGRESSED")]
-        Regressed,
-        #[pyo3(name = "IMPROVED")]
-        Improved,
-        #[pyo3(name = "UNCHANGED")]
-        Unchanged,
-        #[pyo3(name = "NEW")]
-        New,
-        #[pyo3(name = "REMOVED")]
-        Removed,
     }
 
     #[pymethods]
@@ -53,7 +40,6 @@ mod py_diff {
                 new_complexity: self.new_complexity,
             }
             .status()
-            .into()
         }
     }
 
@@ -78,19 +64,6 @@ mod py_diff {
             }
         }
     }
-
-    impl From<complexipy_core::diff::DiffStatus> for DiffStatus {
-        fn from(status: complexipy_core::diff::DiffStatus) -> Self {
-            use complexipy_core::diff::DiffStatus as RustDiffStatus;
-            match status {
-                RustDiffStatus::Regressed => Self::Regressed,
-                RustDiffStatus::Improved => Self::Improved,
-                RustDiffStatus::Unchanged => Self::Unchanged,
-                RustDiffStatus::New => Self::New,
-                RustDiffStatus::Removed => Self::Removed,
-            }
-        }
-    }
 }
 
 #[pymodule]
@@ -100,11 +73,11 @@ mod _complexipy {
     use pyo3::exceptions::PyValueError;
     use pyo3::prelude::*;
 
-    use super::py_diff::{DiffEntry, DiffStatus};
+    use super::py_diff::DiffEntry;
 
     use complexipy_core::classes::{
-        Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
-        IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
+        CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity, IgnoredLocation,
+        LineComplexity, RefactorPlan, RemovableIgnore,
     };
 
     #[pyfunction]
@@ -220,6 +193,8 @@ mod _complexipy {
 
     #[pymodule_init]
     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        let py = m.py();
+
         m.add_function(wrap_pyfunction!(file_complexity, m)?)?;
         m.add_function(wrap_pyfunction!(code_complexity, m)?)?;
         m.add_function(wrap_pyfunction!(collect_all_ignored_locations, m)?)?;
@@ -229,8 +204,6 @@ mod _complexipy {
         m.add_function(wrap_pyfunction!(compute_diff, m)?)?;
         m.add_function(wrap_pyfunction!(has_regressions, m)?)?;
         m.add_class::<DiffEntry>()?;
-        m.add_class::<DiffStatus>()?;
-        m.add_class::<Applicability>()?;
         m.add_class::<CodeComplexity>()?;
         m.add_class::<CodeSuggestion>()?;
         m.add_class::<FileComplexity>()?;
@@ -239,7 +212,9 @@ mod _complexipy {
         m.add_class::<LineComplexity>()?;
         m.add_class::<RefactorPlan>()?;
         m.add_class::<RemovableIgnore>()?;
-        m.add_class::<RuleCategory>()?;
+        m.add("Applicability", complexipy_types::applicability_class(py)?)?;
+        m.add("DiffStatus", complexipy_types::diff_status_class(py)?)?;
+        m.add("RuleCategory", complexipy_types::rule_category_class(py)?)?;
         Ok(())
     }
 }

@@ -1,0 +1,21 @@
+[package]
+name = "complexipy-types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "complexipy_types"
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dependencies]
+serde = { workspace = true }
+pyo3 = { workspace = true, optional = true }

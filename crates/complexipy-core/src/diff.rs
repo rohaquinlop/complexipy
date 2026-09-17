@@ -9,14 +9,7 @@ use crate::classes::FileComplexity;
 const GIT_TIMEOUT: Duration = Duration::from_secs(15);
 const GIT_ROOT_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum DiffStatus {
-    Regressed,
-    Improved,
-    Unchanged,
-    New,
-    Removed,
-}
+pub use complexipy_types::DiffStatus;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffEntry {

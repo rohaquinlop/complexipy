@@ -3,6 +3,8 @@ use pyo3::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
+pub use complexipy_types::{Applicability, RuleCategory};
+
 #[cfg_attr(
     feature = "python",
     pyclass(module = "complexipy", get_all, from_py_object)
@@ -23,27 +25,6 @@ pub struct CodeSuggestion {
     pub applicability: Applicability,
     pub description: String,
     pub spliceable: bool,
-}
-
-#[cfg_attr(
-    feature = "python",
-    pyclass(module = "complexipy", get_all, from_py_object)
-)]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub enum RuleCategory {
-    Complexity,
-    Readability,
-}
-
-#[cfg_attr(
-    feature = "python",
-    pyclass(module = "complexipy", get_all, from_py_object)
-)]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub enum Applicability {
-    MachineApplicable,
-    MaybeIncorrect,
-    Informational,
 }
 
 #[cfg_attr(
