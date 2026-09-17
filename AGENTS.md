@@ -171,15 +171,24 @@ complexipy/__init__.py   public API: re-exports _complexipy names + file_complex
 
 ### The FFI contract
 
-Every Rust-side type crosses into Python through
-`crates/complexipy-core/src/classes.rs` (`FileComplexity`, `FunctionComplexity`,
-`LineComplexity`, `RefactorPlan`, `CodeSuggestion`, `RuleCategory`,
-`Applicability`, `IgnoredLocation`, `RemovableIgnore`, `CodeComplexity`).
-Changing one of those structs means updating **three** places in lockstep:
-`crates/complexipy-core/src/classes.rs` → the `#[pymodule]` export list in
-`crates/complexipy-python/src/lib.rs` → the stubs in `complexipy/_complexipy.pyi`.
-The core crate's `python` feature gates the `#[pyclass]` attributes on the shared
-types.
+Every Rust-side type crosses into Python through two sources: the three enum
+types in `crates/complexipy-types/src/lib.rs` (`RuleCategory`, `Applicability`,
+`DiffStatus`) and the structs in `crates/complexipy-core/src/classes.rs`
+(`FileComplexity`, `FunctionComplexity`, `LineComplexity`, `RefactorPlan`,
+`CodeSuggestion`, `IgnoredLocation`, `RemovableIgnore`, `CodeComplexity`), plus
+`DiffEntry` in the extension crate. Changing one of those types means updating
+**four** places in lockstep: the type declaration -> the `#[pymodule]` export
+list in `crates/complexipy-python/src/lib.rs` -> the stubs in
+`complexipy/_complexipy.pyi` -> `tests/test_stubs.py`, which reads the Rust
+declarations and fails when the stub disagrees.
+
+The core crate's `python` feature gates the `#[pyclass]` attributes on the
+shared structs and forwards to `complexipy-types/python` for the enum classes.
+The three enums are real `enum.Enum` classes, not pyclasses: the types crate
+builds each one once and caches it, and the extension crate adds the cached
+object with `m.add`, so the class a getter returns is the class the module
+exposes. `complexipy-core/src/diff.rs` re-exports `DiffStatus` from the types
+crate, so the engine's status type and the Python one are the same type.
 
 `complexipy/__init__.py` is the public Python API surface: `code_complexity`,
 `file_complexity`, `collect_all_ignored_locations`,
@@ -295,7 +304,11 @@ a pattern that does not compile, so one typo cannot disable the valid ones, and
 the server reports the malformed patterns once per config load through
 `helpers::exclude::invalid_exclude_patterns`. Both sides rewrite a backslash
 separator to a slash before they compile a pattern, so a Windows-style pattern
-behaves the same on both sides.
+behaves the same on both sides. A list whose patterns are each valid but too
+large to compile as one program makes the walker stop the run and makes the
+server report the overflow once per config load through
+`helpers::exclude::exclude_list_overflows` and keep matching. That difference is
+deliberate: a batch tool refuses a config it cannot honor, an editor degrades.
 `crates/complexipy-core/src/helpers/exclude/tests.rs` pins the two matchers
 together over a temporary tree, so a change to either matcher has to keep both
 in agreement.
@@ -305,6 +318,12 @@ in agreement.
 The workspace splits the build targets across crates instead of feature
 flags:
 
+- `complexipy-types` - the three shared value enums (`RuleCategory`,
+  `Applicability`, `DiffStatus`) and their Python binding. Features:
+  `default = []`, `python` (pyo3 glue: the `enum.Enum` classes, `IntoPyObject`,
+  `FromPyObject`). Every crate that needs the enums takes it with default
+  features off, and `complexipy-core` forwards its own `python` feature to it,
+  so pyo3 never enters the wasm or CLI builds.
 - `complexipy-core` - target-agnostic engine. Features: `default = ["runner"]`,
   `runner` (file-walker deps `ignore`/`globset`/`wax`), `python` (pyo3 `#[pyclass]`
   attributes on shared types), `wasm` (adds `CodeComplexity.version`), `config`
@@ -314,13 +333,17 @@ flags:
   `lsp-server`/`lsp-types`. Never on the cli crate, so no clap, `syntect`,
   `comfy-table`, or `owo-colors` reaches the server.
 - `complexipy-python` - PyO3 module; depends on core (`python`, `runner`, `config`),
-  the cli crate (for `run_cli`), and the lsp crate (for `run_lsp`). Built by maturin
+  the cli crate (for `run_cli`), the lsp crate (for `run_lsp`), and the types
+  crate (`python`, to add the enum classes). Built by maturin
   via `manifest-path` in pyproject.toml.
 - `complexipy-wasm` - wasm-bindgen entry; depends on core with
   `default-features = false` and `features = ["wasm"]`.
 
-Dependency direction is one-way: python → lsp, cli, core; wasm → core. Never the
-reverse. Adding a dependency means adding it to the crate that uses it.
+Dependency direction is one-way: python -> lsp, cli, core; lsp -> core; cli ->
+core; wasm -> core; core -> types. Never the reverse. The CLI, the server, and
+the wasm crate read the enum types through core's re-exports, so they need no
+edge of their own to the types crate. Adding a dependency means adding it to the
+crate that uses it.
 
 ## Testing
 
