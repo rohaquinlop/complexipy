@@ -44,6 +44,9 @@ release section links to its GitHub release notes for the full details.
   release matrix now separates the Rust toolchain triple (`target`) from
   the platform shorthand (`arch`), which keeps the existing wheel and
   artifact names unchanged. (#259)
+- A malformed `exclude` glob no longer disables the other patterns for the
+  language server: the server reports it once per configuration load and keeps
+  applying the rest. A CLI run still stops on the same pattern.
 
 ## [8.0.1] - 2026-09-06
 

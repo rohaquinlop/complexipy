@@ -1,6 +1,6 @@
 #![cfg(feature = "runner")]
 
-use complexipy_core::{is_path_excluded, validate_exclude_patterns};
+use complexipy_core::{invalid_exclude_patterns, is_path_excluded};
 
 #[test]
 fn no_patterns_excludes_nothing() {
@@ -69,14 +69,25 @@ fn multiple_patterns_are_alternatives() {
 }
 
 #[test]
-fn validation_accepts_no_patterns_and_real_globs() {
-    assert!(validate_exclude_patterns(&[]).is_ok());
-    assert!(validate_exclude_patterns(&["legacy/**".to_string()]).is_ok());
+fn a_valid_pattern_survives_a_malformed_one() {
+    let patterns = vec!["[unclosed".to_string(), "build/**".to_string()];
+
+    assert!(is_path_excluded("/repo/build/a.py", "/repo", &patterns));
+    assert!(!is_path_excluded("/repo/src/a.py", "/repo", &patterns));
 }
 
 #[test]
-fn validation_rejects_a_malformed_glob() {
-    let error = validate_exclude_patterns(&["[unclosed".to_string()]).unwrap_err();
+fn validation_accepts_no_patterns_and_real_globs() {
+    assert!(invalid_exclude_patterns(&[]).is_empty());
+    assert!(invalid_exclude_patterns(&["legacy/**".to_string()]).is_empty());
+}
 
-    assert!(error.contains("invalid exclude pattern"));
+#[test]
+fn validation_reports_only_the_malformed_globs() {
+    let patterns = vec!["legacy/**".to_string(), "[unclosed".to_string()];
+
+    assert_eq!(
+        invalid_exclude_patterns(&patterns),
+        vec!["[unclosed".to_string()]
+    );
 }

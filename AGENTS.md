@@ -289,8 +289,14 @@ analyzes only `python` documents, or paths ending in `.py`.
 `exclude` has two matchers: the walker's `glob.walk(root).not(any(patterns))`
 filter, which prunes matching directories during the walk, and
 `helpers::exclude::is_path_excluded`, which the server uses for open documents.
-`crates/complexipy-core/src/helpers/exclude/tests.rs` pins them together over a
-temporary tree, so a change to either matcher has to keep both in agreement.
+The walker builds one program from the whole list, so it fails the run when a
+pattern is malformed. `is_path_excluded` matches one pattern at a time and skips
+a pattern that does not compile, so one typo cannot disable the valid ones, and
+the server reports the malformed patterns once per config load through
+`helpers::exclude::invalid_exclude_patterns`.
+`crates/complexipy-core/src/helpers/exclude/tests.rs` pins the two matchers
+together over a temporary tree, so a change to either matcher has to keep both
+in agreement.
 
 ### Dual-target Rust
 

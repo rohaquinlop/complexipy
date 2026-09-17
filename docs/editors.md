@@ -194,6 +194,8 @@ nested function therefore shows its parent.
 
 - `exclude` globs are matched relative to the workspace root. Excluded files
   produce no hints and no diagnostics.
+- A malformed glob is reported once per configuration load on the server log
+  and skipped. The other patterns in the list keep applying.
 - Inline suppression comments (`# noqa: complexipy` and
   `# complexipy: ignore`) are honored exactly as in the CLI, unless
   `no-ignore = true`.

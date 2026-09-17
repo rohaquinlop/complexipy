@@ -24,7 +24,7 @@ pub use classes::{
 };
 pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_regressions};
 #[cfg(feature = "runner")]
-pub use helpers::exclude::{is_path_excluded, validate_exclude_patterns};
+pub use helpers::exclude::{invalid_exclude_patterns, is_path_excluded};
 #[cfg(feature = "runner")]
 pub use runner::{
     collect_all_ignored_locations_shared as collect_all_ignored_locations,

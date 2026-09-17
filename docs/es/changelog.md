@@ -47,6 +47,10 @@ GitHub con todos los detalles.
   RISC-V. La matriz de release ahora separa el triple del toolchain de Rust
   (`target`) del nombre corto de la plataforma (`arch`), lo que mantiene sin
   cambios los nombres de wheels y artefactos existentes. (#259)
+- Un glob de `exclude` mal formado ya no desactiva el resto de patrones en el
+  servidor de lenguaje: el servidor lo reporta una vez por carga de
+  configuración y sigue aplicando los demás. Una ejecución de la CLI sigue
+  deteniéndose con ese mismo patrón.
 
 ## [8.0.1] - 2026-09-06
 

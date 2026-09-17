@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
 use complexipy_core::config::{LspConfig, read_complexipy_config};
-use complexipy_core::{is_path_excluded, validate_exclude_patterns};
+use complexipy_core::{invalid_exclude_patterns, is_path_excluded};
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -128,9 +128,15 @@ fn load_config(root: &str) -> LspConfig {
     match LspConfig::deserialize(source.value) {
         Ok(config) => {
             let patterns = config.exclude.clone().into_vec();
+            let invalid = invalid_exclude_patterns(&patterns);
 
-            if let Err(error) = validate_exclude_patterns(&patterns) {
-                eprintln!("{}: {}: {}", SERVER_NAME, source.path.display(), error);
+            if !invalid.is_empty() {
+                eprintln!(
+                    "{}: {}: ignoring invalid exclude patterns: {:?}",
+                    SERVER_NAME,
+                    source.path.display(),
+                    invalid
+                );
             }
 
             config

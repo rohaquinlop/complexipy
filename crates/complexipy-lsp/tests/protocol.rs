@@ -356,6 +356,20 @@ fn excluded_documents_produce_no_output() {
 }
 
 #[test]
+fn a_malformed_pattern_keeps_the_valid_exclusions() {
+    let mut session = start();
+    session.write_config("max-complexity-allowed = 2\nexclude = [\"[unclosed\", \"sample.py\"]\n");
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    assert!(session.diagnostics(&uri).is_empty());
+    assert!(session.inlay_hints(&uri).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
 fn reloads_config_on_request() {
     let mut session = start();
     session.initialize();

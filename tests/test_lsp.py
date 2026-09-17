@@ -333,6 +333,32 @@ def test_invalid_exclude_pattern_keeps_the_server_running(
         assert session.shutdown() == 0
 
 
+def test_a_malformed_pattern_keeps_the_valid_exclusions(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "complexipy.toml").write_text(
+        'max-complexity-allowed = 2\nexclude = ["[unclosed", "heavy.py"]\n'
+    )
+    heavy_uri = (tmp_path / "heavy.py").as_uri()
+    other_uri = (tmp_path / "other.py").as_uri()
+
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.notify("textDocument/didOpen", document(heavy_uri, HEAVY))
+        excluded = session.await_notification("textDocument/publishDiagnostics")
+
+        assert excluded["uri"] == heavy_uri
+        assert excluded["diagnostics"] == []
+
+        session.notify("textDocument/didOpen", document(other_uri, HEAVY))
+        analyzed = session.await_notification("textDocument/publishDiagnostics")
+
+        assert analyzed["uri"] == other_uri
+        assert len(analyzed["diagnostics"]) == 1
+        assert session.shutdown() == 0
+        assert "[unclosed" in session.stderr_text()
+
+
 def test_requests_narrowed_to_a_range_drop_other_hints(tmp_path: Path) -> None:
     (tmp_path / "complexipy.toml").write_text(STRICT_CONFIG)
     uri = (tmp_path / "heavy.py").as_uri()

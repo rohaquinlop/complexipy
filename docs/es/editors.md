@@ -201,6 +201,9 @@ función padre.
 
 - Los globs de `exclude` se emparejan de forma relativa a la raíz del espacio
   de trabajo. Los archivos excluidos no producen hints ni diagnósticos.
+- Un glob mal formado se reporta una vez por carga de configuración en el
+  registro del servidor y se omite. El resto de patrones de la lista siguen
+  aplicándose.
 - Los comentarios de supresión en línea (`# noqa: complexipy` y
   `# complexipy: ignore`) se respetan exactamente igual que en la CLI, a menos
   que `no-ignore = true`.

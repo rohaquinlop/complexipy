@@ -12,12 +12,16 @@ pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
     let normalized_root = root.replace('\\', "/");
     let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
         .unwrap_or(normalized_path.as_str());
-    let pattern_refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
 
-    match any(pattern_refs) {
-        Ok(any) => any.is_match(relative),
-        Err(_) => false,
-    }
+    patterns
+        .iter()
+        .any(|pattern| pattern_matches(relative, pattern))
+}
+
+fn pattern_matches(relative: &str, pattern: &str) -> bool {
+    any([pattern])
+        .map(|program| program.is_match(relative))
+        .unwrap_or(false)
 }
 
 fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
@@ -32,16 +36,12 @@ fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
     path.strip_prefix(root)?.strip_prefix('/')
 }
 
-pub fn validate_exclude_patterns(patterns: &[String]) -> Result<(), String> {
-    if patterns.is_empty() {
-        return Ok(());
-    }
-
-    let pattern_refs: Vec<&str> = patterns.iter().map(|s| s.as_str()).collect();
-
-    any(pattern_refs)
-        .map(|_| ())
-        .map_err(|error| format!("invalid exclude pattern: {}", error))
+pub fn invalid_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    patterns
+        .iter()
+        .filter(|pattern| any([pattern.as_str()]).is_err())
+        .cloned()
+        .collect()
 }
 
 pub fn get_paths_to_process(
