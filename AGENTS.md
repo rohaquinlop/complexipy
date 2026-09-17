@@ -293,7 +293,9 @@ The walker builds one program from the whole list, so it fails the run when a
 pattern is malformed. `is_path_excluded` matches one pattern at a time and skips
 a pattern that does not compile, so one typo cannot disable the valid ones, and
 the server reports the malformed patterns once per config load through
-`helpers::exclude::invalid_exclude_patterns`.
+`helpers::exclude::invalid_exclude_patterns`. Both sides rewrite a backslash
+separator to a slash before they compile a pattern, so a Windows-style pattern
+behaves the same on both sides.
 `crates/complexipy-core/src/helpers/exclude/tests.rs` pins the two matchers
 together over a temporary tree, so a change to either matcher has to keep both
 in agreement.

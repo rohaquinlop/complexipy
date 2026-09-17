@@ -6,7 +6,7 @@ use super::*;
 
 const FILES: [&str; 3] = ["legacy/old.py", "src/new.py", "mix.py"];
 const PATTERNS: [&str; 4] = ["legacy/**", "**/legacy/**", "legacy", "src/*.py"];
-const VALIDITY_CORPUS: [&str; 14] = [
+const VALIDITY_CORPUS: [&str; 16] = [
     "legacy/**",
     "**/legacy/**",
     "legacy",
@@ -17,6 +17,8 @@ const VALIDITY_CORPUS: [&str; 14] = [
     "a/**b",
     "/abs/legacy/**",
     "mix{**/.py,z}",
+    "src\\*.py",
+    "a\\[b",
     "",
     "[unclosed",
     "**.[",
@@ -108,6 +110,16 @@ fn both_matchers_agree_on_a_list_holding_a_brace_group() {
     let patterns = vec!["mix{**/.py,z}".to_string(), "src/*.py".to_string()];
 
     agreement(&root, &patterns);
+}
+
+#[test]
+fn both_matchers_agree_on_a_pattern_with_separators() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+
+    for pattern in ["src\\*.py", "legacy\\**", "legacy\\old.py"] {
+        agreement(&root, &[pattern.to_string()]);
+    }
 }
 
 #[test]

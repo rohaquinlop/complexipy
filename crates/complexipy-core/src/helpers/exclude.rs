@@ -1,4 +1,5 @@
 use ignore::Walk;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use wax::walk::{Entry, FileIterator};
 use wax::{Glob, Program, any};
@@ -19,9 +20,17 @@ pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
 }
 
 fn pattern_matches(relative: &str, pattern: &str) -> bool {
-    any([pattern])
+    any([normalized_pattern(pattern).as_ref()])
         .map(|program| program.is_match(relative))
         .unwrap_or(false)
+}
+
+fn normalized_pattern(pattern: &str) -> Cow<'_, str> {
+    if pattern.contains('\\') {
+        Cow::Owned(pattern.replace('\\', "/"))
+    } else {
+        Cow::Borrowed(pattern)
+    }
 }
 
 fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
@@ -39,7 +48,7 @@ fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
 pub fn invalid_exclude_patterns(patterns: &[String]) -> Vec<String> {
     patterns
         .iter()
-        .filter(|pattern| any([pattern.as_str()]).is_err())
+        .filter(|pattern| any([normalized_pattern(pattern.as_str()).as_ref()]).is_err())
         .cloned()
         .collect()
 }
