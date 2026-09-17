@@ -102,6 +102,15 @@ fn both_matchers_agree_on_a_brace_group() {
 }
 
 #[test]
+fn both_matchers_agree_on_a_list_holding_a_brace_group() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    let patterns = vec!["mix{**/.py,z}".to_string(), "src/*.py".to_string()];
+
+    agreement(&root, &patterns);
+}
+
+#[test]
 fn a_pattern_is_reported_when_the_walker_refuses_it() {
     let dir = tree();
     let root = canonical_root(&dir);
