@@ -64,6 +64,13 @@ class DiffEntry:
     new_complexity: Optional[int]
     """Complexity in the new version, or None if the function was removed."""
 
+    def __init__(
+        self,
+        file_path: str,
+        func_name: str,
+        old_complexity: Optional[int],
+        new_complexity: Optional[int],
+    ) -> None: ...
     @property
     def status(self) -> DiffStatus:
         """Comparison status derived from old and new complexity."""
@@ -83,14 +90,6 @@ class CodeSuggestion:
 
     spliceable: bool
     """Whether the replacement is a faithful source splice that can be measured."""
-
-    def __init__(
-        self,
-        replacement: str,
-        applicability: Applicability,
-        description: str,
-        spliceable: bool,
-    ) -> None: ...
 
 class LineComplexity:
     """
@@ -122,8 +121,6 @@ class LineComplexity:
     - 0: No complexity contribution (simple statements)
     - 1+: Complexity added by control flow structures on this line
     """
-
-    def __init__(self, line: int, complexity: int) -> None: ...
 
 class RefactorPlan:
     """Deterministic refactoring plan for reducing one function's complexity.
@@ -190,28 +187,6 @@ class RefactorPlan:
 
     doc_url: str
     """URL to the documentation page for this rule."""
-
-    def __init__(
-        self,
-        kind: str,
-        title: str,
-        line_start: int,
-        line_end: int,
-        column_start: int,
-        current_complexity: int,
-        estimated_reduction: int,
-        estimated_complexity_after: int,
-        reduction_is_measured: bool,
-        rule_id: str,
-        category: RuleCategory,
-        applicability: Applicability,
-        description: str,
-        explanation: str,
-        references: List[str],
-        suggestion: Optional[CodeSuggestion],
-        help: Optional[str],
-        doc_url: str,
-    ) -> None: ...
 
 class FunctionComplexity:
     """
@@ -295,17 +270,6 @@ class FunctionComplexity:
     additional_refactor_plans: int
     """Count of further plans that survived dedup but were dropped by the cap."""
 
-    def __init__(
-        self,
-        name: str,
-        complexity: int,
-        line_start: int,
-        line_end: int,
-        line_complexities: List[LineComplexity],
-        refactor_plans: List[RefactorPlan],
-        additional_refactor_plans: int,
-    ) -> None: ...
-
 class FileComplexity:
     """
     Represents the cognitive complexity analysis of a Python source file.
@@ -377,14 +341,6 @@ class FileComplexity:
     of the module and can help identify files that need refactoring.
     """
 
-    def __init__(
-        self,
-        path: str,
-        file_name: str,
-        functions: List[FunctionComplexity],
-        complexity: int,
-    ) -> None: ...
-
 class CodeComplexity:
     """
     Represents the cognitive complexity analysis of a Python code string.
@@ -436,10 +392,6 @@ class CodeComplexity:
     provided code. It gives an overall measure of how complex the code is.
     """
 
-    def __init__(
-        self, functions: List[FunctionComplexity], complexity: int
-    ) -> None: ...
-
 class IgnoredLocation:
     """
     Represents a single '# complexipy: ignore' or '# noqa: complexipy'
@@ -465,8 +417,6 @@ class IgnoredLocation:
 
     comment: str
     """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
-
-    def __init__(self, path: str, line: int, comment: str) -> None: ...
 
 class RemovableIgnore:
     """
@@ -502,10 +452,6 @@ class RemovableIgnore:
 
     complexity: int
     """The function's cognitive complexity measured without the ignore comment."""
-
-    def __init__(
-        self, path: str, line: int, comment: str, function: str, complexity: int
-    ) -> None: ...
 
 def code_complexity(
     code: str, check_script: bool = False, no_ignore: bool = False
