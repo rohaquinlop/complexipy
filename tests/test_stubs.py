@@ -1,15 +1,18 @@
 """Tests that the extension stub matches the extension module.
 
 The `.pyi` file is hand-maintained, so it can drift from the extension in
-either direction. These tests compare the declared top-level names and the
-declared constructors against the live module, and they exercise the one
-class the extension lets callers build.
+either direction. These tests use the live module as the oracle: they compare
+the declared top-level names, they check that a declared constructor exists
+exactly where the extension can build an instance, and they call `DiffEntry`
+through the parameter names the stub declares, so a renamed or reordered
+parameter fails. Field annotations are not compared.
 """
 
 from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -41,6 +44,49 @@ def declared_classes() -> dict[str, set[str]]:
         for node in stub_tree().body
         if isinstance(node, ast.ClassDef)
     }
+
+
+def constructor_parameters(class_name: str) -> dict[str, ast.expr | None]:
+    """Map each declared constructor parameter to its annotation."""
+    for node in stub_tree().body:
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+
+        for member in node.body:
+            if (
+                isinstance(member, ast.FunctionDef)
+                and member.name == "__init__"
+            ):
+                return {
+                    argument.arg: argument.annotation
+                    for argument in member.args.args
+                    if argument.arg != "self"
+                }
+
+    raise AssertionError(f"{class_name} declares no constructor")
+
+
+def declares_optional(annotation: ast.expr | None) -> bool:
+    return (
+        isinstance(annotation, ast.Subscript)
+        and isinstance(annotation.value, ast.Name)
+        and annotation.value.id == "Optional"
+    )
+
+
+def accepts_none(position: int) -> bool:
+    constructor: Any = extension.DiffEntry
+    arguments: list[Any] = [
+        None if index == position else argument
+        for index, argument in enumerate(["sample.py", "heavy", 1, 2])
+    ]
+
+    try:
+        constructor(*arguments)
+    except TypeError:
+        return False
+
+    return True
 
 
 def exported_names() -> set[str]:
@@ -93,19 +139,36 @@ def test_the_extension_refuses_classes_without_a_declared_constructor() -> None:
             getattr(extension, name)()
 
 
+DIFF_ENTRY_VALUES = ("sample.py", "heavy", 1, 2)
+
+
 def test_diff_entry_accepts_the_declared_arguments() -> None:
-    entry = extension.DiffEntry(
-        file_path="sample.py",
-        func_name="heavy",
-        old_complexity=1,
-        new_complexity=2,
-    )
+    names = list(constructor_parameters("DiffEntry"))
+    entry = extension.DiffEntry(**dict(zip(names, DIFF_ENTRY_VALUES)))
 
     assert entry.file_path == "sample.py"
     assert entry.func_name == "heavy"
     assert entry.old_complexity == 1
     assert entry.new_complexity == 2
     assert entry.status is extension.DiffStatus.REGRESSED
+
+    added = extension.DiffEntry("sample.py", "heavy", None, 2)
+
+    assert added.old_complexity is None
+    assert added.status is extension.DiffStatus.NEW
+
+
+def test_stub_marks_the_optional_parameters_as_optional() -> None:
+    parameters = constructor_parameters("DiffEntry")
+
+    for position, (name, annotation) in enumerate(parameters.items()):
+        expected = accepts_none(position)
+        declared = declares_optional(annotation)
+
+        assert declared == expected, (
+            f"{name} is declared Optional={declared}, but the extension "
+            f"answers accepts_none={expected}"
+        )
 
 
 def test_bootstrap_functions_stay_out_of_the_public_api() -> None:
