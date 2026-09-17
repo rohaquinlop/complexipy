@@ -53,6 +53,20 @@ pub fn invalid_exclude_patterns(patterns: &[String]) -> Vec<String> {
         .collect()
 }
 
+pub fn exclude_list_overflows(patterns: &[String]) -> bool {
+    if patterns.is_empty() || !invalid_exclude_patterns(patterns).is_empty() {
+        return false;
+    }
+
+    let normalized: Vec<String> = patterns
+        .iter()
+        .map(|pattern| normalized_pattern(pattern).into_owned())
+        .collect();
+    let pattern_refs: Vec<&str> = normalized.iter().map(|s| s.as_str()).collect();
+
+    any(pattern_refs).is_err()
+}
+
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,

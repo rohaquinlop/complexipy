@@ -357,6 +357,35 @@ def test_a_malformed_pattern_keeps_the_valid_exclusions(
         assert len(analyzed["diagnostics"]) == 1
         assert session.shutdown() == 0
         assert "[unclosed" in session.stderr_text()
+        assert "too large" not in session.stderr_text()
+
+
+def test_an_oversized_exclude_list_is_reported(tmp_path: Path) -> None:
+    patterns = ", ".join(f'"**/dir{index}/**/*.py"' for index in range(5_000))
+    (tmp_path / "complexipy.toml").write_text(
+        f"max-complexity-allowed = 2\nexclude = [{patterns}]\n"
+    )
+    excluded_uri = (tmp_path / "dir0" / "heavy.py").as_uri()
+    analyzed_uri = (tmp_path / "heavy.py").as_uri()
+
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.notify("textDocument/didOpen", document(excluded_uri, HEAVY))
+        excluded = session.await_notification("textDocument/publishDiagnostics")
+
+        assert excluded["diagnostics"] == []
+
+        session.notify("textDocument/didOpen", document(analyzed_uri, HEAVY))
+        analyzed = session.await_notification("textDocument/publishDiagnostics")
+
+        assert len(analyzed["diagnostics"]) == 1
+        assert session.shutdown() == 0
+
+        stderr = session.stderr_text()
+
+        assert "complexipy.toml" in stderr
+        assert "5000 patterns" in stderr
+        assert stderr.count("too large") == 1
 
 
 def test_requests_narrowed_to_a_range_drop_other_hints(tmp_path: Path) -> None:

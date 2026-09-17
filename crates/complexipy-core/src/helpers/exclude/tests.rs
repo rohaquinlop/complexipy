@@ -169,6 +169,33 @@ fn an_invalid_pattern_does_not_disable_the_valid_ones() {
 }
 
 #[test]
+fn a_normal_list_does_not_overflow() {
+    assert!(!exclude_list_overflows(&[]));
+    assert!(!exclude_list_overflows(&["legacy/**".to_string()]));
+    assert!(!exclude_list_overflows(&[
+        "legacy/**".to_string(),
+        "src/*.py".to_string(),
+    ]));
+}
+
+#[test]
+fn a_malformed_list_is_not_reported_as_overflowing() {
+    let patterns = vec!["[unclosed".to_string(), "legacy/**".to_string()];
+
+    assert!(!exclude_list_overflows(&patterns));
+}
+
+#[test]
+fn a_list_too_large_for_one_program_is_reported_as_overflowing() {
+    let patterns: Vec<String> = (0..5_000)
+        .map(|index| format!("**/dir{index}/**/*.py"))
+        .collect();
+
+    assert!(invalid_exclude_patterns(&patterns).is_empty());
+    assert!(exclude_list_overflows(&patterns));
+}
+
+#[test]
 fn a_sibling_directory_is_not_inside_the_root() {
     let dir = tree();
     let root = canonical_root(&dir);

@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
 use complexipy_core::config::{LspConfig, read_complexipy_config};
-use complexipy_core::{invalid_exclude_patterns, is_path_excluded};
+use complexipy_core::{exclude_list_overflows, invalid_exclude_patterns, is_path_excluded};
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -136,6 +136,14 @@ fn load_config(root: &str) -> LspConfig {
                     SERVER_NAME,
                     source.path.display(),
                     invalid
+                );
+            } else if exclude_list_overflows(&patterns) {
+                eprintln!(
+                    "{}: {}: the exclude list of {} patterns is too large to \
+                     compile as one program; matching one pattern at a time",
+                    SERVER_NAME,
+                    source.path.display(),
+                    patterns.len()
                 );
             }
 
