@@ -43,6 +43,10 @@ GitHub con todos los detalles.
   de `complexipy-core`, y la CLI lo sigue reexportando desde su ruta anterior.
   Todos los crates del workspace siguen siendo `publish = false`, así que no
   cambia ninguna API pública de Rust.
+- Se añadieron builds de wheels `manylinux_2_31_riscv64` para soporte de
+  RISC-V. La matriz de release ahora separa el triple del toolchain de Rust
+  (`target`) del nombre corto de la plataforma (`arch`), lo que mantiene sin
+  cambios los nombres de wheels y artefactos existentes. (#259)
 
 ## [8.0.1] - 2026-09-06
 
