@@ -1,7 +1,71 @@
 use ignore::Walk;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use wax::walk::{Entry, FileIterator};
-use wax::{Glob, any};
+use wax::{Glob, Program, any};
+
+pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
+    if patterns.is_empty() {
+        return false;
+    }
+
+    let normalized_path = path.replace('\\', "/");
+    let normalized_root = root.replace('\\', "/");
+    let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+        .unwrap_or(normalized_path.as_str());
+
+    patterns
+        .iter()
+        .any(|pattern| pattern_matches(relative, pattern))
+}
+
+fn pattern_matches(relative: &str, pattern: &str) -> bool {
+    any([normalized_pattern(pattern).as_ref()])
+        .map(|program| program.is_match(relative))
+        .unwrap_or(false)
+}
+
+fn normalized_pattern(pattern: &str) -> Cow<'_, str> {
+    if pattern.contains('\\') {
+        Cow::Owned(pattern.replace('\\', "/"))
+    } else {
+        Cow::Borrowed(pattern)
+    }
+}
+
+fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
+    if root.is_empty() {
+        return Some(path.trim_start_matches('/'));
+    }
+
+    if path == root {
+        return Some("");
+    }
+
+    path.strip_prefix(root)?.strip_prefix('/')
+}
+
+pub fn invalid_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    patterns
+        .iter()
+        .filter(|pattern| any([normalized_pattern(pattern.as_str()).as_ref()]).is_err())
+        .cloned()
+        .collect()
+}
+
+pub fn exclude_list_overflows(patterns: &[String]) -> bool {
+    if patterns.is_empty() || !invalid_exclude_patterns(patterns).is_empty() {
+        return false;
+    }
+
+    let normalized: Vec<String> = patterns
+        .iter()
+        .map(|pattern| normalized_pattern(pattern).into_owned())
+        .collect();
+    let pattern_refs: Vec<&str> = normalized.iter().map(|s| s.as_str()).collect();
+
+    any(pattern_refs).is_err()
+}
 
 pub fn get_paths_to_process(
     root_path: &str,
@@ -52,3 +116,6 @@ pub fn get_paths_to_process(
 
     Ok(files_paths)
 }
+
+#[cfg(test)]
+mod tests;

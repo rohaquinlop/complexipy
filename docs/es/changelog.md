@@ -6,12 +6,55 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Añadido
+
+- Un servidor de lenguaje: `complexipy lsp` habla el Language Server Protocol
+  por stdio, así que cualquier editor con cliente LSP obtiene complejidad sin
+  código específico por editor. Responde a las peticiones de inlay hints con la
+  complejidad cognitiva de cada función y, opcionalmente, con el incremento que
+  aporta cada línea; responde al hover con el total de la función, su estado
+  respecto al umbral y la mejor sugerencia de refactorización; y publica una
+  advertencia por cada función por encima de `max-complexity-allowed`. Los
+  diagnósticos respetan los comentarios de ignorado en línea, así que el editor
+  y la CLI coinciden. El hint por función se coloca al final de la línea que
+  cierra la declaración, así que una firma repartida en varias líneas conserva
+  el hint en su línea de cierre, y un documento que no se puede analizar
+  conserva los últimos hints analizados más una advertencia
+  `complexipy-parse-error` hasta que vuelve a analizarse. Consulta
+  [Integración con Editores](https://complexipy.com/es/editors/) para la
+  configuración de Neovim y Zed.
+  ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+- Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
+  (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las
+  pistas se filtran por `max-complexity-allowed` por defecto, así que un
+  proyecto sin opciones recibe información solo donde importa.
+- `complexipy-core` incorpora una feature `config` que posee el descubrimiento
+  de archivos de configuración, para que la CLI y el servidor lean
+  `complexipy.toml`, `.complexipy.toml` y `pyproject.toml` por un único camino.
+- El servidor aplica `exclude` patrón a patrón: un patrón mal formado se
+  reporta una vez por carga de configuración y se omite mientras el resto siguen
+  aplicándose, y una lista demasiado grande para compilarse como un solo
+  programa se reporta una vez y se sigue aplicando. Una ejecución de la CLI se
+  detiene con cualquiera de los dos.
+
 ### Cambiado
 
+- `lsp` es un primer argumento reservado: `complexipy lsp` arranca el servidor
+  de lenguaje, así que un archivo o directorio con ese nombre necesita
+  `complexipy -- lsp` para analizarse. En una terminal, el servidor imprime esa
+  pista cuando están presentes la palabra reservada y una ruta llamada `lsp`.
+- `StringOrList` se movió de `complexipy-cli::types` al nuevo módulo `config`
+  de `complexipy-core`, y la CLI lo sigue reexportando desde su ruta anterior.
+  Todos los crates del workspace siguen siendo `publish = false`, así que no
+  cambia ninguna API pública de Rust.
 - Se añadieron builds de wheels `manylinux_2_31_riscv64` para soporte de
   RISC-V. La matriz de release ahora separa el triple del toolchain de Rust
   (`target`) del nombre corto de la plataforma (`arch`), lo que mantiene sin
   cambios los nombres de wheels y artefactos existentes. (#259)
+- `RuleCategory`, `Applicability` y `DiffStatus` son auténticas subclases de
+  `enum.Enum`: se pueden iterar, exponen `.name` y `.value`, y
+  `isinstance(x, enum.Enum)` se cumple.
 
 ## [8.0.1] - 2026-09-06
 

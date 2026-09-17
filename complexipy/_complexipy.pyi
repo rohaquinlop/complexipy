@@ -64,6 +64,13 @@ class DiffEntry:
     new_complexity: Optional[int]
     """Complexity in the new version, or None if the function was removed."""
 
+    def __init__(
+        self,
+        file_path: str,
+        func_name: str,
+        old_complexity: Optional[int],
+        new_complexity: Optional[int],
+    ) -> None: ...
     @property
     def status(self) -> DiffStatus:
         """Comparison status derived from old and new complexity."""
@@ -83,14 +90,6 @@ class CodeSuggestion:
 
     spliceable: bool
     """Whether the replacement is a faithful source splice that can be measured."""
-
-    def __init__(
-        self,
-        replacement: str,
-        applicability: Applicability,
-        description: str,
-        spliceable: bool,
-    ) -> None: ...
 
 class LineComplexity:
     """
@@ -122,8 +121,6 @@ class LineComplexity:
     - 0: No complexity contribution (simple statements)
     - 1+: Complexity added by control flow structures on this line
     """
-
-    def __init__(self, line: int, complexity: int) -> None: ...
 
 class RefactorPlan:
     """Deterministic refactoring plan for reducing one function's complexity.
@@ -190,28 +187,6 @@ class RefactorPlan:
 
     doc_url: str
     """URL to the documentation page for this rule."""
-
-    def __init__(
-        self,
-        kind: str,
-        title: str,
-        line_start: int,
-        line_end: int,
-        column_start: int,
-        current_complexity: int,
-        estimated_reduction: int,
-        estimated_complexity_after: int,
-        reduction_is_measured: bool,
-        rule_id: str,
-        category: RuleCategory,
-        applicability: Applicability,
-        description: str,
-        explanation: str,
-        references: List[str],
-        suggestion: Optional[CodeSuggestion],
-        help: Optional[str],
-        doc_url: str,
-    ) -> None: ...
 
 class FunctionComplexity:
     """
@@ -295,17 +270,6 @@ class FunctionComplexity:
     additional_refactor_plans: int
     """Count of further plans that survived dedup but were dropped by the cap."""
 
-    def __init__(
-        self,
-        name: str,
-        complexity: int,
-        line_start: int,
-        line_end: int,
-        line_complexities: List[LineComplexity],
-        refactor_plans: List[RefactorPlan],
-        additional_refactor_plans: int,
-    ) -> None: ...
-
 class FileComplexity:
     """
     Represents the cognitive complexity analysis of a Python source file.
@@ -377,14 +341,6 @@ class FileComplexity:
     of the module and can help identify files that need refactoring.
     """
 
-    def __init__(
-        self,
-        path: str,
-        file_name: str,
-        functions: List[FunctionComplexity],
-        complexity: int,
-    ) -> None: ...
-
 class CodeComplexity:
     """
     Represents the cognitive complexity analysis of a Python code string.
@@ -436,10 +392,6 @@ class CodeComplexity:
     provided code. It gives an overall measure of how complex the code is.
     """
 
-    def __init__(
-        self, functions: List[FunctionComplexity], complexity: int
-    ) -> None: ...
-
 class IgnoredLocation:
     """
     Represents a single '# complexipy: ignore' or '# noqa: complexipy'
@@ -465,8 +417,6 @@ class IgnoredLocation:
 
     comment: str
     """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
-
-    def __init__(self, path: str, line: int, comment: str) -> None: ...
 
 class RemovableIgnore:
     """
@@ -502,58 +452,6 @@ class RemovableIgnore:
 
     complexity: int
     """The function's cognitive complexity measured without the ignore comment."""
-
-    def __init__(
-        self, path: str, line: int, comment: str, function: str, complexity: int
-    ) -> None: ...
-
-def main(
-    paths: List[str],
-    quiet: bool,
-    exclude: List[str],
-    check_script: bool = False,
-    no_ignore: bool = False,
-    invocation_path: str = ".",
-) -> Tuple[List[FileComplexity], List[str]]:
-    """
-    Analyze cognitive complexity of Python files and directories.
-
-    This is the main analysis function that processes multiple paths, which can
-    be individual Python files, directories containing Python files, or Git
-    repository URLs. It recursively analyzes all Python files found.
-
-    The function handles various input types:
-    - Local Python files: '/path/to/file.py'
-    - Local directories: '/path/to/project/' (analyzes all .py files)
-    - Git repositories: 'https://github.com/user/repo.git'
-
-    Args:
-        paths: List of file paths, directory paths, or Git repository URLs to analyze.
-               Each path is processed independently and all results are combined.
-        quiet: If True, suppresses console output during analysis. Useful for
-               programmatic usage where you only want the returned data.
-        exclude: List of file paths, directory paths.
-                 Each path will be excluded from the analysis.
-
-    Returns:
-        List of FileComplexity objects, one for each Python file analyzed.
-        Files are ordered by discovery order during filesystem traversal.
-
-    Raises:
-        Various exceptions may be raised for invalid paths, permission errors,
-        or Git repository access issues.
-
-    Example:
-        >>> # Analyze a single file
-        >>> results = main(['/path/to/script.py'], quiet=True)
-        >>>
-        >>> # Analyze entire project directory
-        >>> results = main(['/path/to/project/'], quiet=False)
-        >>>
-        >>> # Find files with high complexity
-        >>> complex_files = [f for f in results if f.complexity > 50]
-    """
-    ...
 
 def code_complexity(
     code: str, check_script: bool = False, no_ignore: bool = False
@@ -661,125 +559,6 @@ def file_complexity(
     """
     ...
 
-def output_csv(
-    output_path: str,
-    files_complexities: List[FileComplexity],
-    sort: str,
-    show_details: bool,
-    max_complexity: int,
-) -> None:
-    """
-    Export complexity analysis results to a CSV file for reporting and analysis.
-
-    This function creates a CSV file containing complexity metrics that can be
-    imported into spreadsheet applications, data analysis tools, or used for
-    automated reporting. The CSV format makes it easy to track complexity
-    trends over time or compare different codebases.
-
-    The CSV includes columns for file paths, function names, complexity scores,
-    line numbers, and other relevant metrics. The level of detail depends on
-    the show_details parameter.
-
-    Args:
-        output_path: File system path where the CSV file will be written.
-                     If the file exists, it will be overwritten. The directory
-                     must exist and be writable.
-        files_complexities: List of FileComplexity objects from analysis
-                            results. Each file's functions will be included
-                            in the CSV output.
-        sort: Sort order for the results in the CSV file. Valid options:
-              - 'asc': Sort by complexity score (ascending, lowest first)
-              - 'desc': Sort by complexity score (descending, highest first)
-              - 'name': Sort alphabetically by function name
-        show_details: If True, includes detailed per-function information.
-                      If False, only includes summary information.
-        max_complexity: Functions with complexity above this threshold will
-                        be highlighted or filtered in the output. Use 0 to
-                        include all functions regardless of complexity.
-
-    Raises:
-        PermissionError: If the output path is not writable.
-        FileNotFoundError: If the output directory does not exist.
-
-    Example:
-        >>> results = main(['/path/to/project'], quiet=True)
-        >>> output_csv(
-        ...     output_path='/tmp/complexity_report.csv',
-        ...     files_complexities=results,
-        ...     sort='desc',
-        ...     show_details=True,
-        ...     max_complexity=15
-        ... )
-        >>> print("CSV report generated successfully")
-    """
-    ...
-
-def output_json(
-    output_path: str,
-    files_complexities: List[FileComplexity],
-    show_details: bool,
-    max_complexity: int,
-    suggest_refactors: bool = False,
-) -> None:
-    """
-    Export complexity analysis results to a JSON file for programmatic consumption.
-
-    This function serializes complexity analysis results into a structured JSON
-    format that can be easily consumed by other tools, CI/CD pipelines, or
-    custom applications. The JSON format preserves the full hierarchy of
-    files, functions, and line-by-line complexity information.
-
-    The JSON output is machine-readable and perfect for integration with
-    automated quality gates, dashboards, or further data processing. It
-    maintains all the detailed information from the analysis.
-
-    Args:
-        output_path: File system path where the JSON file will be written.
-                     If the file exists, it will be overwritten. The directory
-                     must exist and be writable.
-        files_complexities: List of FileComplexity objects from analysis
-                            results. The complete structure will be serialized
-                            to JSON, preserving all nested information.
-        show_details: If True, includes detailed line-by-line complexity
-                      information for each function. If False, only includes
-                      summary metrics for better performance and smaller files.
-        max_complexity: Functions with complexity above this threshold may
-                        be flagged or filtered in the output. Use 0 to include
-                        all functions regardless of complexity.
-        suggest_refactors: If True, each function entry's `refactor_plans`
-                           is populated with its ranked suggestions. If
-                           False (the default), `refactor_plans` is an
-                           empty list, mirroring `--suggest-refactors` in
-                           the CLI.
-
-    Raises:
-        PermissionError: If the output path is not writable.
-        FileNotFoundError: If the output directory does not exist.
-        JSONEncodeError: If the data cannot be serialized to JSON.
-
-    Example:
-        >>> results = main(['/path/to/project'], quiet=True)
-        >>> output_json(
-        ...     output_path='/tmp/complexity_report.json',
-        ...     files_complexities=results,
-        ...     show_details=True,
-        ...     max_complexity=0
-        ... )
-        >>>
-        >>> # The JSON can be loaded by other tools
-        >>> import json
-        >>> with open('/tmp/complexity_report.json') as f:
-        ...     data = json.load(f)
-        >>> print(f"Analyzed {len(data)} files")
-    """
-    ...
-
-def create_snapshot_file(
-    snapshot_file_path: str,
-    max_complexity_allowed: int,
-    files_complexities: List[FileComplexity],
-) -> None: ...
-def load_snapshot_file(snapshot_file_path: str) -> List[FileComplexity]: ...
 def run_cli(argv: List[str], invocation_path: Optional[str] = None) -> int:
     """
     Run the Rust CLI with the given arguments and return its exit code.
@@ -795,6 +574,21 @@ def run_cli(argv: List[str], invocation_path: Optional[str] = None) -> int:
     Returns:
         Process exit code: 0 on success, 1 on gate failure, 2 on usage
         errors.
+    """
+    ...
+
+def run_lsp() -> int:
+    """
+    Run the complexipy language server over stdio and return its exit code.
+
+    This backs the ``lsp`` argument of the ``complexipy`` console script.
+    The server speaks the Language Server Protocol on stdin and stdout,
+    so stdout carries protocol frames only and every log line goes to
+    stderr. The call blocks for the lifetime of the server and releases
+    the interpreter lock while it runs.
+
+    Returns:
+        Process exit code: 0 after a clean shutdown, 1 otherwise.
     """
     ...
 

@@ -1,5 +1,7 @@
 use clap::ValueEnum;
 pub use complexipy_core::classes::RefactorPlan;
+use complexipy_core::config::DEFAULT_MAX_COMPLEXITY_ALLOWED;
+pub use complexipy_core::config::StringOrList;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -40,35 +42,13 @@ pub struct Config {
 }
 
 fn default_max_complexity() -> u64 {
-    15
+    DEFAULT_MAX_COMPLEXITY_ALLOWED
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct DiffSection {
     pub branch: Option<String>,
     pub staged: Option<bool>,
-}
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-#[serde(untagged)]
-pub enum StringOrList<T> {
-    One(T),
-    Many(Vec<T>),
-}
-
-impl<T> Default for StringOrList<T> {
-    fn default() -> Self {
-        Self::Many(Vec::new())
-    }
-}
-
-impl<T> StringOrList<T> {
-    pub fn into_vec(self) -> Vec<T> {
-        match self {
-            Self::One(value) => vec![value],
-            Self::Many(values) => values,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

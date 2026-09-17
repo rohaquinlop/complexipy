@@ -5,12 +5,52 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Added
+
+- A language server: `complexipy lsp` speaks the Language Server Protocol on
+  stdio, so any editor with an LSP client gets complexity feedback with no
+  per-editor code. It answers inlay hint requests with the cognitive
+  complexity of each function and, optionally, the increment contributed by
+  each line; it answers hover requests with the function total, its threshold
+  status, and the top refactoring suggestion; and it publishes a warning for
+  every function above `max-complexity-allowed`. Diagnostics respect inline
+  ignore comments, so the editor and the CLI agree. The per-function hint sits
+  at the end of the line that closes the declaration, so a wrapped signature
+  keeps the hint on its closing line, and a document that does not parse keeps
+  the last parsed hints plus one `complexipy-parse-error` warning until it parses
+  again. See
+  [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
+  setup. ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+- A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
+  (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.
+  Hints are gated on `max-complexity-allowed` by default, so a project that
+  sets no options sees feedback only where it matters.
+- `complexipy-core` gains a `config` feature that owns configuration file
+  discovery, so the CLI and the server read `complexipy.toml`,
+  `.complexipy.toml`, and `pyproject.toml` through one code path.
+- The server applies `exclude` one pattern at a time: a malformed pattern is
+  reported once per configuration load and skipped while the remaining patterns
+  keep applying, and a list too large to compile as one program is reported once
+  and still applied. A CLI run stops on either.
+
 ### Changed
 
+- `lsp` is a reserved first argument: `complexipy lsp` starts the language
+  server, so a file or directory with that name needs `complexipy -- lsp` to be
+  analyzed. On a terminal the server prints that hint when both the reserved
+  word and a path named `lsp` are present.
+- `StringOrList` moved from `complexipy-cli::types` to the new
+  `complexipy-core` `config` module, and the CLI still re-exports it from its
+  old path. Every workspace crate remains `publish = false`, so no published
+  Rust API changes.
 - Added `manylinux_2_31_riscv64` wheel builds for RISC-V support. The
   release matrix now separates the Rust toolchain triple (`target`) from
   the platform shorthand (`arch`), which keeps the existing wheel and
   artifact names unchanged. (#259)
+- `RuleCategory`, `Applicability`, and `DiffStatus` are real `enum.Enum`
+  subclasses: they iterate, they carry `.name` and `.value`, and
+  `isinstance(x, enum.Enum)` holds.
 
 ## [8.0.1] - 2026-09-06
 
