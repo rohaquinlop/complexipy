@@ -196,6 +196,9 @@ nested function therefore shows its parent.
   produce no hints and no diagnostics.
 - A malformed glob is reported once per configuration load on the server log
   and skipped. The other patterns in the list keep applying.
+- A list too large to compile as one program is reported once per
+  configuration load and still applied one pattern at a time. A CLI run stops
+  on the same list.
 - Inline suppression comments (`# noqa: complexipy` and
   `# complexipy: ignore`) are honored exactly as in the CLI, unless
   `no-ignore = true`.

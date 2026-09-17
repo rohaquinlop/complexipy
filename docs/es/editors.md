@@ -204,6 +204,9 @@ función padre.
 - Un glob mal formado se reporta una vez por carga de configuración en el
   registro del servidor y se omite. El resto de patrones de la lista siguen
   aplicándose.
+- Una lista demasiado grande para compilarse como un solo programa se reporta
+  una vez por carga de configuración y se sigue aplicando patrón a patrón. Una
+  ejecución de la CLI se detiene con esa misma lista.
 - Los comentarios de supresión en línea (`# noqa: complexipy` y
   `# complexipy: ignore`) se respetan exactamente igual que en la CLI, a menos
   que `no-ignore = true`.
