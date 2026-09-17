@@ -5,6 +5,13 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Changed
+
+- Added `manylinux_2_31_riscv64` wheel builds for RISC-V support. The
+  release matrix now separates the Rust toolchain triple (`target`) from
+  the platform shorthand (`arch`), which keeps the existing wheel and
+  artifact names unchanged. (#259)
+
 ## [8.0.1] - 2026-09-06
 
 ### Changed
