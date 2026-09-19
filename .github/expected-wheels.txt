@@ -1,0 +1,115 @@
+# The wheel set a release is expected to publish.
+#
+# One entry per wheel, holding everything after the `complexipy-<version>-`
+# prefix. The verification step in the Release job compares the built set
+# against this file before anything reaches PyPI.
+#
+# A missing entry fails the release, because a wheel that silently stopped
+# being built is a regression users see. An extra entry only warns, because
+# a new platform or interpreter is an addition rather than a loss.
+#
+# Derived from the 8.0.1 published set. `riscv64` is deliberately absent,
+# because 8.0.1 predates that target, so its wheels are reported as extras
+# until they are confirmed on a release and added here.
+cp310-cp310-macosx_10_12_x86_64
+cp310-cp310-macosx_11_0_arm64
+cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp310-cp310-manylinux_2_17_i686.manylinux2014_i686
+cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x
+cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp310-cp310-musllinux_1_2_aarch64
+cp310-cp310-musllinux_1_2_x86_64
+cp310-cp310-win32
+cp310-cp310-win_amd64
+cp311-cp311-macosx_10_12_x86_64
+cp311-cp311-macosx_11_0_arm64
+cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp311-cp311-manylinux_2_17_i686.manylinux2014_i686
+cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x
+cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp311-cp311-musllinux_1_2_aarch64
+cp311-cp311-musllinux_1_2_x86_64
+cp311-cp311-win32
+cp311-cp311-win_amd64
+cp312-cp312-macosx_10_12_x86_64
+cp312-cp312-macosx_11_0_arm64
+cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp312-cp312-manylinux_2_17_i686.manylinux2014_i686
+cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x
+cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp312-cp312-musllinux_1_2_aarch64
+cp312-cp312-musllinux_1_2_x86_64
+cp312-cp312-win32
+cp312-cp312-win_amd64
+cp313-cp313-macosx_10_12_x86_64
+cp313-cp313-macosx_11_0_arm64
+cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp313-cp313-manylinux_2_17_i686.manylinux2014_i686
+cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x
+cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp313-cp313-musllinux_1_2_aarch64
+cp313-cp313-musllinux_1_2_x86_64
+cp313-cp313-win32
+cp313-cp313-win_amd64
+cp314-cp314-macosx_10_12_x86_64
+cp314-cp314-macosx_11_0_arm64
+cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp314-cp314-manylinux_2_17_i686.manylinux2014_i686
+cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp314-cp314-manylinux_2_17_s390x.manylinux2014_s390x
+cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp314-cp314-musllinux_1_2_aarch64
+cp314-cp314-musllinux_1_2_x86_64
+cp314-cp314-win32
+cp314-cp314-win_amd64
+cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp314-cp314t-manylinux_2_17_i686.manylinux2014_i686
+cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp314-cp314t-manylinux_2_17_s390x.manylinux2014_s390x
+cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp314-cp314t-musllinux_1_2_aarch64
+cp314-cp314t-musllinux_1_2_x86_64
+cp315-cp315-manylinux_2_17_i686.manylinux2014_i686
+cp315-cp315-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp315-cp315t-manylinux_2_17_i686.manylinux2014_i686
+cp315-cp315t-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp38-cp38-macosx_10_12_x86_64
+cp38-cp38-macosx_11_0_arm64
+cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp38-cp38-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp38-cp38-manylinux_2_17_s390x.manylinux2014_s390x
+cp38-cp38-musllinux_1_2_aarch64
+cp38-cp38-musllinux_1_2_x86_64
+cp38-cp38-win32
+cp38-cp38-win_amd64
+cp39-cp39-macosx_10_12_x86_64
+cp39-cp39-macosx_11_0_arm64
+cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64
+cp39-cp39-manylinux_2_17_armv7l.manylinux2014_armv7l
+cp39-cp39-manylinux_2_17_i686.manylinux2014_i686
+cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x
+cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64
+cp39-cp39-musllinux_1_2_aarch64
+cp39-cp39-musllinux_1_2_x86_64
+cp39-cp39-win32
+cp39-cp39-win_amd64
+pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64
+pp311-pypy311_pp73-manylinux_2_17_armv7l.manylinux2014_armv7l
+pp311-pypy311_pp73-manylinux_2_17_i686.manylinux2014_i686
+pp311-pypy311_pp73-manylinux_2_17_ppc64le.manylinux2014_ppc64le
+pp311-pypy311_pp73-manylinux_2_17_s390x.manylinux2014_s390x
+pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64
+pp311-pypy311_pp73-musllinux_1_2_aarch64
+pp311-pypy311_pp73-musllinux_1_2_x86_64

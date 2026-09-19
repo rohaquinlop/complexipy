@@ -406,6 +406,32 @@ jobs:
             mv "$f" dist/
           done
           rm -rf artifacts
+      - name: Verify the wheel set
+        shell: bash
+        run: |
+          if ! compgen -G 'dist/*.whl' > /dev/null; then
+            echo "::error::no wheels found in dist/"
+            exit 1
+          fi
+          if [[ $(ls dist/*.tar.gz 2>/dev/null | wc -l) -ne 1 ]]; then
+            echo "::error::expected exactly one sdist in dist/"
+            exit 1
+          fi
+          actual="$(for f in dist/*.whl; do basename "$f" .whl | sed -E 's/^complexipy-[^-]+-//'; done | sort -u)"
+          expected="$(grep -vE '^[[:space:]]*(#|$)' .github/expected-wheels.txt | sort -u)"
+          missing="$(comm -13 <(printf '%s\n' "$actual") <(printf '%s\n' "$expected"))"
+          extra="$(comm -23 <(printf '%s\n' "$actual") <(printf '%s\n' "$expected"))"
+          count="$(printf '%s\n' "$actual" | wc -l | tr -d ' ')"
+          if [[ -n "$missing" ]]; then
+            printf '%s\n' "$missing" | sed 's/^/  missing: /'
+            echo "::error::the wheel set is missing $(printf '%s\n' "$missing" | wc -l | tr -d ' ') wheel(s) the expected set requires"
+            exit 1
+          fi
+          if [[ -n "$extra" ]]; then
+            printf '%s\n' "$extra" | sed 's/^/  extra: /'
+            echo "::warning::the wheel set has $(printf '%s\n' "$extra" | wc -l | tr -d ' ') wheel(s) not in the expected set"
+          fi
+          echo "wheel set verified: ${count} wheels, none missing"
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
         with:
