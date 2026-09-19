@@ -345,6 +345,47 @@ the wasm crate read the enum types through core's re-exports, so they need no
 edge of their own to the types crate. Adding a dependency means adding it to the
 crate that uses it.
 
+### CI and release
+
+Both workflows are shaped to avoid repeating work, and four invariants hold
+them that way.
+
+`CI.yml` runs on `pull_request` and on `push` to `main`, and every
+`Swatinem/rust-cache` step carries
+`save-if: ${{ github.ref == 'refs/heads/main' }}`. Pull requests restore only,
+because a cache written from a pull request is scoped to that branch and no
+other run can read it. Do not set `shared-key`: rust-cache's default key
+already includes the job name, and that is what stops the two ubuntu
+`quick-tests` legs, which build against different Python interpreters, from
+restoring each other's artifacts. Sharing a key reintroduces the reserve race
+the previous `actions/cache` setup suffered from.
+
+A CI job that does not need the native extension must not install the project.
+`uv sync --no-install-project` is what prevents it, and a bare `uv run` undoes
+that by re-syncing, so such a job passes `--no-sync` to every `uv run`. `lint`
+and `deploy-docs` are the jobs this matters for: before this, `uv run ruff check .` spent 102 s of a 129 s job compiling the workspace.
+
+In `release.yml`, a docker wheel matrix is one where maturin builds inside a
+manylinux or musllinux container. `--find-interpreter` makes every leg of such a
+matrix build the same wheel set, meaning every interpreter the container ships,
+so `linux-build` and `musllinux-build` declare one job per platform and no
+`python-version` axis. Restoring the axis multiplies that matrix by the number
+of Python versions and rebuilds identical wheels. `windows-build` and
+`macos-build` are the opposite: those legs build on the runner, each leg
+contributes interpreters the runner image does not ship, and their
+`python-version` axis must stay.
+
+The release Unit Tests jobs install the wheel their platform built instead of
+compiling the extension, so they test the artifact that is actually published.
+Two rules follow. The wheel is selected by its double interpreter tag,
+`-cp314-cp314-`, so a `cp314` job can never install a `cp314t` wheel. And the
+test step must invoke pytest as `uv run --no-sync pytest`, never `python -m pytest`: `python -m` puts the working directory on `sys.path`, the repository
+root contains a `complexipy/` directory, and that source directory then shadows
+the installed wheel, which fails on a clean checkout because the extension
+module exists only inside the wheel. A platform and interpreter combination with
+no wheel falls back to `maturin develop`; manylinux x86_64 has no CPython 3.8
+wheel, and that one leg keeps its source build.
+
 ## Testing
 
 - `tests/main.py` - core suite: asserts exact complexity totals for the fixtures in

@@ -17,7 +17,9 @@ permissions:
 jobs:
   linux-build:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: ubuntu-latest
@@ -41,20 +43,19 @@ jobs:
           - runner: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
             arch: riscv64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --locked --out dist --find-interpreter
           sccache: "true"
           manylinux: auto
           maturin-version: "v1.14.1"
@@ -63,7 +64,7 @@ jobs:
         with:
           action: actions/upload-artifact@v7.0.1
           with: |
-            name: wheels-linux-${{ matrix.platform.arch }}-${{ matrix.python-version }}
+            name: wheels-linux-${{ matrix.platform.arch }}
             path: dist
             overwrite: true
           attempt_limit: 3
@@ -71,7 +72,9 @@ jobs:
 
   musllinux-build:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: ubuntu-latest
@@ -80,20 +83,19 @@ jobs:
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-musl
             arch: aarch64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --locked --out dist --find-interpreter
           sccache: "true"
           manylinux: musllinux_1_2
           maturin-version: "v1.14.1"
@@ -102,7 +104,7 @@ jobs:
         with:
           action: actions/upload-artifact@v7.0.1
           with: |
-            name: wheels-musllinux-${{ matrix.platform.arch }}-${{ matrix.python-version }}
+            name: wheels-musllinux-${{ matrix.platform.arch }}
             path: dist
             overwrite: true
           attempt_limit: 3
@@ -110,7 +112,9 @@ jobs:
 
   windows-build:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: windows-latest
@@ -131,7 +135,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --locked --out dist --find-interpreter
           sccache: "true"
           maturin-version: "v1.14.1"
       - name: Upload wheels
@@ -147,7 +151,9 @@ jobs:
 
   macos-build:
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: macos-15-intel
@@ -167,7 +173,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --locked --out dist --find-interpreter
           sccache: "true"
           maturin-version: "v1.14.1"
       - name: Upload wheels
@@ -183,6 +189,7 @@ jobs:
 
   sdist:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -206,98 +213,174 @@ jobs:
 
   unit-tests-linux:
     name: Unit Tests
+    needs: [linux-build]
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: ubuntu-latest
             target: x86_64
+            wheel-artifact: wheels-linux-x86_64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    env:
+      CARGO_HTTP_MULTIPLEXING: "false"
+      CARGO_NET_RETRY: "10"
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
-          cache-dependency-glob: uv.lock
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Download the built wheel
+        uses: wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/download-artifact@v8.0.1
+          with: |
+            name: ${{ matrix.platform.wheel-artifact }}
+            path: dist
+          attempt_limit: 3
+          attempt_delay: 10000
+      - name: Install the release wheel
+        shell: bash
+        run: |
+          uv venv --python "$(command -v python)" .venv
+          uv pip install --python .venv pytest
+          tag="cp${{ matrix.python-version }}"; tag="${tag/./}"
+          wheel="$(ls dist/complexipy-*-"${tag}"-"${tag}"-*.whl 2>/dev/null | head -1 || true)"
+          if [[ -n "$wheel" ]]; then
+            echo "installing $wheel"
+            uv pip install --python .venv "$wheel"
+          else
+            echo "no ${tag} wheel for this platform; building from source"
+            uv pip install --python .venv maturin
+            uv run --no-sync maturin develop
+          fi
       - name: pytest
         shell: bash
-        env:
-          CARGO_HTTP_MULTIPLEXING: "false"
-          CARGO_NET_RETRY: "10"
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest
+        run: uv run --no-sync pytest
       - name: complexipy execution
         shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+        run: uv run --no-sync complexipy complexipy --failed
 
   unit-tests-windows:
     name: Unit Tests
+    needs: [windows-build]
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: windows-latest
             target: x64
+            wheel-artifact: wheels-windows-x64
           - runner: windows-latest
             target: x86
+            wheel-artifact: wheels-windows-x86
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
-          cache-dependency-glob: uv.lock
+          architecture: ${{ matrix.platform.target }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Download the built wheel
+        uses: wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/download-artifact@v8.0.1
+          with: |
+            name: ${{ matrix.platform.wheel-artifact }}-${{ matrix.python-version }}
+            path: dist
+          attempt_limit: 3
+          attempt_delay: 10000
+      - name: Install the release wheel
+        shell: bash
+        run: |
+          uv venv --python "$(command -v python)" .venv
+          uv pip install --python .venv pytest
+          tag="cp${{ matrix.python-version }}"; tag="${tag/./}"
+          wheel="$(ls dist/complexipy-*-"${tag}"-"${tag}"-*.whl 2>/dev/null | head -1 || true)"
+          if [[ -n "$wheel" ]]; then
+            echo "installing $wheel"
+            uv pip install --python .venv "$wheel"
+          else
+            echo "no ${tag} wheel for this platform; building from source"
+            uv pip install --python .venv maturin
+            uv run --no-sync maturin develop
+          fi
       - name: pytest
         shell: bash
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest
+        run: uv run --no-sync pytest
       - name: complexipy execution
         shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+        run: uv run --no-sync complexipy complexipy --failed
 
   unit-tests-macos:
     name: Unit Tests
+    needs: [macos-build]
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - runner: macos-15-intel
             target: x86_64
+            wheel-artifact: wheels-macos-x86_64
           - runner: macos-latest
             target: aarch64
+            wheel-artifact: wheels-macos-aarch64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
-          cache-dependency-glob: uv.lock
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+      - name: Download the built wheel
+        uses: wandalen/wretry.action@v3.8.0
+        with:
+          action: actions/download-artifact@v8.0.1
+          with: |
+            name: ${{ matrix.platform.wheel-artifact }}-${{ matrix.python-version }}
+            path: dist
+          attempt_limit: 3
+          attempt_delay: 10000
+      - name: Install the release wheel
+        shell: bash
+        run: |
+          uv venv --python "$(command -v python)" .venv
+          uv pip install --python .venv pytest
+          tag="cp${{ matrix.python-version }}"; tag="${tag/./}"
+          wheel="$(ls dist/complexipy-*-"${tag}"-"${tag}"-*.whl 2>/dev/null | head -1 || true)"
+          if [[ -n "$wheel" ]]; then
+            echo "installing $wheel"
+            uv pip install --python .venv "$wheel"
+          else
+            echo "no ${tag} wheel for this platform; building from source"
+            uv pip install --python .venv maturin
+            uv run --no-sync maturin develop
+          fi
       - name: pytest
         shell: bash
-        run: |
-          uv sync --all-extras --frozen
-          uv run -p ${{ matrix.python-version }} maturin develop
-          uv run -p ${{ matrix.python-version }} pytest
+        run: uv run --no-sync pytest
       - name: complexipy execution
         shell: bash
-        run: |
-          uv run -p ${{ matrix.python-version }} complexipy complexipy --failed
+        run: uv run --no-sync complexipy complexipy --failed
 
   release:
     name: Release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [linux-build, musllinux-build, windows-build, macos-build, sdist, unit-tests-windows, unit-tests-linux, unit-tests-macos]
     permissions:
       contents: read
@@ -323,8 +406,34 @@ jobs:
             mv "$f" dist/
           done
           rm -rf artifacts
+      - name: Verify the wheel set
+        shell: bash
+        run: |
+          if ! compgen -G 'dist/*.whl' > /dev/null; then
+            echo "::error::no wheels found in dist/"
+            exit 1
+          fi
+          if [[ $(ls dist/*.tar.gz 2>/dev/null | wc -l) -ne 1 ]]; then
+            echo "::error::expected exactly one sdist in dist/"
+            exit 1
+          fi
+          actual="$(for f in dist/*.whl; do basename "$f" .whl | sed -E 's/^complexipy-[^-]+-//'; done | sort -u)"
+          expected="$(grep -vE '^[[:space:]]*(#|$)' .github/expected-wheels.txt | sort -u)"
+          missing="$(comm -13 <(printf '%s\n' "$actual") <(printf '%s\n' "$expected"))"
+          extra="$(comm -23 <(printf '%s\n' "$actual") <(printf '%s\n' "$expected"))"
+          count="$(printf '%s\n' "$actual" | wc -l | tr -d ' ')"
+          if [[ -n "$missing" ]]; then
+            printf '%s\n' "$missing" | sed 's/^/  missing: /'
+            echo "::error::the wheel set is missing $(printf '%s\n' "$missing" | wc -l | tr -d ' ') wheel(s) the expected set requires"
+            exit 1
+          fi
+          if [[ -n "$extra" ]]; then
+            printf '%s\n' "$extra" | sed 's/^/  extra: /'
+            echo "::warning::the wheel set has $(printf '%s\n' "$extra" | wc -l | tr -d ' ') wheel(s) not in the expected set"
+          fi
+          echo "wheel set verified: ${count} wheels, none missing"
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
         with:
           packages-dir: dist/
           skip-existing: true
@@ -335,6 +444,7 @@ jobs:
     needs: release
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -360,6 +470,7 @@ jobs:
     name: Deploy docs
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -368,10 +479,13 @@ jobs:
         uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
         with:
           python-version: "3.10"
+      - name: Install dev dependencies
+        run: uv sync --group dev --no-install-project --frozen
       - uses: actions/cache@v4
         with:
-          key: ${{ github.ref }}
+          key: mkdocs-material-${{ hashFiles('mkdocs.yml', 'mkdocs.es.yml') }}
+          restore-keys: mkdocs-material-
           path: .cache
-      - run: uv run mkdocs build
-      - run: uv run mkdocs build -f mkdocs.es.yml
-      - run: uv run ghp-import -n -p -f site
+      - run: uv run --no-sync mkdocs build
+      - run: uv run --no-sync mkdocs build -f mkdocs.es.yml
+      - run: uv run --no-sync ghp-import -n -p -f site
