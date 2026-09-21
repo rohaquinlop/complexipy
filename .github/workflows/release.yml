@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Docker matrix: `--find-interpreter` builds every interpreter the container ships, so
+      # one job per platform is enough. A `python-version` axis here rebuilds and re-uploads
+      # identical wheels. The native matrices below need the axis; see `windows-build`.
       matrix:
         platform:
           - runner: ubuntu-latest
@@ -75,6 +78,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Same rule as `linux-build`: no `python-version` axis in a docker matrix.
       matrix:
         platform:
           - runner: ubuntu-latest
@@ -121,6 +125,8 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
+        # Keep this axis: each leg installs interpreters the runner image does not ship, so
+        # dropping it loses those wheels.
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
@@ -160,6 +166,8 @@ jobs:
             target: x86_64
           - runner: macos-latest
             target: aarch64
+        # Keep this axis: each leg installs interpreters the runner image does not ship, so
+        # dropping it loses those wheels.
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
@@ -244,6 +252,9 @@ jobs:
             path: dist
           attempt_limit: 3
           attempt_delay: 10000
+      # Install the wheel this platform built, matched by its double interpreter tag, so a
+      # `cp314` job can never take a `cp314t` wheel; combinations with no wheel build from
+      # source. Never use `python -m pytest` here: the source tree shadows the wheel.
       - name: Install the release wheel
         shell: bash
         run: |
@@ -300,6 +311,8 @@ jobs:
             path: dist
           attempt_limit: 3
           attempt_delay: 10000
+      # As in `unit-tests-linux`: select the wheel by its double interpreter tag, and never
+      # run `python -m pytest`.
       - name: Install the release wheel
         shell: bash
         run: |
@@ -355,6 +368,8 @@ jobs:
             path: dist
           attempt_limit: 3
           attempt_delay: 10000
+      # As in `unit-tests-linux`: select the wheel by its double interpreter tag, and never
+      # run `python -m pytest`.
       - name: Install the release wheel
         shell: bash
         run: |
@@ -406,6 +421,9 @@ jobs:
             mv "$f" dist/
           done
           rm -rf artifacts
+      # `.github/expected-wheels.txt` is the gate: a missing expected wheel fails the release
+      # before anything is published, and an unexpected wheel warns and proceeds. Add a new
+      # platform's wheels to that file only after a release run confirms them.
       - name: Verify the wheel set
         shell: bash
         run: |
@@ -479,6 +497,8 @@ jobs:
         uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
         with:
           python-version: "3.10"
+      # `--no-sync` keeps mkdocs from compiling the extension: a bare `uv run` would build the
+      # whole workspace just to render the docs.
       - name: Install dev dependencies
         run: uv sync --group dev --no-install-project --frozen
       - uses: actions/cache@v4

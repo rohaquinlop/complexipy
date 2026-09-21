@@ -31,6 +31,9 @@ jobs:
           python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: uv.lock
+      # The project is skipped on purpose: a bare `uv run` re-syncs and compiles the Rust
+      # workspace to type-check Python. Keep `--no-install-project` here and `--no-sync` on
+      # every `uv run` below.
       - name: Install dev dependencies
         run: uv sync --group dev --no-install-project --frozen
       - name: Run ruff check
@@ -70,6 +73,9 @@ jobs:
           cache-dependency-glob: uv.lock
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      # Each job owns its cache entry: the default key already includes the job name, so do
+      # not set `shared-key`. `save-if` keeps pull requests read-only, because a cache written
+      # from a pull request is scoped to that branch and no other run can read it.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
         with:
@@ -100,6 +106,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      # As in `quick-tests`: restore on a pull request, write only from `main`.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
         with:
