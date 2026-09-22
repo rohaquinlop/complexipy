@@ -437,3 +437,40 @@ fn no_op_splice_measures_zero() {
     );
     assert_eq!(measured, Some(0));
 }
+
+#[test]
+fn rule_applicability_tiers_are_pinned() {
+    let registry = RuleRegistry::new();
+    let pinned: HashMap<&str, Applicability> = [
+        ("C001", Applicability::Informational),
+        ("C002", Applicability::MachineApplicable),
+        ("C003", Applicability::Informational),
+        ("C004", Applicability::Informational),
+        ("C005", Applicability::MachineApplicable),
+        ("C007", Applicability::MachineApplicable),
+        ("C011", Applicability::Informational),
+    ]
+    .into_iter()
+    .collect();
+
+    let mut seen: Vec<&str> = Vec::new();
+    for rule in &registry.rules {
+        let meta = rule.metadata();
+        seen.push(meta.id.as_str());
+        assert_ne!(
+            meta.applicability,
+            Applicability::MaybeIncorrect,
+            "{} declares MaybeIncorrect without failure-shape tests",
+            meta.id
+        );
+        let Some(expected) = pinned.get(meta.id.as_str()) else {
+            panic!("{} has no pinned applicability tier", meta.id);
+        };
+        assert_eq!(&meta.applicability, expected, "{} tier changed", meta.id);
+    }
+
+    let mut pinned_ids: Vec<&str> = pinned.keys().copied().collect();
+    pinned_ids.sort();
+    seen.sort();
+    assert_eq!(seen, pinned_ids);
+}
