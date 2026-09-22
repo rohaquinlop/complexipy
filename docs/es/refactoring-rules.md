@@ -13,9 +13,17 @@ complexipy incluye un sistema de refactorización inspirado en clippy que propor
 
 | Nivel | Icono | Descripción |
 | -- | -- | -- |
-| **Seguro de aplicar** | \* | Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización |
-| **Necesita revisión** | ! | Puede ser incorrecto en algunos casos, necesita revisión humana |
+| **Seguro de aplicar** | \* | Alta confianza en que el código generado es correcto tal cual |
+| **Necesita revisión** | ! | Suele ser correcto, con formas de fallo conocidas, por lo que una persona debe revisarlo |
 | **Informativo** | i | Solo orientación, no es directamente accionable |
+
+El nivel decide cómo una herramienta puede aplicar la sugerencia:
+
+- **Seguro de aplicar**: la aplicación automática (`--fix`, correcciones del editor) puede aplicar la sugerencia directamente.
+- **Necesita revisión**: la aplicación automática rechaza la sugerencia salvo que la autorices de forma explícita.
+- **Informativo**: nada edita el código por esta sugerencia.
+
+Hoy ninguna regla usa **Necesita revisión**. El nivel queda reservado para una sugerencia que suele ser correcta pero cambia el comportamiento en una forma de entrada conocida, y una regla solo puede usarlo con pruebas para cada forma de fallo conocida.
 
 ______________________________________________________________________
 

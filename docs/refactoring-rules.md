@@ -13,9 +13,17 @@ complexipy includes a clippy-inspired refactoring system that provides actionabl
 
 | Level | Icon | Description |
 | -- | -- | -- |
-| **Safe to apply** | \* | High confidence the generated code is correct as written -- no automatic application yet, this is a confidence signal, not a promise of automation |
-| **Needs review** | ! | May be incorrect in some cases, needs human review |
+| **Safe to apply** | \* | High confidence the generated code is correct as written |
+| **Needs review** | ! | Usually right, with known failure shapes, so a human must review it |
 | **Informational** | i | Just guidance, not directly actionable |
+
+The level decides how a tool may apply the suggestion:
+
+- **Safe to apply**: automatic application (`--fix`, editor quick fixes) may apply the suggestion directly.
+- **Needs review**: automatic application refuses the suggestion unless you opt in explicitly.
+- **Informational**: nothing ever edits code for it.
+
+No rule uses **Needs review** today. The level is reserved for a suggestion that is usually right but changes behavior in a known input shape, and a rule may use it only with tests for each known failure shape.
 
 ______________________________________________________________________
 
