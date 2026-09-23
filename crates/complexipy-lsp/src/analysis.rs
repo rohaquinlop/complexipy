@@ -1,3 +1,4 @@
+use complexipy_core::AnalysisOptions;
 use complexipy_core::classes::FunctionComplexity;
 use complexipy_core::cognitive_complexity::code_complexity_shared;
 use complexipy_core::config::{InlayHints, LspConfig};
@@ -194,7 +195,15 @@ pub fn analyze(
     version: i32,
     config: &LspConfig,
 ) -> Result<DocumentAnalysis, ParseFailure> {
-    match code_complexity_shared(text, false, config.no_ignore) {
+    match code_complexity_shared(
+        text,
+        &AnalysisOptions {
+            no_ignore: config.no_ignore,
+            with_plans: true,
+            rules: config.rule_set(),
+            ..Default::default()
+        },
+    ) {
         Ok(result) => Ok(DocumentAnalysis::new(version, result.functions, text)),
         Err(message) => Err(ParseFailure {
             version,

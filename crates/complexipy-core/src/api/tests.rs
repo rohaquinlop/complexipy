@@ -58,6 +58,65 @@ fn code_complexity_syntax_error() {
     assert!(result.is_err());
 }
 
+const COLLAPSIBLE_IF: &str = "def f(a, b, c, d):\n    if a:\n        if b:\n            if c and d:\n                return 1\n    return 0\n";
+
+#[test]
+fn rule_list_comment_suppresses_only_named_rules() {
+    let code = COLLAPSIBLE_IF.replace(
+        "def f(a, b, c, d):",
+        "def f(a, b, c, d):  # complexipy: ignore[C007]",
+    );
+
+    let result = code_complexity(&code, false, false).expect("should analyze");
+
+    assert_eq!(result.functions.len(), 1);
+    let plans = &result.functions[0].refactor_plans;
+    assert!(plans.iter().all(|plan| plan.rule_id != "C007"));
+    assert!(plans.iter().any(|plan| plan.rule_id == "C001"));
+}
+
+#[test]
+fn bare_comment_drops_the_function_and_rule_list_keeps_it() {
+    let bare = COLLAPSIBLE_IF.replace(
+        "def f(a, b, c, d):",
+        "def f(a, b, c, d):  # complexipy: ignore",
+    );
+    let narrowed = COLLAPSIBLE_IF.replace(
+        "def f(a, b, c, d):",
+        "def f(a, b, c, d):  # noqa: complexipy[C007]",
+    );
+
+    let dropped = code_complexity(&bare, false, false).expect("should analyze");
+    let kept = code_complexity(&narrowed, false, false).expect("should analyze");
+
+    assert_eq!(dropped.functions.len(), 0);
+    assert_eq!(kept.functions.len(), 1);
+    assert!(
+        kept.functions[0]
+            .refactor_plans
+            .iter()
+            .any(|plan| plan.rule_id == "C001")
+    );
+}
+
+#[test]
+fn no_ignore_bypasses_rule_list_comments() {
+    let code = COLLAPSIBLE_IF.replace(
+        "def f(a, b, c, d):",
+        "def f(a, b, c, d):  # complexipy: ignore[C007]",
+    );
+
+    let result = code_complexity(&code, false, true).expect("should analyze");
+
+    assert_eq!(result.functions.len(), 1);
+    assert!(
+        result.functions[0]
+            .refactor_plans
+            .iter()
+            .any(|plan| plan.rule_id == "C007")
+    );
+}
+
 #[test]
 fn file_complexity_analyzes_file_in_cwd() {
     let dir = tempdir().expect("tempdir should work");

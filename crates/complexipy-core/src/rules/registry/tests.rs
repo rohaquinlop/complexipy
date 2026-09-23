@@ -3,10 +3,11 @@
 //! so this stays a child module of the code it tests and can reach the private
 //! `RuleRegistry.rules` field through `super::` without widening its visibility.
 
-use super::{RuleRegistry, measure_reduction, select_non_overlapping, splice_plan};
+use super::{PlanContext, RuleRegistry, measure_reduction, select_non_overlapping, splice_plan};
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
+use crate::rules::types::{AnalysisOptions, RuleSet};
 use crate::utils::LineIndex;
 use ruff_python_parser::parse_module;
 use std::collections::HashMap;
@@ -299,8 +300,15 @@ fn effectiveness_matches_documented_tiers() {
 
 fn module_complexity(source: &str) -> u64 {
     let parsed = parse_module(source).unwrap();
-    let (functions, _) =
-        function_level_cognitive_complexity_shared(&parsed.into_suite(), source, true, true, false);
+    let (functions, _) = function_level_cognitive_complexity_shared(
+        &parsed.into_suite(),
+        source,
+        &AnalysisOptions {
+            check_script: true,
+            no_ignore: true,
+            ..Default::default()
+        },
+    );
     functions
         .iter()
         .find(|f| f.name == "<module>")
@@ -359,11 +367,14 @@ fn spliceable_plan_reports_the_measured_reduction() {
 
     let (plans, _) = registry.analyze(
         &regions,
-        &source,
-        &LineIndex::new(&source),
-        &Default::default(),
-        complexity,
-        true,
+        &PlanContext {
+            source: &source,
+            index: &LineIndex::new(&source),
+            def_names: &Default::default(),
+            function_complexity: complexity,
+            is_module: true,
+            active: &RuleSet::default(),
+        },
     );
 
     assert_eq!(plans.len(), 1);
@@ -436,6 +447,81 @@ fn no_op_splice_measures_zero() {
         false,
     );
     assert_eq!(measured, Some(0));
+}
+
+#[test]
+fn inactive_rules_never_produce_plans() {
+    let registry = RuleRegistry::new();
+    let ids = registry.registered_ids();
+
+    for rule_id in ids.iter() {
+        let (region, source) = fixture_for(rule_id);
+        let index = LineIndex::new(&source);
+        let regions = vec![region];
+        let build = |active: &RuleSet| {
+            registry
+                .analyze(
+                    &regions,
+                    &PlanContext {
+                        source: &source,
+                        index: &index,
+                        def_names: &Default::default(),
+                        function_complexity: 10,
+                        is_module: true,
+                        active,
+                    },
+                )
+                .0
+        };
+
+        let all = build(&RuleSet::resolve(&[], &[], &ids).0);
+        let without = build(&RuleSet::resolve(&[], std::slice::from_ref(rule_id), &ids).0);
+
+        assert!(
+            all.iter().any(|plan| plan.rule_id == *rule_id),
+            "{rule_id} fixture should produce a plan"
+        );
+        assert!(
+            without.iter().all(|plan| plan.rule_id != *rule_id),
+            "{rule_id} must vanish when inactive"
+        );
+    }
+}
+
+#[test]
+fn inactive_rule_never_shadows_an_active_rule() {
+    let registry = RuleRegistry::new();
+    let ids = registry.registered_ids();
+    let (c001_region, source) = fixture_for("C001");
+    let (c007_region, _) = fixture_for("C007");
+    let regions = vec![c001_region, c007_region];
+    let index = LineIndex::new(&source);
+    let build = |active: &RuleSet| {
+        registry
+            .analyze(
+                &regions,
+                &PlanContext {
+                    source: &source,
+                    index: &index,
+                    def_names: &Default::default(),
+                    function_complexity: 10,
+                    is_module: true,
+                    active,
+                },
+            )
+            .0
+    };
+
+    let all = build(&RuleSet::resolve(&[], &[], &ids).0);
+    assert!(all.iter().any(|plan| plan.rule_id == "C007"));
+    assert!(!all.iter().any(|plan| plan.rule_id == "C001"));
+
+    let without = build(&RuleSet::resolve(&[], &["C007".to_string()], &ids).0);
+    assert!(!without.iter().any(|plan| plan.rule_id == "C007"));
+    assert!(
+        without.iter().any(|plan| plan.rule_id == "C001"),
+        "C001 must surface once C007 is inactive"
+    );
 }
 
 #[test]

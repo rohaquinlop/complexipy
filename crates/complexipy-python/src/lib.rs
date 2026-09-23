@@ -79,6 +79,7 @@ mod _complexipy {
         CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity, IgnoredLocation,
         LineComplexity, RefactorPlan, RemovableIgnore,
     };
+    use complexipy_core::{AnalysisOptions, RuleSet};
 
     #[pyfunction]
     #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
@@ -91,8 +92,12 @@ mod _complexipy {
         complexipy_core::runner::file_complexity_shared(
             file_path,
             base_path,
-            check_script,
-            no_ignore,
+            &AnalysisOptions {
+                check_script,
+                no_ignore,
+                with_plans: true,
+                rules: RuleSet::default(),
+            },
         )
         .map_err(PyValueError::new_err)
     }
@@ -104,8 +109,16 @@ mod _complexipy {
         check_script: bool,
         no_ignore: bool,
     ) -> PyResult<CodeComplexity> {
-        complexipy_core::cognitive_complexity::code_complexity_shared(code, check_script, no_ignore)
-            .map_err(PyValueError::new_err)
+        complexipy_core::cognitive_complexity::code_complexity_shared(
+            code,
+            &AnalysisOptions {
+                check_script,
+                no_ignore,
+                with_plans: true,
+                rules: RuleSet::default(),
+            },
+        )
+        .map_err(PyValueError::new_err)
     }
 
     #[pyfunction]

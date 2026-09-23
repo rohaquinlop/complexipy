@@ -22,17 +22,33 @@ release section links to its GitHub release notes for the full details.
   [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
   setup. ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
   [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+
 - A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
   (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.
   Hints are gated on `max-complexity-allowed` by default, so a project that
   sets no options sees feedback only where it matters.
+
 - `complexipy-core` gains a `config` feature that owns configuration file
   discovery, so the CLI and the server read `complexipy.toml`,
   `.complexipy.toml`, and `pyproject.toml` through one code path.
+
 - The server applies `exclude` one pattern at a time: a malformed pattern is
   reported once per configuration load and skipped while the remaining patterns
   keep applying, and a list too large to compile as one program is reported once
   and still applied. A CLI run stops on either.
+
+- Per-rule suppression and rule selection
+  ([#208](https://github.com/rohaquinlop/complexipy/issues/208)). `--select`
+  and `--ignore` (repeatable and comma-separated) pick the active refactoring
+  rules, and `ignore` wins on conflict. `complexipy.toml`,
+  `.complexipy.toml`, and `pyproject.toml` take matching `select` and `ignore`
+  keys, and a flag replaces the toml key it names. An ignore comment accepts a
+  bracketed rule list, `# complexipy: ignore[C007]`, which suppresses only the
+  named rules for one function, while a bare marker keeps suppressing the
+  whole function. An inactive rule disappears from every output format and
+  never consumes a slot of the per-function plan cap, so a hidden rule can
+  never block a visible one. An unknown rule id warns on stderr and is
+  ignored. Rule selection never changes the exit code.
 
 ### Changed
 

@@ -25,18 +25,35 @@ GitHub con todos los detalles.
   configuración de Neovim y Zed.
   ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
   [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+
 - Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
   (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las
   pistas se filtran por `max-complexity-allowed` por defecto, así que un
   proyecto sin opciones recibe información solo donde importa.
+
 - `complexipy-core` incorpora una feature `config` que posee el descubrimiento
   de archivos de configuración, para que la CLI y el servidor lean
   `complexipy.toml`, `.complexipy.toml` y `pyproject.toml` por un único camino.
+
 - El servidor aplica `exclude` patrón a patrón: un patrón mal formado se
   reporta una vez por carga de configuración y se omite mientras el resto siguen
   aplicándose, y una lista demasiado grande para compilarse como un solo
   programa se reporta una vez y se sigue aplicando. Una ejecución de la CLI se
   detiene con cualquiera de los dos.
+
+- Supresión por regla y selección de reglas
+  ([#208](https://github.com/rohaquinlop/complexipy/issues/208)). `--select` y
+  `--ignore` (repetibles y con listas separadas por comas) eligen las reglas de
+  refactorización activas, y `ignore` gana en caso de conflicto.
+  `complexipy.toml`, `.complexipy.toml` y `pyproject.toml` aceptan las claves
+  `select` e `ignore`, y una flag reemplaza la clave toml que nombra. Un
+  comentario de ignorado acepta una lista de reglas entre corchetes,
+  `# complexipy: ignore[C007]`, que suprime solo las reglas nombradas para una
+  función, mientras que un marcador sin lista sigue suprimiendo la función
+  completa. Una regla inactiva desaparece de todos los formatos de salida y
+  nunca ocupa una plaza del tope de planes por función, así que una regla
+  oculta nunca puede bloquear una visible. Un id de regla desconocido avisa en
+  stderr y se ignora. La selección de reglas nunca cambia el código de salida.
 
 ### Cambiado
 

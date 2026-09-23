@@ -1,8 +1,7 @@
 pub use crate::classes::{LineComplexity, RefactorPlan};
 
-use crate::rules::RuleRegistry;
+use crate::rules::{RuleSet, default_registry, registry::PlanContext};
 use crate::utils::LineIndex;
-use std::sync::OnceLock;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum RegionKind {
@@ -44,15 +43,17 @@ pub fn build_refactor_plans(
     index: &LineIndex,
     def_names: &std::collections::HashSet<String>,
     is_module: bool,
+    active: &RuleSet,
 ) -> (Vec<RefactorPlan>, u64) {
-    static REGISTRY: OnceLock<RuleRegistry> = OnceLock::new();
-    let registry = REGISTRY.get_or_init(RuleRegistry::new);
-    registry.analyze(
+    default_registry().analyze(
         regions,
-        source,
-        index,
-        def_names,
-        function_complexity,
-        is_module,
+        &PlanContext {
+            source,
+            index,
+            def_names,
+            function_complexity,
+            is_module,
+            active,
+        },
     )
 }

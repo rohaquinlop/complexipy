@@ -25,6 +25,14 @@ The level decides how a tool may apply the suggestion:
 
 No rule uses **Needs review** today. The level is reserved for a suggestion that is usually right but changes behavior in a known input shape, and a rule may use it only with tests for each known failure shape.
 
+## Suppressing a Rule
+
+Every rule id can be turned off for a project or for one function. Use
+`--ignore C007` (or `ignore = ["C007"]` in `complexipy.toml`) for a project,
+and `# complexipy: ignore[C007]` next to a function for one function.
+`--select C001,C007` keeps only the listed rules. An inactive rule never
+appears in any output. See [Rule Selection](usage-guide.md#rule-selection).
+
 ______________________________________________________________________
 
 ## Complexity Rules

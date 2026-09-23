@@ -1,9 +1,11 @@
-//! Unit tests for `crate::utils::filter_removable_ignores`.
+//! Unit tests for `crate::utils` ignore directives and for
+//! `crate::utils::filter_removable_ignores`.
 //!
 //! so this stays a child module of the code it tests and can reach that
 //! module's private helpers through `super::` without widening visibility.
 
 use crate::classes::FunctionComplexity;
+use crate::utils::{collect_ignored_locations, extract_comment_marker, find_noqa_comment};
 
 fn function(name: &str, complexity: u64, line_start: u64, line_end: u64) -> FunctionComplexity {
     FunctionComplexity {
@@ -15,6 +17,106 @@ fn function(name: &str, complexity: u64, line_start: u64, line_end: u64) -> Func
         refactor_plans: vec![],
         additional_refactor_plans: 0,
     }
+}
+
+#[test]
+fn bare_markers_have_no_rule_list() {
+    for marker in ["# complexipy: ignore", "# noqa: complexipy"] {
+        let directive = extract_comment_marker(marker).expect("marker should parse");
+        assert_eq!(directive.rules, None);
+    }
+}
+
+#[test]
+fn bracketed_list_parses_to_uppercase_ids() {
+    let directive = extract_comment_marker("def f():  # complexipy: ignore[c007, c001]")
+        .expect("marker should parse");
+
+    assert_eq!(
+        directive.rules,
+        Some(vec!["C007".to_string(), "C001".to_string()])
+    );
+    assert_eq!(directive.text, "# complexipy: ignore[C007,C001]");
+}
+
+#[test]
+fn noqa_marker_accepts_the_same_list() {
+    let directive =
+        extract_comment_marker("def f():  # noqa: complexipy[C007]").expect("marker should parse");
+
+    assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
+    assert_eq!(directive.text, "# noqa: complexipy[C007]");
+}
+
+#[test]
+fn unclosed_list_keeps_whole_function_suppression() {
+    let directive =
+        extract_comment_marker("# complexipy: ignore[C007").expect("marker should parse");
+
+    assert_eq!(directive.rules, None);
+    assert_eq!(directive.text, "# complexipy: ignore");
+}
+
+#[test]
+fn empty_list_suppresses_no_rules() {
+    let directive = extract_comment_marker("# complexipy: ignore[]").expect("marker should parse");
+
+    assert_eq!(directive.rules, Some(Vec::new()));
+}
+
+#[test]
+fn bracketed_reason_keeps_whole_function_suppression() {
+    let directive = extract_comment_marker("# complexipy: ignore [technical debt]")
+        .expect("marker should parse");
+
+    assert_eq!(directive.rules, None);
+    assert_eq!(directive.text, "# complexipy: ignore");
+}
+
+#[test]
+fn list_without_rule_id_shape_keeps_whole_function_suppression() {
+    for marker in [
+        "# complexipy: ignore[wontfix]",
+        "# complexipy: ignore[C007, wontfix]",
+        "# complexipy: ignore[C]",
+    ] {
+        let directive = extract_comment_marker(marker).expect("marker should parse");
+        assert_eq!(directive.rules, None, "{marker}");
+    }
+}
+
+#[test]
+fn trailing_reason_after_a_list_does_not_change_the_list() {
+    let directive =
+        extract_comment_marker("# complexipy: ignore[C007] (see issue 208)").expect("parses");
+
+    assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
+}
+
+#[test]
+fn rule_list_marker_is_found_for_a_decorated_function() {
+    let code = "# complexipy: ignore[C007]\n@decorator\ndef f(x):\n    return x\n";
+    let offset = code.find("@decorator").expect("decorator should exist");
+    let directive = find_noqa_comment(offset, code).expect("directive should be found");
+
+    assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
+}
+
+#[test]
+fn rule_list_marker_is_found_for_the_function() {
+    let code = "def f(x):  # complexipy: ignore[C007]\n    return x\n";
+    let directive = find_noqa_comment(0, code).expect("directive should be found");
+
+    assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
+}
+
+#[test]
+fn collect_ignored_locations_reports_bare_markers_only() {
+    let code = "def bare(x):  # complexipy: ignore\n    return x\n\ndef narrowed(x):  # complexipy: ignore[C007]\n    return x\n";
+    let locations = collect_ignored_locations(code);
+
+    assert_eq!(locations.len(), 1);
+    assert_eq!(locations[0].1, "# complexipy: ignore");
 }
 
 #[test]

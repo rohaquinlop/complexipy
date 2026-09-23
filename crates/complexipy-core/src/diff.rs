@@ -244,7 +244,9 @@ fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>>
     let parsed = ruff_python_parser::parse_module(content).ok()?;
     let ast_body = parsed.into_suite();
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
-        &ast_body, content, false, false, false,
+        &ast_body,
+        content,
+        &crate::rules::AnalysisOptions::default(),
     );
     Some(
         functions
