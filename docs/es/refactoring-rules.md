@@ -25,6 +25,15 @@ El nivel decide cómo una herramienta puede aplicar la sugerencia:
 
 Hoy ninguna regla usa **Necesita revisión**. El nivel queda reservado para una sugerencia que suele ser correcta pero cambia el comportamiento en una forma de entrada conocida, y una regla solo puede usarlo con pruebas para cada forma de fallo conocida.
 
+## Suprimir una Regla
+
+Cada id de regla se puede desactivar para un proyecto o para una función. Usa
+`--ignore C007` (o `ignore = ["C007"]` en `complexipy.toml`) para un proyecto,
+y `# complexipy: ignore[C007]` junto a una función para una función.
+`--select C001,C007` conserva solo las reglas nombradas. Una regla inactiva
+nunca aparece en ninguna salida. Ver
+[Selección de Reglas](usage-guide.md#selecci%C3%B3n-de-reglas).
+
 ______________________________________________________________________
 
 ## Reglas de Complejidad

@@ -49,9 +49,13 @@ uv run mkdocs serve                                 # preview the docs site
   declarations and fails when a stub disagrees.
 - Rules consume `ComplexityRegion`s. A rule never re-parses source to find
   structure.
-- `RuleRegistry::analyze()` filters, sorts, resolves overlap, and caps the result
-  at 5 plans per function. `effectiveness` in `RuleMetadata` is the single
-  ranking source; no `match rule_id` exists anywhere.
+- `RuleRegistry::analyze()` drops inactive rules first, then sorts, resolves
+  overlap, and caps the result at 5 plans per function. `effectiveness` in
+  `RuleMetadata` is the single ranking source; no `match rule_id` exists
+  anywhere.
+- Rule selection lives in one `RuleSet`: `--ignore` wins over `--select`, a bare
+  `# complexipy: ignore` drops the function, and `# complexipy: ignore[C007]`
+  subtracts rules for one function only.
 - A new rule is registered in `register_defaults()` and documented in both
   `docs/refactoring-rules.md` and `docs/es/refactoring-rules.md`.
 - Never emit a suggestion the tool cannot stand behind. When a heuristic is not

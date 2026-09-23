@@ -425,18 +425,20 @@ editor shows:
 | `per-line-hints` | Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped | `false` |
 | `diagnostics` | Publish a warning for every function above `max-complexity-allowed` | `true` |
 
-The server reads the top-level `max-complexity-allowed`, `exclude`, and
-`no-ignore` keys, and it ignores every other key of the same file: `paths`,
-`quiet`, `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
-`snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
-`report-ignored`, and `diff`. A function whose complexity equals the threshold
-passes, as it does on the command line.
+The server reads the top-level `max-complexity-allowed`, `exclude`, `select`,
+`ignore`, and `no-ignore` keys, and it ignores every other key of the same
+file: `paths`, `quiet`, `failed`, `sort`, `color`, `output`, `output-format`,
+`cache-dir`, `snapshot-create`, `snapshot-ignore`, `ignore-complexity`,
+`check-script`, `report-ignored`, and `diff`. A function whose complexity
+equals the threshold passes, as it does on the command line.
 
 ## CLI Options
 
 | Flag | Description | Default |
 | -- | -- | -- |
 | `--exclude` | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |  |
+| `--select <ids>` | Report only the named refactoring rules, e.g. `--select C001,C007`. Repeatable and comma-separated | all rules |
+| `--ignore <ids>` | Never report the named refactoring rules, e.g. `--ignore C007`. Wins over `--select`. Repeatable and comma-separated |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
 | `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
@@ -781,6 +783,34 @@ Use this when:
 
 Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
+## Rule Selection
+
+Refactoring rules carry ids like `C001` (see
+[Refactoring Rules](refactoring-rules.md)). Two flags choose which rules are
+active, and both accept comma-separated lists and repeat:
+
+| Flag | Effect |
+| -- | -- |
+| `--select C001,C007` | Report only the listed rules |
+| `--ignore C007` | Never report the listed rules |
+
+With no flag every rule is active. When both flags name the same rule,
+`--ignore` wins. Rule ids are case-insensitive. An unknown id prints a warning
+on stderr and is ignored.
+
+The same keys work in `complexipy.toml`, `.complexipy.toml`, and
+`pyproject.toml`:
+
+```toml
+select = ["C001", "C007"]
+ignore = ["C002"]
+```
+
+A flag replaces the toml key it names. Rule selection never changes the exit
+code: the exit code follows the complexity threshold, snapshots, paths, and
+diff gating only. A rule that is not active never appears in the terminal, the
+refactor plans, JSON, CSV, SARIF, or GitLab output.
+
 ## Inline Ignores
 
 Suppress complexity warnings for specific functions using the `# complexipy: ignore` comment:
@@ -802,6 +832,22 @@ The ignore comment can also be placed on the line above the function definition:
 def complex_function():
     pass
 ```
+
+### Suppressing Specific Rules
+
+Add a bracketed rule list to keep the function but hide the named rules:
+
+```python
+def tangled(a, b):  # complexipy: ignore[C007]
+    pass
+```
+
+The function is still analyzed and reported; only the listed rules are
+suppressed for it. Separate several ids with commas:
+`# complexipy: ignore[C001,C007]`. The `# noqa: complexipy[C007]` form behaves
+the same way. A bare marker keeps suppressing the whole function. Bracketed
+text that is not a list of rule ids is a reason, so
+`# complexipy: ignore [technical debt]` keeps suppressing the whole function.
 
 !!! note "Deprecated Syntax"
 

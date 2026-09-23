@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::rules::RuleSet;
+
 pub const DEFAULT_MAX_COMPLEXITY_ALLOWED: u64 = 15;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -94,7 +96,22 @@ pub struct LspConfig {
     #[serde(default)]
     pub no_ignore: bool,
     #[serde(default)]
+    pub select: StringOrList<String>,
+    #[serde(default)]
+    pub ignore: StringOrList<String>,
+    #[serde(default)]
     pub lsp: LspSection,
+}
+
+impl LspConfig {
+    pub fn rule_set(&self) -> RuleSet {
+        RuleSet::resolve(
+            &self.select.clone().into_vec(),
+            &self.ignore.clone().into_vec(),
+            &crate::rules::registered_rule_ids(),
+        )
+        .0
+    }
 }
 
 impl Default for LspConfig {
@@ -103,6 +120,8 @@ impl Default for LspConfig {
             max_complexity_allowed: DEFAULT_MAX_COMPLEXITY_ALLOWED,
             exclude: StringOrList::default(),
             no_ignore: false,
+            select: StringOrList::default(),
+            ignore: StringOrList::default(),
             lsp: LspSection::default(),
         }
     }

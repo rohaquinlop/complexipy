@@ -426,17 +426,19 @@ controla lo que muestra el editor:
 | `diagnostics` | Publica una advertencia por cada función por encima de `max-complexity-allowed` | `true` |
 
 El servidor lee las claves de nivel superior `max-complexity-allowed`,
-`exclude` y `no-ignore`, e ignora el resto de claves del mismo archivo:
-`paths`, `quiet`, `failed`, `sort`, `color`, `output`, `output-format`,
-`cache-dir`, `snapshot-create`, `snapshot-ignore`, `ignore-complexity`,
-`check-script`, `report-ignored` y `diff`. Una función cuya complejidad es
-igual al umbral pasa, igual que en la línea de comandos.
+`exclude`, `select`, `ignore` y `no-ignore`, e ignora el resto de claves del
+mismo archivo: `paths`, `quiet`, `failed`, `sort`, `color`, `output`,
+`output-format`, `cache-dir`, `snapshot-create`, `snapshot-ignore`,
+`ignore-complexity`, `check-script`, `report-ignored` y `diff`. Una función
+cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 
 ## Opciones de CLI
 
 | Opción | Descripción | Predeterminado |
 | -- | -- | -- |
 | `--exclude` | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |  |
+| `--select <ids>` | Reporta solo las reglas de refactorización nombradas, por ejemplo `--select C001,C007`. Se puede repetir y acepta listas separadas por comas | todas las reglas |
+| `--ignore <ids>` | Nunca reporta las reglas de refactorización nombradas, por ejemplo `--ignore C007`. Gana sobre `--select`. Se puede repetir y acepta listas separadas por comas |  |
 | `--max-complexity-allowed` | Umbral de complejidad | `15` |
 | `--snapshot-create` | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
@@ -782,6 +784,35 @@ complexipy . --snapshot-ignore
 
 Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución - las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
 
+## Selección de Reglas
+
+Las reglas de refactorización llevan ids como `C001` (ver
+[Reglas de Refactorización](refactoring-rules.md)). Dos flags eligen qué reglas
+están activas, y ambas aceptan listas separadas por comas y se pueden repetir:
+
+| Flag | Efecto |
+| -- | -- |
+| `--select C001,C007` | Reporta solo las reglas nombradas |
+| `--ignore C007` | Nunca reporta las reglas nombradas |
+
+Sin ninguna flag, todas las reglas están activas. Cuando ambas flags nombran la
+misma regla, `--ignore` gana. Los ids de reglas no distinguen mayúsculas de
+minúsculas. Un id desconocido imprime una advertencia en stderr y se ignora.
+
+Las mismas claves funcionan en `complexipy.toml`, `.complexipy.toml` y
+`pyproject.toml`:
+
+```toml
+select = ["C001", "C007"]
+ignore = ["C002"]
+```
+
+Una flag reemplaza la clave toml que nombra. La selección de reglas nunca
+cambia el código de salida: el código de salida sigue al umbral de complejidad,
+a los snapshots, a las rutas y al gating de diff. Una regla que no está activa
+nunca aparece en la terminal, en los planes de refactorización, en JSON, CSV,
+SARIF ni en la salida de GitLab.
+
 ## Ignorar en Línea
 
 Suprime las advertencias de complejidad para funciones específicas usando el comentario `# complexipy: ignore`:
@@ -803,6 +834,24 @@ El comentario de ignorar también puede colocarse en la línea anterior a la def
 def complex_function():
     pass
 ```
+
+### Suprimir Reglas Específicas
+
+Añade una lista de reglas entre corchetes para conservar la función pero
+ocultar las reglas nombradas:
+
+```python
+def tangled(a, b):  # complexipy: ignore[C007]
+    pass
+```
+
+La función sigue analizándose y reportándose; solo se suprimen las reglas
+nombradas para esa función. Separa varios ids con comas:
+`# complexipy: ignore[C001,C007]`. La forma `# noqa: complexipy[C007]` se
+comporta igual. Un marcador sin lista sigue suprimiendo la función completa.
+Un texto entre corchetes que no es una lista de ids de reglas es un motivo, así
+que `# complexipy: ignore [technical debt]` sigue suprimiendo la función
+completa.
 
 !!! note "Sintaxis Obsoleta"
 

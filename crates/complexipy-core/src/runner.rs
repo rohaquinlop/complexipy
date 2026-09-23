@@ -1,6 +1,7 @@
 use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::helpers::exclude::get_paths_to_process;
+use crate::rules::{AnalysisOptions, RuleSet};
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
 use rayon::prelude::*;
 use ruff_python_parser::parse_module;
@@ -10,8 +11,7 @@ use crate::cognitive_complexity::code_complexity_shared;
 
 struct ProcessOptions {
     exclude: Vec<String>,
-    check_script: bool,
-    no_ignore: bool,
+    analysis: AnalysisOptions,
 }
 
 type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
@@ -19,8 +19,7 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 pub fn run_analysis_shared(
     paths: &[String],
     exclude: &[String],
-    check_script: bool,
-    no_ignore: bool,
+    opts: &AnalysisOptions,
     invocation_path: &str,
 ) -> Result<ComplexitiesAndFailedPaths, String> {
     let mut successful = Vec::new();
@@ -35,8 +34,7 @@ pub fn run_analysis_shared(
 
         let opts = ProcessOptions {
             exclude: exclude.to_vec(),
-            check_script,
-            no_ignore,
+            analysis: opts.clone(),
         };
 
         let inv_abs = path::Path::new(invocation_path)
@@ -107,7 +105,7 @@ fn analyze_file_shared(
         .ok()
         .and_then(|p| p.to_str())
         .unwrap_or(path);
-    let mut complexity = file_complexity_shared(path, &inv_str, opts.check_script, opts.no_ignore)?;
+    let mut complexity = file_complexity_shared(path, &inv_str, &opts.analysis)?;
     complexity.path = rel.to_string();
     Ok(complexity)
 }
@@ -115,8 +113,7 @@ fn analyze_file_shared(
 pub fn file_complexity_shared(
     file_path: &str,
     base_path: &str,
-    check_script: bool,
-    no_ignore: bool,
+    opts: &AnalysisOptions,
 ) -> Result<FileComplexity, String> {
     let path = path::Path::new(file_path);
     let file_name = path
@@ -130,7 +127,7 @@ pub fn file_complexity_shared(
         .unwrap_or(file_path);
     let code = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
-    let code_complexity = code_complexity_shared(&code, check_script, no_ignore)
+    let code_complexity = code_complexity_shared(&code, opts)
         .map_err(|e| format!("Failed to process file '{}': {}", file_path, e))?;
     Ok(FileComplexity {
         path: relative_path.to_string(),
@@ -268,8 +265,15 @@ fn collect_removable_ignores_from_file(
     }
     let parsed = parse_module(&code).map_err(|e| format!("Failed to parse code: {}", e))?;
     let ast_body = parsed.into_suite();
-    let (functions, _) =
-        function_level_cognitive_complexity_shared(&ast_body, &code, false, true, false);
+    let (functions, _) = function_level_cognitive_complexity_shared(
+        &ast_body,
+        &code,
+        &AnalysisOptions {
+            no_ignore: true,
+            rules: RuleSet::default(),
+            ..Default::default()
+        },
+    );
     let removable = filter_removable_ignores(&locations, &functions, max_complexity_allowed);
     Ok(removable
         .into_iter()

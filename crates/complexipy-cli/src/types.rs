@@ -11,6 +11,10 @@ pub struct Config {
     pub paths: StringOrList<String>,
     #[serde(default)]
     pub exclude: StringOrList<String>,
+    #[serde(default)]
+    pub select: StringOrList<String>,
+    #[serde(default)]
+    pub ignore: StringOrList<String>,
     #[serde(default = "default_max_complexity")]
     pub max_complexity_allowed: u64,
     #[serde(default)]
@@ -65,6 +69,8 @@ pub struct RunConfig {
     pub output_format: Vec<OutputFormat>,
     pub output: Option<String>,
     pub exclude: Vec<String>,
+    pub select: Vec<String>,
+    pub ignore: Vec<String>,
     pub cache_dir: Option<String>,
     pub check_script: bool,
     pub no_ignore: bool,

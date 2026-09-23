@@ -41,6 +41,35 @@ fn defaults_with_only_paths() {
 }
 
 #[test]
+fn select_and_ignore_default_to_empty() {
+    let config = resolve(&["src"], None).expect("resolve should succeed");
+
+    assert_eq!(config.select, Vec::<String>::new());
+    assert_eq!(config.ignore, Vec::<String>::new());
+}
+
+#[test]
+fn toml_select_and_ignore_used_when_cli_absent() {
+    let config = resolve(&["src"], Some("select = [\"C001\"]\nignore = [\"C007\"]"))
+        .expect("resolve should succeed");
+
+    assert_eq!(config.select, vec!["C001"]);
+    assert_eq!(config.ignore, vec!["C007"]);
+}
+
+#[test]
+fn cli_select_and_ignore_replace_toml_per_key() {
+    let config = resolve(
+        &["src", "--select", "C002"],
+        Some("select = [\"C001\"]\nignore = [\"C007\"]"),
+    )
+    .expect("resolve should succeed");
+
+    assert_eq!(config.select, vec!["C002"]);
+    assert_eq!(config.ignore, vec!["C007"]);
+}
+
+#[test]
 fn missing_paths_without_toml() {
     let result = resolve(&[], None);
 

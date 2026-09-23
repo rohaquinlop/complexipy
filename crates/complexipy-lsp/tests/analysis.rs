@@ -1,4 +1,4 @@
-use complexipy_core::config::{InlayHints, LspConfig, LspSection};
+use complexipy_core::config::{InlayHints, LspConfig, LspSection, StringOrList};
 use complexipy_lsp::analysis::{
     DIAGNOSTIC_CODE, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, LineBounds, analyze, is_stale,
     is_within,
@@ -49,6 +49,43 @@ fn config_with(
 
 fn analyzed(source: &str, config: &LspConfig) -> complexipy_lsp::analysis::DocumentAnalysis {
     analyze(source, 1, config).unwrap()
+}
+
+const COLLAPSIBLE_IF: &str = "def heavy(a, b, c, d):\n    if a:\n        if b:\n            if c and d:\n                return 1\n    return 0\n";
+
+#[test]
+fn inactive_rules_leave_no_plans() {
+    let default = analyzed(COLLAPSIBLE_IF, &config(15));
+    assert!(
+        default.functions[0]
+            .refactor_plans
+            .iter()
+            .any(|plan| plan.rule_id == "C007")
+    );
+
+    let config = LspConfig {
+        ignore: StringOrList::Many(vec!["C007".to_string()]),
+        ..LspConfig::default()
+    };
+    let narrowed = analyzed(COLLAPSIBLE_IF, &config);
+    let plans = &narrowed.functions[0].refactor_plans;
+
+    assert!(plans.iter().all(|plan| plan.rule_id != "C007"));
+    assert!(plans.iter().any(|plan| plan.rule_id == "C001"));
+}
+
+#[test]
+fn inline_rule_list_keeps_the_other_rules() {
+    let source = COLLAPSIBLE_IF.replace(
+        "def heavy(a, b, c, d):",
+        "def heavy(a, b, c, d):  # noqa: complexipy[C007]",
+    );
+
+    let analysis = analyzed(&source, &config(15));
+    let plans = &analysis.functions[0].refactor_plans;
+
+    assert!(plans.iter().all(|plan| plan.rule_id != "C007"));
+    assert!(plans.iter().any(|plan| plan.rule_id == "C001"));
 }
 
 fn label(hint: &InlayHint) -> String {

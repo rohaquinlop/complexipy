@@ -119,6 +119,20 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
             .unwrap_or_default()
     };
 
+    let select = if !cli.select.is_empty() {
+        cli.select
+    } else {
+        toml.map(|toml| toml.select.clone().into_vec())
+            .unwrap_or_default()
+    };
+
+    let ignore = if !cli.ignore.is_empty() {
+        cli.ignore
+    } else {
+        toml.map(|toml| toml.ignore.clone().into_vec())
+            .unwrap_or_default()
+    };
+
     let check_script = cli
         .check_script
         .or_else(|| toml.map(|toml| toml.check_script))
@@ -170,6 +184,8 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
         output_format,
         output,
         exclude,
+        select,
+        ignore,
         check_script,
         no_ignore,
         report_ignored,

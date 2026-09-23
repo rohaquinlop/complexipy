@@ -7,6 +7,23 @@ fn parse(args: &[&str]) -> CliArgs {
 }
 
 #[test]
+fn select_and_ignore_accept_comma_lists_and_repeats() {
+    let cli = parse(&[
+        "complexipy",
+        "src",
+        "--select",
+        "C001,C002",
+        "--select",
+        "C003",
+        "--ignore",
+        "C007,C008",
+    ]);
+
+    assert_eq!(cli.select, vec!["C001", "C002", "C003"]);
+    assert_eq!(cli.ignore, vec!["C007", "C008"]);
+}
+
+#[test]
 fn bare_long_flag_before_path_is_not_consumed() {
     let cli = parse(&[
         "complexipy",

@@ -416,42 +416,85 @@ pub fn collect_def_names(code: &str) -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// Extract a canonical ignore comment marker from a line.
+/// A suppression marker next to a function. `rules` is `None` for a bare
+/// marker, which suppresses the whole function, and holds the rule ids named
+/// in a bracketed list otherwise.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IgnoreDirective {
+    pub text: String,
+    pub rules: Option<Vec<String>>,
+}
+
+/// Extract an ignore directive from a line.
 ///
-/// Returns `Some("# complexipy: ignore")` or `Some("# noqa: complexipy")`
-/// when the line contains the corresponding pattern (case-insensitive).
-/// Returns `None` if neither marker is found.
-pub fn extract_comment_marker(line: &str) -> Option<String> {
+/// Returns `Some(..)` for `# complexipy: ignore` and `# noqa: complexipy`,
+/// case-insensitive, with an optional bracketed rule list after the marker.
+/// Returns `None` when no marker is found.
+pub fn extract_comment_marker(line: &str) -> Option<IgnoreDirective> {
     static IGNORE_RE: OnceLock<Regex> = OnceLock::new();
     static NOQA_RE: OnceLock<Regex> = OnceLock::new();
 
-    let ignore_re =
-        IGNORE_RE.get_or_init(|| Regex::new(r"(?i)#\s*complexipy\s*:\s*ignore.*").unwrap());
-    let noqa_re = NOQA_RE.get_or_init(|| Regex::new(r"(?i)#\s*noqa\s*:\s*complexipy.*").unwrap());
+    let ignore_re = IGNORE_RE
+        .get_or_init(|| Regex::new(r"(?i)#\s*complexipy\s*:\s*ignore(\s*\[([^\]]*)\])?").unwrap());
+    let noqa_re = NOQA_RE
+        .get_or_init(|| Regex::new(r"(?i)#\s*noqa\s*:\s*complexipy(\s*\[([^\]]*)\])?").unwrap());
 
-    if ignore_re.is_match(line) {
-        return Some("# complexipy: ignore".to_string());
-    } else if noqa_re.is_match(line) {
-        return Some("# noqa: complexipy".to_string());
+    if let Some(captures) = ignore_re.captures(line) {
+        return Some(build_directive("# complexipy: ignore", captures.get(2)));
+    }
+    if let Some(captures) = noqa_re.captures(line) {
+        return Some(build_directive("# noqa: complexipy", captures.get(2)));
     }
 
     None
 }
 
-/// Find a noqa/ignore comment near a `def` or decorator line.
+fn build_directive(marker: &str, codes: Option<regex::Match<'_>>) -> IgnoreDirective {
+    let Some(codes) = codes else {
+        return IgnoreDirective {
+            text: marker.to_string(),
+            rules: None,
+        };
+    };
+    let rules: Vec<String> = codes
+        .as_str()
+        .split(',')
+        .map(|code| code.trim().to_ascii_uppercase())
+        .filter(|code| !code.is_empty())
+        .collect();
+    if !rules.iter().all(|code| is_rule_id(code)) {
+        return IgnoreDirective {
+            text: marker.to_string(),
+            rules: None,
+        };
+    }
+    IgnoreDirective {
+        text: format!("{}[{}]", marker, rules.join(",")),
+        rules: Some(rules),
+    }
+}
+
+fn is_rule_id(code: &str) -> bool {
+    let mut bytes = code.bytes();
+    matches!(bytes.next(), Some(first) if first.is_ascii_alphabetic())
+        && bytes.clone().count() > 0
+        && bytes.all(|byte| byte.is_ascii_digit())
+}
+
+/// Find an ignore directive near a `def` or decorator line.
 ///
-/// Returns `Some(comment_text)` when a marker is found that would
-/// trigger suppression, `None` otherwise.
-pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<String> {
+/// Returns `Some(..)` when a marker is found that would trigger suppression,
+/// `None` otherwise.
+pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<IgnoreDirective> {
     let line_start = line_start_of(code, byte_offset);
     let current_line = line_at(code, line_start);
 
-    let signature_has_marker = |def_line_start: usize| -> Option<String> {
+    let signature_has_marker = |def_line_start: usize| -> Option<IgnoreDirective> {
         let mut pos = def_line_start;
         for _ in 0..20 {
             let line = line_at(code, pos);
-            if let Some(marker) = extract_comment_marker(line) {
-                return Some(marker);
+            if let Some(directive) = extract_comment_marker(line) {
+                return Some(directive);
             }
             if line.contains(':') {
                 break;
@@ -488,8 +531,8 @@ pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<String> {
                 }
                 if pos > 0 {
                     let prev_start = line_start_of(code, pos - 1);
-                    if let Some(marker) = extract_comment_marker(line_at(code, prev_start)) {
-                        return Some(marker);
+                    if let Some(directive) = extract_comment_marker(line_at(code, prev_start)) {
+                        return Some(directive);
                     }
                 }
                 break;
@@ -503,13 +546,10 @@ pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<String> {
     None
 }
 
-pub fn has_noqa_complexipy(byte_offset: usize, code: &str) -> bool {
-    find_noqa_comment(byte_offset, code).is_some()
-}
-
-/// Collect ignored locations from code, only reporting markers that
-/// actually suppress a function definition (i.e., are adjacent to `def`
-/// or `@decorator` lines).
+/// Collect ignored locations from code, only reporting bare markers that
+/// suppress a whole function definition (i.e., are adjacent to `def`
+/// or `@decorator` lines). A marker with a rule list is not a whole-function
+/// suppression and is never reported here.
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     let index = LineIndex::new(code);
     let mut results = Vec::new();
@@ -520,8 +560,10 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
         let trimmed = line.trim_start();
 
         if trimmed.starts_with("def ") {
-            if let Some(comment) = find_noqa_comment(line_start, code) {
-                results.push((index.line_of(line_start), comment));
+            if let Some(directive) = find_noqa_comment(line_start, code)
+                && directive.rules.is_none()
+            {
+                results.push((index.line_of(line_start), directive.text));
             }
             line_start = next_line_start(code, line_start).unwrap_or(code.len());
         } else if trimmed.starts_with('@') {
@@ -543,9 +585,10 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
             }
             let mut reported = false;
             if let Some(def_line_start) = def_offset
-                && let Some(comment) = find_noqa_comment(def_line_start, code)
+                && let Some(directive) = find_noqa_comment(def_line_start, code)
+                && directive.rules.is_none()
             {
-                results.push((index.line_of(def_line_start), comment));
+                results.push((index.line_of(def_line_start), directive.text));
                 reported = true;
             }
             while let Some(next) = next_line_start(code, line_start) {

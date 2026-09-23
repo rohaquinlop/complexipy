@@ -10,6 +10,12 @@ pub struct CliArgs {
     #[arg(short, long, value_delimiter = ',')]
     pub exclude: Vec<String>,
 
+    #[arg(long, value_delimiter = ',')]
+    pub select: Vec<String>,
+
+    #[arg(long, value_delimiter = ',')]
+    pub ignore: Vec<String>,
+
     #[arg(long)]
     pub max_complexity_allowed: Option<u64>,
 

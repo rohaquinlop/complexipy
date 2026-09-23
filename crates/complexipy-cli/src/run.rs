@@ -5,7 +5,7 @@ use owo_colors::OwoColorize;
 use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output,
+    removable_ignores_output, unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
@@ -18,6 +18,7 @@ use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::run_analysis_shared;
+use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let toml_config = get_complexipy_toml_config(invocation_path);
@@ -40,19 +41,28 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         println!("{} {}", "Warning:".yellow(), diff_flags_warning());
     }
 
-    let (files_complexities, failed_paths) = match run_analysis_shared(
-        &config.paths,
-        &config.exclude,
-        config.check_script,
-        config.no_ignore,
-        invocation_path,
-    ) {
-        Ok(result) => result,
-        Err(error) => {
-            eprintln!("{}", error);
-            return ExitCode::FAILURE;
+    let (rules, unknown_rules) =
+        RuleSet::resolve(&config.select, &config.ignore, &registered_rule_ids());
+    if !config.quiet {
+        for rule_id in &unknown_rules {
+            eprintln!("{} {}", "Warning:".yellow(), unknown_rule_warning(rule_id));
         }
+    }
+    let analysis = AnalysisOptions {
+        check_script: config.check_script,
+        no_ignore: config.no_ignore,
+        with_plans: true,
+        rules,
     };
+
+    let (files_complexities, failed_paths) =
+        match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
+            Ok(result) => result,
+            Err(error) => {
+                eprintln!("{}", error);
+                return ExitCode::FAILURE;
+            }
+        };
 
     let output_snapshot_path = format!("{}/complexipy-snapshot.json", invocation_path);
     let snap = match evaluate_snapshot(

@@ -860,3 +860,27 @@ def test_reduction_is_measured_flag_marks_spliced_and_estimated_plans() -> None:
     assert predicate.suggestion is not None
     assert not predicate.suggestion.spliceable
     assert not predicate.reduction_is_measured
+
+
+def test_inline_rule_list_suppresses_only_named_rules() -> None:
+    result = code_complexity(load_source("inline_rule_ignore.py"))
+
+    assert len(result.functions) == 2
+    for func in result.functions:
+        assert all(plan.rule_id != "C007" for plan in func.refactor_plans)
+        assert any(plan.rule_id == "C001" for plan in func.refactor_plans)
+
+
+def test_bare_ignore_comment_drops_the_function() -> None:
+    code = textwrap.dedent(
+        """\
+        def dropped(a, b, c, d):  # noqa: complexipy
+            if a:
+                if b:
+                    if c and d:
+                        return 1
+            return 0
+        """
+    )
+
+    assert code_complexity(code).functions == []

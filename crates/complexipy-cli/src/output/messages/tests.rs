@@ -1,6 +1,6 @@
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output,
+    removable_ignores_output, unknown_rule_warning,
 };
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
@@ -13,6 +13,22 @@ fn evaluation(should_run: bool, messages: Vec<String>) -> SnapshotEvaluation {
         watermark_messages: messages,
         snapshot_result: true,
     }
+}
+
+#[test]
+fn unknown_rule_warning_names_the_rule() {
+    assert_eq!(
+        unknown_rule_warning("C999"),
+        "Unknown rule id 'C999'. Ignoring it."
+    );
+}
+
+#[test]
+fn unknown_rule_warning_handles_an_empty_id() {
+    assert_eq!(
+        unknown_rule_warning(""),
+        "Empty rule id in select or ignore. Ignoring it."
+    );
 }
 
 #[test]

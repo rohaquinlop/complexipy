@@ -1,10 +1,20 @@
-use super::types::RefactorRule;
+use super::types::{AnalysisOptions, RefactorRule, RuleSet};
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::ComplexityRegion;
 use crate::utils::LineIndex;
 use ruff_python_parser::parse_module;
 use std::collections::HashMap;
+
+/// Everything a rule needs about the function or module being planned.
+pub struct PlanContext<'a> {
+    pub source: &'a str,
+    pub index: &'a LineIndex,
+    pub def_names: &'a std::collections::HashSet<String>,
+    pub function_complexity: u64,
+    pub is_module: bool,
+    pub active: &'a RuleSet,
+}
 
 pub struct RuleRegistry {
     rules: Vec<Box<dyn RefactorRule>>,
@@ -31,6 +41,13 @@ impl RuleRegistry {
 
     pub fn register(&mut self, rule: Box<dyn RefactorRule>) {
         self.rules.push(rule);
+    }
+
+    pub fn registered_ids(&self) -> Vec<String> {
+        self.rules
+            .iter()
+            .map(|rule| rule.metadata().id.clone())
+            .collect()
     }
 
     /// Build a `rule_id -> effectiveness` lookup from the currently registered
@@ -60,29 +77,18 @@ impl RuleRegistry {
     pub fn analyze(
         &self,
         regions: &[ComplexityRegion],
-        source: &str,
-        index: &LineIndex,
-        def_names: &std::collections::HashSet<String>,
-        function_complexity: u64,
-        is_module: bool,
+        ctx: &PlanContext<'_>,
     ) -> (Vec<RefactorPlan>, u64) {
         let mut plans = Vec::new();
 
-        self.collect_plans(
-            regions,
-            source,
-            index,
-            def_names,
-            function_complexity,
-            &mut plans,
-        );
+        self.collect_plans(regions, ctx, &mut plans);
         plans.retain(|plan| plan.estimated_reduction >= 1);
 
         let effectiveness = self.effectiveness_by_rule_id();
         let (mut selected, cap_dropped) = select_non_overlapping(plans, &effectiveness);
 
         let measured_before = selected.len();
-        self.measure_plans(&mut selected, source, index, is_module);
+        self.measure_plans(&mut selected, ctx);
         selected.retain(|plan| plan.estimated_reduction >= 1);
         let measurement_dropped = measured_before.saturating_sub(selected.len());
 
@@ -92,13 +98,7 @@ impl RuleRegistry {
     /// Plans whose measurement fails keep their formula estimate with
     /// `reduction_is_measured = false` - never a panic, never a fabricated
     /// measured number.
-    fn measure_plans(
-        &self,
-        plans: &mut [RefactorPlan],
-        source: &str,
-        index: &LineIndex,
-        is_module: bool,
-    ) {
+    fn measure_plans(&self, plans: &mut [RefactorPlan], ctx: &PlanContext<'_>) {
         for plan in plans.iter_mut() {
             let Some(suggestion) = &plan.suggestion else {
                 continue;
@@ -106,7 +106,8 @@ impl RuleRegistry {
             if !suggestion.spliceable {
                 continue;
             }
-            let Some(measured) = measure_reduction(plan, suggestion, source, index, is_module)
+            let Some(measured) =
+                measure_reduction(plan, suggestion, ctx.source, ctx.index, ctx.is_module)
             else {
                 continue;
             };
@@ -119,29 +120,26 @@ impl RuleRegistry {
     fn collect_plans(
         &self,
         regions: &[ComplexityRegion],
-        source: &str,
-        index: &LineIndex,
-        def_names: &std::collections::HashSet<String>,
-        function_complexity: u64,
+        ctx: &PlanContext<'_>,
         plans: &mut Vec<RefactorPlan>,
     ) {
         for region in regions {
             for rule in &self.rules {
-                if let Some(plan) =
-                    rule.check(region, source, index, def_names, function_complexity)
-                {
+                if !ctx.active.is_active(&rule.metadata().id) {
+                    continue;
+                }
+                if let Some(plan) = rule.check(
+                    region,
+                    ctx.source,
+                    ctx.index,
+                    ctx.def_names,
+                    ctx.function_complexity,
+                ) {
                     plans.push(plan);
                 }
             }
 
-            self.collect_plans(
-                &region.children,
-                source,
-                index,
-                def_names,
-                function_complexity,
-                plans,
-            );
+            self.collect_plans(&region.children, ctx, plans);
         }
     }
 }
@@ -195,9 +193,11 @@ fn measure_reduction(
     let (functions, _) = function_level_cognitive_complexity_shared(
         &parsed.into_suite(),
         &spliced,
-        true,
-        true,
-        false,
+        &AnalysisOptions {
+            check_script: true,
+            no_ignore: true,
+            ..Default::default()
+        },
     );
 
     let new_complexity = if is_module {

@@ -57,6 +57,94 @@ impl RuleMetadata {
     }
 }
 
+/// The rules that may produce plans. `allowed` is `None` when every
+/// registered rule is active, and `denied` always subtracts. Selection is
+/// data-driven: nothing matches on a `rule_id` literal.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RuleSet {
+    allowed: Option<HashSet<String>>,
+    denied: HashSet<String>,
+}
+
+impl RuleSet {
+    /// Builds the set from a select list and an ignore list, and returns the
+    /// ids that no registered rule owns so the caller can warn about them.
+    /// An empty select list means every registered rule is active; a select
+    /// list with no valid id selects nothing.
+    #[must_use]
+    pub fn resolve(
+        select: &[String],
+        ignore: &[String],
+        known_ids: &[String],
+    ) -> (Self, Vec<String>) {
+        let known: HashSet<String> = known_ids.iter().map(|id| id.to_ascii_uppercase()).collect();
+        let select_ids = normalize_ids(select);
+        let ignore_ids = normalize_ids(ignore);
+        let mut unknown: Vec<String> = select
+            .iter()
+            .chain(ignore.iter())
+            .map(|id| id.trim().to_ascii_uppercase())
+            .filter(|id| !known.contains(id))
+            .collect();
+        unknown.sort();
+        unknown.dedup();
+
+        (
+            Self {
+                allowed: (!select.is_empty()).then(|| select_ids.into_iter().collect()),
+                denied: ignore_ids.into_iter().collect(),
+            },
+            unknown,
+        )
+    }
+
+    /// Returns the set with the given rule ids subtracted, for one function.
+    #[must_use]
+    pub fn without(&self, rules: &[String]) -> Self {
+        let mut denied = self.denied.clone();
+        denied.extend(normalize_ids(rules));
+        Self {
+            allowed: self.allowed.clone(),
+            denied,
+        }
+    }
+
+    #[must_use]
+    pub fn is_active(&self, rule_id: &str) -> bool {
+        if rule_id
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+        {
+            return self.contains(rule_id);
+        }
+        self.contains(&rule_id.to_ascii_uppercase())
+    }
+
+    fn contains(&self, rule_id: &str) -> bool {
+        self.allowed
+            .as_ref()
+            .is_none_or(|allowed| allowed.contains(rule_id))
+            && !self.denied.contains(rule_id)
+    }
+}
+
+fn normalize_ids(ids: &[String]) -> Vec<String> {
+    ids.iter()
+        .map(|id| id.trim().to_ascii_uppercase())
+        .filter(|id| !id.is_empty())
+        .collect()
+}
+
+/// The knobs that shape one analysis run: script mode, inline suppression,
+/// plan building, and the active rule set.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AnalysisOptions {
+    pub check_script: bool,
+    pub no_ignore: bool,
+    pub with_plans: bool,
+    pub rules: RuleSet,
+}
+
 pub trait RefactorRule: Sync + Send {
     fn metadata(&self) -> &'static RuleMetadata;
 
@@ -69,3 +157,6 @@ pub trait RefactorRule: Sync + Send {
         function_complexity: u64,
     ) -> Option<crate::classes::RefactorPlan>;
 }
+
+#[cfg(test)]
+mod tests;

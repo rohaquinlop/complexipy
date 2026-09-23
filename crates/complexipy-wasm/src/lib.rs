@@ -3,6 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use complexipy_core::classes::CodeComplexity;
 use complexipy_core::cognitive_complexity::code_complexity_shared;
+use complexipy_core::{AnalysisOptions, RuleSet};
 
 #[wasm_bindgen(start)]
 pub fn start() {
@@ -19,5 +20,12 @@ pub fn code_complexity(code: &str) -> Result<JsValue, JsValue> {
 }
 
 fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
-    code_complexity_shared(code, false, false)
+    code_complexity_shared(
+        code,
+        &AnalysisOptions {
+            with_plans: true,
+            rules: RuleSet::default(),
+            ..Default::default()
+        },
+    )
 }

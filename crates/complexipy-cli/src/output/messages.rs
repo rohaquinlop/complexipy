@@ -58,5 +58,13 @@ pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
 }
 
+pub fn unknown_rule_warning(rule_id: &str) -> String {
+    if rule_id.is_empty() {
+        "Empty rule id in select or ignore. Ignoring it.".to_string()
+    } else {
+        format!("Unknown rule id '{}'. Ignoring it.", rule_id)
+    }
+}
+
 #[cfg(test)]
 mod tests;
