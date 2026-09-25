@@ -1,6 +1,7 @@
 use super::types::{AnalysisOptions, RefactorRule, RuleSet};
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
+use crate::fix::splice_plan;
 use crate::refactor_plans::ComplexityRegion;
 use crate::utils::LineIndex;
 use ruff_python_parser::parse_module;
@@ -148,29 +149,6 @@ impl Default for RuleRegistry {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn splice_plan(
-    plan: &RefactorPlan,
-    suggestion: &CodeSuggestion,
-    source: &str,
-    index: &LineIndex,
-) -> Option<String> {
-    let byte_start = index.byte_of_line(plan.line_start)?;
-    let byte_end = index
-        .byte_of_line(plan.line_end + 1)
-        .unwrap_or(source.len());
-    if byte_start > byte_end {
-        return None;
-    }
-    let mut spliced = String::with_capacity(source.len() + suggestion.replacement.len());
-    spliced.push_str(&source[..byte_start]);
-    spliced.push_str(&suggestion.replacement);
-    if byte_end < source.len() {
-        spliced.push('\n');
-    }
-    spliced.push_str(&source[byte_end..]);
-    Some(spliced)
 }
 
 /// The target is `<module>` for script-mode plans (module-level regions

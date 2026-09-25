@@ -68,6 +68,12 @@ pub struct CliArgs {
     pub suggest_refactors: Option<bool>,
 
     #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
+    pub fix: Option<bool>,
+
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
+    pub dry_run: Option<bool>,
+
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
     pub check_script: Option<bool>,
 
     #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]

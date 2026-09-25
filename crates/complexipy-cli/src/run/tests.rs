@@ -152,3 +152,105 @@ fn version_flag_handled_by_clap() {
 
     assert!(result.is_err());
 }
+
+const FIXABLE: &str =
+    "def fixable(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n";
+
+const FIXABLE_FIXED: &str = "def fixable(a, b):\n    if a and b:\n        return 1\n    return 0\n";
+
+const TWO_FIXABLE: &str = "def one(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n\n\ndef two(a, b):\n    if a:\n        if b:\n            return 2\n    return 0\n";
+
+const TWO_FIXABLE_FIXED: &str = "def one(a, b):\n    if a and b:\n        return 1\n    return 0\n\n\ndef two(a, b):\n    if a and b:\n        return 2\n    return 0\n";
+
+#[test]
+fn fix_writes_the_suggestion_to_the_file() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--fix", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(
+        fs::read_to_string(&file).expect("should read"),
+        FIXABLE_FIXED
+    );
+}
+
+#[test]
+fn fix_applies_every_fix_in_one_file_bottom_to_top() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("two.py");
+    fs::write(&file, TWO_FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--fix", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(
+        fs::read_to_string(&file).expect("should read"),
+        TWO_FIXABLE_FIXED
+    );
+}
+
+#[test]
+fn dry_run_writes_nothing() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--dry-run", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(fs::read_to_string(&file).expect("should read"), FIXABLE);
+}
+
+#[test]
+fn fix_runs_regardless_of_the_git_state() {
+    let dir = tempdir().expect("tempdir should work");
+    fs::write(dir.path().join("simple.py"), SIMPLE).expect("should write");
+    init_repo(dir.path());
+    fs::write(
+        dir.path().join("simple.py"),
+        "def simple(x):\n    return x + 2\n",
+    )
+    .expect("should write");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--fix", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(
+        fs::read_to_string(&file).expect("should read"),
+        FIXABLE_FIXED
+    );
+}
+#[test]
+fn fix_outside_a_repository_writes() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--fix", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(
+        fs::read_to_string(&file).expect("should read"),
+        FIXABLE_FIXED
+    );
+}
