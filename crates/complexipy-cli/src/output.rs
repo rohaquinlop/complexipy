@@ -1,4 +1,5 @@
 pub mod diff;
+pub mod fix;
 pub mod messages;
 pub mod refactor;
 pub mod render;

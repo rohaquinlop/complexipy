@@ -11,6 +11,7 @@ use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
 use crate::types::ExitReport;
 use crate::utils::config::resolve_config;
+use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::get_complexipy_toml_config;
@@ -55,7 +56,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         rules,
     };
 
-    let (files_complexities, failed_paths) =
+    let (mut files_complexities, failed_paths) =
         match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
             Ok(result) => result,
             Err(error) => {
@@ -63,6 +64,24 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
+
+    let mut fix_console = String::new();
+    if config.fix || config.dry_run {
+        let pass = run_fix_pass(
+            &files_complexities,
+            config.dry_run,
+            invocation_path,
+            settings.color_enabled && !config.plain,
+            &analysis,
+        );
+        fix_console = pass.console;
+        if pass.wrote {
+            match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
+                Ok((post_fix, _)) => files_complexities = post_fix,
+                Err(error) => eprintln!("{}", error),
+            }
+        }
+    }
 
     let output_snapshot_path = format!("{}/complexipy-snapshot.json", invocation_path);
     let snap = match evaluate_snapshot(
@@ -87,7 +106,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         show_details: !config.failed,
         max_complexity: config.max_complexity_allowed,
         invocation_path,
-        suggest_refactors: config.suggest_refactors,
+        suggest_refactors: config.suggest_refactors && !config.dry_run,
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
@@ -113,10 +132,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         invocation_path,
         cache_dir: config.cache_dir.as_deref(),
         top: config.top,
-        suggest_refactors: config.suggest_refactors,
+        suggest_refactors: config.suggest_refactors && !config.dry_run,
     });
     if !display_output.is_empty() {
         println!("{}", display_output);
+    }
+
+    if !config.quiet && !fix_console.is_empty() {
+        println!("{}", fix_console);
     }
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(

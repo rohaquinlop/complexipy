@@ -19,11 +19,13 @@ complexipy includes a clippy-inspired refactoring system that provides actionabl
 
 The level decides how a tool may apply the suggestion:
 
-- **Safe to apply**: automatic application (`--fix`, editor quick fixes) may apply the suggestion directly.
+- **Safe to apply**: automatic application (`--fix`, editor quick fixes) may apply the suggestion directly, when the replacement is also a faithful splice (`spliceable`).
 - **Needs review**: automatic application refuses the suggestion unless you opt in explicitly.
 - **Informational**: nothing ever edits code for it.
 
 No rule uses **Needs review** today. The level is reserved for a suggestion that is usually right but changes behavior in a known input shape, and a rule may use it only with tests for each known failure shape.
+
+`--fix` applies a suggestion only at **Safe to apply** and only when the replacement is a faithful splice. C005 is safe to apply, but its replacement holds a placeholder body and needs a second edit at the call site, so `--fix` skips it and the suggestion stays for hand application.
 
 ## Suppressing a Rule
 

@@ -55,6 +55,35 @@ GitHub con todos los detalles.
   oculta nunca puede bloquear una visible. Un id de regla desconocido avisa en
   stderr y se ignora. La selección de reglas nunca cambia el código de salida.
 
+- `--fix` aplica sugerencias aplicables por máquina a los archivos fuente
+  ([#204](https://github.com/rohaquinlop/complexipy/issues/204)). Una
+  sugerencia es aplicable cuando su nivel es `MachineApplicable` y su
+  reemplazo es un empalme fiel (`spliceable`), lo que cubre C002 (guardas de
+  bucle) y C007 (if plegable); C005 no es empalmable y queda fuera. Una
+  ejecución corrige cada archivo analizado, de abajo a arriba dentro de cada
+  archivo, e imprime un diff unificado con resaltado de sintaxis de los
+  cambios aplicados, con números de línea, una línea de contexto por bloque
+  y la regla que se activó, más un resumen de las correcciones aplicadas y
+  omitidas que muestra la reducción de cada corrección. La ejecución repite
+  paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable, así
+  que una corrección que expone un nuevo plan aplicable se resuelve en un
+  paso posterior; los pasos posteriores etiquetan sus diffs. Las filas del
+  diff muy largas se recortan al ancho de la terminal. Cuando no hay nada
+  aplicable, la ejecución imprime `No fixes to apply.` `--fix` se ejecuta
+  en cualquier estado de git: los cambios sin confirmar, los archivos sin
+  rastrear y la ausencia de repositorio nunca lo bloquean, y no hace falta
+  ninguna bandera extra. Una corrección conserva los finales de línea del
+  archivo y su salto de línea final. Una corrección que
+  produciría Python inválido se revierte y se informa, y la escritura usa un
+  archivo temporal con comprobación de análisis que se renombra sobre el
+  original conservando sus permisos. El informe y los controles miden el
+  estado posterior a las correcciones, así que reanalizar un archivo corregido
+  muestra que el hallazgo desapareció y la reducción medida exacta.
+  `--fix --dry-run` imprime solo el diff y no escribe nada. `--fix` se niega a
+  ejecutarse sobre un árbol de trabajo de git con cambios sin confirmar salvo
+  que se pase `--allow-dirty`, y `--select`/`--ignore` deciden qué reglas
+  pueden corregir.
+
 ### Cambiado
 
 - `lsp` es un primer argumento reservado: `complexipy lsp` arranca el servidor

@@ -243,6 +243,18 @@ Salida de ejemplo (abreviada -- la salida real también muestra un tramo subraya
 
 Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
 
+### Aplicar Sugerencias Aplicables
+
+Usa `--fix` para escribir las sugerencias aplicables en los archivos fuente. Una sugerencia es aplicable cuando su aplicabilidad es **Seguro de aplicar** y su reemplazo es un empalme fiel (`"spliceable": true` en la salida JSON). Hoy eso cubre C002 (guardas de bucle) y C007 (if plegable). C005 es seguro de aplicar, pero su reemplazo contiene un cuerpo de marcador de posición y una segunda edición en la llamada, así que `--fix` lo salta.
+
+```bash
+complexipy . --fix
+```
+
+Una ejecución aplica cada plan aplicable en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde (`~-3`) cuando el número es estimado. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El informe y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
+
+`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
+
 **Estructura de Salida JSON:**
 
 ```json
@@ -444,6 +456,8 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
 | `--failed` | Muestra solo las funciones que superen el umbral de complejidad | `false` |
 | `--suggest-refactors` | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain` | `false` |
+| `--fix` | Aplica cada sugerencia aplicable (Seguro de aplicar y empalmable) a los archivos fuente y luego informa el estado posterior a las correcciones (ver [Aplicar Sugerencias Aplicables](#aplicar-sugerencias-aplicables)). Implica `--suggest-refactors` | `false` |
+| `--dry-run` | Imprime solo el diff unificado de las correcciones que `--fix` aplicaría, y no escribe nada. Implica `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Usa color | `auto` |
 | `--sort <asc\|desc\|file_name>` | Ordena los resultados | `asc` |
 | `--quiet` | Suprime la salida | `false` |

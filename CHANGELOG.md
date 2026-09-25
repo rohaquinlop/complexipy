@@ -50,6 +50,30 @@ release section links to its GitHub release notes for the full details.
   never block a visible one. An unknown rule id warns on stderr and is
   ignored. Rule selection never changes the exit code.
 
+- `--fix` applies machine-applicable suggestions to the source files
+  ([#204](https://github.com/rohaquinlop/complexipy/issues/204)). A
+  suggestion is fixable when its tier is `MachineApplicable` and its
+  replacement is a faithful splice (`spliceable`), which covers C002 (loop
+  guards) and C007 (collapsible if); C005 is not spliceable and stays out.
+  One run fixes every analyzed file, bottom-to-top within each file, and
+  prints a syntax-highlighted unified diff of the applied changes, with
+  line numbers, one context line per hunk, and the rule that fired, plus a
+  summary of fixed and skipped fixes that shows the reduction per fix. The
+  run repeats pass by pass, up to 8 passes, until no fixable plan remains,
+  so a fix that exposes a new fixable plan is applied in a later pass;
+  later passes label their diffs. Long diff rows truncate at the terminal
+  width. When nothing is fixable the run prints `No fixes to apply.`
+  `--fix` runs in any git state: uncommitted changes, untracked files, and
+  a missing repository never block it, and no extra flag is needed. A fix
+  keeps the file's line endings and its trailing newline. A fix that would produce invalid Python is reverted and
+  reported, and the write is a parse-checked temp file renamed over the
+  original with its permissions kept. The report and the gates measure the
+  post-fix state, so re-analyzing a fixed file shows the finding gone and
+  the exact measured reduction. `--fix --dry-run` prints only the diff and
+  writes nothing. `--fix` refuses to run on a dirty git working tree unless
+  `--allow-dirty` is passed, and `--select`/`--ignore` decide which rules
+  may fix.
+
 ### Changed
 
 - `lsp` is a reserved first argument: `complexipy lsp` starts the language

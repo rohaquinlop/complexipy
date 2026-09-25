@@ -19,11 +19,13 @@ complexipy incluye un sistema de refactorización inspirado en clippy que propor
 
 El nivel decide cómo una herramienta puede aplicar la sugerencia:
 
-- **Seguro de aplicar**: la aplicación automática (`--fix`, correcciones del editor) puede aplicar la sugerencia directamente.
+- **Seguro de aplicar**: la aplicación automática (`--fix`, correcciones del editor) puede aplicar la sugerencia directamente, cuando el reemplazo es también un empalme fiel (`spliceable`).
 - **Necesita revisión**: la aplicación automática rechaza la sugerencia salvo que la autorices de forma explícita.
 - **Informativo**: nada edita el código por esta sugerencia.
 
 Hoy ninguna regla usa **Necesita revisión**. El nivel queda reservado para una sugerencia que suele ser correcta pero cambia el comportamiento en una forma de entrada conocida, y una regla solo puede usarlo con pruebas para cada forma de fallo conocida.
+
+`--fix` aplica una sugerencia solo en **Seguro de aplicar** y solo cuando el reemplazo es un empalme fiel. C005 es seguro de aplicar, pero su reemplazo contiene un cuerpo de marcador de posición y necesita una segunda edición en la llamada, así que `--fix` lo salta y la sugerencia queda para aplicación manual.
 
 ## Suprimir una Regla
 

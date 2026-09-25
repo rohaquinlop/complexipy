@@ -244,6 +244,18 @@ Sample output (abbreviated -- the real output also shows a caret-underlined span
 
 Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
 
+### Applying Fixable Suggestions
+
+Use `--fix` to write the fixable suggestions to the source files. A suggestion is fixable when its applicability is **Safe to apply** and its replacement is a faithful splice (`"spliceable": true` in the JSON output). That covers C002 (loop guards) and C007 (collapsible if) today. C005 is safe to apply but its replacement contains a placeholder body and a second edit at the call site, so `--fix` skips it.
+
+```bash
+complexipy . --fix
+```
+
+One run applies every fixable plan in every analyzed file and repeats pass by pass, up to 8 passes, until no fixable plan remains; a later pass labels its diff `pass 2:`. For each fixed file the run prints a syntax-highlighted unified diff of the applied changes, with line numbers, one context line per hunk, and the rule that fired, and then a summary of fixed and skipped fixes. The summary shows the reduction per fix as `(-3 complexity)`, with a tilde (`~-3`) when the number is estimated. When nothing is fixable the run prints `No fixes to apply.` The report and every gate measure the state after the fixes. Re-analyzing a fixed file shows the finding is gone and the complexity dropped by the plan's measured reduction.
+
+`--fix --dry-run` previews the same changes: it prints only the unified diff and writes nothing. `--fix` runs wherever you are: uncommitted changes, untracked files, and a missing git repository never block it, and no extra flag is needed. A fix keeps the file's line endings and its trailing newline. Per-rule filtering rides on `--select` and `--ignore`.
+
 **JSON Output Structure:**
 
 ```json
@@ -444,6 +456,8 @@ equals the threshold passes, as it does on the command line.
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
 | `--failed` | Show only functions above the complexity threshold | `false` |
 | `--suggest-refactors` | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain` | `false` |
+| `--fix` | Apply every fixable suggestion (Safe to apply and spliceable) to the source files, then report the post-fix state (see [Applying Fixable Suggestions](#applying-fixable-suggestions)). Implies `--suggest-refactors` | `false` |
+| `--dry-run` | Print only the unified diff of the fixes that `--fix` would apply, and write nothing. Implies `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|file_name>` | Sort results | `asc` |
 | `--quiet` | Suppress output | `false` |
