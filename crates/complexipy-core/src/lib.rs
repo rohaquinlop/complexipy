@@ -5,6 +5,7 @@ pub mod cognitive_complexity;
 #[cfg(feature = "config")]
 pub mod config;
 pub mod diff;
+pub mod fix;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
 mod refactor_plans;

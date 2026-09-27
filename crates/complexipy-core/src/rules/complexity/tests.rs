@@ -616,6 +616,26 @@ fn collapsible_if_suggestion_refuses_multiline_string_body() {
 }
 
 #[test]
+fn collapsible_if_suggestion_carries_no_cr_from_a_crlf_source() {
+    let source =
+        "def f(a, b):\r\n    if a:\r\n        if b:\r\n            return 1\r\n    return 0\r\n";
+    let outermost = if_stmt(2, 4, 0);
+    let innermost = if_stmt(3, 4, 1);
+    let conditions = vec!["a".to_string(), "b".to_string()];
+
+    let suggestion = generate_collapsible_if_suggestion_chain(
+        &outermost,
+        &innermost,
+        &conditions,
+        source,
+        &LineIndex::new(source),
+    )
+    .expect("suggestion exists");
+
+    assert_eq!(suggestion.replacement, "    if a and b:\n        return 1");
+}
+
+#[test]
 fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
     let source = "for x in y:\n    if a:\n        pass\n    total += 1\n";
     let region = loop_region(vec![if_stmt(2, 3, 1)], 4);

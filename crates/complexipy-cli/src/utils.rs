@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod config;
+pub mod fix;
 pub mod gitlab;
 pub mod ignored;
 pub mod paths;

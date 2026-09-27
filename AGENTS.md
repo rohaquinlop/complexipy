@@ -49,6 +49,9 @@ uv run mkdocs serve                                 # preview the docs site
   declarations and fails when a stub disagrees.
 - Rules consume `ComplexityRegion`s. A rule never re-parses source to find
   structure.
+- `--fix` applies a suggestion only when its tier is `MachineApplicable`
+  and its `CodeSuggestion.spliceable` flag is true. Never gate fixes on
+  `rule_id`.
 - `RuleRegistry::analyze()` drops inactive rules first, then sorts, resolves
   overlap, and caps the result at 5 plans per function. `effectiveness` in
   `RuleMetadata` is the single ranking source; no `match rule_id` exists

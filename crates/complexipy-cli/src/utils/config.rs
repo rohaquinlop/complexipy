@@ -149,7 +149,9 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
         .unwrap_or(false);
 
     let plain = cli.plain.unwrap_or(false);
-    let suggest_refactors = cli.suggest_refactors.unwrap_or(false);
+    let fix = cli.fix.unwrap_or(false);
+    let dry_run = cli.dry_run.unwrap_or(false);
+    let suggest_refactors = cli.suggest_refactors.unwrap_or(false) || fix || dry_run;
     let top = cli.top;
     let cache_dir =
         resolve_cache_dir(cli.cache_dir, toml.and_then(|toml| toml.cache_dir.as_ref()))?;
@@ -191,6 +193,8 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
         report_ignored,
         plain,
         suggest_refactors,
+        fix,
+        dry_run,
         top,
         cache_dir,
         diff,

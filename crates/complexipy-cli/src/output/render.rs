@@ -93,7 +93,7 @@ fn set_cell_size(text: &str, width: usize) -> String {
     result
 }
 
-fn terminal_width() -> usize {
+pub(crate) fn terminal_width() -> usize {
     if std::io::stdout().is_terminal() {
         terminal_size::terminal_size()
             .map(|(width, _)| width.0 as usize)

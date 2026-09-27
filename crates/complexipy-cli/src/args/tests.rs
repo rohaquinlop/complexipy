@@ -99,6 +99,8 @@ fn all_bool_flags_accept_equals_values() {
         "--failed=false",
         "--staged=false",
         "--suggest-refactors=false",
+        "--fix=false",
+        "--dry-run=false",
         "--check-script=false",
         "--no-ignore=false",
         "--report-ignored=false",
@@ -111,6 +113,8 @@ fn all_bool_flags_accept_equals_values() {
     assert_eq!(cli.failed, Some(false));
     assert_eq!(cli.staged, Some(false));
     assert_eq!(cli.suggest_refactors, Some(false));
+    assert_eq!(cli.fix, Some(false));
+    assert_eq!(cli.dry_run, Some(false));
     assert_eq!(cli.check_script, Some(false));
     assert_eq!(cli.no_ignore, Some(false));
     assert_eq!(cli.report_ignored, Some(false));

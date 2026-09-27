@@ -77,6 +77,8 @@ pub struct RunConfig {
     pub report_ignored: bool,
     pub plain: bool,
     pub suggest_refactors: bool,
+    pub fix: bool,
+    pub dry_run: bool,
     pub top: Option<u64>,
     pub diff: Option<String>,
     pub diff_only: Option<String>,
