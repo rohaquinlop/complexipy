@@ -64,7 +64,9 @@ GitHub con todos los detalles.
   archivo, e imprime un diff unificado con resaltado de sintaxis de los
   cambios aplicados, con números de línea, una línea de contexto por bloque
   y la regla que se activó, más un resumen de las correcciones aplicadas y
-  omitidas que muestra la reducción de cada corrección. La ejecución repite
+  omitidas que muestra la reducción de cada corrección. Cada línea del
+  resumen lleva los números de línea del archivo anteriores a la ejecución,
+  y cada omisión se informa una vez. La ejecución repite
   paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable, así
   que una corrección que expone un nuevo plan aplicable se resuelve en un
   paso posterior; los pasos posteriores etiquetan sus diffs. Las filas del

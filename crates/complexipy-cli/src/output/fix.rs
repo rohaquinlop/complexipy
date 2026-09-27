@@ -1,4 +1,4 @@
-use complexipy_core::fix::{AppliedFix, FixReport, SkipReason};
+use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason};
 use owo_colors::OwoColorize;
 use unicode_width::UnicodeWidthChar;
 
@@ -256,11 +256,12 @@ enum Tone {
     Added,
 }
 
-pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool) -> String {
+pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool, map: &LineMap) -> String {
     let mut lines: Vec<String> = report
         .applied
         .iter()
         .map(|applied| {
+            let (line_start, line_end) = map.original_span(applied.line_start, applied.line_end);
             let qualifier = if applied.reduction_is_measured {
                 ""
             } else {
@@ -271,21 +272,22 @@ pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool) -> Stri
                 fixed_label(colored),
                 applied.rule_id,
                 path,
-                applied.line_start,
-                applied.line_end,
+                line_start,
+                line_end,
                 qualifier,
                 applied.reduction
             )
         })
         .collect();
     lines.extend(report.skipped.iter().map(|skipped| {
+        let (line_start, line_end) = map.original_span(skipped.line_start, skipped.line_end);
         format!(
             "{} {} at {}:{}-{} ({})",
             skipped_label(colored),
             skipped.rule_id,
             path,
-            skipped.line_start,
-            skipped.line_end,
+            line_start,
+            line_end,
             reason_text(skipped.reason)
         )
     }));

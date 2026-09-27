@@ -127,6 +127,8 @@ fn later_passes_fix_plans_that_were_not_surfaced_at_first() {
     assert!(fixed.contains("if a and b:"));
     assert!(fixed.contains("if c and d:"));
     assert!(result.console.contains("pass 2:"));
+    assert!(result.console.contains("Fixed C007 at two.py:5-7"));
+    assert!(!result.console.contains("two.py:4-6"));
 }
 
 #[test]
@@ -176,4 +178,6 @@ fn non_fixable_plans_are_reported_once_each() {
         result.console.matches("not safe to auto-apply").count(),
         expected_skips
     );
+    assert!(result.console.contains("Skipped C005 at mixed.py:9-9"));
+    assert!(!result.console.contains("mixed.py:8-8"));
 }

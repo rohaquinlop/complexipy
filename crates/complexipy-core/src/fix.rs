@@ -46,6 +46,162 @@ pub struct FixReport {
     pub skipped: Vec<SkippedFix>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Segment {
+    current_start: u64,
+    current_len: u64,
+    original_start: u64,
+    original_end: u64,
+    coarse: bool,
+}
+
+impl Segment {
+    fn current_end(&self) -> u64 {
+        self.current_start + self.current_len - 1
+    }
+
+    fn shift(&self, delta: i64) -> Self {
+        Self {
+            current_start: (self.current_start as i64 + delta) as u64,
+            ..*self
+        }
+    }
+
+    fn mapped(&self, from: u64, to: u64) -> (u64, u64) {
+        if self.coarse {
+            return (self.original_start, self.original_end);
+        }
+        (
+            self.original_start + (from - self.current_start),
+            self.original_start + (to - self.current_start),
+        )
+    }
+}
+
+/// Tracks how the fix passes rewrite a file, so a line of any later text
+/// maps back to the lines the file had before the run. Lines inside a
+/// replaced span map to the original span of that replaced region.
+pub struct LineMap {
+    segments: Vec<Segment>,
+}
+
+impl LineMap {
+    /// Builds the identity map for a file with `line_count` lines.
+    #[must_use]
+    pub fn new(line_count: u64) -> Self {
+        let mut segments = Vec::new();
+        if line_count > 0 {
+            segments.push(Segment {
+                current_start: 1,
+                current_len: line_count,
+                original_start: 1,
+                original_end: line_count,
+                coarse: false,
+            });
+        }
+        Self { segments }
+    }
+
+    /// Registers one applied fix, whose span lies in the current text and
+    /// whose replacement holds `new_line_count` lines. Register the fixes
+    /// of one pass from the highest span down, so every span stays valid.
+    pub fn register_fix(&mut self, line_start: u64, line_end: u64, new_line_count: u64) {
+        let delta = new_line_count as i64 - (line_end - line_start + 1) as i64;
+        let mut rebuilt: Vec<Segment> = Vec::with_capacity(self.segments.len() + 1);
+        let mut covered: Option<(u64, u64)> = None;
+        let mut insert_at = rebuilt.len();
+        for segment in self.segments.iter().copied() {
+            if segment.current_len == 0 {
+                if segment.current_start < line_start {
+                    rebuilt.push(segment);
+                } else {
+                    rebuilt.push(segment.shift(delta));
+                }
+                continue;
+            }
+            let end = segment.current_end();
+            if end < line_start {
+                rebuilt.push(segment);
+                continue;
+            }
+            if segment.current_start > line_end {
+                rebuilt.push(segment.shift(delta));
+                continue;
+            }
+            if covered.is_none() {
+                insert_at = rebuilt.len() + usize::from(segment.current_start < line_start);
+            }
+            let from = line_start.max(segment.current_start);
+            let to = line_end.min(end);
+            let (mapped_start, mapped_end) = segment.mapped(from, to);
+            covered = Some(match covered {
+                Some((start, finish)) => (start.min(mapped_start), finish.max(mapped_end)),
+                None => (mapped_start, mapped_end),
+            });
+            if segment.current_start < line_start {
+                rebuilt.push(Segment {
+                    current_len: line_start - segment.current_start,
+                    ..segment
+                });
+            }
+            if end > line_end {
+                let offset = line_end + 1 - segment.current_start;
+                rebuilt.push(
+                    Segment {
+                        current_start: line_end + 1,
+                        current_len: end - line_end,
+                        original_start: if segment.coarse {
+                            segment.original_start
+                        } else {
+                            segment.original_start + offset
+                        },
+                        ..segment
+                    }
+                    .shift(delta),
+                );
+            }
+        }
+        if let Some((original_start, original_end)) = covered {
+            rebuilt.insert(
+                insert_at,
+                Segment {
+                    current_start: line_start,
+                    current_len: new_line_count,
+                    original_start,
+                    original_end,
+                    coarse: true,
+                },
+            );
+        }
+        self.segments = rebuilt;
+    }
+
+    /// Returns the original span that covers the given current span.
+    /// Lines in untouched text map exactly; lines inside a replaced span
+    /// map to the original span of that replaced region.
+    #[must_use]
+    pub fn original_span(&self, line_start: u64, line_end: u64) -> (u64, u64) {
+        let mut result: Option<(u64, u64)> = None;
+        for segment in &self.segments {
+            if segment.current_len == 0 {
+                continue;
+            }
+            let end = segment.current_end();
+            if end < line_start || segment.current_start > line_end {
+                continue;
+            }
+            let from = line_start.max(segment.current_start);
+            let to = line_end.min(end);
+            let (mapped_start, mapped_end) = segment.mapped(from, to);
+            result = Some(match result {
+                Some((start, finish)) => (start.min(mapped_start), finish.max(mapped_end)),
+                None => (mapped_start, mapped_end),
+            });
+        }
+        result.unwrap_or((line_start, line_end))
+    }
+}
+
 /// Returns whether the plan's suggestion is a faithful source splice that a
 /// fix may write. The tier must be `MachineApplicable` on the plan and on
 /// the suggestion, and the suggestion must be spliceable; the rule identity

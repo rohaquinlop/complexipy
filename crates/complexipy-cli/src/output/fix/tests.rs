@@ -1,8 +1,12 @@
-use complexipy_core::fix::{AppliedFix, FixReport, SkipReason, SkippedFix};
+use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason, SkippedFix};
 
 use super::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
 
 const SOURCE: &str = "def a():\n    if x:\n        return 1\n";
+
+fn line_map() -> LineMap {
+    LineMap::new(16)
+}
 
 fn applied_fix(line_start: u64, line_end: u64, replacement: &str) -> AppliedFix {
     AppliedFix {
@@ -97,7 +101,7 @@ fn long_lines_truncate_to_the_terminal_width() {
 
 #[test]
 fn summary_lists_applied_then_skipped_with_reasons() {
-    let rendered = format_fix_summary("pkg/a.py", &report(), false);
+    let rendered = format_fix_summary("pkg/a.py", &report(), false, &line_map());
 
     assert_eq!(
         rendered,
@@ -119,14 +123,40 @@ fn summary_marks_an_unmeasured_reduction_with_a_tilde() {
         skipped: vec![],
     };
 
-    let rendered = format_fix_summary("pkg/a.py", &report, false);
+    let rendered = format_fix_summary("pkg/a.py", &report, false, &line_map());
 
     assert_eq!(rendered, "Fixed C007 at pkg/a.py:2-3 (- ~3 complexity)");
 }
 
 #[test]
+fn summary_maps_later_lines_back_to_the_original_file() {
+    let mut map = LineMap::new(6);
+    map.register_fix(2, 4, 2);
+    let report = FixReport {
+        patched: String::new(),
+        applied: vec![applied_fix(2, 3, "    pass")],
+        skipped: vec![SkippedFix {
+            rule_id: "C002".to_string(),
+            line_start: 4,
+            line_end: 5,
+            reason: SkipReason::NotFixable,
+        }],
+    };
+
+    let rendered = format_fix_summary("pkg/a.py", &report, false, &map);
+
+    assert_eq!(
+        rendered,
+        concat!(
+            "Fixed C007 at pkg/a.py:2-4 (-2 complexity)\n",
+            "Skipped C002 at pkg/a.py:5-6 (not safe to auto-apply)",
+        )
+    );
+}
+
+#[test]
 fn colored_summary_labels_use_green_and_yellow() {
-    let rendered = format_fix_summary("pkg/a.py", &report(), true);
+    let rendered = format_fix_summary("pkg/a.py", &report(), true, &line_map());
 
     assert!(rendered.contains("\x1b[32m"));
     assert!(rendered.contains("\x1b[33m"));
@@ -146,7 +176,10 @@ fn empty_report_renders_empty_summary_and_no_fixes_message() {
         skipped: vec![],
     };
 
-    assert_eq!(format_fix_summary("pkg/a.py", &empty, false), "");
+    assert_eq!(
+        format_fix_summary("pkg/a.py", &empty, false, &line_map()),
+        ""
+    );
     assert_eq!(format_fix_diff("pkg/a.py", SOURCE, &empty, false), "");
     assert_eq!(no_fixes_output(), "No fixes to apply.");
 }

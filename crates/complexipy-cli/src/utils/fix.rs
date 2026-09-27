@@ -1,9 +1,10 @@
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use complexipy_core::classes::{FileComplexity, RefactorPlan};
-use complexipy_core::fix::{apply_fixes, parses};
+use complexipy_core::fix::{LineMap, apply_fixes, parses};
 use complexipy_core::{AnalysisOptions, cognitive_complexity::code_complexity_shared};
 
 use crate::output::fix::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
@@ -16,6 +17,8 @@ struct FixTarget {
     text: String,
     plans: Vec<RefactorPlan>,
     changed: bool,
+    line_map: LineMap,
+    reported_skips: HashSet<(String, u64, u64)>,
 }
 
 pub struct FixPassResult {
@@ -66,9 +69,11 @@ pub fn run_fix_pass(
         targets.push(FixTarget {
             display,
             path,
-            text,
             plans,
             changed: false,
+            line_map: LineMap::new(text.lines().count() as u64),
+            reported_skips: HashSet::new(),
+            text,
         });
     }
 
@@ -82,13 +87,19 @@ pub fn run_fix_pass(
                 continue;
             }
             let mut report = apply_fixes(&target.text, &target.plans);
-            if pass > 0 {
-                report.skipped.clear();
-            }
+            report.skipped.retain(|skipped| {
+                let (line_start, line_end) = target
+                    .line_map
+                    .original_span(skipped.line_start, skipped.line_end);
+                target
+                    .reported_skips
+                    .insert((skipped.rule_id.clone(), line_start, line_end))
+            });
 
             if report.applied.is_empty() {
                 if !dry_run {
-                    let summary = format_fix_summary(&target.display, &report, colored);
+                    let summary =
+                        format_fix_summary(&target.display, &report, colored, &target.line_map);
                     if !summary.is_empty() {
                         parts.push(summary);
                     }
@@ -118,10 +129,18 @@ pub fn run_fix_pass(
                 colored,
             ));
             if !dry_run {
-                let summary = format_fix_summary(&target.display, &report, colored);
+                let summary =
+                    format_fix_summary(&target.display, &report, colored, &target.line_map);
                 if !summary.is_empty() {
                     parts.push(summary);
                 }
+            }
+            for fix in report.applied.iter().rev() {
+                target.line_map.register_fix(
+                    fix.line_start,
+                    fix.line_end,
+                    fix.replacement.lines().count() as u64,
+                );
             }
             target.text = report.patched;
         }

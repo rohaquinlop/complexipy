@@ -61,6 +61,15 @@ MIXED = textwrap.dedent(
     """
 )
 
+MANY_SPOTS = (
+    "def many(a, b):\n"
+    + "".join(
+        f"    if a:\n        if b:\n            return {index}\n"
+        for index in range(1, 7)
+    )
+    + "    return 0\n"
+)
+
 
 def load_source(filename: str) -> str:
     return (FIXTURES / filename).read_text()
@@ -210,6 +219,22 @@ def test_fix_reports_non_fixable_plans_as_skipped(tmp_path, capfd) -> None:
     assert "Fixed C007" in out
     assert "Skipped C005" in out
     assert out.count("not safe to auto-apply") == 1
+
+
+def test_later_passes_report_original_file_lines(tmp_path, capfd) -> None:
+    target = tmp_path / "many.py"
+    target.write_text(MANY_SPOTS)
+
+    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+
+    assert exit_code == 0
+    out = strip_ansi(capfd.readouterr().out)
+    assert out.count("Fixed C007") == 6
+    for span in ("2-4", "5-7", "8-10", "11-13", "14-16"):
+        assert f"Fixed C007 at many.py:{span}" in out
+    assert "pass 2:" in out
+    assert out.index("pass 2:") < out.index("Fixed C007 at many.py:17-19")
+    assert "many.py:12-14" not in out
 
 
 def test_dry_run_prints_the_diff_and_writes_nothing(tmp_path, capfd) -> None:

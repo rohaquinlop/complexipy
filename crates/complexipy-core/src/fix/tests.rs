@@ -1,4 +1,4 @@
-use super::{SkipReason, apply_fixes, fixable, parses};
+use super::{LineMap, SkipReason, apply_fixes, fixable, parses};
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 
 const TWO_FUNCTIONS: &str =
@@ -166,6 +166,58 @@ fn a_replacement_trailing_newline_adds_no_blank_line() {
         report.patched,
         "def a():\n    if x and y:\n        return 1\n    return 0\n"
     );
+}
+
+#[test]
+fn line_map_starts_as_the_identity() {
+    let map = LineMap::new(5);
+
+    assert_eq!(map.original_span(1, 1), (1, 1));
+    assert_eq!(map.original_span(2, 3), (2, 3));
+    assert_eq!(map.original_span(5, 5), (5, 5));
+}
+
+#[test]
+fn line_map_maps_a_replaced_block_and_shifts_later_lines() {
+    let mut map = LineMap::new(5);
+    map.register_fix(2, 3, 1);
+
+    assert_eq!(map.original_span(1, 1), (1, 1));
+    assert_eq!(map.original_span(2, 2), (2, 3));
+    assert_eq!(map.original_span(3, 3), (4, 4));
+    assert_eq!(map.original_span(3, 4), (4, 5));
+}
+
+#[test]
+fn line_map_maps_two_fixes_in_one_pass_from_the_highest_span_down() {
+    let mut map = LineMap::new(8);
+    map.register_fix(6, 7, 2);
+    map.register_fix(2, 3, 1);
+
+    assert_eq!(map.original_span(1, 1), (1, 1));
+    assert_eq!(map.original_span(2, 2), (2, 3));
+    assert_eq!(map.original_span(3, 3), (4, 4));
+    assert_eq!(map.original_span(5, 6), (6, 7));
+    assert_eq!(map.original_span(7, 7), (8, 8));
+}
+
+#[test]
+fn line_map_maps_a_nested_fix_to_the_enclosing_span() {
+    let mut map = LineMap::new(5);
+    map.register_fix(2, 4, 3);
+    map.register_fix(3, 3, 1);
+
+    assert_eq!(map.original_span(3, 3), (2, 4));
+}
+
+#[test]
+fn line_map_handles_a_zero_line_replacement() {
+    let mut map = LineMap::new(5);
+    map.register_fix(2, 3, 0);
+
+    assert_eq!(map.original_span(1, 1), (1, 1));
+    assert_eq!(map.original_span(2, 2), (4, 4));
+    assert_eq!(map.original_span(3, 3), (5, 5));
 }
 
 #[test]
