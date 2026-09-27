@@ -4,6 +4,8 @@ import ast
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from complexipy import Applicability, code_complexity
 from complexipy._complexipy import run_cli
 
@@ -24,6 +26,37 @@ TWO_FIXABLE = textwrap.dedent(
             if b:
                 if c and d:
                     return 2
+        return 0
+    """
+)
+
+TWO_FIXABLE_FIXED = textwrap.dedent(
+    """\
+    def one(a, b, c, d):
+        if a and b and c and d:
+            return 1
+        return 0
+
+
+    def two(a, b, c, d):
+        if a and b and c and d:
+            return 2
+        return 0
+    """
+)
+
+MIXED = textwrap.dedent(
+    """\
+    def one(a, b):
+        if a:
+            if b:
+                return 1
+        return 0
+
+
+    def two(a, b, c, d):
+        if (a and b) or (c and d):
+            return 2
         return 0
     """
 )
@@ -133,8 +166,50 @@ def test_two_fixes_in_one_file_apply_together(tmp_path) -> None:
 
     assert exit_code == 0
     fixed = target.read_text()
-    assert fixed == expected_fixed(TWO_FIXABLE)
+    assert fixed == TWO_FIXABLE_FIXED
+    assert expected_fixed(TWO_FIXABLE) == TWO_FIXABLE_FIXED
     assert fixed.count("if a and b and c and d:") == 2
+
+
+def test_fix_keeps_crlf_files_exact(tmp_path) -> None:
+    target = tmp_path / "two.py"
+    target.write_bytes(TWO_FIXABLE.replace("\n", "\r\n").encode())
+
+    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+
+    assert exit_code == 0
+    expected = TWO_FIXABLE_FIXED.replace("\n", "\r\n").encode()
+    assert target.read_bytes() == expected
+
+
+def test_fix_writes_through_a_symlink(tmp_path) -> None:
+    source = load_source("collapsible_if_simple.py")
+    real = tmp_path / "real.py"
+    real.write_text(source)
+    link = tmp_path / "link.py"
+    try:
+        link.symlink_to(real)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not available")
+
+    exit_code = run_cli(["--fix", str(link)], str(tmp_path))
+
+    assert exit_code == 0
+    assert link.is_symlink()
+    assert "if a and b and c and d:" in real.read_text()
+
+
+def test_fix_reports_non_fixable_plans_as_skipped(tmp_path, capfd) -> None:
+    target = tmp_path / "mixed.py"
+    target.write_text(MIXED)
+
+    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+
+    assert exit_code == 0
+    out = strip_ansi(capfd.readouterr().out)
+    assert "Fixed C007" in out
+    assert "Skipped C005" in out
+    assert out.count("not safe to auto-apply") == 1
 
 
 def test_dry_run_prints_the_diff_and_writes_nothing(tmp_path, capfd) -> None:
@@ -188,7 +263,7 @@ def test_fix_replaces_the_file_in_place_and_leaves_no_temp_files(
     assert target.read_text() != source
     entries = [path.name for path in tmp_path.iterdir()]
     assert target.name in entries
-    assert all(not name.endswith("complexipy-tmp") for name in entries)
+    assert all("complexipy-tmp" not in name for name in entries)
 
 
 def test_fix_prints_the_diff_and_the_summary(tmp_path, capfd) -> None:

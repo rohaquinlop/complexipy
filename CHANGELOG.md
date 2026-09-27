@@ -70,8 +70,7 @@ release section links to its GitHub release notes for the full details.
   original with its permissions kept. The report and the gates measure the
   post-fix state, so re-analyzing a fixed file shows the finding gone and
   the exact measured reduction. `--fix --dry-run` prints only the diff and
-  writes nothing. `--fix` refuses to run on a dirty git working tree unless
-  `--allow-dirty` is passed, and `--select`/`--ignore` decide which rules
+  writes nothing. `--select`/`--ignore` decide which rules
   may fix.
 
 ### Changed

@@ -121,7 +121,7 @@ fn summary_marks_an_unmeasured_reduction_with_a_tilde() {
 
     let rendered = format_fix_summary("pkg/a.py", &report, false);
 
-    assert_eq!(rendered, "Fixed C007 at pkg/a.py:2-3 (-~3 complexity)");
+    assert_eq!(rendered, "Fixed C007 at pkg/a.py:2-3 (- ~3 complexity)");
 }
 
 #[test]

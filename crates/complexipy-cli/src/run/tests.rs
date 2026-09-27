@@ -237,6 +237,7 @@ fn fix_runs_regardless_of_the_git_state() {
         FIXABLE_FIXED
     );
 }
+
 #[test]
 fn fix_outside_a_repository_writes() {
     let dir = tempdir().expect("tempdir should work");

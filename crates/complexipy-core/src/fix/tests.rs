@@ -142,6 +142,33 @@ fn a_fix_keeps_the_line_endings_of_a_crlf_file() {
 }
 
 #[test]
+fn a_replacement_carriage_return_leak_adds_no_blank_line() {
+    let source =
+        "def a():\r\n    if x:\r\n        if y:\r\n            return 1\r\n    return 0\r\n";
+    let plans = vec![plan("C007", 2, 4, "    if x and y:\n        return 1\r")];
+
+    let report = apply_fixes(source, &plans);
+
+    assert_eq!(
+        report.patched,
+        "def a():\r\n    if x and y:\r\n        return 1\r\n    return 0\r\n"
+    );
+}
+
+#[test]
+fn a_replacement_trailing_newline_adds_no_blank_line() {
+    let source = "def a():\n    if x:\n        if y:\n            return 1\n    return 0\n";
+    let plans = vec![plan("C007", 2, 4, "    if x and y:\n        return 1\n")];
+
+    let report = apply_fixes(source, &plans);
+
+    assert_eq!(
+        report.patched,
+        "def a():\n    if x and y:\n        return 1\n    return 0\n"
+    );
+}
+
+#[test]
 fn fixable_gate_reads_metadata_only() {
     let mut plan = plan("C999", 1, 1, "pass");
     assert!(fixable(&plan));
@@ -150,6 +177,12 @@ fn fixable_gate_reads_metadata_only() {
     assert!(!fixable(&plan));
 
     plan.applicability = Applicability::MachineApplicable;
+    plan.suggestion
+        .as_mut()
+        .expect("suggestion exists")
+        .applicability = Applicability::MaybeIncorrect;
+    assert!(!fixable(&plan));
+
     plan.suggestion = None;
     assert!(!fixable(&plan));
 }

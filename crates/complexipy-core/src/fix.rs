@@ -47,15 +47,15 @@ pub struct FixReport {
 }
 
 /// Returns whether the plan's suggestion is a faithful source splice that a
-/// fix may write. The tier must be `MachineApplicable` and the suggestion
-/// must be spliceable; the rule identity takes no part in the decision.
+/// fix may write. The tier must be `MachineApplicable` on the plan and on
+/// the suggestion, and the suggestion must be spliceable; the rule identity
+/// takes no part in the decision.
 #[must_use]
 pub fn fixable(plan: &RefactorPlan) -> bool {
     plan.applicability == Applicability::MachineApplicable
-        && plan
-            .suggestion
-            .as_ref()
-            .is_some_and(|suggestion| suggestion.spliceable)
+        && plan.suggestion.as_ref().is_some_and(|suggestion| {
+            suggestion.spliceable && suggestion.applicability == Applicability::MachineApplicable
+        })
 }
 
 /// Returns whether the text parses as a Python module.
@@ -135,7 +135,9 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
 /// Replaces the plan's line range in the source with the replacement. The
 /// byte offsets come from the index of the original text; callers splice
 /// bottom-to-top so the offsets of a pending span stay valid in the
-/// progressively patched text.
+/// progressively patched text. The replacement's line breaks become the
+/// file's line breaks, and its trailing line breaks collapse into the one
+/// terminator the replaced range carried.
 pub(crate) fn splice_plan(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
@@ -152,12 +154,11 @@ pub(crate) fn splice_plan(
     let mut spliced = String::with_capacity(source.len() + suggestion.replacement.len());
     spliced.push_str(&source[..byte_start]);
     let newline = line_ending_of(source);
-    spliced.push_str(
-        &suggestion
-            .replacement
-            .replace("\r\n", "\n")
-            .replace('\n', newline),
-    );
+    let normalized = suggestion
+        .replacement
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
+    spliced.push_str(&normalized.trim_end_matches('\n').replace('\n', newline));
     if byte_end < source.len() || source.ends_with('\n') {
         spliced.push_str(newline);
     }

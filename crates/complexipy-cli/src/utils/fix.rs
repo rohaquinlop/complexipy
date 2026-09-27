@@ -3,7 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use complexipy_core::classes::{FileComplexity, RefactorPlan};
-use complexipy_core::fix::{apply_fixes, fixable, parses};
+use complexipy_core::fix::{apply_fixes, parses};
 use complexipy_core::{AnalysisOptions, cognitive_complexity::code_complexity_shared};
 
 use crate::output::fix::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
@@ -15,6 +15,7 @@ struct FixTarget {
     path: PathBuf,
     text: String,
     plans: Vec<RefactorPlan>,
+    changed: bool,
 }
 
 pub struct FixPassResult {
@@ -22,7 +23,7 @@ pub struct FixPassResult {
     pub wrote: bool,
 }
 
-fn fixable_files(
+fn files_with_plans(
     files_complexities: &[FileComplexity],
     invocation_path: &str,
 ) -> Vec<(String, PathBuf, Vec<RefactorPlan>)> {
@@ -33,7 +34,6 @@ fn fixable_files(
                 .functions
                 .iter()
                 .flat_map(|function| function.refactor_plans.clone())
-                .filter(fixable)
                 .collect();
             if plans.is_empty() {
                 return None;
@@ -55,7 +55,7 @@ pub fn run_fix_pass(
     options: &AnalysisOptions,
 ) -> FixPassResult {
     let mut targets: Vec<FixTarget> = Vec::new();
-    for (display, path, plans) in fixable_files(files_complexities, invocation_path) {
+    for (display, path, plans) in files_with_plans(files_complexities, invocation_path) {
         let text = match fs::read_to_string(&path) {
             Ok(text) => text,
             Err(error) => {
@@ -68,18 +68,23 @@ pub fn run_fix_pass(
             path,
             text,
             plans,
+            changed: false,
         });
     }
 
     let mut parts: Vec<String> = Vec::new();
     let mut wrote = false;
+    let mut applied_any = false;
     for pass in 0..MAX_FIX_PASSES {
         let mut changed = false;
         for target in targets.iter_mut() {
             if target.plans.is_empty() {
                 continue;
             }
-            let report = apply_fixes(&target.text, &target.plans);
+            let mut report = apply_fixes(&target.text, &target.plans);
+            if pass > 0 {
+                report.skipped.clear();
+            }
 
             if report.applied.is_empty() {
                 if !dry_run {
@@ -100,7 +105,9 @@ pub fn run_fix_pass(
                 }
                 wrote = true;
             }
+            applied_any = true;
             changed = true;
+            target.changed = true;
             if pass > 0 {
                 parts.push(pass_label(pass + 1, colored));
             }
@@ -123,27 +130,30 @@ pub fn run_fix_pass(
             break;
         }
         for target in targets.iter_mut() {
-            target.plans = fixable_plans(&target.text, options);
+            if target.changed {
+                target.plans = analyze_plans(&target.text, options);
+                target.changed = false;
+            }
         }
     }
 
-    let console = if parts.is_empty() {
-        no_fixes_output()
-    } else {
-        parts.join("\n")
-    };
+    if !applied_any {
+        parts.push(no_fixes_output());
+    }
 
-    FixPassResult { console, wrote }
+    FixPassResult {
+        console: parts.join("\n"),
+        wrote,
+    }
 }
 
-fn fixable_plans(code: &str, options: &AnalysisOptions) -> Vec<RefactorPlan> {
+fn analyze_plans(code: &str, options: &AnalysisOptions) -> Vec<RefactorPlan> {
     code_complexity_shared(code, options)
         .map(|complexity| {
             complexity
                 .functions
                 .into_iter()
                 .flat_map(|function| function.refactor_plans)
-                .filter(fixable)
                 .collect()
         })
         .unwrap_or_default()
@@ -160,15 +170,19 @@ fn write_patched(target: &Path, patched: &str) -> io::Result<()> {
             "patched source does not parse",
         ));
     }
-    let permissions = fs::metadata(target)?.permissions();
+    let target = fs::canonicalize(target)?;
+    let permissions = fs::metadata(&target)?.permissions();
     let file_name = target
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let temp = target.with_file_name(format!(".{file_name}.complexipy-tmp"));
+    let temp = target.with_file_name(format!(
+        ".{file_name}.complexipy-tmp-{}",
+        std::process::id()
+    ));
     fs::write(&temp, patched)?;
     let _ = fs::set_permissions(&temp, permissions);
-    if let Err(error) = fs::rename(&temp, target) {
+    if let Err(error) = fs::rename(&temp, &target) {
         let _ = fs::remove_file(&temp);
         return Err(error);
     }

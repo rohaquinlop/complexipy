@@ -264,7 +264,7 @@ pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool) -> Stri
             let qualifier = if applied.reduction_is_measured {
                 ""
             } else {
-                "~"
+                " ~"
             };
             format!(
                 "{} {} at {}:{}-{} (-{}{} complexity)",

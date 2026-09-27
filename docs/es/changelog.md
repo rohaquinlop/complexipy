@@ -79,10 +79,8 @@ GitHub con todos los detalles.
   original conservando sus permisos. El informe y los controles miden el
   estado posterior a las correcciones, así que reanalizar un archivo corregido
   muestra que el hallazgo desapareció y la reducción medida exacta.
-  `--fix --dry-run` imprime solo el diff y no escribe nada. `--fix` se niega a
-  ejecutarse sobre un árbol de trabajo de git con cambios sin confirmar salvo
-  que se pase `--allow-dirty`, y `--select`/`--ignore` deciden qué reglas
-  pueden corregir.
+  `--fix --dry-run` imprime solo el diff y no escribe nada. `--select`/`--ignore`
+  deciden qué reglas pueden corregir.
 
 ### Cambiado
 

@@ -912,7 +912,7 @@ fn line_at<'a>(source: &'a str, index: &LineIndex, line: u64) -> Option<&'a str>
     let end = source[start..]
         .find('\n')
         .map_or(source.len(), |i| start + i);
-    Some(&source[start..end])
+    Some(source[start..end].trim_end_matches('\r'))
 }
 
 fn span_lines<'a>(
