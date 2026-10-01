@@ -129,8 +129,8 @@ uv run mkdocs serve                                 # preview the docs site
 - `AGENTS.md` (this file) is canonical. There is no `CLAUDE.md`.
 - `.agents/skills/` holds the real skill files. `.claude/skills` is a symlink to
   `../.agents/skills`: do not replace it with a copy.
-- `.pi/hooks.json` and `.pi/hook-scripts/` hold the pi hooks: ruff, ty, pytest,
-  complexipy, and the Rust checks, each on its matching file type.
+- `.agents/hooks/` holds the quality gate that `.claude/settings.json` and
+  `.pi/hooks.json` both run. Add a new check there, not in one agent's hooks.
 - `.sdd/` holds the specs and the change artifacts. Do not commit it.
 
 ## Keeping This File Current
