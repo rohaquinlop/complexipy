@@ -2,5 +2,44 @@
     "attribution": {
         "commit": "",
         "pr": ""
+    },
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "startup|resume|clear",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cd \"$CLAUDE_PROJECT_DIR\" && sh .agents/hooks/session-start.sh",
+                        "timeout": 30
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Write|Edit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "sh \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-edit.sh",
+                        "timeout": 600,
+                        "statusMessage": "Running edit checks"
+                    }
+                ]
+            }
+        ],
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "sh \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop.sh",
+                        "timeout": 1800,
+                        "statusMessage": "Running quality gate"
+                    }
+                ]
+            }
+        ]
     }
 }
