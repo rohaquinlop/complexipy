@@ -1,0 +1,37 @@
+---
+name: Repo Checks
+
+# No path filter on purpose: CI.yml skips docs-only changes, and these checks
+# guard the docs. Keep this job free of the Rust build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  invariants:
+    name: Repo Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a
+        with:
+          python-version: '3.13'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install dev dependencies
+        run: uv sync --group dev --no-install-project --frozen
+      - name: Run repository invariant tests
+        run: uv run --no-sync pytest tests/test_repo_invariants.py
