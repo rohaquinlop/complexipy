@@ -90,6 +90,8 @@ uv run mkdocs serve                                 # preview the docs site
 - Rust tests that need private items are a `mod tests;` child module in a sibling
   file, as in `utils.rs` and `utils/tests.rs`. A new test file is invisible until
   its owning module declares it, so no inline `mod tests { }` and no `#[path]`.
+- Integration tests go in `crates/<crate>/tests/it/`, declared in its `main.rs`.
+  A file placed directly in `tests/` links one more test binary.
 - Read the LSP child's stdout in `tests/test_lsp.py` with `os.read` on a raw fd.
   A buffered read swallows the frame, and the following `select` then reports an
   empty pipe.

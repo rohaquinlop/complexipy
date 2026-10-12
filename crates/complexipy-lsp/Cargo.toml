@@ -11,10 +11,12 @@ publish = false
 
 [lib]
 name = "complexipy_lsp"
+doctest = false
 
 [[bin]]
 name = "complexipy-lsp"
 path = "src/main.rs"
+test = false
 
 [dependencies]
 complexipy-core = { path = "../complexipy-core", features = ["runner", "config"] }

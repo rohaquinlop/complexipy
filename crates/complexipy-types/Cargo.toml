@@ -11,6 +11,7 @@ publish = false
 
 [lib]
 name = "complexipy_types"
+doctest = false
 
 [features]
 default = []

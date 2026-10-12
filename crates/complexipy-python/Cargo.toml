@@ -12,6 +12,8 @@ publish = false
 [lib]
 name = "complexipy"
 crate-type = ["cdylib", "rlib"]
+test = false
+doctest = false
 
 [dependencies]
 complexipy-core = { path = "../complexipy-core", features = ["python", "runner", "config"] }

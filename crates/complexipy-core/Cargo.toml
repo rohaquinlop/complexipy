@@ -11,6 +11,7 @@ publish = false
 
 [lib]
 name = "complexipy_core"
+doctest = false
 
 [features]
 default = ["runner"]
