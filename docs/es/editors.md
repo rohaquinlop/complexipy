@@ -111,7 +111,7 @@ explícitamente.
 
 El servidor lee los mismos archivos de configuración que la CLI -
 `complexipy.toml`, `.complexipy.toml` o `pyproject.toml` (bajo
-`[tool.complexipy]`) - descubiertos en la raíz del espacio de trabajo:
+`[tool.complexipy]`) - descubiertos en la raíz de cada carpeta del espacio de trabajo:
 
 === "complexipy.toml"
 
@@ -139,7 +139,7 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | Clave | Predeterminado | Descripción |
 | -- | -- | -- |
 | `max-complexity-allowed` | `15` | Se reportan las funciones estrictamente por encima de este valor. Una función en el límite pasa. |
-| `exclude` | `[]` | Patrones glob, emparejados de forma relativa a la raíz del espacio de trabajo. Los archivos excluidos no producen hints ni diagnósticos. |
+| `exclude` | `[]` | Patrones glob, emparejados de forma relativa a la carpeta del espacio de trabajo que contiene el archivo de configuración. Los archivos excluidos no producen hints ni diagnósticos. |
 | `no-ignore` | `false` | Analiza las funciones aunque un comentario de ignorado en línea las suprima. |
 | `lsp.inlay-hints` | `"threshold"` | Cuándo mostrar el hint por función: `"threshold"`, `"always"` o `"never"`. |
 | `lsp.per-line-hints` | `false` | Muestra además un hint `+N` en cada línea con un incremento de complejidad distinto de cero. |
@@ -199,8 +199,8 @@ función padre.
 
 ### Ignorados y exclusiones
 
-- Los globs de `exclude` se emparejan de forma relativa a la raíz del espacio
-  de trabajo. Los archivos excluidos no producen hints ni diagnósticos.
+- Los globs de `exclude` se emparejan de forma relativa a la carpeta del
+  espacio de trabajo que contiene el archivo de configuración. Los archivos excluidos no producen hints ni diagnósticos.
 - Un glob mal formado se reporta una vez por carga de configuración en el
   registro del servidor y se omite. El resto de patrones de la lista siguen
   aplicándose.
@@ -251,9 +251,9 @@ función está por encima de `max-complexity-allowed`. Usa
 
 Un límite más bajo de lo esperado normalmente significa que la configuración
 activa no es la correcta. El servidor lee `complexipy.toml`,
-`.complexipy.toml` o `pyproject.toml` desde la raíz del espacio de trabajo;
-comprueba que el archivo que el editor abrió como raíz del espacio de trabajo
-sea el que contiene tus ajustes. El servidor lee el archivo al arrancar y de
+`.complexipy.toml` o `pyproject.toml` desde la raíz de la carpeta del espacio
+de trabajo del documento; comprueba que la carpeta que abrió el editor sea la
+que contiene tus ajustes. El servidor lee el archivo al arrancar y de
 nuevo cada vez que el editor informa un cambio de configuración, así que
 después de editarlo pide al editor que recargue (`:LspRestart` en Neovim, o
 recargar la ventana en Zed).
@@ -278,8 +278,10 @@ Otros límites del servidor actual:
 - El servidor declara sincronización completa del documento, así que espera el
   búfer entero en cada cambio. Un cambio que lleve un rango se ignora y se
   escribe una línea en el registro del servidor.
-- Un espacio de trabajo con varias raíces usa la primera carpeta para
-  descubrir la configuración y para emparejar `exclude`.
+- En un espacio de trabajo con varias carpetas, cada carpeta lee su propio
+  archivo de configuración. Un documento usa la carpeta más profunda que lo
+  contiene, y un documento fuera de todas las carpetas usa la primera. Las
+  carpetas que el editor añade o quita se aplican sin reiniciar.
 - Las `initializationOptions` del cliente se ignoran. La configuración sale del
   archivo de configuración.
 - La palabra `lsp` reserva el primer argumento: `complexipy lsp` arranca el

@@ -108,7 +108,7 @@ enabled. Without it, only the servers you list explicitly are started.
 
 The server reads the same configuration files as the CLI - `complexipy.toml`,
 `.complexipy.toml`, or `pyproject.toml` (under `[tool.complexipy]`) - discovered
-at the workspace root:
+at the root of each workspace folder:
 
 === "complexipy.toml"
 
@@ -136,7 +136,7 @@ at the workspace root:
 | Key | Default | Description |
 | -- | -- | -- |
 | `max-complexity-allowed` | `15` | Functions strictly above this value are reported. A function at the limit passes. |
-| `exclude` | `[]` | Glob patterns, matched relative to the workspace root. Excluded files produce no hints and no diagnostics. |
+| `exclude` | `[]` | Glob patterns, matched relative to the workspace folder that holds the configuration file. Excluded files produce no hints and no diagnostics. |
 | `no-ignore` | `false` | Analyze functions even when an inline ignore comment suppresses them. |
 | `lsp.inlay-hints` | `"threshold"` | When to show the per-function hint: `"threshold"`, `"always"`, or `"never"`. |
 | `lsp.per-line-hints` | `false` | Also show a `+N` hint on every line with a non-zero complexity increment. |
@@ -192,8 +192,8 @@ nested function therefore shows its parent.
 
 ### Ignores and exclusions
 
-- `exclude` globs are matched relative to the workspace root. Excluded files
-  produce no hints and no diagnostics.
+- `exclude` globs are matched relative to the workspace folder that holds the
+  configuration file. Excluded files produce no hints and no diagnostics.
 - A malformed glob is reported once per configuration load on the server log
   and skipped. The other patterns in the list keep applying.
 - A list too large to compile as one program is reported once per
@@ -240,8 +240,8 @@ Inlay hints are opt-in in most editors. Enable them in the editor itself
 
 A limit lower than expected usually means the wrong configuration is active.
 The server reads `complexipy.toml`, `.complexipy.toml`, or `pyproject.toml`
-from the workspace root; check that the file the editor opened as the
-workspace root is the one holding your settings. The server reads the file at
+from the root of the document's workspace folder; check that the folder the
+editor opened is the one holding your settings. The server reads the file at
 startup and again whenever the editor reports a configuration change, so after
 editing it ask the editor to reload (`:LspRestart` in Neovim, or reload the
 window in Zed).
@@ -264,8 +264,10 @@ Other limits of the current server:
 - The server declares full document sync, so it expects the whole buffer on
   every change. A change that carries a range is ignored, and one line is
   written to the server log.
-- A workspace with several roots uses the first folder for configuration
-  discovery and for `exclude` matching.
+- In a workspace with several folders, each folder reads its own configuration
+  file. A document uses the deepest folder that contains it, and a document
+  outside every folder uses the first folder. Folders that the editor adds or
+  removes take effect without a restart.
 - The `initializationOptions` of the client are ignored. Settings come from the
   configuration file.
 - The `lsp` word reserves the first command-line argument: `complexipy lsp`

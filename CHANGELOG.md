@@ -41,6 +41,14 @@ release section links to its GitHub release notes for the full details.
   keep applying, and a list too large to compile as one program is reported once
   and still applied. A CLI run stops on either.
 
+- Each workspace folder reads its own configuration
+  ([#273](https://github.com/rohaquinlop/complexipy/issues/273)). In a
+  workspace with several folders, a document uses the threshold, rule
+  selection, `exclude` patterns, and `[tool.complexipy.lsp]` settings of the
+  deepest folder that contains it, and a document outside every folder uses
+  the first folder. The server declares workspace folder support, so folders
+  that the editor adds or removes take effect without a restart.
+
 - Per-rule suppression and rule selection
   ([#208](https://github.com/rohaquinlop/complexipy/issues/208)). `--select`
   and `--ignore` (repeatable and comma-separated) pick the active refactoring

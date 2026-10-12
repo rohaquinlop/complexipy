@@ -1,4 +1,6 @@
 use super::*;
+use crate::workspace::Folder;
+use complexipy_core::config::LspConfig;
 use lsp_types::{
     Position, PublishDiagnosticsParams, Range, TextDocumentIdentifier, WorkDoneProgressParams,
 };
@@ -11,9 +13,10 @@ fn server(config: LspConfig) -> (Server, Connection) {
     let server = Server::new(
         connection,
         Initialized {
-            root: "/repo".to_string(),
-            exclude: ExcludeMatcher::new(&config.exclude.clone().into_vec()),
-            config,
+            workspace: Workspace::new(
+                vec![Folder::new("/repo".to_string(), config)],
+                "/repo".to_string(),
+            ),
             refresh_support: false,
         },
     );
