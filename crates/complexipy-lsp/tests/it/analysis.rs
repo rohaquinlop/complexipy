@@ -57,10 +57,10 @@ const COLLAPSIBLE_IF: &str = "def heavy(a, b, c, d):\n    if a:\n        if b:\n
 
 #[test]
 fn inactive_rules_leave_no_plans() {
-    let default = analyzed(COLLAPSIBLE_IF, &config(15));
+    let mut default = analyzed(COLLAPSIBLE_IF, &config(15));
     assert!(
-        default.functions[0]
-            .refactor_plans
+        default
+            .plans(1, &config(15))
             .iter()
             .any(|plan| plan.rule_id == "C007")
     );
@@ -69,8 +69,8 @@ fn inactive_rules_leave_no_plans() {
         ignore: StringOrList::Many(vec!["C007".to_string()]),
         ..LspConfig::default()
     };
-    let narrowed = analyzed(COLLAPSIBLE_IF, &config);
-    let plans = &narrowed.functions[0].refactor_plans;
+    let mut narrowed = analyzed(COLLAPSIBLE_IF, &config);
+    let plans = narrowed.plans(1, &config);
 
     assert!(plans.iter().all(|plan| plan.rule_id != "C007"));
     assert!(plans.iter().any(|plan| plan.rule_id == "C001"));
@@ -83,8 +83,8 @@ fn inline_rule_list_keeps_the_other_rules() {
         "def heavy(a, b, c, d):  # noqa: complexipy[C007]",
     );
 
-    let analysis = analyzed(&source, &config(15));
-    let plans = &analysis.functions[0].refactor_plans;
+    let mut analysis = analyzed(&source, &config(15));
+    let plans = analysis.plans(1, &config(15));
 
     assert!(plans.iter().all(|plan| plan.rule_id != "C007"));
     assert!(plans.iter().any(|plan| plan.rule_id == "C001"));
@@ -261,7 +261,7 @@ fn no_ignore_includes_suppressed_functions() {
 
 #[test]
 fn hover_reports_the_total_and_the_limit() {
-    let analysis = analyzed(SAMPLE, &config(2));
+    let mut analysis = analyzed(SAMPLE, &config(2));
     let hover = analysis.hover(&config(2), Position::new(4, 0)).unwrap();
 
     let HoverContents::Markup(content) = hover.contents else {
@@ -274,14 +274,14 @@ fn hover_reports_the_total_and_the_limit() {
 
 #[test]
 fn hover_outside_a_function_is_empty() {
-    let analysis = analyzed(SAMPLE, &config(2));
+    let mut analysis = analyzed(SAMPLE, &config(2));
 
     assert!(analysis.hover(&config(2), Position::new(2, 0)).is_none());
 }
 
 #[test]
 fn hover_includes_the_top_refactor_plan() {
-    let analysis = analyzed(SAMPLE, &config(2));
+    let mut analysis = analyzed(SAMPLE, &config(2));
     let hover = analysis.hover(&config(2), Position::new(5, 0)).unwrap();
 
     let HoverContents::Markup(content) = hover.contents else {
@@ -439,5 +439,84 @@ fn syntax_errors_carry_a_parse_diagnostic() {
     assert_eq!(
         diagnostic.range,
         Range::new(Position::new(0, 0), Position::new(0, 12))
+    );
+}
+
+#[test]
+fn analysis_builds_no_plans() {
+    let analysis = analyzed(COLLAPSIBLE_IF, &config(2));
+
+    assert!(
+        analysis
+            .functions
+            .iter()
+            .all(|function| function.refactor_plans.is_empty())
+    );
+}
+
+#[test]
+fn hover_names_the_top_plan_rule() {
+    let mut analysis = analyzed(COLLAPSIBLE_IF, &config(2));
+    let hover = analysis.hover(&config(2), Position::new(0, 0)).unwrap();
+
+    let HoverContents::Markup(content) = hover.contents else {
+        panic!("expected markup content");
+    };
+
+    assert!(content.value.contains("Top refactor (`C007`)"));
+}
+
+#[test]
+fn plans_are_built_once_per_analysis() {
+    let mut analysis = analyzed(COLLAPSIBLE_IF, &config(2));
+    let first: Vec<String> = analysis
+        .plans(1, &config(2))
+        .iter()
+        .map(|plan| plan.rule_id.clone())
+        .collect();
+    let narrowed = LspConfig {
+        ignore: StringOrList::Many(vec!["C007".to_string()]),
+        ..config(2)
+    };
+
+    let second: Vec<String> = analysis
+        .plans(1, &narrowed)
+        .iter()
+        .map(|plan| plan.rule_id.clone())
+        .collect();
+
+    assert!(first.contains(&"C007".to_string()));
+    assert_eq!(first, second);
+}
+
+#[test]
+fn a_bracketed_ignore_hides_the_plan_from_hover() {
+    let source = COLLAPSIBLE_IF.replace(
+        "def heavy(a, b, c, d):",
+        "def heavy(a, b, c, d):  # complexipy: ignore[C007, C001]",
+    );
+    let mut analysis = analyzed(&source, &config(2));
+    let hover = analysis.hover(&config(2), Position::new(0, 0)).unwrap();
+
+    let HoverContents::Markup(content) = hover.contents else {
+        panic!("expected markup content");
+    };
+
+    assert!(!content.value.contains("Top refactor"));
+}
+
+#[test]
+fn a_comma_separated_ignore_string_drops_each_rule() {
+    let config = LspConfig {
+        ignore: StringOrList::One("C007, C001".to_string()),
+        ..config(2)
+    };
+    let mut analysis = analyzed(COLLAPSIBLE_IF, &config);
+    let plans = analysis.plans(1, &config);
+
+    assert!(
+        plans
+            .iter()
+            .all(|plan| plan.rule_id != "C007" && plan.rule_id != "C001")
     );
 }

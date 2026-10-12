@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use complexipy_core::AnalysisOptions;
-use complexipy_core::classes::FunctionComplexity;
-use complexipy_core::cognitive_complexity::code_complexity_shared;
+use complexipy_core::classes::{FunctionComplexity, RefactorPlan};
+use complexipy_core::cognitive_complexity::{code_complexity_shared, plans_for_function};
 use complexipy_core::config::{InlayHints, LspConfig};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, Hover, HoverContents, InlayHint, InlayHintKind, InlayHintLabel,
@@ -71,6 +74,8 @@ pub struct DocumentAnalysis {
     pub functions: Vec<FunctionComplexity>,
     bounds: LineBounds,
     declaration_lines: Vec<u64>,
+    source: Arc<str>,
+    plans: HashMap<u64, Vec<RefactorPlan>>,
 }
 
 impl DocumentAnalysis {
@@ -90,6 +95,8 @@ impl DocumentAnalysis {
             functions,
             bounds: LineBounds::new(source),
             declaration_lines,
+            source: Arc::from(source),
+            plans: HashMap::new(),
         }
     }
 
@@ -99,6 +106,8 @@ impl DocumentAnalysis {
             functions: Vec::new(),
             bounds: LineBounds::default(),
             declaration_lines: Vec::new(),
+            source: Arc::from(""),
+            plans: HashMap::new(),
         }
     }
 
@@ -155,19 +164,31 @@ impl DocumentAnalysis {
             .collect()
     }
 
-    pub fn hover(&self, config: &LspConfig, position: Position) -> Option<Hover> {
+    pub fn hover(&mut self, config: &LspConfig, position: Position) -> Option<Hover> {
         let line = u64::from(position.line) + 1;
         let function = self
             .functions
             .iter()
-            .find(|function| line >= function.line_start && line <= function.line_end)?;
+            .find(|function| line >= function.line_start && line <= function.line_end)?
+            .clone();
+        let top_plan = self.plans(function.line_start, config).first();
 
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: hover_value(function, config),
+                value: hover_value(&function, top_plan, config),
             }),
-            range: Some(function_range(&self.bounds, function)),
+            range: Some(function_range(&self.bounds, &function)),
+        })
+    }
+
+    pub fn plans(&mut self, line_start: u64, config: &LspConfig) -> &[RefactorPlan] {
+        self.plans.entry(line_start).or_insert_with(|| {
+            plans_for_function(&self.source, line_start, &analysis_options(config))
+                .ok()
+                .flatten()
+                .map(|(plans, _)| plans)
+                .unwrap_or_default()
         })
     }
 
@@ -195,21 +216,21 @@ pub fn analyze(
     version: i32,
     config: &LspConfig,
 ) -> Result<DocumentAnalysis, ParseFailure> {
-    match code_complexity_shared(
-        text,
-        &AnalysisOptions {
-            no_ignore: config.no_ignore,
-            with_plans: true,
-            rules: config.rule_set(),
-            ..Default::default()
-        },
-    ) {
+    match code_complexity_shared(text, &analysis_options(config)) {
         Ok(result) => Ok(DocumentAnalysis::new(version, result.functions, text)),
         Err(message) => Err(ParseFailure {
             version,
             message,
             bounds: LineBounds::new(text),
         }),
+    }
+}
+
+fn analysis_options(config: &LspConfig) -> AnalysisOptions {
+    AnalysisOptions {
+        no_ignore: config.no_ignore,
+        rules: config.rule_set(),
+        ..Default::default()
     }
 }
 
@@ -361,7 +382,11 @@ fn function_range(bounds: &LineBounds, function: &FunctionComplexity) -> Range {
     )
 }
 
-fn hover_value(function: &FunctionComplexity, config: &LspConfig) -> String {
+fn hover_value(
+    function: &FunctionComplexity,
+    top_plan: Option<&RefactorPlan>,
+    config: &LspConfig,
+) -> String {
     let mut value = format!(
         "**{}**: cognitive complexity {}",
         function.name, function.complexity
@@ -374,7 +399,7 @@ fn hover_value(function: &FunctionComplexity, config: &LspConfig) -> String {
         ));
     }
 
-    if let Some(plan) = function.refactor_plans.first() {
+    if let Some(plan) = top_plan {
         value.push_str(&format!(
             "\n\nTop refactor (`{}`): {}",
             plan.rule_id, plan.title

@@ -217,3 +217,34 @@ fn other_languages_are_not_analyzed() {
     assert!(analysis.functions.is_empty());
     assert!(server.failures.is_empty());
 }
+
+#[test]
+fn hover_on_a_failing_version_builds_plans_from_the_last_good_text() {
+    let (mut server, client) = server(strict());
+    server
+        .documents
+        .open(uri(), SAMPLE.to_string(), 3, "python".to_string());
+    assert!(server.refresh(&uri()));
+    server.documents.change(&uri(), BROKEN.to_string(), 4);
+    drain(&client);
+
+    server.respond_hover(
+        RequestId::from(1),
+        HoverParams {
+            text_document_position_params: lsp_types::TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier { uri: uri() },
+                position: Position::new(4, 0),
+            },
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        },
+    );
+
+    let hover = drain(&client)
+        .into_iter()
+        .find_map(|message| match message {
+            Message::Response(response) => response.response_result.ok(),
+            _ => None,
+        })
+        .expect("expected a hover response");
+    assert!(hover.to_string().contains("Top refactor (`C007`)"));
+}
