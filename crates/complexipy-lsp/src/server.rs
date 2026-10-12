@@ -6,9 +6,9 @@ use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestI
 use lsp_types::{
     Diagnostic, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, HoverParams, HoverProviderCapability,
-    InitializeParams, InlayHintParams, OneOf, PublishDiagnosticsParams, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
-    WorkspaceServerCapabilities,
+    InitializeParams, InlayHintParams, MessageType, OneOf, PublishDiagnosticsParams,
+    ServerCapabilities, ShowMessageParams, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
+    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
@@ -26,6 +26,7 @@ pub const DID_CHANGE_WORKSPACE_FOLDERS: &str = "workspace/didChangeWorkspaceFold
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
+pub const SHOW_MESSAGE: &str = "window/showMessage";
 pub const SHUTDOWN: &str = "shutdown";
 pub const EXIT: &str = "exit";
 
@@ -159,6 +160,8 @@ impl Server {
     }
 
     fn run(mut self) -> i32 {
+        self.report_warnings();
+
         loop {
             match self.next_message() {
                 Ok(Some(Message::Request(request))) => {
@@ -319,6 +322,7 @@ impl Server {
 
     fn reload_config(&mut self) {
         self.workspace.reload();
+        self.report_warnings();
         self.reanalyze_all();
     }
 
@@ -333,7 +337,21 @@ impl Server {
                 self.workspace.add(root);
             }
         }
+        self.report_warnings();
         self.reanalyze_all();
+    }
+
+    fn report_warnings(&mut self) {
+        for warning in self.workspace.take_warnings() {
+            eprintln!("{}: {}", SERVER_NAME, warning);
+            self.send(Notification::new(
+                SHOW_MESSAGE.to_string(),
+                ShowMessageParams {
+                    typ: MessageType::WARNING,
+                    message: warning,
+                },
+            ));
+        }
     }
 
     fn reanalyze_all(&mut self) {

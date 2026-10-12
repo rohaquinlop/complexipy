@@ -1,12 +1,13 @@
 use std::path::Path;
 
-use complexipy_core::ExcludeMatcher;
 use complexipy_core::config::{LspConfig, read_complexipy_config};
+use complexipy_core::{
+    ExcludeMatcher, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
+};
 use lsp_types::Uri;
 use serde::Deserialize;
 
 use crate::documents::uri_to_path;
-use crate::server::SERVER_NAME;
 
 pub struct Folder {
     pub root: String,
@@ -25,43 +26,46 @@ impl Folder {
         }
     }
 
-    pub fn load(root: String) -> Self {
+    pub fn load(root: String) -> (Self, Vec<String>) {
         let Some(source) = read_complexipy_config(&root) else {
-            return Self::new(root, LspConfig::default());
+            return (Self::new(root, LspConfig::default()), Vec::new());
         };
+        let path = source.path.display().to_string();
 
         let config = match LspConfig::deserialize(source.value) {
             Ok(config) => config,
             Err(error) => {
-                eprintln!(
-                    "{}: invalid config in {}: {}",
-                    SERVER_NAME,
-                    source.path.display(),
-                    error
-                );
-                return Self::new(root, LspConfig::default());
+                let warning = format!("invalid config in {}: {}", path, error);
+                return (Self::new(root, LspConfig::default()), vec![warning]);
             }
         };
 
-        let folder = Self::new(root, config);
-        if !folder.exclude.invalid().is_empty() {
-            eprintln!(
-                "{}: {}: ignoring invalid exclude patterns: {:?}",
-                SERVER_NAME,
-                source.path.display(),
-                folder.exclude.invalid()
-            );
-        } else if folder.exclude.overflows() {
-            eprintln!(
-                "{}: {}: the exclude list of {} patterns is too large to \
-                 compile as one program; matching one pattern at a time",
-                SERVER_NAME,
-                source.path.display(),
-                folder.config.exclude.clone().into_vec().len()
-            );
+        let mut warnings = Vec::new();
+        let (rules, unknown) = config.resolve_rules();
+        for rule_id in &unknown {
+            warnings.push(format!("{}: {}", path, unknown_rule_warning(rule_id)));
+        }
+        if !rules.has_active_rule(&registered_rule_ids()) {
+            warnings.push(format!("{}: {}", path, no_active_rule_warning()));
         }
 
-        folder
+        let folder = Self::new(root, config);
+        if !folder.exclude.invalid().is_empty() {
+            warnings.push(format!(
+                "{}: ignoring invalid exclude patterns: {:?}",
+                path,
+                folder.exclude.invalid()
+            ));
+        } else if folder.exclude.overflows() {
+            warnings.push(format!(
+                "{}: the exclude list of {} patterns is too large to compile as \
+                 one program; matching one pattern at a time",
+                path,
+                folder.config.exclude.clone().into_vec().len()
+            ));
+        }
+
+        (folder, warnings)
     }
 
     pub fn is_excluded(&self, path: &str) -> bool {
@@ -84,6 +88,7 @@ impl Folder {
 pub struct Workspace {
     folders: Vec<Folder>,
     fallback_root: String,
+    warnings: Vec<String>,
 }
 
 impl Workspace {
@@ -92,6 +97,7 @@ impl Workspace {
         let mut workspace = Self {
             folders,
             fallback_root,
+            warnings: Vec::new(),
         };
         workspace.keep_one_folder();
 
@@ -102,6 +108,7 @@ impl Workspace {
         let mut workspace = Self {
             folders: Vec::new(),
             fallback_root,
+            warnings: Vec::new(),
         };
         for root in roots {
             workspace.add(root);
@@ -130,7 +137,8 @@ impl Workspace {
 
     pub fn add(&mut self, root: String) {
         if !self.folders.iter().any(|folder| folder.is_root(&root)) {
-            self.folders.push(Folder::load(root));
+            let folder = self.load_folder(root);
+            self.folders.push(folder);
         }
     }
 
@@ -140,9 +148,22 @@ impl Workspace {
     }
 
     pub fn reload(&mut self) {
-        for folder in &mut self.folders {
-            *folder = Folder::load(std::mem::take(&mut folder.root));
+        let roots: Vec<String> = self.folders.drain(..).map(|folder| folder.root).collect();
+        for root in roots {
+            let folder = self.load_folder(root);
+            self.folders.push(folder);
         }
+    }
+
+    pub fn take_warnings(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.warnings)
+    }
+
+    fn load_folder(&mut self, root: String) -> Folder {
+        let (folder, warnings) = Folder::load(root);
+        self.warnings.extend(warnings);
+
+        folder
     }
 
     fn first(&self) -> &Folder {
@@ -151,7 +172,8 @@ impl Workspace {
 
     fn keep_one_folder(&mut self) {
         if self.folders.is_empty() {
-            self.folders.push(Folder::load(self.fallback_root.clone()));
+            let folder = self.load_folder(self.fallback_root.clone());
+            self.folders.push(folder);
         }
     }
 }
