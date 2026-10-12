@@ -9,6 +9,7 @@ if [ "$(rust_fp)" != "$(sed -n 2p "$STATE/judged" 2>/dev/null)" ]; then
 	check cargo-fmt cargo fmt
 	check clippy cargo clippy -q --workspace --all-targets -- -D warnings
 	check no-default-features cargo check -q -p complexipy-core --no-default-features
+	check wasm cargo check -q -p complexipy-wasm --target wasm32-unknown-unknown
 	check cargo-test cargo test -q --workspace
 	check maturin uv run --no-sync maturin develop || built=no
 fi

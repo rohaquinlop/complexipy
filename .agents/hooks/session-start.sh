@@ -8,6 +8,7 @@ reported || judge
 (
 	cargo clippy -q --workspace --all-targets
 	cargo check -q -p complexipy-core --no-default-features
+	cargo check -q -p complexipy-wasm --target wasm32-unknown-unknown
 	cargo test -q --workspace --no-run
 	uv run --no-sync maturin develop
 ) </dev/null >/dev/null 2>&1 &
