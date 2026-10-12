@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::output::render::{
-    SummaryOptions, colorize_complexity, format_status_text, handle_console_settings,
+    SummaryOptions, color_lock, colorize_complexity, format_status_text, handle_console_settings,
     output_delta_text, output_plain, output_summary, print_invalid_paths, rule_at,
 };
 use crate::types::{Color, FileEntry, FunctionRow, Sort};
@@ -44,13 +44,15 @@ fn status_text_contains_labels() {
 
 #[test]
 fn status_text_emoji_outside_color() {
-    let passed = format_status_text(true);
+    let _guard = color_lock();
+    let (passed, failed) = owo_colors::with_override(true, || {
+        (format_status_text(true), format_status_text(false))
+    });
     assert!(passed.starts_with("✅ "));
     let colored = passed.trim_start_matches("✅ ");
     assert!(colored.starts_with("\u{1b}["));
     assert!(colored.contains(" PASSED "));
 
-    let failed = format_status_text(false);
     assert!(failed.starts_with("❌ "));
     let colored = failed.trim_start_matches("❌ ");
     assert!(colored.starts_with("\u{1b}["));
@@ -59,8 +61,10 @@ fn status_text_emoji_outside_color() {
 
 #[test]
 fn colorize_marks_over_threshold_red() {
-    let ok = colorize_complexity(5, 5);
-    let bad = colorize_complexity(6, 5);
+    let _guard = color_lock();
+    let (ok, bad) = owo_colors::with_override(true, || {
+        (colorize_complexity(5, 5), colorize_complexity(6, 5))
+    });
     assert!(!ok.contains("\u{1b}[31m"));
     assert!(bad.contains("\u{1b}[31m"));
 }
@@ -223,7 +227,8 @@ fn rule_matches_rich_layout_at_width() {
 
 #[test]
 fn console_settings_banner() {
-    let settings = handle_console_settings(&Color::Auto, false, false);
+    let _guard = color_lock();
+    let settings = handle_console_settings(&Color::Yes, false, false);
     assert!(!settings.banner.is_empty());
     assert!(settings.color_enabled);
 
@@ -235,4 +240,23 @@ fn console_settings_banner() {
 
     let no_color = handle_console_settings(&Color::No, false, false);
     assert!(!no_color.color_enabled);
+    owo_colors::unset_override();
+}
+
+#[test]
+fn forced_color_modes_govern_styled_output() {
+    let _guard = color_lock();
+    let cases = [
+        (Color::Yes, false, true),
+        (Color::No, false, false),
+        (Color::Yes, true, false),
+        (Color::Auto, true, false),
+    ];
+
+    for (color, plain, expected) in cases {
+        let settings = handle_console_settings(&color, false, plain);
+        assert_eq!(settings.color_enabled, expected);
+        assert_eq!(colorize_complexity(6, 5).contains('\u{1b}'), expected);
+    }
+    owo_colors::unset_override();
 }

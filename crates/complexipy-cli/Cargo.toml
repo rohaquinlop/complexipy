@@ -28,7 +28,8 @@ toml = { workspace = true }
 blake2 = { workspace = true }
 sha2 = { workspace = true }
 comfy-table = { workspace = true }
-owo-colors = { workspace = true }
+owo-colors = { workspace = true, features = ["supports-colors"] }
+supports-color = { workspace = true }
 syntect = { workspace = true }
 terminal_size = { workspace = true }
 unicode-width = { workspace = true }

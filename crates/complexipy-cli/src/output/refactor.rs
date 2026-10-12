@@ -1,7 +1,7 @@
 use std::fs;
 use std::sync::OnceLock;
 
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Color as SyntaxColor, ThemeSet};
 use syntect::parsing::SyntaxSet;
@@ -18,12 +18,14 @@ pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> S
     let display_path = normalize_path(&function.path, &function.file_name);
     let source_lines = read_source_lines(invocation_path, &function.path, &function.file_name);
 
-    let mut sections = vec![format!("\n      {}", "Refactor Suggestions:".bold())];
+    let mut sections = vec![format!(
+        "\n      {}",
+        "Refactor Suggestions:".if_supports_color(Stream::Stdout, |text| text.bold())
+    )];
     if function.refactor_plans.len() > 1 {
         sections.push(format!(
             "      {}",
-            "Each estimate is independent and assumes applying that suggestion alone -- they don't sum."
-                .dimmed()
+            "Each estimate is independent and assumes applying that suggestion alone -- they don't sum.".if_supports_color(Stream::Stdout, |text| text.dimmed())
         ));
     }
     for (index, plan) in function.refactor_plans.iter().enumerate() {
@@ -47,7 +49,7 @@ pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> S
                 "... and {} more suggestion{}",
                 function.additional_refactor_plans, suffix
             )
-            .dimmed()
+            .if_supports_color(Stream::Stdout, |text| text.dimmed())
         ));
     }
 
@@ -80,7 +82,8 @@ fn output_single_plan(
     let mut sections = vec![format!(
         "\n      [{}] {} {}",
         index,
-        plan.rule_id.cyan().bold(),
+        plan.rule_id.if_supports_color(Stream::Stdout, |text| text
+            .style(Style::new().cyan().bold())),
         plan.title
     )];
     sections.push(format!(
@@ -106,16 +109,25 @@ fn output_single_plan(
         plan.line_start,
         plan.line_end,
         reduction_label,
-        format!("-{}{}", qualifier, plan.estimated_reduction).green(),
+        format!("-{}{}", qualifier, plan.estimated_reduction)
+            .if_supports_color(Stream::Stdout, |text| text.green()),
         plan.current_complexity,
         plan.estimated_complexity_after
     ));
 
     if !plan.description.is_empty() {
-        sections.push(format!("\n          {}", plan.description.dimmed()));
+        sections.push(format!(
+            "\n          {}",
+            plan.description
+                .if_supports_color(Stream::Stdout, |text| text.dimmed())
+        ));
     }
     if !plan.explanation.is_empty() {
-        sections.push(format!("\n          {} {}", ">".bold(), plan.explanation));
+        sections.push(format!(
+            "\n          {} {}",
+            ">".if_supports_color(Stream::Stdout, |text| text.bold()),
+            plan.explanation
+        ));
     }
 
     if let Some(suggestion) = &plan.suggestion {
@@ -166,12 +178,23 @@ fn output_plan_references(doc_url: &str, references: &[String]) -> String {
     if doc_url.is_empty() && references.is_empty() {
         return String::new();
     }
-    let mut lines = vec![format!("\n          {}", "References:".dimmed())];
+    let mut lines = vec![format!(
+        "\n          {}",
+        "References:".if_supports_color(Stream::Stdout, |text| text.dimmed())
+    )];
     if !doc_url.is_empty() {
-        lines.push(format!("            {}", doc_url.underline().blue()));
+        lines.push(format!(
+            "            {}",
+            doc_url.if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().underline().blue()))
+        ));
     }
     for reference in references {
-        lines.push(format!("            {}", reference.underline().blue()));
+        lines.push(format!(
+            "            {}",
+            reference.if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().underline().blue()))
+        ));
     }
     lines.join("\n")
 }
@@ -186,12 +209,17 @@ fn output_suggestion(
 
     let mut sections = vec![format!(
         "\n          {} {} {}",
-        "Suggestion:".bold(),
+        "Suggestion:".if_supports_color(Stream::Stdout, |text| text.bold()),
         applicability_icon,
         applicability_name
     )];
     if !suggestion.description.is_empty() {
-        sections.push(format!("          {}", suggestion.description.dimmed()));
+        sections.push(format!(
+            "          {}",
+            suggestion
+                .description
+                .if_supports_color(Stream::Stdout, |text| text.dimmed())
+        ));
     }
 
     if let Some(source_lines) = source_lines {
@@ -200,14 +228,20 @@ fn output_suggestion(
         if original_start <= original_end && original_start >= 1 {
             let original_code = source_lines[original_start - 1..original_end].join("\n");
             if !original_code.is_empty() {
-                sections.push(format!("\n          {}", "Original:".dimmed()));
+                sections.push(format!(
+                    "\n          {}",
+                    "Original:".if_supports_color(Stream::Stdout, |text| text.dimmed())
+                ));
                 sections.push(output_code_snippet(&original_code, original_start));
             }
         }
     }
 
     if !suggestion.replacement.is_empty() {
-        sections.push(format!("\n          {}", "Replacement:".dimmed()));
+        sections.push(format!(
+            "\n          {}",
+            "Replacement:".if_supports_color(Stream::Stdout, |text| text.dimmed())
+        ));
         sections.push(output_code_snippet(
             &suggestion.replacement,
             plan.line_start as usize,
@@ -256,7 +290,11 @@ fn output_caret_span(plan: &RefactorPlan, source_lines: Option<&[String]>) -> St
 }
 
 fn output_help(help_text: &str) -> String {
-    format!("\n          {}\n          {}", "Help:".bold(), help_text)
+    format!(
+        "\n          {}\n          {}",
+        "Help:".if_supports_color(Stream::Stdout, |text| text.bold()),
+        help_text
+    )
 }
 
 fn output_code_snippet(code: &str, start_line: usize) -> String {
