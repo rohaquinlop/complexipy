@@ -28,7 +28,9 @@ pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_reg
 pub use helpers::exclude::{
     ExcludeMatcher, exclude_list_overflows, invalid_exclude_patterns, is_path_excluded,
 };
-pub use rules::{AnalysisOptions, RuleSet, registered_rule_ids};
+pub use rules::{
+    AnalysisOptions, RuleSet, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
+};
 #[cfg(feature = "runner")]
 pub use runner::{
     collect_all_ignored_locations_shared as collect_all_ignored_locations,
