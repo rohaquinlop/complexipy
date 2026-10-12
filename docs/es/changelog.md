@@ -22,7 +22,10 @@ GitHub con todos los detalles.
   cierra la declaración, así que una firma repartida en varias líneas conserva
   el hint en su línea de cierre, y un documento que no se puede analizar
   conserva los últimos hints analizados más una advertencia
-  `complexipy-parse-error` hasta que vuelve a analizarse. Consulta
+  `complexipy-parse-error`, situada donde falla el analizador, hasta que vuelve
+  a analizarse. Los problemas de configuración, como un id de regla desconocido
+  en `select`, aparecen en el editor como un mensaje de advertencia
+  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
   configuración de Neovim y Zed. La extensión de VS Code aún no usa el
   servidor: [#253](https://github.com/rohaquinlop/complexipy/issues/253)

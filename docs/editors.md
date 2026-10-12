@@ -185,7 +185,8 @@ nested function therefore shows its parent.
   values are reported, as
   `cognitive complexity 18 exceeds the allowed 15`.
 - A document the parser cannot read produces exactly one warning with the code
-  `complexipy-parse-error` on its first line. While that warning is present,
+  `complexipy-parse-error` on the range where the parser fails, with the
+  parser's message. While that warning is present,
   hints and hover keep answering from the last text that parsed, so the file
   does not go blank while you type. The warning clears itself as soon as the
   document parses again.
@@ -194,8 +195,11 @@ nested function therefore shows its parent.
 
 - `exclude` globs are matched relative to the workspace folder that holds the
   configuration file. Excluded files produce no hints and no diagnostics.
-- A malformed glob is reported once per configuration load on the server log
-  and skipped. The other patterns in the list keep applying.
+- A malformed glob is reported once per configuration load and skipped.
+  Each configuration problem (a malformed glob, an oversized list, an unknown
+  rule id in `select` or `ignore`, a selection that leaves no rule active, or
+  a file that does not parse) appears in the editor as a warning message and
+  in the server log. The other patterns in the list keep applying.
 - A list too large to compile as one program is reported once per
   configuration load and still applied one pattern at a time. A CLI run stops
   on the same list.

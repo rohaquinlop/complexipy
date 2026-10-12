@@ -191,7 +191,8 @@ función padre.
   los valores estrictamente mayores, como
   `cognitive complexity 18 exceeds the allowed 15`.
 - Un documento que el analizador sintáctico no puede leer produce exactamente
-  una advertencia con el código `complexipy-parse-error` en su primera línea.
+  una advertencia con el código `complexipy-parse-error` en el rango donde
+  falla el analizador, con su mensaje.
   Mientras esa advertencia está presente, los hints y el hover siguen
   respondiendo con el último texto que sí se analizó, así que el archivo no se
   queda en blanco mientras escribes. La advertencia desaparece en cuanto el
@@ -201,9 +202,12 @@ función padre.
 
 - Los globs de `exclude` se emparejan de forma relativa a la carpeta del
   espacio de trabajo que contiene el archivo de configuración. Los archivos excluidos no producen hints ni diagnósticos.
-- Un glob mal formado se reporta una vez por carga de configuración en el
-  registro del servidor y se omite. El resto de patrones de la lista siguen
-  aplicándose.
+- Un glob mal formado se reporta una vez por carga de configuración y se
+  omite. El resto de patrones de la lista siguen aplicándose. Cada problema de
+  configuración (un glob mal formado, una lista demasiado grande, un id de regla
+  desconocido en `select` o `ignore`, una selección que no deja ninguna regla
+  activa o un archivo que no se puede leer) aparece en el editor como un mensaje
+  de advertencia y en el registro del servidor.
 - Una lista demasiado grande para compilarse como un solo programa se reporta
   una vez por carga de configuración y se sigue aplicando patrón a patrón. Una
   ejecución de la CLI se detiene con esa misma lista.
