@@ -252,7 +252,7 @@ Use `--fix` to write the fixable suggestions to the source files. A suggestion i
 complexipy . --fix
 ```
 
-One run applies every fixable plan in every analyzed file and repeats pass by pass, up to 8 passes, until no fixable plan remains; a later pass labels its diff `pass 2:`. For each fixed file the run prints a syntax-highlighted unified diff of the applied changes, with line numbers, one context line per hunk, and the rule that fired, and then a summary of fixed and skipped fixes. The summary shows the reduction per fix as `(-3 complexity)`, with a tilde before the number (`(- ~3 complexity)`) when the number is estimated. Summary lines use the file's line numbers from before the run, in every pass; a fix inside a region that an earlier pass rewrote reports that region's lines. When nothing is fixable the run prints `No fixes to apply.` The report and every gate measure the state after the fixes. Re-analyzing a fixed file shows the finding is gone and the complexity dropped by the plan's measured reduction.
+`--fix` changes only functions whose complexity is above `max-complexity-allowed`, the same rule the gate uses. Every pass checks the threshold again, so a function stops changing once it passes. A function at or under the threshold keeps its suggestions in the report and is never rewritten. One run applies every fixable plan of those functions in every analyzed file and repeats pass by pass, up to 8 passes, until no fixable plan remains; a later pass labels its diff `pass 2:`. For each fixed file the run prints a syntax-highlighted unified diff of the applied changes, with line numbers, one context line per hunk, and the rule that fired, and then a summary of fixed and skipped fixes. The summary shows the reduction per fix as `(-3 complexity)`, with a tilde before the number (`(- ~3 complexity)`) when the number is estimated. Summary lines use the file's line numbers from before the run, in every pass; a fix inside a region that an earlier pass rewrote reports that region's lines. When nothing is fixable the run prints `No fixes to apply.` The report and every gate measure the state after the fixes. Re-analyzing a fixed file shows the finding is gone and the complexity dropped by the plan's measured reduction.
 
 `--fix --dry-run` previews the same changes: it prints only the unified diff and writes nothing. `--fix` runs wherever you are: uncommitted changes, untracked files, and a missing git repository never block it, and no extra flag is needed. A fix keeps the file's line endings and its trailing newline. Per-rule filtering rides on `--select` and `--ignore`.
 
@@ -305,6 +305,8 @@ complexipy . --color auto  # Default: auto-detect terminal support
 complexipy . --color yes   # Force colors
 complexipy . --color no    # Disable colors
 ```
+
+`auto` styles a stream only when it is a terminal and `NO_COLOR` is unset or empty. `--color` covers every styled line, including the `--fix` diff and the warnings on stderr, and `--plain` output is never styled.
 
 ## Configuration Files
 
@@ -456,7 +458,7 @@ equals the threshold passes, as it does on the command line.
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
 | `--failed` | Show only functions above the complexity threshold | `false` |
 | `--suggest-refactors` | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain` | `false` |
-| `--fix` | Apply every fixable suggestion (Safe to apply and spliceable) to the source files, then report the post-fix state (see [Applying Fixable Suggestions](#applying-fixable-suggestions)). Implies `--suggest-refactors` | `false` |
+| `--fix` | Apply every fixable suggestion (Safe to apply and spliceable) of the functions above `max-complexity-allowed` to the source files, then report the post-fix state (see [Applying Fixable Suggestions](#applying-fixable-suggestions)). Implies `--suggest-refactors` | `false` |
 | `--dry-run` | Print only the unified diff of the fixes that `--fix` would apply, and write nothing. Implies `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
 | `--sort <asc\|desc\|file_name>` | Sort results | `asc` |
@@ -810,7 +812,9 @@ active, and both accept comma-separated lists and repeat:
 
 With no flag every rule is active. When both flags name the same rule,
 `--ignore` wins. Rule ids are case-insensitive. An unknown id prints a warning
-on stderr and is ignored.
+on stderr that it matches no registered rule. A `select` list keeps narrowing
+the active set even when one of its ids is unknown, and a second warning says
+so when `select` and `ignore` leave no rule active.
 
 The same keys work in `complexipy.toml`, `.complexipy.toml`, and
 `pyproject.toml`:
@@ -819,6 +823,9 @@ The same keys work in `complexipy.toml`, `.complexipy.toml`, and
 select = ["C001", "C007"]
 ignore = ["C002"]
 ```
+
+A toml value may also be one comma-separated string, like the flags:
+`select = "C001, C007"`.
 
 A flag replaces the toml key it names. Rule selection never changes the exit
 code: the exit code follows the complexity threshold, snapshots, paths, and

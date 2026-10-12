@@ -1,4 +1,4 @@
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
@@ -16,7 +16,14 @@ pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: 
     } else {
         snap.watermark_messages
             .iter()
-            .map(|message| format!("{}: {}", "Snapshot watermark".bold().red(), message))
+            .map(|message| {
+                format!(
+                    "{}: {}",
+                    "Snapshot watermark".if_supports_color(Stream::Stdout, |text| text
+                        .style(Style::new().bold().red())),
+                    message
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -58,11 +65,18 @@ pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
 }
 
+pub fn no_active_rule_warning() -> String {
+    "No refactoring rule is active after select and ignore.".to_string()
+}
+
 pub fn unknown_rule_warning(rule_id: &str) -> String {
     if rule_id.is_empty() {
-        "Empty rule id in select or ignore. Ignoring it.".to_string()
+        "Empty rule id in select or ignore; it matches no rule.".to_string()
     } else {
-        format!("Unknown rule id '{}'. Ignoring it.", rule_id)
+        format!(
+            "Unknown rule id '{}'; it matches no registered rule.",
+            rule_id
+        )
     }
 }
 

@@ -1,5 +1,5 @@
 use comfy_table::{Cell, Table};
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::output::render::rule;
 use complexipy_core::diff::{DiffEntry, DiffStatus};
@@ -42,10 +42,22 @@ pub fn format_diff(entries: &[DiffEntry], git_ref: &str) -> String {
 
 fn status_style(status: &DiffStatus) -> String {
     match status {
-        DiffStatus::Regressed => "REGRESSED".red().bold().to_string(),
-        DiffStatus::Improved => "IMPROVED".green().bold().to_string(),
-        DiffStatus::New => "NEW".yellow().bold().to_string(),
-        DiffStatus::Removed => "REMOVED".dimmed().to_string(),
+        DiffStatus::Regressed => "REGRESSED"
+            .if_supports_color(Stream::Stdout, |text| text.style(Style::new().red().bold()))
+            .to_string(),
+        DiffStatus::Improved => "IMPROVED"
+            .if_supports_color(Stream::Stdout, |text| {
+                text.style(Style::new().green().bold())
+            })
+            .to_string(),
+        DiffStatus::New => "NEW"
+            .if_supports_color(Stream::Stdout, |text| {
+                text.style(Style::new().yellow().bold())
+            })
+            .to_string(),
+        DiffStatus::Removed => "REMOVED"
+            .if_supports_color(Stream::Stdout, |text| text.dimmed())
+            .to_string(),
         DiffStatus::Unchanged => "UNCHANGED".to_string(),
     }
 }
@@ -53,11 +65,12 @@ fn status_style(status: &DiffStatus) -> String {
 fn format_change(entry: &DiffEntry) -> String {
     match entry.status() {
         DiffStatus::New => format!("{}  (new)", entry.new_complexity.unwrap_or_default())
-            .yellow()
-            .bold()
+            .if_supports_color(Stream::Stdout, |text| {
+                text.style(Style::new().yellow().bold())
+            })
             .to_string(),
         DiffStatus::Removed => format!("{}  (removed)", entry.old_complexity.unwrap_or_default())
-            .dimmed()
+            .if_supports_color(Stream::Stdout, |text| text.dimmed())
             .to_string(),
         DiffStatus::Regressed => {
             let delta = entry.delta().unwrap_or_default();
@@ -67,7 +80,7 @@ fn format_change(entry: &DiffEntry) -> String {
                 entry.new_complexity.unwrap_or_default(),
                 delta
             )
-            .red()
+            .if_supports_color(Stream::Stdout, |text| text.red())
             .to_string()
         }
         DiffStatus::Improved => {
@@ -78,7 +91,7 @@ fn format_change(entry: &DiffEntry) -> String {
                 entry.new_complexity.unwrap_or_default(),
                 delta
             )
-            .green()
+            .if_supports_color(Stream::Stdout, |text| text.green())
             .to_string()
         }
         DiffStatus::Unchanged => {
@@ -115,7 +128,14 @@ fn build_diff_summary(changed: &[&DiffEntry]) -> String {
             if count == 0 {
                 None
             } else {
-                Some(format!("{} {}", count.to_string().green().bold(), label))
+                Some(format!(
+                    "{} {}",
+                    count
+                        .to_string()
+                        .if_supports_color(Stream::Stdout, |text| text
+                            .style(Style::new().green().bold())),
+                    label
+                ))
             }
         })
         .collect();

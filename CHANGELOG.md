@@ -12,7 +12,8 @@ release section links to its GitHub release notes for the full details.
   per-editor code. It answers inlay hint requests with the cognitive
   complexity of each function and, optionally, the increment contributed by
   each line; it answers hover requests with the function total, its threshold
-  status, and the top refactoring suggestion; and it publishes a warning for
+  status, and the top refactoring suggestion, built on demand for the hovered
+  function so large files stay responsive; and it publishes a warning for
   every function above `max-complexity-allowed`. Diagnostics respect inline
   ignore comments, so the editor and the CLI agree. The per-function hint sits
   at the end of the line that closes the declaration, so a wrapped signature
@@ -20,8 +21,11 @@ release section links to its GitHub release notes for the full details.
   the last parsed hints plus one `complexipy-parse-error` warning until it parses
   again. See
   [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
-  setup. ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
-  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+  setup. The VS Code extension does not use the server yet:
+  [#253](https://github.com/rohaquinlop/complexipy/issues/253) tracks that
+  move, which is what will close
+  [#133](https://github.com/rohaquinlop/complexipy/issues/133) and
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127).
 
 - A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
   (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.
@@ -42,19 +46,26 @@ release section links to its GitHub release notes for the full details.
   and `--ignore` (repeatable and comma-separated) pick the active refactoring
   rules, and `ignore` wins on conflict. `complexipy.toml`,
   `.complexipy.toml`, and `pyproject.toml` take matching `select` and `ignore`
-  keys, and a flag replaces the toml key it names. An ignore comment accepts a
+  keys, and a flag replaces the toml key it names. A toml value splits on
+  commas like the flags, so `select = "C007, C002"` names two rules. An
+  ignore comment accepts a
   bracketed rule list, `# complexipy: ignore[C007]`, which suppresses only the
   named rules for one function, while a bare marker keeps suppressing the
   whole function. An inactive rule disappears from every output format and
   never consumes a slot of the per-function plan cap, so a hidden rule can
-  never block a visible one. An unknown rule id warns on stderr and is
-  ignored. Rule selection never changes the exit code.
+  never block a visible one. An unknown rule id warns on stderr that it
+  matches no registered rule, and a second warning says so when select and
+  ignore leave no rule active. Rule selection never changes the exit code.
 
 - `--fix` applies machine-applicable suggestions to the source files
   ([#204](https://github.com/rohaquinlop/complexipy/issues/204)). A
   suggestion is fixable when its tier is `MachineApplicable` and its
   replacement is a faithful splice (`spliceable`), which covers C002 (loop
   guards) and C007 (collapsible if); C005 is not spliceable and stays out.
+  `--fix` changes only functions whose complexity is above
+  `max-complexity-allowed`, and every pass checks the threshold again, so a
+  function stops changing once it passes. Functions at or under the
+  threshold keep their suggestions in the report and are never rewritten.
   One run fixes every analyzed file, bottom-to-top within each file, and
   prints a syntax-highlighted unified diff of the applied changes, with
   line numbers, one context line per hunk, and the rule that fired, plus a
@@ -92,6 +103,14 @@ release section links to its GitHub release notes for the full details.
 - `RuleCategory`, `Applicability`, and `DiffStatus` are real `enum.Enum`
   subclasses: they iterate, they carry `.name` and `.value`, and
   `isinstance(x, enum.Enum)` holds.
+
+### Fixed
+
+- `--color` governs every styled line the CLI writes, on stdout and stderr.
+  `auto` turns color off when the stream is not a terminal or `NO_COLOR` is
+  set, `no` removes it from the report, the banner, and the warnings, and
+  `--plain` output is never styled. In 8.0.1 the report carried ANSI codes on
+  a pipe, under `--color no`, and under `NO_COLOR`.
 
 ## [8.0.1] - 2026-09-06
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 use std::io::IsTerminal;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -21,11 +21,7 @@ pub fn handle_console_settings(
     quiet: bool,
     plain: bool,
 ) -> ConsoleSettings {
-    let color_enabled = match color {
-        crate::types::Color::No => false,
-        crate::types::Color::Yes => true,
-        crate::types::Color::Auto => true,
-    };
+    let color_enabled = apply_color_mode(color, plain);
 
     let banner = if quiet || plain {
         String::new()
@@ -41,16 +37,42 @@ pub fn handle_console_settings(
     }
 }
 
+fn apply_color_mode(color: &crate::types::Color, plain: bool) -> bool {
+    let forced = match color {
+        _ if plain => Some(false),
+        crate::types::Color::No => Some(false),
+        crate::types::Color::Yes => Some(true),
+        crate::types::Color::Auto => None,
+    };
+
+    match forced {
+        Some(enabled) => {
+            owo_colors::set_override(enabled);
+            enabled
+        }
+        None => {
+            owo_colors::unset_override();
+            supports_color::on_cached(supports_color::Stream::Stdout).is_some()
+        }
+    }
+}
+
 pub fn rule(title: &str) -> String {
     rule_at(title, terminal_width())
 }
 
 fn rule_at(title: &str, width: usize) -> String {
     if title.is_empty() {
-        return "─".repeat(width).bright_green().to_string();
+        return "─"
+            .repeat(width)
+            .if_supports_color(Stream::Stdout, |text| text.bright_green())
+            .to_string();
     }
     if width < 4 {
-        return "─".repeat(width).bright_green().to_string();
+        return "─"
+            .repeat(width)
+            .if_supports_color(Stream::Stdout, |text| text.bright_green())
+            .to_string();
     }
 
     let title_cells = UnicodeWidthStr::width(title);
@@ -66,12 +88,18 @@ fn rule_at(title: &str, width: usize) -> String {
         let end = start + title.len();
         format!(
             "{}{}{}",
-            plain[..start].to_string().bright_green(),
+            plain[..start]
+                .to_string()
+                .if_supports_color(Stream::Stdout, |text| text.bright_green()),
             &plain[start..end],
-            plain[end..].to_string().bright_green()
+            plain[end..]
+                .to_string()
+                .if_supports_color(Stream::Stdout, |text| text.bright_green())
         )
     } else {
-        plain.bright_green().to_string()
+        plain
+            .if_supports_color(Stream::Stdout, |text| text.bright_green())
+            .to_string()
     }
 }
 
@@ -187,7 +215,12 @@ pub fn output_file_entries(
     let mut sections = Vec::new();
 
     for (index, entry) in file_entries.iter().enumerate() {
-        let mut lines = vec![entry.path.bold().to_string()];
+        let mut lines = vec![
+            entry
+                .path
+                .if_supports_color(Stream::Stdout, |text| text.bold())
+                .to_string(),
+        ];
         for function in &entry.functions {
             let status_text = format_status_text(function.passed);
             let complexity_text = colorize_complexity(function.complexity, max_complexity);
@@ -219,8 +252,8 @@ pub fn output_file_entries(
         output.push_str(&format!(
             "\n\n{}",
             "All functions are within the allowed complexity."
-                .green()
-                .bold()
+                .if_supports_color(Stream::Stdout, |text| text
+                    .style(Style::new().green().bold()))
         ));
     }
 
@@ -229,9 +262,17 @@ pub fn output_file_entries(
 
 pub fn format_status_text(passed: bool) -> String {
     if passed {
-        format!("✅ {} ", " PASSED ".black().on_green().bold())
+        format!(
+            "✅ {} ",
+            " PASSED ".if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().black().on_green().bold()))
+        )
     } else {
-        format!("❌ {} ", " FAILED ".white().on_red().bold())
+        format!(
+            "❌ {} ",
+            " FAILED ".if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().white().on_red().bold()))
+        )
     }
 }
 
@@ -266,9 +307,15 @@ pub fn output_delta_text(
 
 pub fn colorize_complexity(complexity: u64, max_complexity: u64) -> String {
     if complexity <= max_complexity {
-        complexity.to_string().green().to_string()
+        complexity
+            .to_string()
+            .if_supports_color(Stream::Stdout, |text| text.green())
+            .to_string()
     } else {
-        complexity.to_string().red().to_string()
+        complexity
+            .to_string()
+            .if_supports_color(Stream::Stdout, |text| text.red())
+            .to_string()
     }
 }
 
@@ -278,11 +325,19 @@ pub fn print_invalid_paths(invalid_paths: &[String]) -> (bool, String) {
     for failed_path in invalid_paths {
         lines.push(format!(
             "{}: Failed to process {} - Please check file/folder exists or check syntax",
-            "error".bold().red(),
-            failed_path.bold().white()
+            "error".if_supports_color(Stream::Stdout, |text| text.style(Style::new().bold().red())),
+            failed_path.if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().bold().white()))
         ));
     }
     (has_success, lines.join("\n"))
+}
+
+#[cfg(test)]
+pub(crate) fn color_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 #[cfg(test)]

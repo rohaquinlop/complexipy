@@ -42,38 +42,17 @@ pub fn function_level_cognitive_complexity_shared(
     let mut module_regions: Vec<ComplexityRegion> = Vec::new();
 
     for node in ast_body.iter() {
-        match node {
-            Stmt::FunctionDef(f) => {
-                if !is_ignored(f, code, opts.no_ignore) {
-                    functions.push(analyze_function(
-                        node,
-                        f,
-                        f.name.to_string(),
-                        code,
-                        &index,
-                        &def_names,
-                        opts,
-                    ));
-                }
-            }
-            Stmt::ClassDef(c) => {
-                for node in c.body.iter() {
-                    if let Stmt::FunctionDef(f) = node
-                        && !is_ignored(f, code, opts.no_ignore)
-                    {
+        match named_functions(node) {
+            Some(defs) => {
+                for (node, f, name) in defs {
+                    if !is_ignored(f, code, opts.no_ignore) {
                         functions.push(analyze_function(
-                            node,
-                            f,
-                            format!("{}::{}", c.name, f.name),
-                            code,
-                            &index,
-                            &def_names,
-                            opts,
+                            node, f, name, code, &index, &def_names, opts,
                         ));
                     }
                 }
             }
-            _ => {
+            None => {
                 let result = statement_cognitive_complexity_shared(node, 0, code, &index);
                 if opts.check_script {
                     module_complexity += result.complexity;
@@ -116,6 +95,58 @@ pub fn function_level_cognitive_complexity_shared(
         complexity += function.complexity;
     }
     (functions, complexity)
+}
+
+/// Builds the refactor plans of the one analyzed function that starts on
+/// `line_start`, with the same rule selection and ignore comments as a
+/// full analysis. Returns `None` when no analyzed function starts there.
+pub fn plans_for_function(
+    code: &str,
+    line_start: u64,
+    opts: &AnalysisOptions,
+) -> Result<Option<(Vec<crate::classes::RefactorPlan>, u64)>, String> {
+    let parsed = ruff_python_parser::parse_module(code)
+        .map_err(|e| format!("Failed to parse code: {}", e))?;
+    let ast_body = parsed.into_suite();
+    let index = LineIndex::new(code);
+    let opts = AnalysisOptions {
+        with_plans: true,
+        ..opts.clone()
+    };
+
+    let Some((node, f, name)) = ast_body
+        .iter()
+        .filter_map(named_functions)
+        .flatten()
+        .filter(|(_, f, _)| !is_ignored(f, code, opts.no_ignore))
+        .find(|(_, f, _)| index.line_of(usize::from(f.range.start())) == line_start)
+    else {
+        return Ok(None);
+    };
+
+    let def_names = crate::utils::collect_def_names(code);
+    let function = analyze_function(node, f, name, code, &index, &def_names, &opts);
+
+    Ok(Some((
+        function.refactor_plans,
+        function.additional_refactor_plans,
+    )))
+}
+
+fn named_functions(node: &Stmt) -> Option<Vec<(&Stmt, &ast::StmtFunctionDef, String)>> {
+    match node {
+        Stmt::FunctionDef(f) => Some(vec![(node, f, f.name.to_string())]),
+        Stmt::ClassDef(c) => Some(
+            c.body
+                .iter()
+                .filter_map(|node| match node {
+                    Stmt::FunctionDef(f) => Some((node, f, format!("{}::{}", c.name, f.name))),
+                    _ => None,
+                })
+                .collect(),
+        ),
+        _ => None,
+    }
 }
 
 fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {

@@ -1,15 +1,15 @@
 use std::process::ExitCode;
 
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output, unknown_rule_warning,
+    no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
-use crate::types::ExitReport;
+use crate::types::{ExitReport, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
@@ -37,24 +37,35 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         println!("{}", settings.banner);
     }
 
-    let (diff, diff_only) = resolve_diff_flags(config.diff, config.diff_only, config.staged);
+    let (diff, diff_only) =
+        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
     if !config.quiet && diff_only.is_some() && diff.is_none() {
-        println!("{} {}", "Warning:".yellow(), diff_flags_warning());
+        println!(
+            "{} {}",
+            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
+            diff_flags_warning()
+        );
     }
 
-    let (rules, unknown_rules) =
-        RuleSet::resolve(&config.select, &config.ignore, &registered_rule_ids());
+    let known_rules = registered_rule_ids();
+    let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
     if !config.quiet {
-        for rule_id in &unknown_rules {
-            eprintln!("{} {}", "Warning:".yellow(), unknown_rule_warning(rule_id));
+        let mut warnings: Vec<String> = unknown_rules
+            .iter()
+            .map(|rule_id| unknown_rule_warning(rule_id))
+            .collect();
+        if !rules.has_active_rule(&known_rules) {
+            warnings.push(no_active_rule_warning());
+        }
+        for warning in warnings {
+            eprintln!(
+                "{} {}",
+                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
+                warning
+            );
         }
     }
-    let analysis = AnalysisOptions {
-        check_script: config.check_script,
-        no_ignore: config.no_ignore,
-        with_plans: true,
-        rules,
-    };
+    let analysis = analysis_options(&config, rules);
 
     let (mut files_complexities, failed_paths) =
         match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
@@ -71,8 +82,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             &files_complexities,
             config.dry_run,
             invocation_path,
-            settings.color_enabled && !config.plain,
+            settings.color_enabled,
             &analysis,
+            config.max_complexity_allowed,
         );
         fix_console = pass.console;
         if pass.wrote {
@@ -218,7 +230,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                     if !config.quiet {
                         println!(
                             "{} --staged requires a git repository; skipping the staged diff.",
-                            "Warning:".yellow()
+                            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
                         );
                     }
                     None
@@ -263,6 +275,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {
+    AnalysisOptions {
+        check_script: config.check_script,
+        no_ignore: config.no_ignore,
+        with_plans: config.suggest_refactors,
+        rules,
     }
 }
 

@@ -544,9 +544,11 @@ impl Server {
     fn respond_hover(&mut self, id: RequestId, params: HoverParams) {
         let position = params.text_document_position_params.position;
         let uri = params.text_document_position_params.text_document.uri;
-        let analysis = self.current_analysis(&uri);
-        let hover = match analysis {
-            Some(analysis) => analysis.hover(&self.config, position),
+        let hover = match self.current_analysis(&uri) {
+            Some(_) => self
+                .analyses
+                .get_mut(&Documents::key(&uri))
+                .and_then(|analysis| analysis.hover(&self.config, position)),
             None => None,
         };
 

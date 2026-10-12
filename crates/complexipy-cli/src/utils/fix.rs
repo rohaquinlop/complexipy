@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use complexipy_core::classes::{FileComplexity, RefactorPlan};
+use complexipy_core::classes::{FileComplexity, FunctionComplexity, RefactorPlan};
 use complexipy_core::fix::{LineMap, apply_fixes, parses};
 use complexipy_core::{AnalysisOptions, cognitive_complexity::code_complexity_shared};
 
@@ -26,18 +26,26 @@ pub struct FixPassResult {
     pub wrote: bool,
 }
 
+fn plans_over_threshold(
+    functions: &[FunctionComplexity],
+    max_complexity_allowed: u64,
+) -> Vec<RefactorPlan> {
+    functions
+        .iter()
+        .filter(|function| function.complexity > max_complexity_allowed)
+        .flat_map(|function| function.refactor_plans.iter().cloned())
+        .collect()
+}
+
 fn files_with_plans(
     files_complexities: &[FileComplexity],
     invocation_path: &str,
+    max_complexity_allowed: u64,
 ) -> Vec<(String, PathBuf, Vec<RefactorPlan>)> {
     files_complexities
         .iter()
         .filter_map(|file| {
-            let plans: Vec<_> = file
-                .functions
-                .iter()
-                .flat_map(|function| function.refactor_plans.clone())
-                .collect();
+            let plans = plans_over_threshold(&file.functions, max_complexity_allowed);
             if plans.is_empty() {
                 return None;
             }
@@ -56,9 +64,12 @@ pub fn run_fix_pass(
     invocation_path: &str,
     colored: bool,
     options: &AnalysisOptions,
+    max_complexity_allowed: u64,
 ) -> FixPassResult {
     let mut targets: Vec<FixTarget> = Vec::new();
-    for (display, path, plans) in files_with_plans(files_complexities, invocation_path) {
+    for (display, path, plans) in
+        files_with_plans(files_complexities, invocation_path, max_complexity_allowed)
+    {
         let text = match fs::read_to_string(&path) {
             Ok(text) => text,
             Err(error) => {
@@ -150,7 +161,7 @@ pub fn run_fix_pass(
         }
         for target in targets.iter_mut() {
             if target.changed {
-                target.plans = analyze_plans(&target.text, options);
+                target.plans = analyze_plans(&target.text, options, max_complexity_allowed);
                 target.changed = false;
             }
         }
@@ -166,15 +177,13 @@ pub fn run_fix_pass(
     }
 }
 
-fn analyze_plans(code: &str, options: &AnalysisOptions) -> Vec<RefactorPlan> {
+fn analyze_plans(
+    code: &str,
+    options: &AnalysisOptions,
+    max_complexity_allowed: u64,
+) -> Vec<RefactorPlan> {
     code_complexity_shared(code, options)
-        .map(|complexity| {
-            complexity
-                .functions
-                .into_iter()
-                .flat_map(|function| function.refactor_plans)
-                .collect()
-        })
+        .map(|complexity| plans_over_threshold(&complexity.functions, max_complexity_allowed))
         .unwrap_or_default()
 }
 

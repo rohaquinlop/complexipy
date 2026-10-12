@@ -251,7 +251,7 @@ Usa `--fix` para escribir las sugerencias aplicables en los archivos fuente. Una
 complexipy . --fix
 ```
 
-Una ejecución aplica cada plan aplicable en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde delante del número (`(- ~3 complexity)`) cuando el número es estimado. Las líneas del resumen usan los números de línea del archivo anteriores a la ejecución, en cada paso; una corrección dentro de una región que un paso anterior reescribió informa las líneas de esa región. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El informe y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
+`--fix` solo cambia funciones cuya complejidad supera `max-complexity-allowed`, la misma regla que usa el control. Cada paso vuelve a comprobar el umbral, así que una función deja de cambiar en cuanto lo cumple. Una función en el umbral o por debajo conserva sus sugerencias en el informe y nunca se reescribe. Una ejecución aplica cada plan aplicable de esas funciones en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde delante del número (`(- ~3 complexity)`) cuando el número es estimado. Las líneas del resumen usan los números de línea del archivo anteriores a la ejecución, en cada paso; una corrección dentro de una región que un paso anterior reescribió informa las líneas de esa región. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El informe y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
 
 `--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
 
@@ -304,6 +304,8 @@ complexipy . --color auto  # Predeterminado: detecta automáticamente la compati
 complexipy . --color yes   # Forza colores
 complexipy . --color no    # Deshabilita colores
 ```
+
+`auto` da estilo a un flujo solo cuando es una terminal y `NO_COLOR` no está definido o está vacío. `--color` cubre cada línea con estilo, incluido el diff de `--fix` y los avisos en stderr, y la salida `--plain` nunca lleva estilo.
 
 ## Archivos de Configuración
 
@@ -456,7 +458,7 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
 | `--failed` | Muestra solo las funciones que superen el umbral de complejidad | `false` |
 | `--suggest-refactors` | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain` | `false` |
-| `--fix` | Aplica cada sugerencia aplicable (Seguro de aplicar y empalmable) a los archivos fuente y luego informa el estado posterior a las correcciones (ver [Aplicar Sugerencias Aplicables](#aplicar-sugerencias-aplicables)). Implica `--suggest-refactors` | `false` |
+| `--fix` | Aplica cada sugerencia aplicable (Seguro de aplicar y empalmable) de las funciones por encima de `max-complexity-allowed` a los archivos fuente y luego informa el estado posterior a las correcciones (ver [Aplicar Sugerencias Aplicables](#aplicar-sugerencias-aplicables)). Implica `--suggest-refactors` | `false` |
 | `--dry-run` | Imprime solo el diff unificado de las correcciones que `--fix` aplicaría, y no escribe nada. Implica `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Usa color | `auto` |
 | `--sort <asc\|desc\|file_name>` | Ordena los resultados | `asc` |
@@ -811,7 +813,10 @@ están activas, y ambas aceptan listas separadas por comas y se pueden repetir:
 
 Sin ninguna flag, todas las reglas están activas. Cuando ambas flags nombran la
 misma regla, `--ignore` gana. Los ids de reglas no distinguen mayúsculas de
-minúsculas. Un id desconocido imprime una advertencia en stderr y se ignora.
+minúsculas. Un id desconocido imprime una advertencia en stderr de que no
+coincide con ninguna regla registrada. Una lista `select` sigue limitando el
+conjunto activo aunque uno de sus ids sea desconocido, y un segundo aviso lo
+indica cuando `select` e `ignore` no dejan ninguna regla activa.
 
 Las mismas claves funcionan en `complexipy.toml`, `.complexipy.toml` y
 `pyproject.toml`:
@@ -820,6 +825,9 @@ Las mismas claves funcionan en `complexipy.toml`, `.complexipy.toml` y
 select = ["C001", "C007"]
 ignore = ["C002"]
 ```
+
+Un valor toml también puede ser una sola cadena separada por comas, como las
+flags: `select = "C001, C007"`.
 
 Una flag reemplaza la clave toml que nombra. La selección de reglas nunca
 cambia el código de salida: el código de salida sigue al umbral de complejidad,

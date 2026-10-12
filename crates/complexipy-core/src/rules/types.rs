@@ -69,8 +69,9 @@ pub struct RuleSet {
 impl RuleSet {
     /// Builds the set from a select list and an ignore list, and returns the
     /// ids that no registered rule owns so the caller can warn about them.
-    /// An empty select list means every registered rule is active; a select
-    /// list with no valid id selects nothing.
+    /// Each entry may hold several comma-separated ids. An empty select list
+    /// means every registered rule is active; a select list with no valid id
+    /// selects nothing.
     #[must_use]
     pub fn resolve(
         select: &[String],
@@ -78,8 +79,10 @@ impl RuleSet {
         known_ids: &[String],
     ) -> (Self, Vec<String>) {
         let known: HashSet<String> = known_ids.iter().map(|id| id.to_ascii_uppercase()).collect();
-        let select_ids = normalize_ids(select);
-        let ignore_ids = normalize_ids(ignore);
+        let select = split_ids(select);
+        let ignore = split_ids(ignore);
+        let select_ids = normalize_ids(&select);
+        let ignore_ids = normalize_ids(&ignore);
         let mut unknown: Vec<String> = select
             .iter()
             .chain(ignore.iter())
@@ -96,6 +99,12 @@ impl RuleSet {
             },
             unknown,
         )
+    }
+
+    /// Returns whether any of the given rule ids is active.
+    #[must_use]
+    pub fn has_active_rule(&self, known_ids: &[String]) -> bool {
+        known_ids.iter().any(|id| self.is_active(id))
     }
 
     /// Returns the set with the given rule ids subtracted, for one function.
@@ -126,6 +135,13 @@ impl RuleSet {
             .is_none_or(|allowed| allowed.contains(rule_id))
             && !self.denied.contains(rule_id)
     }
+}
+
+fn split_ids(ids: &[String]) -> Vec<String> {
+    ids.iter()
+        .flat_map(|id| id.split(','))
+        .map(str::to_string)
+        .collect()
 }
 
 fn normalize_ids(ids: &[String]) -> Vec<String> {

@@ -97,3 +97,29 @@ fn is_active_matches_canonical_ids_without_allocating_input() {
     assert!(!rules.is_active("C007"));
     assert!(!rules.is_active("c007"));
 }
+
+#[test]
+fn comma_separated_entries_are_split() {
+    let known = ids(&["C001", "C002", "C007"]);
+    let (selected, unknown) = RuleSet::resolve(&ids(&["C007, C002"]), &[], &known);
+    let (ignored, _) = RuleSet::resolve(&[], &ids(&["C007,C002"]), &known);
+
+    assert!(unknown.is_empty());
+    assert!(selected.is_active("C007") && selected.is_active("C002"));
+    assert!(!selected.is_active("C001"));
+    assert!(!ignored.is_active("C007") && !ignored.is_active("C002"));
+    assert!(ignored.is_active("C001"));
+}
+
+#[test]
+fn has_active_rule_reports_an_empty_selection() {
+    let known = ids(&["C001", "C007"]);
+    let (unknown_only, _) = RuleSet::resolve(&ids(&["C999"]), &[], &known);
+    let (one_valid, _) = RuleSet::resolve(&ids(&["C999,C007"]), &[], &known);
+    let (cancelled, _) = RuleSet::resolve(&ids(&["C007"]), &ids(&["C007"]), &known);
+
+    assert!(!unknown_only.has_active_rule(&known));
+    assert!(one_valid.has_active_rule(&known));
+    assert!(!cancelled.has_active_rule(&known));
+    assert!(RuleSet::default().has_active_rule(&known));
+}

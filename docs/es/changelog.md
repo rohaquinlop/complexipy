@@ -13,7 +13,9 @@ GitHub con todos los detalles.
   código específico por editor. Responde a las peticiones de inlay hints con la
   complejidad cognitiva de cada función y, opcionalmente, con el incremento que
   aporta cada línea; responde al hover con el total de la función, su estado
-  respecto al umbral y la mejor sugerencia de refactorización; y publica una
+  respecto al umbral y la mejor sugerencia de refactorización, que se calcula
+  bajo demanda para la función bajo el cursor, así que los archivos grandes
+  siguen respondiendo; y publica una
   advertencia por cada función por encima de `max-complexity-allowed`. Los
   diagnósticos respetan los comentarios de ignorado en línea, así que el editor
   y la CLI coinciden. El hint por función se coloca al final de la línea que
@@ -22,9 +24,11 @@ GitHub con todos los detalles.
   conserva los últimos hints analizados más una advertencia
   `complexipy-parse-error` hasta que vuelve a analizarse. Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
-  configuración de Neovim y Zed.
-  ([#133](https://github.com/rohaquinlop/complexipy/issues/133),
-  [#127](https://github.com/rohaquinlop/complexipy/issues/127))
+  configuración de Neovim y Zed. La extensión de VS Code aún no usa el
+  servidor: [#253](https://github.com/rohaquinlop/complexipy/issues/253)
+  sigue ese cambio, que es el que cerrará
+  [#133](https://github.com/rohaquinlop/complexipy/issues/133) y
+  [#127](https://github.com/rohaquinlop/complexipy/issues/127).
 
 - Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
   (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las
@@ -46,20 +50,27 @@ GitHub con todos los detalles.
   `--ignore` (repetibles y con listas separadas por comas) eligen las reglas de
   refactorización activas, y `ignore` gana en caso de conflicto.
   `complexipy.toml`, `.complexipy.toml` y `pyproject.toml` aceptan las claves
-  `select` e `ignore`, y una flag reemplaza la clave toml que nombra. Un
+  `select` e `ignore`, y una flag reemplaza la clave toml que nombra. Un valor
+  toml se separa por comas como las flags, así que `select = "C007, C002"`
+  nombra dos reglas. Un
   comentario de ignorado acepta una lista de reglas entre corchetes,
   `# complexipy: ignore[C007]`, que suprime solo las reglas nombradas para una
   función, mientras que un marcador sin lista sigue suprimiendo la función
   completa. Una regla inactiva desaparece de todos los formatos de salida y
   nunca ocupa una plaza del tope de planes por función, así que una regla
   oculta nunca puede bloquear una visible. Un id de regla desconocido avisa en
-  stderr y se ignora. La selección de reglas nunca cambia el código de salida.
+  stderr de que no coincide con ninguna regla registrada, y un segundo aviso
+  lo indica cuando `select` e `ignore` no dejan ninguna regla activa. La selección de reglas nunca cambia el código de salida.
 
 - `--fix` aplica sugerencias aplicables por máquina a los archivos fuente
   ([#204](https://github.com/rohaquinlop/complexipy/issues/204)). Una
   sugerencia es aplicable cuando su nivel es `MachineApplicable` y su
   reemplazo es un empalme fiel (`spliceable`), lo que cubre C002 (guardas de
-  bucle) y C007 (if plegable); C005 no es empalmable y queda fuera. Una
+  bucle) y C007 (if plegable); C005 no es empalmable y queda fuera. `--fix`
+  solo cambia funciones cuya complejidad supera `max-complexity-allowed`, y
+  cada paso vuelve a comprobar el umbral, así que una función deja de cambiar
+  en cuanto lo cumple. Las funciones en el umbral o por debajo conservan sus
+  sugerencias en el informe y nunca se reescriben. Una
   ejecución corrige cada archivo analizado, de abajo a arriba dentro de cada
   archivo, e imprime un diff unificado con resaltado de sintaxis de los
   cambios aplicados, con números de línea, una línea de contexto por bloque
@@ -101,6 +112,14 @@ GitHub con todos los detalles.
 - `RuleCategory`, `Applicability` y `DiffStatus` son auténticas subclases de
   `enum.Enum`: se pueden iterar, exponen `.name` y `.value`, y
   `isinstance(x, enum.Enum)` se cumple.
+
+### Corregido
+
+- `--color` controla cada línea con estilo que escribe la CLI, en stdout y en
+  stderr. `auto` desactiva el color cuando el flujo no es una terminal o
+  cuando `NO_COLOR` está definido, `no` lo quita del informe, del banner y de
+  los avisos, y la salida `--plain` nunca lleva estilo. En 8.0.1 el informe
+  llevaba códigos ANSI en una tubería, con `--color no` y con `NO_COLOR`.
 
 ## [8.0.1] - 2026-09-06
 

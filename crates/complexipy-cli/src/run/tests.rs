@@ -5,12 +5,20 @@ use std::process::Command;
 use clap::Parser;
 use tempfile::tempdir;
 
-use super::run_at;
+use super::analysis_options;
 use crate::args::CliArgs;
+use crate::output::render::color_lock;
+use crate::utils::config::resolve_config;
+use complexipy_core::RuleSet;
 
 const SIMPLE: &str = "def simple(x):\n    return x + 1\n";
 
 const COMPLEX: &str = "def complex_func(data):\n    if data:\n        for item in data:\n            if item:\n                for x in item:\n                    if x:\n                        for y in x:\n                            if y:\n                                return y\n    return None\n";
+
+fn run_at(cli: CliArgs, invocation_path: &str) -> std::process::ExitCode {
+    let _guard = color_lock();
+    super::run_at(cli, invocation_path)
+}
 
 fn git(dir: &Path, args: &[&str]) {
     let status = Command::new("git")
@@ -162,6 +170,30 @@ const TWO_FIXABLE: &str = "def one(a, b):\n    if a:\n        if b:\n           
 
 const TWO_FIXABLE_FIXED: &str = "def one(a, b):\n    if a and b:\n        return 1\n    return 0\n\n\ndef two(a, b):\n    if a and b:\n        return 2\n    return 0\n";
 
+fn fix_every_function(flag: &str, file: &Path) -> CliArgs {
+    parse(&[
+        flag,
+        "--max-complexity-allowed=0",
+        "--ignore-complexity",
+        file.to_str().unwrap(),
+    ])
+}
+
+#[test]
+fn fix_leaves_functions_under_the_threshold_alone() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+
+    let exit = run_at(
+        parse(&["--fix", file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(fs::read_to_string(&file).expect("should read"), FIXABLE);
+}
+
 #[test]
 fn fix_writes_the_suggestion_to_the_file() {
     let dir = tempdir().expect("tempdir should work");
@@ -169,7 +201,7 @@ fn fix_writes_the_suggestion_to_the_file() {
     fs::write(&file, FIXABLE).expect("should write");
 
     let exit = run_at(
-        parse(&["--fix", file.to_str().unwrap()]),
+        fix_every_function("--fix", &file),
         dir.path().to_str().unwrap(),
     );
 
@@ -187,7 +219,7 @@ fn fix_applies_every_fix_in_one_file_bottom_to_top() {
     fs::write(&file, TWO_FIXABLE).expect("should write");
 
     let exit = run_at(
-        parse(&["--fix", file.to_str().unwrap()]),
+        fix_every_function("--fix", &file),
         dir.path().to_str().unwrap(),
     );
 
@@ -205,7 +237,7 @@ fn dry_run_writes_nothing() {
     fs::write(&file, FIXABLE).expect("should write");
 
     let exit = run_at(
-        parse(&["--dry-run", file.to_str().unwrap()]),
+        fix_every_function("--dry-run", &file),
         dir.path().to_str().unwrap(),
     );
 
@@ -227,7 +259,7 @@ fn fix_runs_regardless_of_the_git_state() {
     fs::write(&file, FIXABLE).expect("should write");
 
     let exit = run_at(
-        parse(&["--fix", file.to_str().unwrap()]),
+        fix_every_function("--fix", &file),
         dir.path().to_str().unwrap(),
     );
 
@@ -245,7 +277,7 @@ fn fix_outside_a_repository_writes() {
     fs::write(&file, FIXABLE).expect("should write");
 
     let exit = run_at(
-        parse(&["--fix", file.to_str().unwrap()]),
+        fix_every_function("--fix", &file),
         dir.path().to_str().unwrap(),
     );
 
@@ -254,4 +286,22 @@ fn fix_outside_a_repository_writes() {
         fs::read_to_string(&file).expect("should read"),
         FIXABLE_FIXED
     );
+}
+
+fn builds_plans(args: &[&str]) -> bool {
+    let config = resolve_config(None, parse(args)).expect("config should resolve");
+
+    analysis_options(&config, RuleSet::default()).with_plans
+}
+
+#[test]
+fn plain_run_builds_no_plans() {
+    assert!(!builds_plans(&["."]));
+}
+
+#[test]
+fn refactor_flags_build_plans() {
+    assert!(builds_plans(&[".", "--suggest-refactors"]));
+    assert!(builds_plans(&[".", "--fix"]));
+    assert!(builds_plans(&[".", "--dry-run"]));
 }
