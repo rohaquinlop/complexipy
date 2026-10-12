@@ -2,27 +2,61 @@ use ignore::Walk;
 use std::borrow::Cow;
 use std::collections::HashSet;
 use wax::walk::{Entry, FileIterator};
-use wax::{Glob, Program, any};
+use wax::{Any, Glob, Program, any};
 
-pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
-    if patterns.is_empty() {
-        return false;
-    }
-
-    let normalized_path = path.replace('\\', "/");
-    let normalized_root = root.replace('\\', "/");
-    let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
-        .unwrap_or(normalized_path.as_str());
-
-    patterns
-        .iter()
-        .any(|pattern| pattern_matches(relative, pattern))
+#[derive(Clone, Debug, Default)]
+pub struct ExcludeMatcher {
+    programs: Vec<Any<'static>>,
+    invalid: Vec<String>,
 }
 
-fn pattern_matches(relative: &str, pattern: &str) -> bool {
-    any([normalized_pattern(pattern).as_ref()])
-        .map(|program| program.is_match(relative))
-        .unwrap_or(false)
+impl ExcludeMatcher {
+    pub fn new(patterns: &[String]) -> Self {
+        let mut matcher = ExcludeMatcher::default();
+        for pattern in patterns {
+            match compile_pattern(pattern) {
+                Some(program) => matcher.programs.push(program),
+                None => matcher.invalid.push(pattern.clone()),
+            }
+        }
+        matcher
+    }
+
+    pub fn invalid(&self) -> &[String] {
+        &self.invalid
+    }
+
+    pub fn overflows(&self) -> bool {
+        !self.programs.is_empty()
+            && self.invalid.is_empty()
+            && any(self.programs.iter().cloned()).is_err()
+    }
+
+    pub fn is_excluded(&self, path: &str, root: &str) -> bool {
+        if self.programs.is_empty() {
+            return false;
+        }
+
+        let normalized_path = path.replace('\\', "/");
+        let normalized_root = root.replace('\\', "/");
+        let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+            .unwrap_or(normalized_path.as_str());
+
+        self.programs
+            .iter()
+            .any(|program| program.is_match(relative))
+    }
+}
+
+fn compile_pattern(pattern: &str) -> Option<Any<'static>> {
+    let glob = Glob::new(normalized_pattern(pattern).as_ref())
+        .ok()?
+        .into_owned();
+    any([glob]).ok()
+}
+
+pub fn is_path_excluded(path: &str, root: &str, patterns: &[String]) -> bool {
+    ExcludeMatcher::new(patterns).is_excluded(path, root)
 }
 
 fn normalized_pattern(pattern: &str) -> Cow<'_, str> {
@@ -46,25 +80,11 @@ fn relative_to<'a>(path: &'a str, root: &str) -> Option<&'a str> {
 }
 
 pub fn invalid_exclude_patterns(patterns: &[String]) -> Vec<String> {
-    patterns
-        .iter()
-        .filter(|pattern| any([normalized_pattern(pattern.as_str()).as_ref()]).is_err())
-        .cloned()
-        .collect()
+    ExcludeMatcher::new(patterns).invalid().to_vec()
 }
 
 pub fn exclude_list_overflows(patterns: &[String]) -> bool {
-    if patterns.is_empty() || !invalid_exclude_patterns(patterns).is_empty() {
-        return false;
-    }
-
-    let normalized: Vec<String> = patterns
-        .iter()
-        .map(|pattern| normalized_pattern(pattern).into_owned())
-        .collect();
-    let pattern_refs: Vec<&str> = normalized.iter().map(|s| s.as_str()).collect();
-
-    any(pattern_refs).is_err()
+    ExcludeMatcher::new(patterns).overflows()
 }
 
 pub fn get_paths_to_process(
