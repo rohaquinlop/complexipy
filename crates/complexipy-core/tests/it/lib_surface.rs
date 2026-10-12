@@ -1,3 +1,4 @@
+#![cfg(feature = "runner")]
 //! Integration test for the stable public API of complexipy-core.
 
 use std::fs;
