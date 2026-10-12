@@ -4,7 +4,24 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - docs/**
+      - '**.md'
+      - .agents/**
+      - .claude/**
+      - .pi/**
+      - mkdocs.yml
+      - mkdocs.es.yml
+  # Keep this list identical to the push list above.
   pull_request:
+    paths-ignore:
+      - docs/**
+      - '**.md'
+      - .agents/**
+      - .claude/**
+      - .pi/**
+      - mkdocs.yml
+      - mkdocs.es.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
