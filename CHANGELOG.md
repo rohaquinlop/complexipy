@@ -86,6 +86,13 @@ release section links to its GitHub release notes for the full details.
   writes nothing. `--select`/`--ignore` decide which rules
   may fix.
 
+- Python 3.15 support
+  ([#265](https://github.com/rohaquinlop/complexipy/issues/265)). Lazy
+  imports (PEP 810) and unpacking in comprehensions (PEP 798) now parse in
+  the CLI, the language server, the Python API, and the web build. A lazy
+  import adds no complexity, and an unpacking comprehension scores like the
+  plain one. Releases now publish CPython 3.15 wheels for Windows and macOS.
+
 ### Changed
 
 - `lsp` is a reserved first argument: `complexipy lsp` starts the language

@@ -127,7 +127,7 @@ jobs:
             target: x86
         # Keep this axis: each leg installs interpreters the runner image does not ship, so
         # dropping it loses those wheels.
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -168,7 +168,7 @@ jobs:
             target: aarch64
         # Keep this axis: each leg installs interpreters the runner image does not ship, so
         # dropping it loses those wheels.
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -231,7 +231,7 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64
             wheel-artifact: wheels-linux-x86_64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     env:
       CARGO_HTTP_MULTIPLEXING: "false"
       CARGO_NET_RETRY: "10"
@@ -292,7 +292,7 @@ jobs:
           - runner: windows-latest
             target: x86
             wheel-artifact: wheels-windows-x86
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -350,7 +350,7 @@ jobs:
           - runner: macos-latest
             target: aarch64
             wheel-artifact: wheels-macos-aarch64
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}

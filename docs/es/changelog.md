@@ -95,6 +95,14 @@ GitHub con todos los detalles.
   `--fix --dry-run` imprime solo el diff y no escribe nada. `--select`/`--ignore`
   deciden qué reglas pueden corregir.
 
+- Soporte de Python 3.15
+  ([#265](https://github.com/rohaquinlop/complexipy/issues/265)). Las
+  importaciones diferidas (PEP 810) y el desempaquetado en comprensiones
+  (PEP 798) ahora se analizan en la CLI, el servidor de lenguaje, la API de
+  Python y la versión web. Una importación diferida no suma complejidad, y
+  una comprensión con desempaquetado puntúa igual que la simple. Las
+  versiones publican ahora wheels de CPython 3.15 para Windows y macOS.
+
 ### Cambiado
 
 - `lsp` es un primer argumento reservado: `complexipy lsp` arranca el servidor
