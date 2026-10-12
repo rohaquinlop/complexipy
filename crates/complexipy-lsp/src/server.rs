@@ -1,8 +1,8 @@
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
+use complexipy_core::ExcludeMatcher;
 use complexipy_core::config::{LspConfig, read_complexipy_config};
-use complexipy_core::{exclude_list_overflows, invalid_exclude_patterns, is_path_excluded};
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -47,6 +47,7 @@ pub fn serve(connection: Connection) -> i32 {
 struct Initialized {
     root: String,
     config: LspConfig,
+    exclude: ExcludeMatcher,
     refresh_support: bool,
 }
 
@@ -88,8 +89,11 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
         )
         .map_err(|error| error.to_string())?;
 
+    let (config, exclude) = load_config(&root);
+
     Ok(Initialized {
-        config: load_config(&root),
+        config,
+        exclude,
         root,
         refresh_support,
     })
@@ -120,24 +124,24 @@ fn workspace_root(params: &InitializeParams) -> String {
         .unwrap_or_else(|| ".".to_string())
 }
 
-fn load_config(root: &str) -> LspConfig {
+fn load_config(root: &str) -> (LspConfig, ExcludeMatcher) {
     let Some(source) = read_complexipy_config(root) else {
-        return LspConfig::default();
+        return (LspConfig::default(), ExcludeMatcher::default());
     };
 
     match LspConfig::deserialize(source.value) {
         Ok(config) => {
             let patterns = config.exclude.clone().into_vec();
-            let invalid = invalid_exclude_patterns(&patterns);
+            let exclude = ExcludeMatcher::new(&patterns);
 
-            if !invalid.is_empty() {
+            if !exclude.invalid().is_empty() {
                 eprintln!(
                     "{}: {}: ignoring invalid exclude patterns: {:?}",
                     SERVER_NAME,
                     source.path.display(),
-                    invalid
+                    exclude.invalid()
                 );
-            } else if exclude_list_overflows(&patterns) {
+            } else if exclude.overflows() {
                 eprintln!(
                     "{}: {}: the exclude list of {} patterns is too large to \
                      compile as one program; matching one pattern at a time",
@@ -147,7 +151,7 @@ fn load_config(root: &str) -> LspConfig {
                 );
             }
 
-            config
+            (config, exclude)
         }
         Err(error) => {
             eprintln!(
@@ -156,7 +160,7 @@ fn load_config(root: &str) -> LspConfig {
                 source.path.display(),
                 error
             );
-            LspConfig::default()
+            (LspConfig::default(), ExcludeMatcher::default())
         }
     }
 }
@@ -165,6 +169,7 @@ struct Server {
     connection: Connection,
     root: String,
     config: LspConfig,
+    exclude: ExcludeMatcher,
     refresh_support: bool,
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
@@ -180,6 +185,7 @@ impl Server {
             connection,
             root: initialized.root,
             config: initialized.config,
+            exclude: initialized.exclude,
             refresh_support: initialized.refresh_support,
             documents: Documents::default(),
             analyses: HashMap::new(),
@@ -343,7 +349,7 @@ impl Server {
     }
 
     fn reload_config(&mut self) {
-        self.config = load_config(&self.root);
+        (self.config, self.exclude) = load_config(&self.root);
         self.analyses.clear();
         self.failures.clear();
 
@@ -487,8 +493,7 @@ impl Server {
             return false;
         };
 
-        let patterns = self.config.exclude.clone().into_vec();
-        is_path_excluded(&path, &self.root, &patterns)
+        self.exclude.is_excluded(&path, &self.root)
     }
 
     fn publish(&mut self, uri: &Uri, analysis: DocumentAnalysis) -> bool {
