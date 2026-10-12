@@ -13,6 +13,8 @@ from complexipy._complexipy import run_cli
 
 FIXTURES = Path(__file__).parent / "fixtures" / "refactor_plans"
 
+FIX_EVERY_FUNCTION = ["--max-complexity-allowed=0", "--ignore-complexity"]
+
 TWO_FIXABLE = textwrap.dedent(
     """\
     def one(a, b, c, d):
@@ -138,7 +140,9 @@ def test_fix_applies_c002_and_is_idempotent(tmp_path) -> None:
     )
     assert plan.reduction_is_measured
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     fixed = target.read_text()
@@ -157,7 +161,9 @@ def test_fix_applies_c007_to_the_file(tmp_path) -> None:
     target = tmp_path / "collapsible_if_simple.py"
     target.write_text(source)
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     fixed = target.read_text()
@@ -173,7 +179,9 @@ def test_two_fixes_in_one_file_apply_together(tmp_path) -> None:
     target.write_text(TWO_FIXABLE)
     assert len(fixable_plans(TWO_FIXABLE)) == 2
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     fixed = target.read_text()
@@ -186,7 +194,9 @@ def test_fix_keeps_crlf_files_exact(tmp_path) -> None:
     target = tmp_path / "two.py"
     target.write_bytes(TWO_FIXABLE.replace("\n", "\r\n").encode())
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     expected = TWO_FIXABLE_FIXED.replace("\n", "\r\n").encode()
@@ -203,7 +213,9 @@ def test_fix_writes_through_a_symlink(tmp_path) -> None:
     except (OSError, NotImplementedError):
         pytest.skip("symlinks are not available")
 
-    exit_code = run_cli(["--fix", str(link)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(link)], str(tmp_path)
+    )
 
     assert exit_code == 0
     assert link.is_symlink()
@@ -214,7 +226,9 @@ def test_fix_reports_non_fixable_plans_as_skipped(tmp_path, capfd) -> None:
     target = tmp_path / "mixed.py"
     target.write_text(MIXED)
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     out = strip_ansi(capfd.readouterr().out)
@@ -227,7 +241,9 @@ def test_later_passes_report_original_file_lines(tmp_path, capfd) -> None:
     target = tmp_path / "many.py"
     target.write_text(MANY_SPOTS)
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     out = strip_ansi(capfd.readouterr().out)
@@ -244,7 +260,9 @@ def test_dry_run_prints_the_diff_and_writes_nothing(tmp_path, capfd) -> None:
     target = tmp_path / "collapsible_if_simple.py"
     target.write_text(source)
 
-    exit_code = run_cli(["--dry-run", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--dry-run", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     assert target.read_text() == source
@@ -261,7 +279,9 @@ def test_dry_run_says_no_fixes_when_nothing_is_fixable(tmp_path, capfd) -> None:
     target = tmp_path / "simple.py"
     target.write_text("def simple(x):\n    return x + 1\n")
 
-    exit_code = run_cli(["--dry-run", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--dry-run", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     assert "No fixes to apply." in capfd.readouterr().out
@@ -271,7 +291,9 @@ def test_fix_says_no_fixes_when_nothing_is_fixable(tmp_path, capfd) -> None:
     target = tmp_path / "simple.py"
     target.write_text("def simple(x):\n    return x + 1\n")
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     assert "No fixes to apply." in strip_ansi(capfd.readouterr().out)
@@ -284,7 +306,9 @@ def test_fix_replaces_the_file_in_place_and_leaves_no_temp_files(
     target = tmp_path / "collapsible_if_simple.py"
     target.write_text(source)
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     assert target.read_text() != source
@@ -298,7 +322,9 @@ def test_fix_prints_the_diff_and_the_summary(tmp_path, capfd) -> None:
     target = tmp_path / "collapsible_if_simple.py"
     target.write_text(source)
 
-    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
 
     assert exit_code == 0
     out = strip_ansi(capfd.readouterr().out)
@@ -309,3 +335,85 @@ def test_fix_prints_the_diff_and_the_summary(tmp_path, capfd) -> None:
     assert f"Fixed C007 at {target.name}:2-5" in out
     assert "complexity)" in out
     assert out.index("--- a/") < out.index("Fixed C007")
+
+
+def test_fix_leaves_functions_under_the_threshold_alone(
+    tmp_path, capfd
+) -> None:
+    source = load_source("collapsible_if_simple.py")
+    target = tmp_path / "collapsible_if_simple.py"
+    target.write_text(source)
+
+    exit_code = run_cli(["--fix", str(target)], str(tmp_path))
+
+    assert exit_code == 0
+    assert target.read_text() == source
+    out = strip_ansi(capfd.readouterr().out)
+    assert "No fixes to apply." in out
+    assert "C007" in out
+
+
+def test_dry_run_on_a_pipe_prints_no_color(tmp_path, capfd) -> None:
+    source = load_source("collapsible_if_simple.py")
+    target = tmp_path / "collapsible_if_simple.py"
+    target.write_text(source)
+
+    run_cli(["--dry-run", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path))
+
+    captured = capfd.readouterr()
+    assert "+++ b/" in captured.out
+    assert "\x1b" not in captured.out
+    assert "\x1b" not in captured.err
+
+
+def test_color_yes_styles_the_diff_on_a_pipe(tmp_path, capfd) -> None:
+    source = load_source("collapsible_if_simple.py")
+    target = tmp_path / "collapsible_if_simple.py"
+    target.write_text(source)
+
+    run_cli(
+        ["--dry-run", "--color", "yes", *FIX_EVERY_FUNCTION, str(target)],
+        str(tmp_path),
+    )
+
+    assert "\x1b[" in capfd.readouterr().out
+
+
+def test_toml_select_string_splits_on_commas(tmp_path, capfd) -> None:
+    source = load_source("collapsible_if_simple.py")
+    target = tmp_path / "collapsible_if_simple.py"
+    target.write_text(source)
+    (tmp_path / "complexipy.toml").write_text('select = "C007, C002"\n')
+
+    run_cli(["--dry-run", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path))
+
+    captured = capfd.readouterr()
+    assert "Unknown rule id" not in captured.err
+    assert "C007" in strip_ansi(captured.out)
+
+
+def test_select_without_a_known_rule_warns_that_none_is_active(
+    tmp_path, capfd
+) -> None:
+    target = tmp_path / "simple.py"
+    target.write_text("def simple(x):\n    return x + 1\n")
+
+    run_cli(["--select", "C999", str(target)], str(tmp_path))
+
+    err = strip_ansi(capfd.readouterr().err)
+    assert "Unknown rule id 'C999'; it matches no registered rule." in err
+    assert "No refactoring rule is active after select and ignore." in err
+    assert "Ignoring it" not in err
+
+
+def test_select_with_one_known_rule_does_not_warn_about_none_active(
+    tmp_path, capfd
+) -> None:
+    target = tmp_path / "simple.py"
+    target.write_text("def simple(x):\n    return x + 1\n")
+
+    run_cli(["--select", "C999,C007", str(target)], str(tmp_path))
+
+    err = strip_ansi(capfd.readouterr().err)
+    assert "Unknown rule id 'C999'" in err
+    assert "No refactoring rule is active" not in err
