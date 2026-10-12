@@ -45,6 +45,15 @@ GitHub con todos los detalles.
   programa se reporta una vez y se sigue aplicando. Una ejecución de la CLI se
   detiene con cualquiera de los dos.
 
+- Cada carpeta del espacio de trabajo lee su propia configuración
+  ([#273](https://github.com/rohaquinlop/complexipy/issues/273)). En un
+  espacio de trabajo con varias carpetas, un documento usa el umbral, la
+  selección de reglas, los patrones de `exclude` y los ajustes de
+  `[tool.complexipy.lsp]` de la carpeta más profunda que lo contiene, y un
+  documento fuera de todas las carpetas usa la primera. El servidor declara
+  soporte de carpetas del espacio de trabajo, así que las carpetas que el editor
+  añade o quita se aplican sin reiniciar.
+
 - Supresión por regla y selección de reglas
   ([#208](https://github.com/rohaquinlop/complexipy/issues/208)). `--select` y
   `--ignore` (repetibles y con listas separadas por comas) eligen las reglas de
