@@ -135,19 +135,6 @@ uv run mkdocs serve                                 # preview the docs site
 - `.agents/hooks/` holds the quality gate that `.claude/settings.json` and
   `.pi/hooks.json` both run. Add a new check there, not in one agent's hooks.
 - `.sdd/` holds the specs and the change artifacts. Do not commit it.
-
-## Keeping This File Current
-
-A fact earns a line here only when an agent acting in good faith could break it.
-If a test or a CI job catches the break, one short sentence is enough. If
-nothing catches it, the line states the consequence. Rationale, history, and
-anything the repository can be asked for directly fail that test: they go in the
-commit message, or in the artifact under `.sdd/`.
-
-A line costs about 15 tokens on every request here, so it has to earn its place.
-
-This file stays at or under 150 lines (`wc -l AGENTS.md`) and about 1,300 words.
-When a new fact no longer fits, delete one line to add one. Never raise the
-limit: a rule that will not fit needs a real home, such as a workflow comment, a
-test, a type, or a spec under `.sdd/`. Update this file in the same commit as a
-change to a command, an invariant, or a convention.
+- This file stays at or under 150 lines (`wc -l AGENTS.md`): delete a line to
+  add one, never raise the limit. Update it in the same commit as a change to a
+  command, an invariant, or a convention.
