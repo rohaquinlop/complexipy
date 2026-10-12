@@ -295,7 +295,9 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
             complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
         }
         ast::Expr::DictComp(c) => {
-            complexity += count_comprehension(&[&c.key, &c.value], &c.generators, nesting_level);
+            let elements: Vec<&ast::Expr> =
+                c.key.as_deref().into_iter().chain([&*c.value]).collect();
+            complexity += count_comprehension(&elements, &c.generators, nesting_level);
         }
         ast::Expr::Call(c) => {
             for arg in c.arguments.args.iter() {
