@@ -1,3 +1,5 @@
+//! Tests for document analysis: diagnostics, inlay hints, and hover.
+
 use complexipy_core::config::{InlayHints, LspConfig, LspSection, StringOrList};
 use complexipy_lsp::analysis::{
     DIAGNOSTIC_CODE, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, LineBounds, analyze, is_stale,

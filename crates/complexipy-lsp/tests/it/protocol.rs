@@ -1,3 +1,5 @@
+//! End-to-end tests of the server over an in-memory LSP connection.
+
 use std::thread::JoinHandle;
 use std::time::Duration;
 

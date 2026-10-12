@@ -1,3 +1,5 @@
+"""Tests for --fix: applying machine-applicable plans to files on disk."""
+
 from __future__ import annotations
 
 import ast

@@ -13,6 +13,7 @@ uv run maturin develop                              # build the Rust extension
 uv run pytest                                       # Python suite (testpaths = tests/)
 cargo test --workspace                              # Rust tests, whole workspace
 grep -H '^description' crates/*/Cargo.toml          # what each crate does
+grep -m1 -HE '^"""|^//!' tests/*.py crates/*/tests/it/*.rs  # what each test file covers
 uv run ruff check .                                 # lint
 uv run ruff format .                                # format
 uv run ty check .                                   # type check

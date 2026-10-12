@@ -1,3 +1,5 @@
+"""Exact complexity totals for the tests/src fixtures, plus paper conformance."""
+
 from pathlib import Path
 from typing import List, Tuple
 
