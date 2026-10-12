@@ -19,7 +19,7 @@ fn evaluation(should_run: bool, messages: Vec<String>) -> SnapshotEvaluation {
 fn unknown_rule_warning_names_the_rule() {
     assert_eq!(
         unknown_rule_warning("C999"),
-        "Unknown rule id 'C999'. Ignoring it."
+        "Unknown rule id 'C999'; it matches no registered rule."
     );
 }
 
@@ -27,7 +27,7 @@ fn unknown_rule_warning_names_the_rule() {
 fn unknown_rule_warning_handles_an_empty_id() {
     assert_eq!(
         unknown_rule_warning(""),
-        "Empty rule id in select or ignore. Ignoring it."
+        "Empty rule id in select or ignore; it matches no rule."
     );
 }
 
