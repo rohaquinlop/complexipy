@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-cli"
+description = "Command-line argument parsing, the run loop, and output formatting"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

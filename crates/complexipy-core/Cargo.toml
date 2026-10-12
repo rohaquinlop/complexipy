@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-core"
+description = "Analysis engine: cognitive complexity scoring, diff, refactoring rules, and --fix"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

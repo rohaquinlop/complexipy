@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-wasm"
+description = "wasm-bindgen bindings for the web demo and the VS Code extension"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

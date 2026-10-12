@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-python"
+description = "The _complexipy pyo3 extension module that the Python package wraps"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

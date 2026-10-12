@@ -12,6 +12,7 @@ uv sync                                             # install dependencies
 uv run maturin develop                              # build the Rust extension
 uv run pytest                                       # Python suite (testpaths = tests/)
 cargo test --workspace                              # Rust tests, whole workspace
+grep -H '^description' crates/*/Cargo.toml          # what each crate does
 uv run ruff check .                                 # lint
 uv run ruff format .                                # format
 uv run ty check .                                   # type check

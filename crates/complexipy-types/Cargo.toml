@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-types"
+description = "Shared data types, with optional pyo3 bindings behind the python feature"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
