@@ -39,7 +39,7 @@ def tracked_files() -> list[Path]:
 def tracked_text(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+    except (UnicodeDecodeError, OSError):
         return None
 
 
@@ -76,13 +76,17 @@ def test_every_rule_is_documented_in_both_languages() -> None:
         rule_id
         for path in RULES_DIR.rglob("*.rs")
         if not is_test_source(path)
-        for rule_id in RULE_ID_DECLARATION.findall(path.read_text())
+        for rule_id in RULE_ID_DECLARATION.findall(
+            path.read_text(encoding="utf-8")
+        )
     }
 
     assert declared, f"no rule ids declared under {RULES_DIR}"
 
     for doc in RULE_DOCS:
-        documented = set(RULE_ID_HEADING.findall(doc.read_text()))
+        documented = set(
+            RULE_ID_HEADING.findall(doc.read_text(encoding="utf-8"))
+        )
 
         assert documented == declared, (
             f"{doc.relative_to(ROOT)}: missing {sorted(declared - documented)}, "
@@ -93,7 +97,9 @@ def test_every_rule_is_documented_in_both_languages() -> None:
 def test_no_production_code_matches_on_rule_id() -> None:
     offenders = []
     for path in production_rust_sources():
-        for number, line in enumerate(path.read_text().splitlines(), start=1):
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
             if line.lstrip().startswith("//"):
                 continue
             if MATCH_ON_RULE_ID.search(line):
