@@ -34,7 +34,7 @@ fingerprint() {
 	} | git hash-object --stdin
 }
 
-all_fp() { fingerprint '*.py' '*.pyi' '*.rs' '*.toml' '*.lock'; }
+all_fp() { fingerprint '*.py' '*.pyi' '*.rs' '*.toml' '*.lock' '*.md'; }
 rust_fp() { fingerprint '*.rs' '*Cargo.toml' 'Cargo.lock'; }
 judge() { { all_fp; rust_fp; } >"$STATE/judged"; }
 reported() { [ "$(all_fp)" = "$(cat "$STATE/reported" 2>/dev/null)" ]; }
