@@ -1,4 +1,5 @@
 #![cfg(feature = "runner")]
+//! Tests for the public exclude helpers that the language server uses.
 
 use complexipy_core::{invalid_exclude_patterns, is_path_excluded};
 

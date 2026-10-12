@@ -13,6 +13,7 @@ uv run maturin develop                              # build the Rust extension
 uv run pytest                                       # Python suite (testpaths = tests/)
 cargo test --workspace                              # Rust tests, whole workspace
 grep -H '^description' crates/*/Cargo.toml          # what each crate does
+grep -m1 -HE '^"""|^//!' tests/*.py crates/*/tests/it/*.rs  # what each test file covers
 uv run ruff check .                                 # lint
 uv run ruff format .                                # format
 uv run ty check .                                   # type check
@@ -92,7 +93,8 @@ uv run mkdocs serve                                 # preview the docs site
   file, as in `utils.rs` and `utils/tests.rs`. A new test file is invisible until
   its owning module declares it, so no inline `mod tests { }` and no `#[path]`.
 - Integration tests go in `crates/<crate>/tests/it/`, declared in its `main.rs`.
-  A file placed directly in `tests/` links one more test binary.
+  A file placed directly in `tests/` links one more test binary. Every test file
+  opens with a one-line `"""` or `//!` doc saying what it covers.
 - Read the LSP child's stdout in `tests/test_lsp.py` with `os.read` on a raw fd.
   A buffered read swallows the frame, and the following `select` then reports an
   empty pipe.
@@ -135,6 +137,7 @@ uv run mkdocs serve                                 # preview the docs site
 - `.agents/hooks/` holds the quality gate that `.claude/settings.json` and
   `.pi/hooks.json` both run. Add a new check there, not in one agent's hooks.
 - `.sdd/` holds the specs and the change artifacts. Do not commit it.
-- This file stays at or under 150 lines (`wc -l AGENTS.md`): delete a line to
-  add one, never raise the limit. Update it in the same commit as a change to a
-  command, an invariant, or a convention.
+- This file stays at or under 150 lines and 1,300 words, and a test fails above
+  either: delete a line to add one, never raise the limit. No inventories of
+  files or tests: point to a command that lists them. Update it in the same
+  commit as a change to a command, an invariant, or a convention.

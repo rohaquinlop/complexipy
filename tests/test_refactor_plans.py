@@ -1,3 +1,5 @@
+"""Tests for the refactor plans each rule emits, through code_complexity."""
+
 from __future__ import annotations
 
 import ast

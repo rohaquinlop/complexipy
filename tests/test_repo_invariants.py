@@ -7,6 +7,7 @@ docs-only changes that `CI.yml` skips.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 from pathlib import Path
@@ -17,6 +18,9 @@ RULE_DOCS = (
     ROOT / "docs" / "refactoring-rules.md",
     ROOT / "docs" / "es" / "refactoring-rules.md",
 )
+AGENTS_MD = ROOT / "AGENTS.md"
+AGENTS_MAX_LINES = 150
+AGENTS_MAX_WORDS = 1300
 
 LONG_DASHES = re.compile(
     "[" + "".join(map(chr, (0x2013, 0x2014, 0x2015))) + "]"
@@ -108,4 +112,50 @@ def test_no_production_code_matches_on_rule_id() -> None:
     assert not offenders, (
         "rank rules through RuleMetadata, not a match on rule_id: "
         + ", ".join(offenders)
+    )
+
+
+def files_under_test() -> list[Path]:
+    python = [*(ROOT / "tests").glob("test_*.py"), ROOT / "tests" / "main.py"]
+    rust = [
+        path
+        for path in (ROOT / "crates").glob("*/tests/it/*.rs")
+        if path.name != "main.rs"
+    ]
+    return sorted(python + rust)
+
+
+def opens_with_doc_line(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".py":
+        return bool(ast.get_docstring(ast.parse(text)))
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#!["):
+            return stripped.startswith("//!")
+    return False
+
+
+def test_every_test_file_opens_with_a_doc_line() -> None:
+    missing = [
+        str(path.relative_to(ROOT))
+        for path in files_under_test()
+        if not opens_with_doc_line(path)
+    ]
+
+    assert not missing, (
+        'open each test file with a one-line """ or //! doc: '
+        + ", ".join(missing)
+    )
+
+
+def test_agents_md_stays_within_its_budget() -> None:
+    text = AGENTS_MD.read_text(encoding="utf-8")
+    lines = text.count("\n")
+    words = len(text.split())
+
+    assert lines <= AGENTS_MAX_LINES and words <= AGENTS_MAX_WORDS, (
+        f"AGENTS.md has {lines} lines and {words} words, over the "
+        f"{AGENTS_MAX_LINES}-line, {AGENTS_MAX_WORDS}-word budget: delete a "
+        "line to add one"
     )

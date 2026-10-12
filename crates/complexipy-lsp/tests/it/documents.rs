@@ -1,3 +1,5 @@
+//! Tests for the open-document store and URI handling.
+
 use complexipy_lsp::documents::{Documents, is_python_path, uri_to_path};
 use lsp_types::Uri;
 

@@ -1,4 +1,5 @@
 #![cfg(feature = "config")]
+//! Tests for config file discovery and the [tool.complexipy.lsp] section.
 
 use complexipy_core::config::{
     ConfigFileKind, InlayHints, LspConfig, config_candidates, read_complexipy_config,
