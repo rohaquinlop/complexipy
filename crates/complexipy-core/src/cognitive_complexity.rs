@@ -12,6 +12,24 @@ use crate::classes::CodeComplexity;
 
 use shared_deps::*;
 
+pub struct SyntaxError {
+    pub message: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// Returns the first syntax error the parser reports for `code`, with its
+/// byte range, or `None` when `code` parses.
+pub fn syntax_error(code: &str) -> Option<SyntaxError> {
+    let error = ruff_python_parser::parse_module(code).err()?;
+
+    Some(SyntaxError {
+        message: error.error.to_string(),
+        start: usize::from(error.location.start()),
+        end: usize::from(error.location.end()),
+    })
+}
+
 pub fn code_complexity_shared(
     code: &str,
     opts: &AnalysisOptions,
