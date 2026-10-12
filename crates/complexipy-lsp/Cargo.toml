@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-lsp"
+description = "Stdio LSP server that publishes complexity diagnostics"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,10 +12,12 @@ publish = false
 
 [lib]
 name = "complexipy_lsp"
+doctest = false
 
 [[bin]]
 name = "complexipy-lsp"
 path = "src/main.rs"
+test = false
 
 [dependencies]
 complexipy-core = { path = "../complexipy-core", features = ["runner", "config"] }

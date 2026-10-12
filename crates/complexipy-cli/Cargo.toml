@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-cli"
+description = "Command-line argument parsing, the run loop, and output formatting"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,10 +12,12 @@ publish = false
 
 [lib]
 name = "complexipy_cli"
+doctest = false
 
 [[bin]]
 name = "complexipy"
 path = "src/main.rs"
+test = false
 
 [dependencies]
 complexipy-core = { path = "../complexipy-core", features = ["config"] }
