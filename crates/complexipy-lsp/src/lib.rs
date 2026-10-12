@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod documents;
 pub mod server;
+mod workspace;
 
 pub use server::SERVER_NAME;
 

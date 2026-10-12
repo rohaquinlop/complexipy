@@ -4,16 +4,17 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use complexipy_lsp::server::{
-    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN,
-    EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHUTDOWN, serve,
+    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT,
+    EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHUTDOWN, serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, Hover, HoverContents, HoverParams, InitializeParams,
-    InitializedParams, InlayHint, InlayHintParams, Position, PublishDiagnosticsParams, Range,
-    TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem, Uri,
-    VersionedTextDocumentIdentifier, WorkDoneProgressParams, WorkspaceFolder,
+    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, Hover, HoverContents, HoverParams,
+    InitializeParams, InitializedParams, InlayHint, InlayHintParams, Position,
+    PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent, TextDocumentIdentifier,
+    TextDocumentItem, Uri, VersionedTextDocumentIdentifier, WorkDoneProgressParams,
+    WorkspaceFolder, WorkspaceFoldersChangeEvent,
 };
 use tempfile::TempDir;
 
@@ -43,7 +44,22 @@ fn start() -> Session {
 
 impl Session {
     fn write_config(&self, content: &str) {
-        std::fs::write(self.root.path().join("complexipy.toml"), content).unwrap();
+        self.write_config_in("", content);
+    }
+
+    fn write_config_in(&self, folder: &str, content: &str) {
+        let folder = self.root.path().join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("complexipy.toml"), content).unwrap();
+    }
+
+    fn folder(&self, folder: &str) -> WorkspaceFolder {
+        WorkspaceFolder {
+            uri: format!("file://{}", self.root.path().join(folder).display())
+                .parse()
+                .unwrap(),
+            name: folder.to_string(),
+        }
     }
 
     fn document_uri(&self, name: &str) -> Uri {
@@ -70,15 +86,13 @@ impl Session {
     }
 
     fn initialize(&mut self) -> serde_json::Value {
+        self.initialize_with(&[""])
+    }
+
+    fn initialize_with(&mut self, folders: &[&str]) -> serde_json::Value {
         let id = self.next_id();
-        let root: Uri = format!("file://{}", self.root.path().display())
-            .parse()
-            .unwrap();
         let params = InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: root,
-                name: "root".to_string(),
-            }]),
+            workspace_folders: Some(folders.iter().map(|folder| self.folder(folder)).collect()),
             ..InitializeParams::default()
         };
 
@@ -256,6 +270,10 @@ fn advertises_full_sync_inlay_hints_and_hover() {
     assert_eq!(capabilities["textDocumentSync"], serde_json::json!(1));
     assert_eq!(capabilities["inlayHintProvider"], serde_json::json!(true));
     assert_eq!(capabilities["hoverProvider"], serde_json::json!(true));
+    assert_eq!(
+        capabilities["workspace"]["workspaceFolders"],
+        serde_json::json!({"supported": true, "changeNotifications": true})
+    );
     assert!(capabilities.get("codeActionProvider").is_none());
     assert_eq!(result["serverInfo"]["name"], serde_json::json!(SERVER_NAME));
 
@@ -545,6 +563,83 @@ fn advertises_the_configured_server_version() {
         result["serverInfo"]["version"],
         serde_json::json!(env!("CARGO_PKG_VERSION"))
     );
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn each_folder_reads_its_own_config() {
+    let mut session = start();
+    session.write_config_in("strict", STRICT);
+    session.write_config_in("lenient", "max-complexity-allowed = 15\n");
+    session.initialize_with(&["strict", "lenient"]);
+
+    let strict = session.document_uri("strict/sample.py");
+    session.open(&strict, SAMPLE);
+    assert_eq!(session.diagnostics(&strict).len(), 1);
+    assert_eq!(session.inlay_hints(&strict).len(), 1);
+
+    let lenient = session.document_uri("lenient/sample.py");
+    session.open(&lenient, SAMPLE);
+    assert!(session.diagnostics(&lenient).is_empty());
+    assert!(session.inlay_hints(&lenient).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn exclude_patterns_stay_in_their_folder() {
+    let mut session = start();
+    session.write_config_in(
+        "hidden",
+        "max-complexity-allowed = 2\nexclude = [\"sample.py\"]\n",
+    );
+    session.write_config_in("shown", STRICT);
+    session.initialize_with(&["shown", "hidden"]);
+
+    let hidden = session.document_uri("hidden/sample.py");
+    session.open(&hidden, SAMPLE);
+    assert!(session.diagnostics(&hidden).is_empty());
+
+    let shown = session.document_uri("shown/sample.py");
+    session.open(&shown, SAMPLE);
+    assert_eq!(session.diagnostics(&shown).len(), 1);
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn folders_added_and_removed_at_runtime_take_effect() {
+    let mut session = start();
+    session.write_config_in("first", "max-complexity-allowed = 15\n");
+    session.write_config_in("added", STRICT);
+    session.initialize_with(&["first"]);
+    let uri = session.document_uri("added/sample.py");
+    session.open(&uri, SAMPLE);
+    assert!(session.diagnostics(&uri).is_empty());
+
+    let added = session.folder("added");
+    session.notify(
+        DID_CHANGE_WORKSPACE_FOLDERS,
+        DidChangeWorkspaceFoldersParams {
+            event: WorkspaceFoldersChangeEvent {
+                added: vec![added.clone()],
+                removed: Vec::new(),
+            },
+        },
+    );
+    assert_eq!(session.diagnostics(&uri).len(), 1);
+
+    session.notify(
+        DID_CHANGE_WORKSPACE_FOLDERS,
+        DidChangeWorkspaceFoldersParams {
+            event: WorkspaceFoldersChangeEvent {
+                added: Vec::new(),
+                removed: vec![added],
+            },
+        },
+    );
+    assert!(session.diagnostics(&uri).is_empty());
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

@@ -1,20 +1,19 @@
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
-use complexipy_core::ExcludeMatcher;
-use complexipy_core::config::{LspConfig, read_complexipy_config};
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
-    Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, OneOf,
-    PublishDiagnosticsParams, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
-    Uri,
+    Diagnostic, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, HoverParams, HoverProviderCapability,
+    InitializeParams, InlayHintParams, OneOf, PublishDiagnosticsParams, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
+    WorkspaceServerCapabilities,
 };
-use serde::Deserialize;
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
 use crate::documents::{Documents, uri_to_path};
+use crate::workspace::Workspace;
 
 pub const SERVER_NAME: &str = "complexipy-lsp";
 pub const DEBOUNCE: Duration = Duration::from_millis(200);
@@ -23,6 +22,7 @@ pub const DID_OPEN: &str = "textDocument/didOpen";
 pub const DID_CHANGE: &str = "textDocument/didChange";
 pub const DID_CLOSE: &str = "textDocument/didClose";
 pub const DID_CHANGE_CONFIGURATION: &str = "workspace/didChangeConfiguration";
+pub const DID_CHANGE_WORKSPACE_FOLDERS: &str = "workspace/didChangeWorkspaceFolders";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
@@ -45,9 +45,7 @@ pub fn serve(connection: Connection) -> i32 {
 }
 
 struct Initialized {
-    root: String,
-    config: LspConfig,
-    exclude: ExcludeMatcher,
+    workspace: Workspace,
     refresh_support: bool,
 }
 
@@ -68,7 +66,7 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
         }
     };
 
-    let root = workspace_root(&params);
+    let (roots, fallback_root) = workspace_roots(&params);
     let refresh_support = params
         .capabilities
         .workspace
@@ -89,12 +87,8 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
         )
         .map_err(|error| error.to_string())?;
 
-    let (config, exclude) = load_config(&root);
-
     Ok(Initialized {
-        config,
-        exclude,
-        root,
+        workspace: Workspace::load(roots, fallback_root),
         refresh_support,
     })
 }
@@ -104,72 +98,42 @@ fn capabilities() -> ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
+        workspace: Some(WorkspaceServerCapabilities {
+            workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                supported: Some(true),
+                change_notifications: Some(OneOf::Left(true)),
+            }),
+            file_operations: None,
+        }),
         ..ServerCapabilities::default()
     }
 }
 
 #[allow(deprecated)]
-fn workspace_root(params: &InitializeParams) -> String {
-    params
+fn workspace_roots(params: &InitializeParams) -> (Vec<String>, String) {
+    let roots = params
         .workspace_folders
+        .iter()
+        .flatten()
+        .filter_map(|folder| uri_to_path(&folder.uri))
+        .collect();
+    let fallback_root = params
+        .root_uri
         .as_ref()
-        .and_then(|folders| folders.first())
-        .and_then(|folder| uri_to_path(&folder.uri))
-        .or_else(|| params.root_uri.as_ref().and_then(uri_to_path))
+        .and_then(uri_to_path)
         .or_else(|| {
             std::env::current_dir()
                 .ok()
                 .map(|path| path.to_string_lossy().into_owned())
         })
-        .unwrap_or_else(|| ".".to_string())
-}
+        .unwrap_or_else(|| ".".to_string());
 
-fn load_config(root: &str) -> (LspConfig, ExcludeMatcher) {
-    let Some(source) = read_complexipy_config(root) else {
-        return (LspConfig::default(), ExcludeMatcher::default());
-    };
-
-    match LspConfig::deserialize(source.value) {
-        Ok(config) => {
-            let patterns = config.exclude.clone().into_vec();
-            let exclude = ExcludeMatcher::new(&patterns);
-
-            if !exclude.invalid().is_empty() {
-                eprintln!(
-                    "{}: {}: ignoring invalid exclude patterns: {:?}",
-                    SERVER_NAME,
-                    source.path.display(),
-                    exclude.invalid()
-                );
-            } else if exclude.overflows() {
-                eprintln!(
-                    "{}: {}: the exclude list of {} patterns is too large to \
-                     compile as one program; matching one pattern at a time",
-                    SERVER_NAME,
-                    source.path.display(),
-                    patterns.len()
-                );
-            }
-
-            (config, exclude)
-        }
-        Err(error) => {
-            eprintln!(
-                "{}: invalid config in {}: {}",
-                SERVER_NAME,
-                source.path.display(),
-                error
-            );
-            (LspConfig::default(), ExcludeMatcher::default())
-        }
-    }
+    (roots, fallback_root)
 }
 
 struct Server {
     connection: Connection,
-    root: String,
-    config: LspConfig,
-    exclude: ExcludeMatcher,
+    workspace: Workspace,
     refresh_support: bool,
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
@@ -183,9 +147,7 @@ impl Server {
     fn new(connection: Connection, initialized: Initialized) -> Self {
         Self {
             connection,
-            root: initialized.root,
-            config: initialized.config,
-            exclude: initialized.exclude,
+            workspace: initialized.workspace,
             refresh_support: initialized.refresh_support,
             documents: Documents::default(),
             analyses: HashMap::new(),
@@ -305,6 +267,13 @@ impl Server {
                 }
             }
             DID_CHANGE_CONFIGURATION => self.reload_config(),
+            DID_CHANGE_WORKSPACE_FOLDERS => {
+                if let Ok(params) = notification
+                    .extract::<DidChangeWorkspaceFoldersParams>(DID_CHANGE_WORKSPACE_FOLDERS)
+                {
+                    self.change_folders(params);
+                }
+            }
             _ => {}
         }
     }
@@ -349,7 +318,25 @@ impl Server {
     }
 
     fn reload_config(&mut self) {
-        (self.config, self.exclude) = load_config(&self.root);
+        self.workspace.reload();
+        self.reanalyze_all();
+    }
+
+    fn change_folders(&mut self, params: DidChangeWorkspaceFoldersParams) {
+        for folder in params.event.removed {
+            if let Some(root) = uri_to_path(&folder.uri) {
+                self.workspace.remove(&root);
+            }
+        }
+        for folder in params.event.added {
+            if let Some(root) = uri_to_path(&folder.uri) {
+                self.workspace.add(root);
+            }
+        }
+        self.reanalyze_all();
+    }
+
+    fn reanalyze_all(&mut self) {
         self.analyses.clear();
         self.failures.clear();
 
@@ -433,7 +420,7 @@ impl Server {
             return Ok(DocumentAnalysis::empty(version));
         }
 
-        analysis::analyze(text, version, &self.config)
+        analysis::analyze(text, version, &self.workspace.for_uri(uri).config)
     }
 
     fn current_analysis(&mut self, uri: &Uri) -> Option<DocumentAnalysis> {
@@ -473,15 +460,15 @@ impl Server {
     }
 
     fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
-        let diagnostics = self.failure_diagnostics(&failure);
+        let diagnostics = self.failure_diagnostics(uri, &failure);
 
         eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), failure.message);
         self.failures.insert(Documents::key(uri), failure);
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
     }
 
-    fn failure_diagnostics(&self, failure: &ParseFailure) -> Vec<Diagnostic> {
-        if self.config.lsp.diagnostics {
+    fn failure_diagnostics(&self, uri: &Uri, failure: &ParseFailure) -> Vec<Diagnostic> {
+        if self.workspace.for_uri(uri).config.lsp.diagnostics {
             vec![failure.diagnostic()]
         } else {
             Vec::new()
@@ -493,7 +480,7 @@ impl Server {
             return false;
         };
 
-        self.exclude.is_excluded(&path, &self.root)
+        self.workspace.for_path(&path).is_excluded(&path)
     }
 
     fn publish(&mut self, uri: &Uri, analysis: DocumentAnalysis) -> bool {
@@ -502,7 +489,7 @@ impl Server {
         }
 
         let version = analysis.version;
-        let diagnostics = analysis.diagnostics(&self.config);
+        let diagnostics = analysis.diagnostics(&self.workspace.for_uri(uri).config);
 
         self.failures.remove(&Documents::key(uri));
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
@@ -532,9 +519,11 @@ impl Server {
     }
 
     fn respond_inlay_hints(&mut self, id: RequestId, params: InlayHintParams) {
-        let analysis = self.current_analysis(&params.text_document.uri);
-        let hints = match analysis {
-            Some(analysis) => analysis.hints(&self.config, Some(params.range)),
+        let uri = params.text_document.uri;
+        let hints = match self.current_analysis(&uri) {
+            Some(analysis) => {
+                analysis.hints(&self.workspace.for_uri(&uri).config, Some(params.range))
+            }
             None => Vec::new(),
         };
 
@@ -545,10 +534,12 @@ impl Server {
         let position = params.text_document_position_params.position;
         let uri = params.text_document_position_params.text_document.uri;
         let hover = match self.current_analysis(&uri) {
-            Some(_) => self
-                .analyses
-                .get_mut(&Documents::key(&uri))
-                .and_then(|analysis| analysis.hover(&self.config, position)),
+            Some(_) => {
+                let config = &self.workspace.for_uri(&uri).config;
+                self.analyses
+                    .get_mut(&Documents::key(&uri))
+                    .and_then(|analysis| analysis.hover(config, position))
+            }
             None => None,
         };
 
