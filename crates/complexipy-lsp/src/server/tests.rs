@@ -12,6 +12,7 @@ fn server(config: LspConfig) -> (Server, Connection) {
         connection,
         Initialized {
             root: "/repo".to_string(),
+            exclude: ExcludeMatcher::new(&config.exclude.clone().into_vec()),
             config,
             refresh_support: false,
         },

@@ -25,7 +25,9 @@ pub use classes::{
 };
 pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_regressions};
 #[cfg(feature = "runner")]
-pub use helpers::exclude::{exclude_list_overflows, invalid_exclude_patterns, is_path_excluded};
+pub use helpers::exclude::{
+    ExcludeMatcher, exclude_list_overflows, invalid_exclude_patterns, is_path_excluded,
+};
 pub use rules::{AnalysisOptions, RuleSet, registered_rule_ids};
 #[cfg(feature = "runner")]
 pub use runner::{

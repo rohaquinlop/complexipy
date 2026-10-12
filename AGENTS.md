@@ -71,9 +71,9 @@ uv run mkdocs serve                                 # preview the docs site
 - On stdout the server writes protocol frames and nothing else. Every log line
   goes to stderr, and the `lsp` branch of `complexipy/cli.py` never prints.
 - Exclusion has two matchers: the walker's pattern program and
-  `helpers::exclude::is_path_excluded`, which the server uses for open documents.
-  `helpers/exclude/tests.rs` pins them together, so a change to one has to keep
-  the other in agreement.
+  `helpers::exclude::ExcludeMatcher`, which the server compiles once per config
+  load for open documents. `helpers/exclude/tests.rs` pins them together, so a
+  change to one has to keep the other in agreement.
 - The public Python API is a compatibility promise: `complexipy/__init__.py`, its
   `__all__`, and the `DiffStatus` values. A new export needs docs in `docs/` and
   `docs/es/`. `run_lsp` is a process entry point and stays out of `__all__`.
