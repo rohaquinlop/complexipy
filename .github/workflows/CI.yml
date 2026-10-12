@@ -12,6 +12,10 @@ on:
       - .pi/**
       - mkdocs.yml
       - mkdocs.es.yml
+  # GitHub evicts a cache unused for 7 days. Two runs a week on main keep the
+  # rust-cache entries alive when no push lands.
+  schedule:
+    - cron: 0 6 * * 1,4
   # Keep this list identical to the push list above.
   pull_request:
     paths-ignore:
