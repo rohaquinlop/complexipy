@@ -107,3 +107,6 @@ site-es/
 
 # Benchmark working directories
 benchmarks/corpus/
+
+# Zed dev extension build output
+zed/extension.wasm

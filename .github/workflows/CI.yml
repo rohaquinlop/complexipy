@@ -128,7 +128,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown, wasm32-wasip2
       # As in `quick-tests`: restore on a pull request, write only from `main`.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
@@ -142,3 +142,8 @@ jobs:
         run: cargo fmt --check
       - name: cargo check wasm
         run: cargo check -p complexipy-wasm --target wasm32-unknown-unknown
+      # `zed/` is its own workspace, so the root fmt and clippy steps skip it.
+      - name: Zed extension
+        run: |-
+          cargo fmt --manifest-path zed/Cargo.toml --check
+          cargo clippy --manifest-path zed/Cargo.toml --target wasm32-wasip2 -- -D warnings

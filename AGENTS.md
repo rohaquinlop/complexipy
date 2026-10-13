@@ -20,6 +20,7 @@ uv run ty check .                                   # type check
 cargo check -p complexipy-core                      # default features
 cargo check -p complexipy-core --no-default-features
 cargo check -p complexipy-wasm --target wasm32-unknown-unknown
+cargo clippy --manifest-path zed/Cargo.toml --target wasm32-wasip2  # Zed extension
 uv run complexipy <path>                            # run the tool
 uv run complexipy . --diff main --max-complexity-allowed 15
 uv run complexipy complexipy --failed               # dogfood it on itself

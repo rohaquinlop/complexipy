@@ -1,0 +1,11 @@
+id = "complexipy"
+name = "complexipy"
+version = "0.1.0"
+schema_version = 1
+authors = ["Robin Quintero <rohaquinlop301@gmail.com>"]
+description = "Cognitive complexity hints, hover, and warnings for Python"
+repository = "https://github.com/rohaquinlop/complexipy"
+
+[language_servers.complexipy]
+name = "complexipy"
+languages = ["Python"]

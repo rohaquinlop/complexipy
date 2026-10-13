@@ -28,7 +28,10 @@ GitHub con todos los detalles.
   ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). El servidor
   vuelve a cargar la configuración cuando cambia un archivo de configuración en
   la raíz de una carpeta, en los editores que vigilan archivos para él
-  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). Consulta
+  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). Una
+  extensión de Zed en `zed/` arranca el servidor en Zed, y los inlay hints
+  llevan un margen a la izquierda para no tocar el código
+  ([#255](https://github.com/rohaquinlop/complexipy/issues/255)). Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
   configuración de Neovim y Zed. La extensión de VS Code aún no usa el
   servidor: [#253](https://github.com/rohaquinlop/complexipy/issues/253)

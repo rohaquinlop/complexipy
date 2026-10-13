@@ -71,19 +71,19 @@ or per buffer with `vim.lsp.inlay_hint.enable(true, { bufnr = 0 })`.
 
 ## Zed
 
-Zed registers language servers in `settings.json`. Add the server under `lsp`
-and enable it for Python under `languages`:
+Zed starts a language server only when Zed or an extension registers it. The
+complexipy extension lives in the `zed/` folder of the repository. Until it is
+published in the Zed extension registry, install it as a dev extension:
+
+1. Clone `https://github.com/rohaquinlop/complexipy`.
+1. Run `zed: install dev extension` from the command palette and select the
+   `zed/` folder.
+
+Then enable the server and inlay hints for Python in `settings.json`:
 
 ```json
 {
-  "lsp": {
-    "complexipy": {
-      "binary": {
-        "path": "complexipy",
-        "arguments": ["lsp"]
-      }
-    }
-  },
+  "inlay_hints": { "enabled": true },
   "languages": {
     "Python": {
       "language_servers": ["complexipy", "..."]
@@ -93,16 +93,28 @@ and enable it for Python under `languages`:
 ```
 
 The `"..."` entry keeps every other Python language server you already use
-enabled. Without it, only the servers you list explicitly are started.
+enabled. If your settings already list Python language servers without
+`"..."`, add `"complexipy"` to that list, or Zed does not start it.
 
-!!! warning "Not verified yet"
+Zed turns inlay hints off by default. `inlay_hints.enabled` turns them on for
+every language server, so type hints from servers such as `ty` or `basedpyright`
+appear next to the complexipy hint.
 
-    Zed only launches language servers it knows about, and the `binary` block
-    above is an override for a server it has already registered. If `complexipy`
-    is not offered as a Python server when you edit the `language_servers` list
-    in `settings.json`, Zed has not registered it and the block has no effect
-    until an extension registers the server. The Neovim setup below has been
-    tested; the Zed one has not.
+The extension runs `complexipy lsp` from the `PATH`. To use another binary,
+set its path:
+
+```json
+{
+  "lsp": {
+    "complexipy": {
+      "binary": {
+        "path": "/full/path/to/complexipy",
+        "arguments": ["lsp"]
+      }
+    }
+  }
+}
+```
 
 ## Configuration
 
@@ -224,7 +236,8 @@ when the tool is installed somewhere the editor cannot see:
 
 - Neovim: set `cmd = { "/full/path/to/complexipy", "lsp" }`.
 - Zed: set `"path"` to the absolute binary in the `lsp.complexipy.binary`
-  block.
+  block. Without it, the extension looks for `complexipy` on the `PATH`, and
+  Zed shows an error when it is not there.
 
 Alternatively, start it through `uv` without installing anything globally:
 
@@ -243,7 +256,8 @@ goes to stderr. Read it where your editor collects it:
 ### Hints do not appear
 
 Inlay hints are opt-in in most editors. Enable them in the editor itself
-(`vim.lsp.inlay_hint.enable(true)` in Neovim), and remember that the default
+(`vim.lsp.inlay_hint.enable(true)` in Neovim, `"inlay_hints": { "enabled": true }`
+in Zed), and remember that the default
 `inlay-hints = "threshold"` only shows the hint when a function is above
 `max-complexity-allowed`. Set `inlay-hints = "always"` to see every function.
 
@@ -253,9 +267,9 @@ A limit lower than expected usually means the wrong configuration is active.
 The server reads `complexipy.toml`, `.complexipy.toml`, or `pyproject.toml`
 from the root of the document's workspace folder; check that the folder the
 editor opened is the one holding your settings. The server reads the file at
-startup and again whenever the editor reports a configuration change, so after
-editing it ask the editor to reload (`:LspRestart` in Neovim, or reload the
-window in Zed).
+startup, and again when you save it in an editor that watches files for the
+server. In other editors, restart the server after you edit it (`:LspRestart`
+in Neovim, `editor: restart language server` in Zed).
 
 ### Per-line hints do not appear
 

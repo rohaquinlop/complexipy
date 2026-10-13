@@ -73,19 +73,20 @@ o por búfer con `vim.lsp.inlay_hint.enable(true, { bufnr = 0 })`.
 
 ## Zed
 
-Zed registra los servidores de lenguaje en `settings.json`. Añade el servidor
-bajo `lsp` y habilítalo para Python bajo `languages`:
+Zed solo arranca un servidor de lenguaje cuando Zed o una extensión lo
+registra. La extensión de complexipy está en la carpeta `zed/` del repositorio.
+Hasta que se publique en el registro de extensiones de Zed, instálala como
+extensión de desarrollo:
+
+1. Clona `https://github.com/rohaquinlop/complexipy`.
+1. Ejecuta `zed: install dev extension` desde la paleta de comandos y elige la
+   carpeta `zed/`.
+
+Después habilita el servidor y los inlay hints para Python en `settings.json`:
 
 ```json
 {
-  "lsp": {
-    "complexipy": {
-      "binary": {
-        "path": "complexipy",
-        "arguments": ["lsp"]
-      }
-    }
-  },
+  "inlay_hints": { "enabled": true },
   "languages": {
     "Python": {
       "language_servers": ["complexipy", "..."]
@@ -95,17 +96,28 @@ bajo `lsp` y habilítalo para Python bajo `languages`:
 ```
 
 La entrada `"..."` mantiene habilitados el resto de servidores de lenguaje de
-Python que ya uses. Sin ella, solo se arrancan los servidores que listes
-explícitamente.
+Python que ya uses. Si tus ajustes ya listan servidores de Python sin `"..."`,
+añade `"complexipy"` a esa lista, o Zed no lo arranca.
 
-!!! warning "Sin verificar todavía"
+Zed desactiva los inlay hints de forma predeterminada. `inlay_hints.enabled` los
+activa para todos los servidores de lenguaje, así que los hints de tipos de
+servidores como `ty` o `basedpyright` aparecen junto al hint de complexipy.
 
-    Zed solo arranca servidores de lenguaje que conoce, y el bloque `binary`
-    de arriba es un reemplazo para un servidor que ya tiene registrado. Si
-    `complexipy` no aparece como servidor de Python al editar la lista
-    `language_servers` en `settings.json`, Zed no lo tiene registrado y el
-    bloque no hace nada hasta que una extensión registre el servidor. La
-    configuración de Neovim está probada; la de Zed no.
+La extensión ejecuta `complexipy lsp` desde el `PATH`. Para usar otro binario,
+define su ruta:
+
+```json
+{
+  "lsp": {
+    "complexipy": {
+      "binary": {
+        "path": "/ruta/completa/a/complexipy",
+        "arguments": ["lsp"]
+      }
+    }
+  }
+}
+```
 
 ## Configuración
 
@@ -233,7 +245,8 @@ puede ver:
 
 - Neovim: define `cmd = { "/ruta/completa/a/complexipy", "lsp" }`.
 - Zed: define `"path"` con la ruta absoluta del binario en el bloque
-  `lsp.complexipy.binary`.
+  `lsp.complexipy.binary`. Sin él, la extensión busca `complexipy` en el
+  `PATH`, y Zed muestra un error cuando no está.
 
 Como alternativa, arráncalo a través de `uv` sin instalar nada globalmente:
 
@@ -253,7 +266,8 @@ los registros van a stderr. Léelos donde tu editor los recopila:
 ### Los hints no aparecen
 
 Los inlay hints son opcionales en la mayoría de los editores. Habilítalos en el
-propio editor (`vim.lsp.inlay_hint.enable(true)` en Neovim) y recuerda que el
+propio editor (`vim.lsp.inlay_hint.enable(true)` en Neovim,
+`"inlay_hints": { "enabled": true }` en Zed) y recuerda que el
 `inlay-hints = "threshold"` predeterminado solo muestra el hint cuando una
 función está por encima de `max-complexity-allowed`. Usa
 `inlay-hints = "always"` para ver todas las funciones.
@@ -264,10 +278,10 @@ Un límite más bajo de lo esperado normalmente significa que la configuración
 activa no es la correcta. El servidor lee `complexipy.toml`,
 `.complexipy.toml` o `pyproject.toml` desde la raíz de la carpeta del espacio
 de trabajo del documento; comprueba que la carpeta que abrió el editor sea la
-que contiene tus ajustes. El servidor lee el archivo al arrancar y de
-nuevo cada vez que el editor informa un cambio de configuración, así que
-después de editarlo pide al editor que recargue (`:LspRestart` en Neovim, o
-recargar la ventana en Zed).
+que contiene tus ajustes. El servidor lee el archivo al arrancar, y de nuevo
+cuando lo guardas en un editor que vigila archivos para el servidor. En otros
+editores, reinicia el servidor después de editarlo (`:LspRestart` en Neovim,
+`editor: restart language server` en Zed).
 
 ### Los per-line hints no aparecen
 
