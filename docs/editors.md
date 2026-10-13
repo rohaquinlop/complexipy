@@ -147,6 +147,13 @@ The server ignores every other key of the same file: `paths`, `quiet`,
 `snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
 `report-ignored`, and `diff`. Run those keys through `complexipy <path>`.
 
+The server reads the configuration again when you save a change to one of
+these files at the root of a workspace folder. The editor must support dynamic
+registration of `workspace/didChangeWatchedFiles`. If a saved file does not
+parse, the editor shows a warning and the folder uses the default settings.
+With an editor that does not watch files, restart the server after you change
+the configuration.
+
 ### Inlay hints
 
 The hint is placed at the end of the last line of the function declaration: the

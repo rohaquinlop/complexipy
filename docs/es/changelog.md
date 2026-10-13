@@ -25,7 +25,10 @@ GitHub con todos los detalles.
   `complexipy-parse-error`, situada donde falla el analizador, hasta que vuelve
   a analizarse. Los problemas de configuración, como un id de regla desconocido
   en `select`, aparecen en el editor como un mensaje de advertencia
-  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). Consulta
+  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). El servidor
+  vuelve a cargar la configuración cuando cambia un archivo de configuración en
+  la raíz de una carpeta, en los editores que vigilan archivos para él
+  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
   configuración de Neovim y Zed. La extensión de VS Code aún no usa el
   servidor: [#253](https://github.com/rohaquinlop/complexipy/issues/253)
