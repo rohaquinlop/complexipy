@@ -2,7 +2,8 @@
 //! Tests for config file discovery and the [tool.complexipy.lsp] section.
 
 use complexipy_core::config::{
-    ConfigFileKind, InlayHints, LspConfig, config_candidates, read_complexipy_config,
+    ConfigFileKind, InlayHints, LspConfig, config_candidates, is_config_file_name,
+    read_complexipy_config,
 };
 
 use std::fs as fs_sync;
@@ -106,6 +107,15 @@ fn candidates_follow_the_documented_order() {
             ConfigFileKind::PyprojectToml
         ]
     );
+}
+
+#[test]
+fn config_file_names_match_the_candidates() {
+    assert!(is_config_file_name("complexipy.toml"));
+    assert!(is_config_file_name(".complexipy.toml"));
+    assert!(is_config_file_name("pyproject.toml"));
+    assert!(!is_config_file_name("setup.cfg"));
+    assert!(!is_config_file_name("sub/complexipy.toml"));
 }
 
 #[test]

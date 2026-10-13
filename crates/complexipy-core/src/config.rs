@@ -130,20 +130,30 @@ impl Default for LspConfig {
     }
 }
 
+const CONFIG_FILES: [(&str, ConfigFileKind); 3] = [
+    ("complexipy.toml", ConfigFileKind::ComplexipyToml),
+    (".complexipy.toml", ConfigFileKind::DotComplexipyToml),
+    ("pyproject.toml", ConfigFileKind::PyprojectToml),
+];
+
+pub fn config_file_names() -> impl Iterator<Item = &'static str> {
+    CONFIG_FILES.iter().map(|(file_name, _)| *file_name)
+}
+
+pub fn is_config_file_name(name: &str) -> bool {
+    config_file_names().any(|file_name| file_name == name)
+}
+
 pub fn config_candidates(invocation_path: &str) -> Vec<ConfigCandidate> {
     let invocation_path = Path::new(invocation_path);
 
-    [
-        ("complexipy.toml", ConfigFileKind::ComplexipyToml),
-        (".complexipy.toml", ConfigFileKind::DotComplexipyToml),
-        ("pyproject.toml", ConfigFileKind::PyprojectToml),
-    ]
-    .into_iter()
-    .filter_map(|(file_name, kind)| {
-        let path = invocation_path.join(file_name);
-        path.exists().then_some(ConfigCandidate { path, kind })
-    })
-    .collect()
+    CONFIG_FILES
+        .into_iter()
+        .filter_map(|(file_name, kind)| {
+            let path = invocation_path.join(file_name);
+            path.exists().then_some(ConfigCandidate { path, kind })
+        })
+        .collect()
 }
 
 pub fn load_candidate_value(candidate: &ConfigCandidate) -> Option<toml::Value> {
