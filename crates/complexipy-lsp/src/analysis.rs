@@ -372,7 +372,7 @@ fn function_hint(position: Position, complexity: u64) -> InlayHint {
         kind: Some(InlayHintKind::TYPE),
         text_edits: None,
         tooltip: None,
-        padding_left: None,
+        padding_left: Some(true),
         padding_right: Some(true),
         data: None,
     }
@@ -385,7 +385,7 @@ fn line_hint(position: Position, complexity: u64) -> InlayHint {
         kind: None,
         text_edits: None,
         tooltip: None,
-        padding_left: None,
+        padding_left: Some(true),
         padding_right: Some(true),
         data: None,
     }

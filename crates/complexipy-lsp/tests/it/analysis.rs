@@ -136,6 +136,7 @@ fn threshold_hint_is_shown_above_the_limit() {
     assert_eq!(hints.len(), 1);
     assert_eq!(hints[0].position, Position::new(4, 16));
     assert_eq!(label(&hints[0]), "cognitive: 3");
+    assert_eq!(hints[0].padding_left, Some(true));
 }
 
 #[test]
@@ -173,6 +174,7 @@ fn per_line_hints_appear_when_enabled() {
     assert_eq!(label(&hints[1]), "+1");
     assert_eq!(hints[2].position, Position::new(6, 13));
     assert_eq!(label(&hints[2]), "+2");
+    assert!(hints.iter().all(|hint| hint.padding_left == Some(true)));
 }
 
 #[test]
