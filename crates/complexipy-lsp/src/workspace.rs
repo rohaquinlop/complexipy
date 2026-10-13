@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use complexipy_core::config::{LspConfig, read_complexipy_config};
+use complexipy_core::config::{LspConfig, is_config_file_name, read_complexipy_config};
 use complexipy_core::{
     ExcludeMatcher, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
 };
@@ -153,6 +153,19 @@ impl Workspace {
             let folder = self.load_folder(root);
             self.folders.push(folder);
         }
+    }
+
+    pub fn watches(&self, path: &str) -> bool {
+        let path = Path::new(path);
+        let (Some(name), Some(parent)) = (path.file_name(), path.parent()) else {
+            return false;
+        };
+
+        name.to_str().is_some_and(is_config_file_name)
+            && self
+                .folders
+                .iter()
+                .any(|folder| Path::new(&folder.root) == parent)
     }
 
     pub fn take_warnings(&mut self) -> Vec<String> {

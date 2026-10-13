@@ -18,6 +18,7 @@ fn server(config: LspConfig) -> (Server, Connection) {
                 "/repo".to_string(),
             ),
             refresh_support: false,
+            watch_support: false,
         },
     );
 
