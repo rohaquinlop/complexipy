@@ -21,7 +21,10 @@ release section links to its GitHub release notes for the full details.
   the last parsed hints plus one `complexipy-parse-error` warning, placed where
   the parser fails, until it parses again. Configuration problems, such as an
   unknown rule id in `select`, appear in the editor as a warning message
-  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). See
+  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). The server
+  reloads the configuration when a configuration file at a folder root changes,
+  in editors that watch files for it
+  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). See
   [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
   setup. The VS Code extension does not use the server yet:
   [#253](https://github.com/rohaquinlop/complexipy/issues/253) tracks that

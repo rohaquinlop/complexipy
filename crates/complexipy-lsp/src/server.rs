@@ -1,13 +1,16 @@
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
+use complexipy_core::config::config_file_names;
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
-    Diagnostic, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, HoverParams, HoverProviderCapability,
-    InitializeParams, InlayHintParams, MessageType, OneOf, PublishDiagnosticsParams,
-    ServerCapabilities, ShowMessageParams, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
+    Diagnostic, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+    DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern,
+    HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType, OneOf,
+    PublishDiagnosticsParams, Registration, RegistrationParams, ServerCapabilities,
+    ShowMessageParams, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 
@@ -23,10 +26,13 @@ pub const DID_CHANGE: &str = "textDocument/didChange";
 pub const DID_CLOSE: &str = "textDocument/didClose";
 pub const DID_CHANGE_CONFIGURATION: &str = "workspace/didChangeConfiguration";
 pub const DID_CHANGE_WORKSPACE_FOLDERS: &str = "workspace/didChangeWorkspaceFolders";
+pub const DID_CHANGE_WATCHED_FILES: &str = "workspace/didChangeWatchedFiles";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
+pub const REGISTER_CAPABILITY: &str = "client/registerCapability";
+const CONFIG_WATCH_ID: &str = "complexipy-config-watch";
 pub const SHUTDOWN: &str = "shutdown";
 pub const EXIT: &str = "exit";
 
@@ -48,6 +54,7 @@ pub fn serve(connection: Connection) -> i32 {
 struct Initialized {
     workspace: Workspace,
     refresh_support: bool,
+    watch_support: bool,
 }
 
 fn handshake(connection: &Connection) -> Result<Initialized, String> {
@@ -68,11 +75,16 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
     };
 
     let (roots, fallback_root) = workspace_roots(&params);
-    let refresh_support = params
-        .capabilities
-        .workspace
-        .and_then(|workspace| workspace.inlay_hint)
+    let workspace_capabilities = params.capabilities.workspace;
+    let refresh_support = workspace_capabilities
+        .as_ref()
+        .and_then(|workspace| workspace.inlay_hint.as_ref())
         .and_then(|inlay_hint| inlay_hint.refresh_support)
+        .unwrap_or(false);
+    let watch_support = workspace_capabilities
+        .as_ref()
+        .and_then(|workspace| workspace.did_change_watched_files.as_ref())
+        .and_then(|watched_files| watched_files.dynamic_registration)
         .unwrap_or(false);
 
     connection
@@ -91,6 +103,7 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
     Ok(Initialized {
         workspace: Workspace::load(roots, fallback_root),
         refresh_support,
+        watch_support,
     })
 }
 
@@ -136,6 +149,7 @@ struct Server {
     connection: Connection,
     workspace: Workspace,
     refresh_support: bool,
+    watch_support: bool,
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
     failures: HashMap<String, ParseFailure>,
@@ -150,6 +164,7 @@ impl Server {
             connection,
             workspace: initialized.workspace,
             refresh_support: initialized.refresh_support,
+            watch_support: initialized.watch_support,
             documents: Documents::default(),
             analyses: HashMap::new(),
             failures: HashMap::new(),
@@ -160,6 +175,9 @@ impl Server {
     }
 
     fn run(mut self) -> i32 {
+        if self.watch_support {
+            self.register_config_watch();
+        }
         self.report_warnings();
 
         loop {
@@ -270,6 +288,13 @@ impl Server {
                 }
             }
             DID_CHANGE_CONFIGURATION => self.reload_config(),
+            DID_CHANGE_WATCHED_FILES => {
+                if let Ok(params) =
+                    notification.extract::<DidChangeWatchedFilesParams>(DID_CHANGE_WATCHED_FILES)
+                {
+                    self.change_watched_files(params);
+                }
+            }
             DID_CHANGE_WORKSPACE_FOLDERS => {
                 if let Ok(params) = notification
                     .extract::<DidChangeWorkspaceFoldersParams>(DID_CHANGE_WORKSPACE_FOLDERS)
@@ -324,6 +349,43 @@ impl Server {
         self.workspace.reload();
         self.report_warnings();
         self.reanalyze_all();
+    }
+
+    fn change_watched_files(&mut self, params: DidChangeWatchedFilesParams) {
+        if params
+            .changes
+            .iter()
+            .filter_map(|change| uri_to_path(&change.uri))
+            .any(|path| self.workspace.watches(&path))
+        {
+            self.reload_config();
+        }
+    }
+
+    fn register_config_watch(&mut self) {
+        let watchers = config_file_names()
+            .map(|file_name| FileSystemWatcher {
+                glob_pattern: GlobPattern::String(format!("**/{}", file_name)),
+                kind: None,
+            })
+            .collect();
+        let registration = Registration {
+            id: CONFIG_WATCH_ID.to_string(),
+            method: DID_CHANGE_WATCHED_FILES.to_string(),
+            register_options: serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
+                watchers,
+            })
+            .ok(),
+        };
+        let id = self.next_request_id();
+
+        self.send(Request::new(
+            id,
+            REGISTER_CAPABILITY.to_string(),
+            RegistrationParams {
+                registrations: vec![registration],
+            },
+        ));
     }
 
     fn change_folders(&mut self, params: DidChangeWorkspaceFoldersParams) {
@@ -530,10 +592,16 @@ impl Server {
     }
 
     fn request_hint_refresh(&mut self) {
+        let id = self.next_request_id();
+
+        self.send(Request::new(id, INLAY_HINT_REFRESH.to_string(), ()));
+    }
+
+    fn next_request_id(&mut self) -> RequestId {
         let id = RequestId::from(self.next_request_id);
         self.next_request_id += 1;
 
-        self.send(Request::new(id, INLAY_HINT_REFRESH.to_string(), ()));
+        id
     }
 
     fn respond_inlay_hints(&mut self, id: RequestId, params: InlayHintParams) {

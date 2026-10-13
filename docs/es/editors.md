@@ -150,6 +150,13 @@ El servidor ignora el resto de claves del mismo archivo: `paths`, `quiet`,
 `snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
 `report-ignored` y `diff`. Esas claves se usan con `complexipy <path>`.
 
+El servidor vuelve a leer la configuración cuando guardas un cambio en uno de
+estos archivos en la raíz de una carpeta del espacio de trabajo. El editor debe
+admitir el registro dinámico de `workspace/didChangeWatchedFiles`. Si un
+archivo guardado no se puede analizar, el editor muestra una advertencia y la
+carpeta usa la configuración por defecto. Con un editor que no vigila archivos,
+reinicia el servidor después de cambiar la configuración.
+
 ### Inlay hints
 
 El hint se coloca al final de la última línea de la declaración de la función:

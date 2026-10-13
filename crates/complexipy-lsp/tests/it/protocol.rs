@@ -4,18 +4,21 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use complexipy_lsp::server::{
-    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT,
-    EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN,
-    serve,
+    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES, DID_CHANGE_WORKSPACE_FOLDERS,
+    DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT,
+    REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN, serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, Hover, HoverContents, HoverParams,
-    InitializeParams, InitializedParams, InlayHint, InlayHintParams, MessageType, Position,
-    PublishDiagnosticsParams, Range, ShowMessageParams, TextDocumentContentChangeEvent,
-    TextDocumentIdentifier, TextDocumentItem, Uri, VersionedTextDocumentIdentifier,
-    WorkDoneProgressParams, WorkspaceFolder, WorkspaceFoldersChangeEvent,
+    ClientCapabilities, Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams,
+    DidChangeWatchedFilesClientCapabilities, DidChangeWatchedFilesParams,
+    DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileChangeType, FileEvent, Hover,
+    HoverContents, HoverParams, InitializeParams, InitializedParams, InlayHint, InlayHintParams,
+    MessageType, Position, PublishDiagnosticsParams, Range, RegistrationParams, ShowMessageParams,
+    TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem, Uri,
+    VersionedTextDocumentIdentifier, WorkDoneProgressParams, WorkspaceClientCapabilities,
+    WorkspaceFolder, WorkspaceFoldersChangeEvent,
 };
 use tempfile::TempDir;
 
@@ -91,9 +94,34 @@ impl Session {
     }
 
     fn initialize_with(&mut self, folders: &[&str]) -> serde_json::Value {
+        self.initialize_as(folders, ClientCapabilities::default())
+    }
+
+    fn initialize_watching(&mut self) -> serde_json::Value {
+        self.initialize_as(
+            &[""],
+            ClientCapabilities {
+                workspace: Some(WorkspaceClientCapabilities {
+                    did_change_watched_files: Some(DidChangeWatchedFilesClientCapabilities {
+                        dynamic_registration: Some(true),
+                        ..DidChangeWatchedFilesClientCapabilities::default()
+                    }),
+                    ..WorkspaceClientCapabilities::default()
+                }),
+                ..ClientCapabilities::default()
+            },
+        )
+    }
+
+    fn initialize_as(
+        &mut self,
+        folders: &[&str],
+        capabilities: ClientCapabilities,
+    ) -> serde_json::Value {
         let id = self.next_id();
         let params = InitializeParams {
             workspace_folders: Some(folders.iter().map(|folder| self.folder(folder)).collect()),
+            capabilities,
             ..InitializeParams::default()
         };
 
@@ -220,21 +248,58 @@ impl Session {
         }
     }
 
-    fn messages_before_diagnostics(&mut self, uri: &Uri) -> Vec<ShowMessageParams> {
+    fn before_diagnostics(&mut self, uri: &Uri) -> Vec<Message> {
         let mut messages = Vec::new();
         loop {
-            if let Message::Notification(notification) = self.receive() {
-                if notification.method == SHOW_MESSAGE {
-                    messages.push(serde_json::from_value(notification.params).unwrap());
-                } else if notification.method == "textDocument/publishDiagnostics" {
+            match self.receive() {
+                Message::Notification(notification)
+                    if notification.method == "textDocument/publishDiagnostics" =>
+                {
                     let params: PublishDiagnosticsParams =
                         serde_json::from_value(notification.params).unwrap();
                     if &params.uri == uri {
                         return messages;
                     }
                 }
+                message => messages.push(message),
             }
         }
+    }
+
+    fn messages_before_diagnostics(&mut self, uri: &Uri) -> Vec<ShowMessageParams> {
+        self.before_diagnostics(uri)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Notification(notification) if notification.method == SHOW_MESSAGE => {
+                    Some(serde_json::from_value(notification.params).unwrap())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn registrations_before_diagnostics(&mut self, uri: &Uri) -> Vec<RegistrationParams> {
+        self.before_diagnostics(uri)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Request(request) if request.method == REGISTER_CAPABILITY => {
+                    Some(serde_json::from_value(request.params).unwrap())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn files_changed(&mut self, names: &[&str]) {
+        let changes = names
+            .iter()
+            .map(|name| FileEvent::new(self.document_uri(name), FileChangeType::CHANGED))
+            .collect();
+
+        self.notify(
+            DID_CHANGE_WATCHED_FILES,
+            DidChangeWatchedFilesParams { changes },
+        );
     }
 
     fn inlay_hints(&mut self, uri: &Uri) -> Vec<InlayHint> {
@@ -692,5 +757,101 @@ fn a_clean_config_sends_no_message() {
 
     assert!(session.messages_before_diagnostics(&uri).is_empty());
 
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn registers_the_config_watch_when_the_client_supports_it() {
+    let mut session = start();
+    session.initialize_watching();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    let registrations = session.registrations_before_diagnostics(&uri);
+    assert_eq!(registrations.len(), 1);
+    let registration = &registrations[0].registrations[0];
+    assert_eq!(registration.method, DID_CHANGE_WATCHED_FILES);
+    let options: DidChangeWatchedFilesRegistrationOptions =
+        serde_json::from_value(registration.register_options.clone().unwrap()).unwrap();
+    let globs: Vec<String> = options
+        .watchers
+        .into_iter()
+        .map(|watcher| match watcher.glob_pattern {
+            lsp_types::GlobPattern::String(glob) => glob,
+            lsp_types::GlobPattern::Relative(_) => panic!("expected a plain glob"),
+        })
+        .collect();
+    assert_eq!(
+        globs,
+        vec![
+            "**/complexipy.toml",
+            "**/.complexipy.toml",
+            "**/pyproject.toml"
+        ]
+    );
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn registers_nothing_without_client_support() {
+    let mut session = start();
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    assert!(session.registrations_before_diagnostics(&uri).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_config_edit_in_the_root_reloads() {
+    let mut session = start();
+    session.initialize_watching();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert!(session.diagnostics(&uri).is_empty());
+
+    session.write_config(STRICT);
+    session.files_changed(&["complexipy.toml"]);
+
+    assert_eq!(session.diagnostics(&uri).len(), 1);
+    assert_eq!(session.inlay_hints(&uri).len(), 1);
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_nested_config_edit_does_not_reload() {
+    let mut session = start();
+    session.initialize_watching();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert!(session.diagnostics(&uri).is_empty());
+
+    session.write_config(STRICT);
+    session.files_changed(&[".venv/pkg/pyproject.toml"]);
+    session.change(&uri, 2, SAMPLE);
+
+    assert!(session.diagnostics(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_malformed_config_edit_warns_once_and_uses_the_defaults() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize_watching();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    assert_eq!(session.diagnostics(&uri).len(), 1);
+
+    session.write_config("max-complexity-allowed = [\n");
+    session.files_changed(&["complexipy.toml", "pyproject.toml"]);
+
+    let messages = session.messages_before_diagnostics(&uri);
+    assert_eq!(messages.len(), 1);
+    assert!(messages[0].message.starts_with("Failed to parse "));
+    assert!(session.inlay_hints(&uri).is_empty());
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

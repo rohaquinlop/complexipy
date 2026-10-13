@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use complexipy_core::config::{LspConfig, read_complexipy_config};
+use complexipy_core::config::{LspConfig, is_config_file_name, read_complexipy_config};
 use complexipy_core::{
     ExcludeMatcher, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
 };
@@ -27,20 +27,20 @@ impl Folder {
     }
 
     pub fn load(root: String) -> (Self, Vec<String>) {
-        let Some(source) = read_complexipy_config(&root) else {
-            return (Self::new(root, LspConfig::default()), Vec::new());
+        let (source, mut warnings) = read_complexipy_config(&root);
+        let Some(source) = source else {
+            return (Self::new(root, LspConfig::default()), warnings);
         };
         let path = source.path.display().to_string();
 
         let config = match LspConfig::deserialize(source.value) {
             Ok(config) => config,
             Err(error) => {
-                let warning = format!("invalid config in {}: {}", path, error);
-                return (Self::new(root, LspConfig::default()), vec![warning]);
+                warnings.push(format!("invalid config in {}: {}", path, error));
+                return (Self::new(root, LspConfig::default()), warnings);
             }
         };
 
-        let mut warnings = Vec::new();
         let (rules, unknown) = config.resolve_rules();
         for rule_id in &unknown {
             warnings.push(format!("{}: {}", path, unknown_rule_warning(rule_id)));
@@ -153,6 +153,19 @@ impl Workspace {
             let folder = self.load_folder(root);
             self.folders.push(folder);
         }
+    }
+
+    pub fn watches(&self, path: &str) -> bool {
+        let path = Path::new(path);
+        let (Some(name), Some(parent)) = (path.file_name(), path.parent()) else {
+            return false;
+        };
+
+        name.to_str().is_some_and(is_config_file_name)
+            && self
+                .folders
+                .iter()
+                .any(|folder| Path::new(&folder.root) == parent)
     }
 
     pub fn take_warnings(&mut self) -> Vec<String> {

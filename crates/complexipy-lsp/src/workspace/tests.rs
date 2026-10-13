@@ -96,6 +96,31 @@ fn removing_the_last_folder_falls_back_to_the_fallback_root() {
     assert_eq!(roots(&workspace), vec![MISSING]);
 }
 
+#[test]
+fn a_config_file_in_a_folder_root_is_watched() {
+    let workspace = workspace(vec![folder("/w1", 1), folder("/w2/", 2)]);
+
+    assert!(workspace.watches("/w1/complexipy.toml"));
+    assert!(workspace.watches("/w1/.complexipy.toml"));
+    assert!(workspace.watches("/w2/pyproject.toml"));
+}
+
+#[test]
+fn other_files_are_not_watched() {
+    let workspace = workspace(vec![folder("/w1", 1)]);
+
+    assert!(!workspace.watches("/w1/.venv/pkg/pyproject.toml"));
+    assert!(!workspace.watches("/w1/setup.cfg"));
+    assert!(!workspace.watches("/elsewhere/complexipy.toml"));
+}
+
+#[test]
+fn the_fallback_root_is_watched_without_folders() {
+    let workspace = Workspace::load(Vec::new(), MISSING.to_string());
+
+    assert!(workspace.watches(&format!("{}/complexipy.toml", MISSING)));
+}
+
 fn root_with_config(content: &str) -> TempDir {
     let root = TempDir::new().unwrap();
     std::fs::write(root.path().join("complexipy.toml"), content).unwrap();
@@ -128,6 +153,14 @@ fn a_rule_set_with_no_active_rule_is_a_warning() {
             .iter()
             .any(|warning| warning.ends_with(&no_active_rule_warning()))
     );
+}
+
+#[test]
+fn a_toml_syntax_error_is_a_warning() {
+    let warnings = load_warnings("max-complexity-allowed = [\n");
+
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].starts_with("Failed to parse "));
 }
 
 #[test]
