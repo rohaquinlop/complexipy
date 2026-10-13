@@ -131,6 +131,14 @@ fn a_rule_set_with_no_active_rule_is_a_warning() {
 }
 
 #[test]
+fn a_toml_syntax_error_is_a_warning() {
+    let warnings = load_warnings("max-complexity-allowed = [\n");
+
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].starts_with("Failed to parse "));
+}
+
+#[test]
 fn a_clean_config_has_no_warning() {
     assert!(load_warnings("max-complexity-allowed = 10\n").is_empty());
 }

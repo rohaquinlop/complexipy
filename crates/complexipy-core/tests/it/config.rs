@@ -2,7 +2,7 @@
 //! Tests for config file discovery and the [tool.complexipy.lsp] section.
 
 use complexipy_core::config::{
-    ConfigFileKind, InlayHints, LspConfig, config_candidates, is_config_file_name,
+    ConfigFileKind, ConfigSource, InlayHints, LspConfig, config_candidates, is_config_file_name,
     read_complexipy_config,
 };
 
@@ -11,6 +11,10 @@ use tempfile::TempDir;
 
 fn write(dir: &TempDir, name: &str, content: &str) {
     fs_sync::write(dir.path().join(name), content).unwrap();
+}
+
+fn source(dir: &TempDir) -> Option<ConfigSource> {
+    read_complexipy_config(&dir.path().to_string_lossy()).0
 }
 
 #[test]
@@ -124,7 +128,7 @@ fn reader_prefers_complexipy_toml() {
     write(&dir, "complexipy.toml", "max-complexity-allowed = 3");
     write(&dir, ".complexipy.toml", "max-complexity-allowed = 9");
 
-    let source = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let source = source(&dir).unwrap();
     let config: LspConfig = source.value.try_into().unwrap();
 
     assert_eq!(config.max_complexity_allowed, 3);
@@ -135,7 +139,7 @@ fn reader_falls_back_to_dot_variant() {
     let dir = TempDir::new().unwrap();
     write(&dir, ".complexipy.toml", "max-complexity-allowed = 9");
 
-    let source = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let source = source(&dir).unwrap();
     let config: LspConfig = source.value.try_into().unwrap();
 
     assert_eq!(config.max_complexity_allowed, 9);
@@ -150,7 +154,7 @@ fn reader_reads_pyproject_section() {
         "[tool.complexipy]\nmax-complexity-allowed = 7\n\n[tool.other]\nx = 1\n",
     );
 
-    let source = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let source = source(&dir).unwrap();
     let config: LspConfig = source.value.try_into().unwrap();
 
     assert_eq!(config.max_complexity_allowed, 7);
@@ -160,7 +164,7 @@ fn reader_reads_pyproject_section() {
 fn reader_returns_none_without_config_files() {
     let dir = TempDir::new().unwrap();
 
-    assert!(read_complexipy_config(&dir.path().to_string_lossy()).is_none());
+    assert!(source(&dir).is_none());
 }
 
 #[test]
@@ -168,7 +172,7 @@ fn reader_returns_none_without_pyproject_section() {
     let dir = TempDir::new().unwrap();
     write(&dir, "pyproject.toml", "[tool.ruff]\nline-length = 80\n");
 
-    assert!(read_complexipy_config(&dir.path().to_string_lossy()).is_none());
+    assert!(source(&dir).is_none());
 }
 
 #[test]
@@ -177,10 +181,24 @@ fn reader_skips_malformed_file() {
     write(&dir, "complexipy.toml", "max-complexity-allowed = ");
     write(&dir, ".complexipy.toml", "max-complexity-allowed = 11");
 
-    let source = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
-    let config: LspConfig = source.value.try_into().unwrap();
+    let (source, errors) = read_complexipy_config(&dir.path().to_string_lossy());
+    let config: LspConfig = source.unwrap().value.try_into().unwrap();
 
     assert_eq!(config.max_complexity_allowed, 11);
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].starts_with("Failed to parse "));
+    assert!(errors[0].contains("complexipy.toml"));
+}
+
+#[test]
+fn reader_reports_a_malformed_file_without_a_fallback() {
+    let dir = TempDir::new().unwrap();
+    write(&dir, "complexipy.toml", "max-complexity-allowed = ");
+
+    let (source, errors) = read_complexipy_config(&dir.path().to_string_lossy());
+
+    assert!(source.is_none());
+    assert_eq!(errors.len(), 1);
 }
 
 #[test]
@@ -188,13 +206,13 @@ fn readers_agree_on_all_three_sources() {
     let dir = TempDir::new().unwrap();
 
     write(&dir, "complexipy.toml", "max-complexity-allowed = 4");
-    let direct = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let direct = source(&dir).unwrap();
     let direct: LspConfig = direct.value.try_into().unwrap();
     assert_eq!(direct.max_complexity_allowed, 4);
     fs_sync::remove_file(dir.path().join("complexipy.toml")).unwrap();
 
     write(&dir, ".complexipy.toml", "max-complexity-allowed = 4");
-    let dot = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let dot = source(&dir).unwrap();
     let dot: LspConfig = dot.value.try_into().unwrap();
     assert_eq!(dot, direct);
     fs_sync::remove_file(dir.path().join(".complexipy.toml")).unwrap();
@@ -204,7 +222,7 @@ fn readers_agree_on_all_three_sources() {
         "pyproject.toml",
         "[tool.complexipy]\nmax-complexity-allowed = 4",
     );
-    let pyproject = read_complexipy_config(&dir.path().to_string_lossy()).unwrap();
+    let pyproject = source(&dir).unwrap();
     let pyproject: LspConfig = pyproject.value.try_into().unwrap();
     assert_eq!(pyproject, direct);
 }

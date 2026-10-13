@@ -157,35 +157,43 @@ pub fn config_candidates(invocation_path: &str) -> Vec<ConfigCandidate> {
 }
 
 pub fn load_candidate_value(candidate: &ConfigCandidate) -> Option<toml::Value> {
-    let content = fs::read_to_string(&candidate.path).ok()?;
-
-    match candidate.kind {
-        ConfigFileKind::ComplexipyToml | ConfigFileKind::DotComplexipyToml => {
-            parse_toml(&content, &candidate.path)
-        }
-        ConfigFileKind::PyprojectToml => section_of(parse_toml(&content, &candidate.path)?),
-    }
+    read_candidate_value(candidate).unwrap_or_else(|error| {
+        eprintln!("{}", error);
+        None
+    })
 }
 
-pub fn read_complexipy_config(invocation_path: &str) -> Option<ConfigSource> {
-    config_candidates(invocation_path)
-        .into_iter()
-        .find_map(|candidate| {
-            load_candidate_value(&candidate).map(|value| ConfigSource {
-                path: candidate.path,
-                value,
-            })
-        })
+pub fn read_candidate_value(candidate: &ConfigCandidate) -> Result<Option<toml::Value>, String> {
+    let Ok(content) = fs::read_to_string(&candidate.path) else {
+        return Ok(None);
+    };
+    let value = toml::from_str(&content)
+        .map_err(|e| format!("Failed to parse {}: {}", candidate.path.display(), e))?;
+
+    Ok(match candidate.kind {
+        ConfigFileKind::ComplexipyToml | ConfigFileKind::DotComplexipyToml => Some(value),
+        ConfigFileKind::PyprojectToml => section_of(value),
+    })
 }
 
-fn parse_toml(content: &str, path: &Path) -> Option<toml::Value> {
-    match toml::from_str(content) {
-        Ok(value) => Some(value),
-        Err(e) => {
-            eprintln!("Failed to parse {}: {}", path.display(), e);
-            None
+pub fn read_complexipy_config(invocation_path: &str) -> (Option<ConfigSource>, Vec<String>) {
+    let mut errors = Vec::new();
+
+    for candidate in config_candidates(invocation_path) {
+        match read_candidate_value(&candidate) {
+            Ok(Some(value)) => {
+                let source = ConfigSource {
+                    path: candidate.path,
+                    value,
+                };
+                return (Some(source), errors);
+            }
+            Ok(None) => {}
+            Err(error) => errors.push(error),
         }
     }
+
+    (None, errors)
 }
 
 fn section_of(value: toml::Value) -> Option<toml::Value> {
