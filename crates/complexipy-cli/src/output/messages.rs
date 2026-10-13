@@ -2,6 +2,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
+pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
 
 pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: &str) -> String {
     if !snap.should_run {
@@ -63,21 +64,6 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
 
 pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
-}
-
-pub fn no_active_rule_warning() -> String {
-    "No refactoring rule is active after select and ignore.".to_string()
-}
-
-pub fn unknown_rule_warning(rule_id: &str) -> String {
-    if rule_id.is_empty() {
-        "Empty rule id in select or ignore; it matches no rule.".to_string()
-    } else {
-        format!(
-            "Unknown rule id '{}'; it matches no registered rule.",
-            rule_id
-        )
-    }
 }
 
 #[cfg(test)]

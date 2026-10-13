@@ -423,7 +423,9 @@ fn syntax_errors_carry_a_parse_diagnostic() {
         panic!("expected a syntax error");
     };
 
-    assert!(failure.message.contains("Failed to parse"));
+    assert!(!failure.message.is_empty());
+    assert!(!failure.message.contains("Failed to parse"));
+    assert!(!failure.message.contains("byte range"));
     assert_eq!(failure.version, 4);
 
     let diagnostic = failure.diagnostic();
@@ -438,8 +440,43 @@ fn syntax_errors_carry_a_parse_diagnostic() {
     assert_eq!(diagnostic.source.as_deref(), Some(DIAGNOSTIC_SOURCE));
     assert_eq!(
         diagnostic.range,
-        Range::new(Position::new(0, 0), Position::new(0, 12))
+        Range::new(Position::new(0, 11), Position::new(0, 12))
     );
+}
+
+fn parse_error_range(source: &str) -> Range {
+    let Err(failure) = analyze(source, 1, &config(15)) else {
+        panic!("expected a syntax error");
+    };
+
+    failure.diagnostic().range
+}
+
+#[test]
+fn a_syntax_error_sits_on_its_own_line() {
+    let source = format!("{}def broken(:\n", "x = 1\n".repeat(39));
+
+    assert_eq!(parse_error_range(&source).start, Position::new(39, 11));
+}
+
+#[test]
+fn the_error_column_counts_utf16_code_units() {
+    let source = "name = \"\u{1F600}\u{e9}\"; def broken(:\n";
+    let ascii = "name = \"ab\"; def broken(:\n";
+
+    assert_eq!(
+        parse_error_range(source).start.character,
+        parse_error_range(ascii).start.character + 1
+    );
+}
+
+#[test]
+fn an_error_at_the_end_stays_inside_the_document() {
+    let source = "values = [1, 2\n\n";
+    let range = parse_error_range(source);
+
+    assert_eq!(range.start.line, 0);
+    assert!(range.start <= range.end);
 }
 
 #[test]

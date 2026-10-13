@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use complexipy_core::AnalysisOptions;
 use complexipy_core::classes::{FunctionComplexity, RefactorPlan};
-use complexipy_core::cognitive_complexity::{code_complexity_shared, plans_for_function};
+use complexipy_core::cognitive_complexity::{
+    code_complexity_shared, plans_for_function, syntax_error,
+};
 use complexipy_core::config::{InlayHints, LspConfig};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, Hover, HoverContents, InlayHint, InlayHintKind, InlayHintLabel,
@@ -49,13 +51,13 @@ impl LineBounds {
 pub struct ParseFailure {
     pub version: i32,
     pub message: String,
-    bounds: LineBounds,
+    range: Range,
 }
 
 impl ParseFailure {
     pub fn diagnostic(&self) -> Diagnostic {
         Diagnostic {
-            range: Range::new(Position::new(0, 0), self.bounds.end_position(1)),
+            range: self.range,
             severity: Some(DiagnosticSeverity::WARNING),
             code: Some(NumberOrString::String(PARSE_ERROR_CODE.to_string())),
             code_description: None,
@@ -218,12 +220,47 @@ pub fn analyze(
 ) -> Result<DocumentAnalysis, ParseFailure> {
     match code_complexity_shared(text, &analysis_options(config)) {
         Ok(result) => Ok(DocumentAnalysis::new(version, result.functions, text)),
-        Err(message) => Err(ParseFailure {
-            version,
-            message,
-            bounds: LineBounds::new(text),
-        }),
+        Err(message) => Err(parse_failure(text, version, message)),
     }
+}
+
+fn parse_failure(text: &str, version: i32, fallback: String) -> ParseFailure {
+    let bounds = LineBounds::new(text);
+    let Some(error) = syntax_error(text) else {
+        return ParseFailure {
+            version,
+            message: fallback,
+            range: Range::new(Position::new(0, 0), bounds.end_position(1)),
+        };
+    };
+
+    let start = position_at(text, error.start);
+    let end = position_at(text, error.end);
+    let end = if start == end {
+        bounds.end_position(u64::from(start.line) + 1)
+    } else {
+        end
+    };
+
+    ParseFailure {
+        version,
+        message: error.message,
+        range: Range::new(start, end),
+    }
+}
+
+fn position_at(text: &str, offset: usize) -> Position {
+    let mut offset = offset.min(text.trim_end().len());
+    while !text.is_char_boundary(offset) {
+        offset -= 1;
+    }
+    let before = &text[..offset];
+    let line_start = before.rfind('\n').map_or(0, |index| index + 1);
+
+    Position::new(
+        before.matches('\n').count() as u32,
+        text[line_start..offset].encode_utf16().count() as u32,
+    )
 }
 
 fn analysis_options(config: &LspConfig) -> AnalysisOptions {

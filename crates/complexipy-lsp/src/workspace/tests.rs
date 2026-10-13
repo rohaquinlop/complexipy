@@ -1,4 +1,5 @@
 use super::*;
+use tempfile::TempDir;
 
 const MISSING: &str = "/complexipy-missing-root";
 
@@ -93,4 +94,55 @@ fn removing_the_last_folder_falls_back_to_the_fallback_root() {
     workspace.remove("/w1");
 
     assert_eq!(roots(&workspace), vec![MISSING]);
+}
+
+fn root_with_config(content: &str) -> TempDir {
+    let root = TempDir::new().unwrap();
+    std::fs::write(root.path().join("complexipy.toml"), content).unwrap();
+    root
+}
+
+fn load_warnings(content: &str) -> Vec<String> {
+    let root = root_with_config(content);
+    Folder::load(root.path().display().to_string()).1
+}
+
+#[test]
+fn an_unknown_rule_id_is_a_warning() {
+    let warnings = load_warnings("select = [\"C07\"]\n");
+
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.contains("complexipy.toml")
+                && warning.contains(&unknown_rule_warning("C07")))
+    );
+}
+
+#[test]
+fn a_rule_set_with_no_active_rule_is_a_warning() {
+    let warnings = load_warnings("select = [\"C007\"]\nignore = [\"C007\"]\n");
+
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.ends_with(&no_active_rule_warning()))
+    );
+}
+
+#[test]
+fn a_clean_config_has_no_warning() {
+    assert!(load_warnings("max-complexity-allowed = 10\n").is_empty());
+}
+
+#[test]
+fn the_workspace_hands_out_each_warning_once() {
+    let root = root_with_config("select = [\"C07\"]\n");
+    let mut workspace = Workspace::load(Vec::new(), root.path().display().to_string());
+
+    assert_eq!(workspace.take_warnings().len(), 2);
+    assert!(workspace.take_warnings().is_empty());
+
+    workspace.reload();
+    assert_eq!(workspace.take_warnings().len(), 2);
 }

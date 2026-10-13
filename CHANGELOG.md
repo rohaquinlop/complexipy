@@ -18,8 +18,10 @@ release section links to its GitHub release notes for the full details.
   ignore comments, so the editor and the CLI agree. The per-function hint sits
   at the end of the line that closes the declaration, so a wrapped signature
   keeps the hint on its closing line, and a document that does not parse keeps
-  the last parsed hints plus one `complexipy-parse-error` warning until it parses
-  again. See
+  the last parsed hints plus one `complexipy-parse-error` warning, placed where
+  the parser fails, until it parses again. Configuration problems, such as an
+  unknown rule id in `select`, appear in the editor as a warning message
+  ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). See
   [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
   setup. The VS Code extension does not use the server yet:
   [#253](https://github.com/rohaquinlop/complexipy/issues/253) tracks that

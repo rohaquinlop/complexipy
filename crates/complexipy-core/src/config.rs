@@ -105,12 +105,15 @@ pub struct LspConfig {
 
 impl LspConfig {
     pub fn rule_set(&self) -> RuleSet {
+        self.resolve_rules().0
+    }
+
+    pub fn resolve_rules(&self) -> (RuleSet, Vec<String>) {
         RuleSet::resolve(
             &self.select.clone().into_vec(),
             &self.ignore.clone().into_vec(),
             &crate::rules::registered_rule_ids(),
         )
-        .0
     }
 }
 

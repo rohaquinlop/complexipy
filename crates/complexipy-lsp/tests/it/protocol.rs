@@ -5,16 +5,17 @@ use std::time::Duration;
 
 use complexipy_lsp::server::{
     DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT,
-    EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHUTDOWN, serve,
+    EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN,
+    serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams,
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, Hover, HoverContents, HoverParams,
-    InitializeParams, InitializedParams, InlayHint, InlayHintParams, Position,
-    PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent, TextDocumentIdentifier,
-    TextDocumentItem, Uri, VersionedTextDocumentIdentifier, WorkDoneProgressParams,
-    WorkspaceFolder, WorkspaceFoldersChangeEvent,
+    InitializeParams, InitializedParams, InlayHint, InlayHintParams, MessageType, Position,
+    PublishDiagnosticsParams, Range, ShowMessageParams, TextDocumentContentChangeEvent,
+    TextDocumentIdentifier, TextDocumentItem, Uri, VersionedTextDocumentIdentifier,
+    WorkDoneProgressParams, WorkspaceFolder, WorkspaceFoldersChangeEvent,
 };
 use tempfile::TempDir;
 
@@ -214,6 +215,23 @@ impl Session {
 
                 if &params.uri == uri {
                     return params.diagnostics;
+                }
+            }
+        }
+    }
+
+    fn messages_before_diagnostics(&mut self, uri: &Uri) -> Vec<ShowMessageParams> {
+        let mut messages = Vec::new();
+        loop {
+            if let Message::Notification(notification) = self.receive() {
+                if notification.method == SHOW_MESSAGE {
+                    messages.push(serde_json::from_value(notification.params).unwrap());
+                } else if notification.method == "textDocument/publishDiagnostics" {
+                    let params: PublishDiagnosticsParams =
+                        serde_json::from_value(notification.params).unwrap();
+                    if &params.uri == uri {
+                        return messages;
+                    }
                 }
             }
         }
@@ -640,6 +658,39 @@ fn folders_added_and_removed_at_runtime_take_effect() {
         },
     );
     assert!(session.diagnostics(&uri).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn config_problems_reach_the_client_once() {
+    let mut session = start();
+    session.write_config("select = [\"C07\"]\n");
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    let messages = session.messages_before_diagnostics(&uri);
+    assert_eq!(messages.len(), 2);
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.typ == MessageType::WARNING)
+    );
+    assert!(messages[0].message.contains("'C07'"));
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_clean_config_sends_no_message() {
+    let mut session = start();
+    session.write_config(STRICT);
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    assert!(session.messages_before_diagnostics(&uri).is_empty());
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }
