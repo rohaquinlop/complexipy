@@ -24,7 +24,10 @@ release section links to its GitHub release notes for the full details.
   ([#272](https://github.com/rohaquinlop/complexipy/issues/272)). The server
   reloads the configuration when a configuration file at a folder root changes,
   in editors that watch files for it
-  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). See
+  ([#257](https://github.com/rohaquinlop/complexipy/issues/257)). A Zed
+  extension in `zed/` starts the server in Zed, and the inlay hints carry a
+  left padding so they do not touch the code
+  ([#255](https://github.com/rohaquinlop/complexipy/issues/255)). See
   [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
   setup. The VS Code extension does not use the server yet:
   [#253](https://github.com/rohaquinlop/complexipy/issues/253) tracks that
