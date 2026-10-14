@@ -119,21 +119,21 @@ repos:
 <details>
 <summary><strong>🔌 VS Code Extension</strong></summary>
 
-Install from the [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) for real-time complexity analysis with visual indicators.
+Install from the [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) It runs the complexipy language server, so install `complexipy` too (`uv tool install complexipy`). Inlay hints, hover, and warnings update as you type.
 
 </details>
 
 <details>
 <summary><strong>🧩 Editor Integration</strong></summary>
 
-Every other editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings. See [Editor Integration](editors.md) for the Neovim and Zed setup.
+Every editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings. See [Editor Integration](editors.md) for the VS Code, Neovim, and Zed setup.
 
 </details>
 
 ## Learn More
 
 - [Usage Guide](usage-guide.md) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
-- [Editor Integration](editors.md) - the language server, inlay hints, and the Neovim and Zed setup
+- [Editor Integration](editors.md) - the language server, inlay hints, and the VS Code, Neovim, and Zed setup
 - [API Reference](api-reference.md) - the complete Python API
 - [Understanding Scores](understanding-scores.md) - how the scoring algorithm works
 - [Comparison with Ruff](comparison-with-ruff.md) - cognitive vs cyclomatic complexity

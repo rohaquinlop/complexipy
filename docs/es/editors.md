@@ -119,6 +119,28 @@ define su ruta:
 }
 ```
 
+## VS Code
+
+Instala la
+[extensión de complexipy](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy).
+Es un cliente de `complexipy lsp`: arranca el servidor para los archivos de
+Python y muestra sus inlay hints, hover y advertencias. VS Code muestra los
+inlay hints por defecto, así que no hace falta ninguna configuración del
+editor.
+
+La extensión también añade un elemento en la barra de estado con el número de
+funciones por encima del umbral en el archivo activo. Haz clic en él para abrir
+el panel Problems.
+
+La extensión ejecuta `complexipy lsp` desde el `PATH`. Para usar otro binario,
+define su ruta en `settings.json`:
+
+```json
+{
+  "complexipy.server.path": "/ruta/completa/a/complexipy"
+}
+```
+
 ## Configuración
 
 El servidor lee los mismos archivos de configuración que la CLI -
@@ -247,6 +269,9 @@ puede ver:
 - Zed: define `"path"` con la ruta absoluta del binario en el bloque
   `lsp.complexipy.binary`. Sin él, la extensión busca `complexipy` en el
   `PATH`, y Zed muestra un error cuando no está.
+- VS Code: define `complexipy.server.path` con la ruta absoluta del binario.
+  Sin él, la extensión busca `complexipy` en el `PATH`, y VS Code muestra un
+  error cuando no está.
 
 Como alternativa, arráncalo a través de `uv` sin instalar nada globalmente:
 
@@ -262,6 +287,7 @@ los registros van a stderr. Léelos donde tu editor los recopila:
 - Neovim: `:LspLog`.
 - Zed: abre el panel de registros desde la paleta de comandos
   (`zed: open log`).
+- VS Code: abre el panel Output y selecciona el canal `complexipy`.
 
 ### Los hints no aparecen
 

@@ -28,12 +28,19 @@ release section links to its GitHub release notes for the full details.
   extension in `zed/` starts the server in Zed, and the inlay hints carry a
   left padding so they do not touch the code
   ([#255](https://github.com/rohaquinlop/complexipy/issues/255)). See
-  [Editor Integration](https://complexipy.com/editors/) for the Neovim and Zed
-  setup. The VS Code extension does not use the server yet:
-  [#253](https://github.com/rohaquinlop/complexipy/issues/253) tracks that
-  move, which is what will close
-  [#133](https://github.com/rohaquinlop/complexipy/issues/133) and
-  [#127](https://github.com/rohaquinlop/complexipy/issues/127).
+  [Editor Integration](https://complexipy.com/editors/) for the VS Code, Neovim,
+  and Zed setup.
+
+- The VS Code extension is now a client of the language server and drops its
+  bundled WASM engine
+  ([#253](https://github.com/rohaquinlop/complexipy/issues/253)). Results
+  update while you type, with no save
+  ([#133](https://github.com/rohaquinlop/complexipy/issues/133)), and hints
+  and warnings follow `max-complexity-allowed` and the
+  `[tool.complexipy.lsp]` settings
+  ([#127](https://github.com/rohaquinlop/complexipy/issues/127)). The
+  extension needs the `complexipy` command, and a `complexipy.server.path`
+  setting points it at a specific binary.
 
 - A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
   (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.

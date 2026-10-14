@@ -116,6 +116,26 @@ set its path:
 }
 ```
 
+## VS Code
+
+Install the
+[complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy).
+It is a client of `complexipy lsp`: it starts the server for Python files and
+shows its inlay hints, hover, and warnings. VS Code shows inlay hints by
+default, so no editor setting is needed.
+
+The extension also adds a status bar item with the number of functions over
+the threshold in the active file. Click it to open the Problems panel.
+
+The extension runs `complexipy lsp` from the `PATH`. To use another binary,
+set its path in `settings.json`:
+
+```json
+{
+  "complexipy.server.path": "/full/path/to/complexipy"
+}
+```
+
 ## Configuration
 
 The server reads the same configuration files as the CLI - `complexipy.toml`,
@@ -238,6 +258,9 @@ when the tool is installed somewhere the editor cannot see:
 - Zed: set `"path"` to the absolute binary in the `lsp.complexipy.binary`
   block. Without it, the extension looks for `complexipy` on the `PATH`, and
   Zed shows an error when it is not there.
+- VS Code: set `complexipy.server.path` to the absolute binary. Without it,
+  the extension looks for `complexipy` on the `PATH`, and VS Code shows an
+  error when it is not there.
 
 Alternatively, start it through `uv` without installing anything globally:
 
@@ -252,6 +275,7 @@ goes to stderr. Read it where your editor collects it:
 
 - Neovim: `:LspLog`.
 - Zed: open the log panel from the command palette (`zed: open log`).
+- VS Code: open the Output panel and select the `complexipy` channel.
 
 ### Hints do not appear
 
