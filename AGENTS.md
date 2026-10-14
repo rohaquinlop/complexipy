@@ -25,7 +25,7 @@ uv run complexipy <path>                            # run the tool
 uv run complexipy . --diff main --max-complexity-allowed 15
 uv run complexipy complexipy --failed               # dogfood it on itself
 ./benchmarks/benchmark-cli.sh                       # corpus and scaling guard
-./build-wasm.sh                                     # wasm-pack -> web/wasm/, vscode/complexipy/wasm/
+./build-wasm.sh                                     # wasm-pack -> web/wasm/
 ./serve-web-version.sh                              # serve web/ on :8080
 complexipy lsp                                      # stdio LSP server
 cargo run -p complexipy-lsp                         # the same server from the tree
