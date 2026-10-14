@@ -1,8 +1,8 @@
 {
   "name": "complexipy",
   "displayName": "complexipy",
-  "description": "Real-time cognitive complexity analyzer for Python code with visual indicators, status bar integration, and detailed hover information for function and line-level complexity",
-  "version": "0.2.0",
+  "description": "Cognitive complexity for Python as you type: inlay hints, hover details, and warnings from the complexipy language server",
+  "version": "0.3.0",
   "icon": "img/complexipy.png",
   "publisher": "rohaquinlop",
   "repository": {
@@ -23,16 +23,25 @@
   ],
   "main": "./extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "complexipy.calculateCognitiveComplexity",
-        "title": "complexipy: Calculate Cognitive Complexity"
+    "configuration": {
+      "title": "complexipy",
+      "properties": {
+        "complexipy.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to the `complexipy` executable. The extension runs `<path> lsp`. Leave empty to use `complexipy` from the `PATH`."
+        }
       }
-    ]
+    }
   },
   "scripts": {
     "lint": "eslint .",
-    "pretest": "npm run lint"
+    "pretest": "npm run lint",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
