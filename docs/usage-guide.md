@@ -1057,14 +1057,7 @@ complexity_report:
 
 ## VS Code Integration
 
-Install the [complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) for real-time complexity analysis:
-
-- Inline complexity scores
-- Hover tooltips with details
-- Color-coded indicators
-- Quick-fix suggestions
-
-Every other editor uses the [language server](editors.md) instead.
+Install the [complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy). The extension is a client of the [language server](editors.md#vs-code) and needs the `complexipy` command installed.
 
 ## Tips and Best Practices
 

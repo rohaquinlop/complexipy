@@ -119,21 +119,21 @@ repos:
 <details>
 <summary><strong>🔌 Extensión de VS Code</strong></summary>
 
-Instálala desde el [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) para tener análisis de complejidad en tiempo real con indicadores visuales.
+Instálala desde el [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) Ejecuta el servidor de lenguaje de complexipy, así que instala `complexipy` también (`uv tool install complexipy`). Los inlay hints, el hover y las advertencias se actualizan mientras escribes.
 
 </details>
 
 <details>
 <summary><strong>🧩 Integración con Editores</strong></summary>
 
-Cualquier otro editor usa `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias. Consulta [Integración con Editores](editors.md) para la configuración de Neovim y Zed.
+Todos los editores usan `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias. Consulta [Integración con Editores](editors.md) para la configuración de VS Code, Neovim y Zed.
 
 </details>
 
 ## Aprende Más
 
 - [Guía de Uso](usage-guide.md) - todas las flags de CLI, archivos de configuración, snapshots, diff de complejidad e ignores en línea
-- [Integración con Editores](editors.md) - el servidor de lenguaje, los inlay hints y la configuración de Neovim y Zed
+- [Integración con Editores](editors.md) - el servidor de lenguaje, los inlay hints y la configuración de VS Code, Neovim y Zed
 - [Referencia de la API](api-reference.md) - la API completa de Python
 - [Qué Significan las Puntuaciones](understanding-scores.md) - cómo funciona el algoritmo de puntuación
 - [Comparación con Ruff](comparison-with-ruff.md) - complejidad cognitiva vs ciclomática

@@ -33,11 +33,18 @@ GitHub con todos los detalles.
   llevan un margen a la izquierda para no tocar el código
   ([#255](https://github.com/rohaquinlop/complexipy/issues/255)). Consulta
   [Integración con Editores](https://complexipy.com/es/editors/) para la
-  configuración de Neovim y Zed. La extensión de VS Code aún no usa el
-  servidor: [#253](https://github.com/rohaquinlop/complexipy/issues/253)
-  sigue ese cambio, que es el que cerrará
-  [#133](https://github.com/rohaquinlop/complexipy/issues/133) y
-  [#127](https://github.com/rohaquinlop/complexipy/issues/127).
+  configuración de VS Code, Neovim y Zed.
+
+- La extensión de VS Code ahora es un cliente del servidor de lenguaje y
+  elimina su motor WASM empaquetado
+  ([#253](https://github.com/rohaquinlop/complexipy/issues/253)). Los
+  resultados se actualizan mientras escribes, sin guardar
+  ([#133](https://github.com/rohaquinlop/complexipy/issues/133)), y los hints
+  y las advertencias siguen `max-complexity-allowed` y la configuración de
+  `[tool.complexipy.lsp]`
+  ([#127](https://github.com/rohaquinlop/complexipy/issues/127)). La
+  extensión necesita el comando `complexipy`, y la opción
+  `complexipy.server.path` la apunta a un binario concreto.
 
 - Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
   (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las

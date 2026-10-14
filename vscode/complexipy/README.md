@@ -1,83 +1,71 @@
 # Complexipy VSCode Extension
 
-A Visual Studio Code extension that provides real-time cognitive complexity analysis for Python code. This extension helps developers identify and manage code complexity by providing visual indicators for both function-level and line-level complexity.
+Cognitive complexity for Python in VS Code, as you type. The extension is a
+client of the complexipy language server (`complexipy lsp`), so it runs the
+same engine and reads the same configuration as the `complexipy` CLI.
 
 ## Features
 
-- **Real-time Complexity Analysis**: Automatically analyzes Python code as you type
-- **Visual Complexity Indicators**:
-    - Function complexity shown with `ƒ` symbol
-    - Line-level complexity shown with `+` symbol
-    - Color-coded indicators:
-        - Green: Low complexity (functions ≤ 15, lines ≤ 5)
-        - Red: High complexity (functions > 15, lines > 5)
-- **Status Bar Integration**:
-    - Overall file complexity overview in the status bar
-    - Shows total functions and high-complexity function count
-    - Visual indicators (green/yellow/red) based on complexity levels
-    - Detailed tooltip with complexity grade and recommendations
-    - Clickable to trigger manual analysis
-- **Comprehensive Hover Information**:
-    - Detailed function complexity breakdown
-    - Line-level complexity explanations
-    - Actionable refactoring suggestions
-    - Educational content about cognitive complexity
-- **Automatic Updates**: Complexity analysis updates on:
-    - File save
-    - Active editor change
-    - Text changes
+- **Inlay hints**: the cognitive complexity of a function at the end of its
+  `def` line, for example `cognitive: 18`.
+- **Hover**: the function name, its complexity, whether it exceeds the
+  threshold, and the top refactoring suggestion when one exists.
+- **Warnings**: one warning per function above `max-complexity-allowed`, in
+  the editor and in the Problems panel.
+- **Status bar**: the number of functions over the threshold in the active
+  Python file. Click it to open the Problems panel.
+
+Results update on every edit. You do not need to save.
 
 ## Requirements
 
-- Visual Studio Code version 1.85.0 or higher
-- Python files to analyze
+- Visual Studio Code 1.85.0 or higher.
+- The `complexipy` command, from a release that includes `complexipy lsp`:
 
-## Installation
+```bash
+uv tool install complexipy
+```
 
-1. Open VS Code
-1. Go to the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
-1. Search for "complexipy"
-1. Click Install
+or `pip install complexipy`.
 
-## Usage
+## Settings
 
-The extension automatically activates when you open a Python file. You'll see complexity indicators appear at the end of each line:
+- `complexipy.server.path`: the path to the `complexipy` executable. The
+  extension runs `<path> lsp`. Leave it empty to use `complexipy` from the
+  `PATH`.
 
-- `ƒ N`: Function complexity score (where N is the complexity value)
-- `+N`: Line-level complexity score (where N is the complexity value)
+If the extension cannot start the server, VS Code shows an error and the
+status bar shows an error icon. Server logs are in the Output panel, in the
+`complexipy` channel.
 
-### Manual Analysis
+## Configuration
 
-You can trigger a manual analysis by:
+What appears is controlled by the complexipy configuration file in the
+workspace folder: `complexipy.toml`, `.complexipy.toml`, or `pyproject.toml`
+under `[tool.complexipy]`.
 
-1. Opening the Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
-1. Typing "complexipy"
-1. Selecting the "complexipy" command
+```toml
+max-complexity-allowed = 15
 
-## Complexity Thresholds
+[lsp]
+inlay-hints = "threshold"
+```
 
-- **Function Complexity**:
-
-    - Low: ≤ 15
-    - High: > 15
-
-- **Line Complexity**:
-
-    - Low: ≤ 5
-    - High: > 5
+By default, hints and warnings appear only for functions above
+`max-complexity-allowed`. Set `inlay-hints = "always"` to see a hint on every
+function, and `per-line-hints = true` to see a `+N` hint on every line that
+adds complexity. See [Editor Integration](https://complexipy.com/editors/) for every
+setting.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+Run the tests with `npm test`.
+
 ## Changelog
 
-### 0.2.0 - 2025-08-22
-
-- Breaking: Updated boolean operators complexity algorithm to count complexity based on boolean operators
-- Improved: Performance improvements
-
-For a full history, see `CHANGELOG.md`.
+See `CHANGELOG.md`.
 
 ## License
 
