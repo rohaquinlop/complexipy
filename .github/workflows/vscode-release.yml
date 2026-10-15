@@ -1,0 +1,67 @@
+---
+name: VS Code extension release
+
+# Tag vscode-vX.Y.Z only after the complexipy release that ships every server
+# feature this extension version needs is on PyPI: the extension runs the
+# user's installed `complexipy lsp`.
+on:
+  push:
+    tags:
+      - vscode-v*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  VSCE_VERSION: 4.0.0
+  OVSX_VERSION: 1.2.0
+
+jobs:
+  publish:
+    name: Publish to the Marketplace and OpenVSX
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # id-token lets ovsx exchange the GitHub OIDC token through the OpenVSX
+    # trusted publisher registered for this workflow; no OpenVSX secret exists.
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: vscode/complexipy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vscode/complexipy/package-lock.json
+      - name: Check the tag matches package.json
+        run: |
+          tag_version="${GITHUB_REF_NAME#vscode-v}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$tag_version" != "$package_version" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} is version ${tag_version}, but package.json is ${package_version}"
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test --ignore-scripts
+      - name: Package
+        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" package --out complexipy.vsix
+      # Both registries get the same file; --skip-duplicate makes a rerun after
+      # a partial failure publish only where the version is missing.
+      - name: Publish to the Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" publish --packagePath complexipy.vsix --skip-duplicate
+      - name: Publish to OpenVSX
+        run: npx --yes "ovsx@${OVSX_VERSION}" publish complexipy.vsix --trusted-publishing --skip-duplicate
