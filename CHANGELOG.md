@@ -42,6 +42,11 @@ release section links to its GitHub release notes for the full details.
   extension needs the `complexipy` command, and a `complexipy.server.path`
   setting points it at a specific binary.
 
+- The VS Code extension is published to OpenVSX as well as the Visual Studio
+  Marketplace, so VSCodium and other VS Code forks can install it
+  ([#145](https://github.com/rohaquinlop/complexipy/issues/145)). A
+  `vscode-v*` tag publishes the same VSIX to both registries.
+
 - A `[tool.complexipy.lsp]` configuration section, with `inlay-hints`
   (`threshold`, `always`, or `never`), `per-line-hints`, and `diagnostics`.
   Hints are gated on `max-complexity-allowed` by default, so a project that
