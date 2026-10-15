@@ -111,6 +111,9 @@ uv run mkdocs serve                                 # preview the docs site
   states the rule; CI enforces the PR side.
 - Before implementing, check the linked issue or pull request with `gh` for the
   full scope and any earlier discussion.
+- A `vscode-vX.Y.Z` tag releases the VS Code extension through
+  `vscode-release.yml`, and `release.yml` ignores it. Push one only after the
+  complexipy release with every server feature that extension version needs.
 - Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus
   "no files to check".
 
