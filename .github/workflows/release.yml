@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "*"
+      - "!vscode-v*"
   workflow_dispatch:
 
 concurrency:
