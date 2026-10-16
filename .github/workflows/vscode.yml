@@ -1,0 +1,49 @@
+---
+name: VS Code extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - vscode/**
+      - .github/workflows/vscode.yml
+  pull_request:
+    paths:
+      - vscode/**
+      - .github/workflows/vscode.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  VSCE_VERSION: 4.0.0
+
+jobs:
+  check:
+    name: Lint, test, and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: vscode/complexipy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vscode/complexipy/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      # pretest runs lint again; --ignore-scripts skips it and still runs test.
+      - name: Test
+        run: npm test --ignore-scripts
+      - name: Package
+        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" package --out complexipy.vsix

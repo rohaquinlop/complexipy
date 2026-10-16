@@ -33,8 +33,11 @@ Release, and optionally create the git tag.
 - Find the latest tag with:
 
     ```bash
-    git tag --sort=-v:refname | head -5
+    git tag --sort=-v:refname | grep -v '^vscode-v' | head -5
     ```
+
+    `vscode-v*` tags release the VS Code extension, not complexipy, so they
+    are never the previous release.
 
     If the user supplied a previous version, use that as the base. Otherwise
     use the latest tag.

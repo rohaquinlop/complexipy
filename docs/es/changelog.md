@@ -46,6 +46,11 @@ GitHub con todos los detalles.
   extensión necesita el comando `complexipy`, y la opción
   `complexipy.server.path` la apunta a un binario concreto.
 
+- La extensión de VS Code se publica en OpenVSX además de en el Visual Studio
+  Marketplace, así que VSCodium y otros forks de VS Code pueden instalarla
+  ([#145](https://github.com/rohaquinlop/complexipy/issues/145)). Una etiqueta
+  `vscode-v*` publica el mismo VSIX en ambos registros.
+
 - Una sección de configuración `[tool.complexipy.lsp]`, con `inlay-hints`
   (`threshold`, `always` o `never`), `per-line-hints` y `diagnostics`. Las
   pistas se filtran por `max-complexity-allowed` por defecto, así que un
