@@ -21,6 +21,8 @@ RULE_DOCS = (
 AGENTS_MD = ROOT / "AGENTS.md"
 AGENTS_MAX_LINES = 150
 AGENTS_MAX_WORDS = 1300
+PYPROJECT = ROOT / "pyproject.toml"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 
 LONG_DASHES = re.compile(
     "[" + "".join(map(chr, (0x2013, 0x2014, 0x2015))) + "]"
@@ -28,6 +30,16 @@ LONG_DASHES = re.compile(
 RULE_ID_DECLARATION = re.compile(r'\bid: "(C\d{3})"')
 RULE_ID_HEADING = re.compile(r"^### (C\d{3}):", re.MULTILINE)
 MATCH_ON_RULE_ID = re.compile(r"\bmatch\b[^{]*\brule_id\b")
+PYTHON_VERSION_AXIS = re.compile(
+    r"^\s*python-version: \[([^\]]*)\]", re.MULTILINE
+)
+QUOTED_VERSION = re.compile(r'"(\d+)\.(\d+)"')
+REQUIRES_PYTHON_CAP = re.compile(
+    r'^requires-python = "[^"]*<(\d+)\.(\d+)"', re.MULTILINE
+)
+PYTHON_VERSION_CLASSIFIER = re.compile(
+    r'"Programming Language :: Python :: (\d+)\.(\d+)"'
+)
 
 
 def tracked_files() -> list[Path]:
@@ -158,4 +170,63 @@ def test_agents_md_stays_within_its_budget() -> None:
         f"AGENTS.md has {lines} lines and {words} words, over the "
         f"{AGENTS_MAX_LINES}-line, {AGENTS_MAX_WORDS}-word budget: delete a "
         "line to add one"
+    )
+
+
+def versions_in(pattern: re.Pattern[str], text: str) -> set[tuple[int, int]]:
+    return {(int(major), int(minor)) for major, minor in pattern.findall(text)}
+
+
+def release_python_axes() -> dict[int, set[tuple[int, int]]]:
+    text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    return {
+        text.count("\n", 0, axis.start()) + 1: versions_in(
+            QUOTED_VERSION, axis.group(1)
+        )
+        for axis in PYTHON_VERSION_AXIS.finditer(text)
+    }
+
+
+def dotted(version: tuple[int, int]) -> str:
+    return f"{version[0]}.{version[1]}"
+
+
+def test_requires_python_cap_follows_the_release_matrix() -> None:
+    axes = release_python_axes()
+
+    assert axes, (
+        f"no python-version axis in {RELEASE_WORKFLOW.relative_to(ROOT)}"
+    )
+
+    newest = {line: max(versions) for line, versions in axes.items()}
+
+    assert len(set(newest.values())) == 1, (
+        "release.yml python-version axes disagree on the newest version: "
+        + ", ".join(f"line {line}: {dotted(v)}" for line, v in newest.items())
+    )
+
+    tested = next(iter(newest.values()))
+    expected = (tested[0], tested[1] + 1)
+    cap = REQUIRES_PYTHON_CAP.search(PYPROJECT.read_text(encoding="utf-8"))
+
+    assert cap, "requires-python in pyproject.toml has no < upper bound"
+
+    actual = (int(cap.group(1)), int(cap.group(2)))
+
+    assert actual == expected, (
+        f"requires-python caps at <{dotted(actual)}, but release.yml tests up "
+        f"to {dotted(tested)}: set the cap to <{dotted(expected)}"
+    )
+
+
+def test_python_classifiers_match_the_release_matrix() -> None:
+    tested = set().union(*release_python_axes().values())
+    classified = versions_in(
+        PYTHON_VERSION_CLASSIFIER, PYPROJECT.read_text(encoding="utf-8")
+    )
+
+    assert classified == tested, (
+        "pyproject.toml Python classifiers: missing "
+        f"{[dotted(v) for v in sorted(tested - classified)]}, untested "
+        f"{[dotted(v) for v in sorted(classified - tested)]}"
     )
