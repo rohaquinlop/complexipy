@@ -40,3 +40,5 @@ syntect = "5.3"
 terminal_size = "0.4"
 unicode-width = "0.2"
 tempfile = "3.10.0"
+schemars = "1.2.3"
+jsonschema = { version = "0.59.0", default-features = false }
