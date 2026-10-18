@@ -150,6 +150,12 @@ GitHub con todos los detalles.
 - `RuleCategory`, `Applicability` y `DiffStatus` son auténticas subclases de
   `enum.Enum`: se pueden iterar, exponen `.name` y `.value`, y
   `isinstance(x, enum.Enum)` se cumple.
+- `requires-python` ahora es `>=3.8,<3.16`, así que los instaladores dejan de
+  elegir complexipy en una versión de Python que ningún release ha compilado ni
+  probado. El límite sube cuando un release añade la siguiente versión de
+  Python. En Python 3.16 o posterior, pip recurre a 8.0.1, el último release
+  sin el límite.
+  ([#281](https://github.com/rohaquinlop/complexipy/issues/281))
 
 ### Corregido
 
