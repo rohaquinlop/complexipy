@@ -8,6 +8,8 @@ use crate::rules::RuleSet;
 pub const DEFAULT_MAX_COMPLEXITY_ALLOWED: u64 = 15;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
+#[cfg_attr(feature = "schema", schemars(inline))]
 #[serde(untagged)]
 pub enum StringOrList<T> {
     One(T),
@@ -57,6 +59,7 @@ fn default_true() -> bool {
 }
 
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
 #[serde(rename_all = "snake_case")]
 pub enum InlayHints {
     Always,
@@ -66,13 +69,39 @@ pub enum InlayHints {
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
+#[cfg_attr(
+    feature = "schema",
+    schemars(
+        description = "Settings for the `complexipy lsp` language server.",
+        deny_unknown_fields
+    )
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct LspSection {
     #[serde(default)]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "When to show the per-function hint: `threshold` only above `max-complexity-allowed`, `always` for every function, `never` for no hint."
+        )
+    )]
     pub inlay_hints: InlayHints,
     #[serde(default)]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped."
+        )
+    )]
     pub per_line_hints: bool,
     #[serde(default = "default_true")]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "Publish a warning for every function above `max-complexity-allowed`."
+        )
+    )]
     pub diagnostics: bool,
 }
 
