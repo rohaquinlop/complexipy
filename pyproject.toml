@@ -10,21 +10,23 @@ license = { text = "MIT" }
 authors = [{name = "Robin Quintero", email = "rohaquinlop301@gmail.com"}]
 keywords = [
     "maintainability",
-    "usability",
-    "DevEx tools",
     "cognitive",
     "complexity",
     "cognitive complexity",
     "quality",
     "quality assurance",
-    "libraries",
     "performance",
     "static analysis",
     "code quality",
     "technical debt",
     "refactoring",
     "CI/CD",
-    "fast",
+    "linter",
+    "pre-commit",
+    "lsp",
+    "language server",
+    "rust",
+    "code complexity",
 ]
 requires-python = ">=3.8,<3.16"
 classifiers = [
@@ -39,10 +41,17 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Rust",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 
@@ -55,6 +64,8 @@ complexipy = "complexipy.cli:main"
 Homepage = "https://github.com/rohaquinlop/complexipy"
 Documentation = "https://complexipy.com/"
 Repository = "https://github.com/rohaquinlop/complexipy"
+Changelog = "https://complexipy.com/changelog/"
+Issues = "https://github.com/rohaquinlop/complexipy/issues"
 
 [tool.maturin]
 manifest-path = "crates/complexipy-python/Cargo.toml"
