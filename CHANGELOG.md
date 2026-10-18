@@ -121,6 +121,14 @@ release section links to its GitHub release notes for the full details.
   import adds no complexity, and an unpacking comprehension scores like the
   plain one. Releases now publish CPython 3.15 wheels for Windows and macOS.
 
+- A JSON schema for the configuration
+  ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
+  `complexipy.schema.json` describes every key of `complexipy.toml`,
+  `.complexipy.toml`, and `[tool.complexipy]`, including `[diff]` and
+  `[lsp]`, so a TOML language server such as Taplo offers completion, hover
+  text, and validation. The schema rejects unknown keys. complexipy itself
+  still ignores them.
+
 ### Changed
 
 - `lsp` is a reserved first argument: `complexipy lsp` starts the language
