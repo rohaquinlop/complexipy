@@ -1,4 +1,4 @@
-"""Repository invariants that `AGENTS.md` states and no other test enforces.
+"""Repository invariants that no other test enforces.
 
 These tests read only tracked text and never import the extension, so the
 `Repo Checks` workflow can run them without building Rust, including on the
@@ -23,6 +23,8 @@ AGENTS_MAX_LINES = 150
 AGENTS_MAX_WORDS = 1300
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+LICENSE = ROOT / "LICENSE"
+ZED_LICENSE = ROOT / "zed" / "LICENSE"
 
 LONG_DASHES = re.compile(
     "[" + "".join(map(chr, (0x2013, 0x2014, 0x2015))) + "]"
@@ -229,4 +231,13 @@ def test_python_classifiers_match_the_release_matrix() -> None:
         "pyproject.toml Python classifiers: missing "
         f"{[dotted(v) for v in sorted(tested - classified)]}, untested "
         f"{[dotted(v) for v in sorted(classified - tested)]}"
+    )
+
+
+def test_zed_license_matches_the_root_license() -> None:
+    assert ZED_LICENSE.read_text(encoding="utf-8") == LICENSE.read_text(
+        encoding="utf-8"
+    ), (
+        f"{ZED_LICENSE.relative_to(ROOT)} differs from "
+        f"{LICENSE.relative_to(ROOT)}: copy the root license into zed/"
     )

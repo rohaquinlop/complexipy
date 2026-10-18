@@ -10,3 +10,7 @@ check-script = false
 no-ignore = false
 report-ignored = false
 output-format = []
+
+[lsp]
+inlay-hints = "always"
+per-line-hints = true
