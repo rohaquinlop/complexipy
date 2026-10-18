@@ -6,7 +6,8 @@ build-backend = "maturin"
 name = "complexipy"
 description = "An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "Robin Quintero", email = "rohaquinlop301@gmail.com"}]
 keywords = [
     "maintainability",
@@ -34,7 +35,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -71,7 +71,6 @@ Issues = "https://github.com/rohaquinlop/complexipy/issues"
 manifest-path = "crates/complexipy-python/Cargo.toml"
 module-name = "complexipy._complexipy"
 bindings = "pyo3"
-include = ["LICENSE"]
 
 [tool.complexipy]
 paths = ["crates", "complexipy"]
