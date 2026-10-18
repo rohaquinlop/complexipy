@@ -5,43 +5,128 @@ pub use complexipy_core::config::StringOrList;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(schemars::JsonSchema, serde::Serialize))]
+#[cfg_attr(
+    test,
+    schemars(
+        title = "complexipy",
+        description = "Configuration for complexipy, read from complexipy.toml, .complexipy.toml, or [tool.complexipy] in pyproject.toml.",
+        deny_unknown_fields
+    )
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     #[serde(default)]
+    #[cfg_attr(test, schemars(description = "Files or directories to analyze."))]
     pub paths: StringOrList<String>,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Glob patterns of files to skip, such as `tests/**`.")
+    )]
     pub exclude: StringOrList<String>,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Report only these refactoring rules, such as `C001`.")
+    )]
     pub select: StringOrList<String>,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Never report these refactoring rules, such as `C007`. Wins over `select`."
+        )
+    )]
     pub ignore: StringOrList<String>,
     #[serde(default = "default_max_complexity")]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Functions strictly above this complexity are reported. A function at the limit passes."
+        )
+    )]
     pub max_complexity_allowed: u64,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Save the current violations above the threshold into `complexipy-snapshot.json`."
+        )
+    )]
     pub snapshot_create: bool,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Skip comparing against the snapshot even if it exists.")
+    )]
     pub snapshot_ignore: bool,
     #[serde(default)]
+    #[cfg_attr(test, schemars(description = "Suppress output."))]
     pub quiet: bool,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Do not exit with an error when the threshold is breached.")
+    )]
     pub ignore_complexity: bool,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Show only functions above the complexity threshold.")
+    )]
     pub failed: bool,
     #[serde(default)]
+    #[cfg_attr(test, schemars(description = "Use color in the output."))]
     pub color: Color,
     #[serde(default)]
+    #[cfg_attr(test, schemars(description = "Sort order of the results."))]
     pub sort: Sort,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Machine-readable output formats to write.")
+    )]
     pub output_format: StringOrList<OutputFormat>,
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "File or directory for machine-readable output. Use a directory when writing more than one format."
+        )
+    )]
     pub output: Option<String>,
+    #[cfg_attr(test, schemars(description = "Default complexity diff settings."))]
     pub diff: Option<DiffSection>,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            with = "Option<String>",
+            description = "Directory for the analysis cache. Defaults to `.complexipy_cache/` in the invocation directory."
+        )
+    )]
     pub cache_dir: Option<toml::Value>,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Report module-level (script) complexity as a synthetic `<module>` entry."
+        )
+    )]
     pub check_script: bool,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(description = "Analyze every function, disregarding inline ignore comments.")
+    )]
     pub no_ignore: bool,
     #[serde(default)]
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "List every file and line where an ignore comment suppresses a function."
+        )
+    )]
     pub report_ignored: bool,
 }
 
@@ -50,8 +135,20 @@ fn default_max_complexity() -> u64 {
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(schemars::JsonSchema, serde::Serialize))]
+#[cfg_attr(test, schemars(deny_unknown_fields))]
 pub struct DiffSection {
+    #[cfg_attr(
+        test,
+        schemars(
+            description = "Default git reference for `--diff` and `--diff-only`. An empty string disables the diff."
+        )
+    )]
     pub branch: Option<String>,
+    #[cfg_attr(
+        test,
+        schemars(description = "Compare staged changes by default, like `--staged`.")
+    )]
     pub staged: Option<bool>,
 }
 
@@ -86,6 +183,7 @@ pub struct RunConfig {
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum, Default)]
+#[cfg_attr(test, derive(schemars::JsonSchema, serde::Serialize))]
 #[serde(rename_all = "snake_case")]
 pub enum Color {
     #[default]
@@ -95,6 +193,7 @@ pub enum Color {
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum, Default)]
+#[cfg_attr(test, derive(schemars::JsonSchema, serde::Serialize))]
 #[serde(rename_all = "snake_case")]
 pub enum Sort {
     #[default]
@@ -105,6 +204,7 @@ pub enum Sort {
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum)]
+#[cfg_attr(test, derive(schemars::JsonSchema, serde::Serialize))]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
     Csv,
@@ -161,3 +261,6 @@ pub struct FileEntry {
     pub path: String,
     pub functions: Vec<FunctionRow>,
 }
+
+#[cfg(test)]
+mod tests;

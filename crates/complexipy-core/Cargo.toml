@@ -20,6 +20,7 @@ runner = ["dep:ignore", "dep:globset", "dep:wax", "dep:rayon"]
 python = ["dep:pyo3", "complexipy-types/python"]
 wasm = []
 config = ["dep:toml"]
+schema = ["config", "dep:schemars"]
 
 [dependencies]
 complexipy-types = { path = "../complexipy-types" }
@@ -35,6 +36,7 @@ wax = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

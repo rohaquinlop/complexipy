@@ -36,3 +36,6 @@ unicode-width = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+complexipy-core = { path = "../complexipy-core", features = ["config", "schema"] }
+schemars = { workspace = true }
+jsonschema = { workspace = true }

@@ -133,6 +133,14 @@ GitHub con todos los detalles.
   una comprensión con desempaquetado puntúa igual que la simple. Las
   versiones publican ahora wheels de CPython 3.15 para Windows y macOS.
 
+- Un esquema JSON para la configuración
+  ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
+  `complexipy.schema.json` describe cada clave de `complexipy.toml`,
+  `.complexipy.toml` y `[tool.complexipy]`, incluidos `[diff]` y `[lsp]`, así
+  que un servidor de lenguaje TOML como Taplo ofrece autocompletado, texto al
+  pasar el cursor y validación. El esquema rechaza las claves desconocidas.
+  complexipy las sigue ignorando.
+
 ### Cambiado
 
 - `lsp` es un primer argumento reservado: `complexipy lsp` arranca el servidor

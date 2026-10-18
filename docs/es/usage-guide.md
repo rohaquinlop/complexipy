@@ -365,6 +365,23 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 
 `check-script` está soportado en TOML. `--top` y `--plain` son flags solo de CLI.
 
+### JSON Schema
+
+`complexipy.schema.json`, en la raíz del repositorio, describe cada clave de
+la configuración, con su tipo, su valor por defecto y su descripción. Un
+servidor de lenguaje TOML como [Taplo](https://taplo.tamasfe.dev/) (Even
+Better TOML en VS Code) lo usa para el autocompletado, el texto al pasar el
+cursor y la validación. Para usarlo en `complexipy.toml` o `.complexipy.toml`,
+agrega esta línea al inicio del archivo:
+
+```toml
+#:schema https://raw.githubusercontent.com/rohaquinlop/complexipy/main/complexipy.schema.json
+```
+
+El esquema rechaza las claves desconocidas, así que el editor marca un error
+de escritura como `max-complexity-alowed`. complexipy ignora las claves
+desconocidas.
+
 ### Configuración de Diff
 
 La política de comparación se puede declarar una sola vez en el repositorio
