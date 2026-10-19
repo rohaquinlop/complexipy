@@ -6,6 +6,8 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [8.1.0] - 2026-10-18
+
 ### Añadido
 
 - Un servidor de lenguaje: `complexipy lsp` habla el Language Server Protocol
@@ -172,6 +174,9 @@ GitHub con todos los detalles.
   cuando `NO_COLOR` está definido, `no` lo quita del informe, del banner y de
   los avisos, y la salida `--plain` nunca lleva estilo. En 8.0.1 el informe
   llevaba códigos ANSI en una tubería, con `--color no` y con `NO_COLOR`.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.1.0)
+para todos los detalles.
 
 ## [8.0.1] - 2026-09-06
 

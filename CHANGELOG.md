@@ -5,6 +5,8 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+## [8.1.0] - 2026-10-18
+
 ### Added
 
 - A language server: `complexipy lsp` speaks the Language Server Protocol on
@@ -159,6 +161,9 @@ release section links to its GitHub release notes for the full details.
   set, `no` removes it from the report, the banner, and the warnings, and
   `--plain` output is never styled. In 8.0.1 the report carried ANSI codes on
   a pipe, under `--color no`, and under `NO_COLOR`.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/8.1.0)
+for the full details.
 
 ## [8.0.1] - 2026-09-06
 
