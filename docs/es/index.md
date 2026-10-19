@@ -49,6 +49,8 @@ No. complexipy es un proyecto independiente inspirado en la investigación de G.
 pip install complexipy
 # o
 uv add complexipy
+# o
+uv tool install complexipy
 ```
 
 ## Inicio Rápido

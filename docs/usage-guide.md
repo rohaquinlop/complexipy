@@ -16,6 +16,12 @@ This guide covers everything you need to know to effectively use complexipy in y
     uv add complexipy
     ```
 
+=== "uv tool"
+
+    ```bash
+    uv tool install complexipy
+    ```
+
 === "poetry"
 
     ```bash

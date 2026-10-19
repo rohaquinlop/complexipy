@@ -49,6 +49,8 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 pip install complexipy
 # or
 uv add complexipy
+# or
+uv tool install complexipy
 ```
 
 ## Quick Start
