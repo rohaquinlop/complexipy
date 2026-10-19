@@ -1,10 +1,10 @@
 # Change Log
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-18
 
 ### Breaking Changes
 
-- The extension is now a client of the complexipy language server and requires the `complexipy` command (`uv tool install complexipy`). The bundled WASM engine is removed.
+- The extension is now a client of the complexipy language server and requires the `complexipy` command, version 8.1.0 or later (`uv tool install complexipy`). The bundled WASM engine is removed.
 - Removed the `complexipy: Calculate Cognitive Complexity` command. Analysis runs on every edit.
 - Complexity is shown as inlay hints instead of colored decorations. Per-line `+N` hints are off by default; set `per-line-hints = true` under `[lsp]` to show them.
 
@@ -14,10 +14,12 @@
 - Hints and warnings follow `max-complexity-allowed` and the `[tool.complexipy.lsp]` settings in the project configuration (#127).
 - `complexipy.server.path` setting to choose the `complexipy` executable.
 - An error message and a status bar error icon when the server cannot start.
+- The extension is published to OpenVSX, so VSCodium and other VS Code forks can install it (#145).
 
 ### Changed
 
 - The status bar shows the number of functions over the threshold. Click it to open the Problems panel.
+- Hover shows the function total, its threshold status, and the top refactoring suggestion, as the language server reports them.
 
 ## [0.2.0] - 2025-08-22
 
