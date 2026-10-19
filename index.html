@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="api-reference/" class="md-nav__link">
         
   
@@ -1117,6 +1145,8 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>complexipy
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>add<span class="w"> </span>complexipy
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># or</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>complexipy
 </span></code></pre></div>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <h3 id="command-line">Command Line<a class="headerlink" href="#command-line" title="Permanent link">&para;</a></h3>
@@ -1176,13 +1206,21 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 <details>
 <summary><strong>🔌 VS Code Extension</strong></summary>
 
-Install from the [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) for real-time complexity analysis with visual indicators.
+Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) or [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). It runs the complexipy language server, so install `complexipy` too (`uv tool install complexipy`). Inlay hints, hover, and warnings update as you type.
+
+</details>
+
+<details>
+<summary><strong>🧩 Editor Integration</strong></summary>
+
+Every editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings. See [Editor Integration](editors.md) for the VS Code, Neovim, and Zed setup.
 
 </details>
 
 <h2 id="learn-more">Learn More<a class="headerlink" href="#learn-more" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="usage-guide/">Usage Guide</a> - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores</li>
+<li><a href="editors/">Editor Integration</a> - the language server, inlay hints, and the VS Code, Neovim, and Zed setup</li>
 <li><a href="api-reference/">API Reference</a> - the complete Python API</li>
 <li><a href="understanding-scores/">Understanding Scores</a> - how the scoring algorithm works</li>
 <li><a href="comparison-with-ruff/">Comparison with Ruff</a> - cognitive vs cyclomatic complexity</li>

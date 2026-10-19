@@ -397,6 +397,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api-reference/" class="md-nav__link">
         
   
@@ -721,6 +749,17 @@
     <span class="md-ellipsis">
       
         Applicability Levels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suppressing-a-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suppressing a Rule
       
     </span>
   </a>
@@ -1085,6 +1124,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#suppressing-a-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suppressing a Rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#complexity-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1337,12 +1387,12 @@
 <tr>
 <td><strong>Safe to apply</strong></td>
 <td>*</td>
-<td>High confidence the generated code is correct as written -- no automatic application yet, this is a confidence signal, not a promise of automation</td>
+<td>High confidence the generated code is correct as written</td>
 </tr>
 <tr>
 <td><strong>Needs review</strong></td>
 <td>!</td>
-<td>May be incorrect in some cases, needs human review</td>
+<td>Usually right, with known failure shapes, so a human must review it</td>
 </tr>
 <tr>
 <td><strong>Informational</strong></td>
@@ -1351,6 +1401,20 @@
 </tr>
 </tbody>
 </table>
+<p>The level decides how a tool may apply the suggestion:</p>
+<ul>
+<li><strong>Safe to apply</strong>: automatic application (<code>--fix</code>, editor quick fixes) may apply the suggestion directly, when the replacement is also a faithful splice (<code>spliceable</code>).</li>
+<li><strong>Needs review</strong>: automatic application refuses the suggestion unless you opt in explicitly.</li>
+<li><strong>Informational</strong>: nothing ever edits code for it.</li>
+</ul>
+<p>No rule uses <strong>Needs review</strong> today. The level is reserved for a suggestion that is usually right but changes behavior in a known input shape, and a rule may use it only with tests for each known failure shape.</p>
+<p><code>--fix</code> applies a suggestion only at <strong>Safe to apply</strong> and only when the replacement is a faithful splice. C005 is safe to apply, but its replacement holds a placeholder body and needs a second edit at the call site, so <code>--fix</code> skips it and the suggestion stays for hand application.</p>
+<h2 id="suppressing-a-rule">Suppressing a Rule<a class="headerlink" href="#suppressing-a-rule" title="Permanent link">&para;</a></h2>
+<p>Every rule id can be turned off for a project or for one function. Use
+<code>--ignore C007</code> (or <code>ignore = ["C007"]</code> in <code>complexipy.toml</code>) for a project,
+and <code># complexipy: ignore[C007]</code> next to a function for one function.
+<code>--select C001,C007</code> keeps only the listed rules. An inactive rule never
+appears in any output. See <a href="../usage-guide/#rule-selection">Rule Selection</a>.</p>
 <hr />
 <h2 id="complexity-rules">Complexity Rules<a class="headerlink" href="#complexity-rules" title="Permanent link">&para;</a></h2>
 <h3 id="c001-flatten-nested-conditions">C001: Flatten Nested Conditions<a class="headerlink" href="#c001-flatten-nested-conditions" title="Permanent link">&para;</a></h3>

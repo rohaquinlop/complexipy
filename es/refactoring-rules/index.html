@@ -397,6 +397,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integración con Editores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api-reference/" class="md-nav__link">
         
   
@@ -721,6 +749,17 @@
     <span class="md-ellipsis">
       
         Niveles de Aplicabilidad
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suprimir-una-regla" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suprimir una Regla
       
     </span>
   </a>
@@ -1085,6 +1124,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#suprimir-una-regla" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suprimir una Regla
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reglas-de-complejidad" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1337,12 +1387,12 @@
 <tr>
 <td><strong>Seguro de aplicar</strong></td>
 <td>*</td>
-<td>Alta confianza en que el código generado es correcto tal cual -- todavía no se aplica automáticamente, es una señal de confianza, no una promesa de automatización</td>
+<td>Alta confianza en que el código generado es correcto tal cual</td>
 </tr>
 <tr>
 <td><strong>Necesita revisión</strong></td>
 <td>!</td>
-<td>Puede ser incorrecto en algunos casos, necesita revisión humana</td>
+<td>Suele ser correcto, con formas de fallo conocidas, por lo que una persona debe revisarlo</td>
 </tr>
 <tr>
 <td><strong>Informativo</strong></td>
@@ -1351,6 +1401,21 @@
 </tr>
 </tbody>
 </table>
+<p>El nivel decide cómo una herramienta puede aplicar la sugerencia:</p>
+<ul>
+<li><strong>Seguro de aplicar</strong>: la aplicación automática (<code>--fix</code>, correcciones del editor) puede aplicar la sugerencia directamente, cuando el reemplazo es también un empalme fiel (<code>spliceable</code>).</li>
+<li><strong>Necesita revisión</strong>: la aplicación automática rechaza la sugerencia salvo que la autorices de forma explícita.</li>
+<li><strong>Informativo</strong>: nada edita el código por esta sugerencia.</li>
+</ul>
+<p>Hoy ninguna regla usa <strong>Necesita revisión</strong>. El nivel queda reservado para una sugerencia que suele ser correcta pero cambia el comportamiento en una forma de entrada conocida, y una regla solo puede usarlo con pruebas para cada forma de fallo conocida.</p>
+<p><code>--fix</code> aplica una sugerencia solo en <strong>Seguro de aplicar</strong> y solo cuando el reemplazo es un empalme fiel. C005 es seguro de aplicar, pero su reemplazo contiene un cuerpo de marcador de posición y necesita una segunda edición en la llamada, así que <code>--fix</code> lo salta y la sugerencia queda para aplicación manual.</p>
+<h2 id="suprimir-una-regla">Suprimir una Regla<a class="headerlink" href="#suprimir-una-regla" title="Permanent link">&para;</a></h2>
+<p>Cada id de regla se puede desactivar para un proyecto o para una función. Usa
+<code>--ignore C007</code> (o <code>ignore = ["C007"]</code> en <code>complexipy.toml</code>) para un proyecto,
+y <code># complexipy: ignore[C007]</code> junto a una función para una función.
+<code>--select C001,C007</code> conserva solo las reglas nombradas. Una regla inactiva
+nunca aparece en ninguna salida. Ver
+<a href="../usage-guide/#selecci%C3%B3n-de-reglas">Selección de Reglas</a>.</p>
 <hr />
 <h2 id="reglas-de-complejidad">Reglas de Complejidad<a class="headerlink" href="#reglas-de-complejidad" title="Permanent link">&para;</a></h2>
 <h3 id="c001-aplanar-condiciones-anidadas">C001: Aplanar Condiciones Anidadas<a class="headerlink" href="#c001-aplanar-condiciones-anidadas" title="Permanent link">&para;</a></h3>
