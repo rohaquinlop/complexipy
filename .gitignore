@@ -109,3 +109,6 @@ benchmarks/corpus/
 
 # Zed dev extension build output
 zed/extension.wasm
+
+# MkDocs build output
+site/
