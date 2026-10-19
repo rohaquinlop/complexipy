@@ -31,6 +31,7 @@ uv run complexipy complexipy --failed               # dogfood it on itself
 complexipy lsp                                      # stdio LSP server
 cargo run -p complexipy-lsp                         # the same server from the tree
 uv run mkdocs serve                                 # preview the docs site
+./deploy-docs.sh                                    # deploy the docs site by hand
 ```
 
 - Rebuild after any `crates/**/*.rs` edit: `uv run maturin develop`. Without it,
