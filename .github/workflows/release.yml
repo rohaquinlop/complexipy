@@ -297,6 +297,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -317,7 +318,7 @@ jobs:
       - name: Install the release wheel
         shell: bash
         run: |
-          uv venv --python "$(command -v python)" .venv
+          uv venv --python "${{ steps.setup-python.outputs.python-path }}" .venv
           uv pip install --python .venv pytest
           tag="cp${{ matrix.python-version }}"; tag="${tag/./}"
           wheel="$(ls dist/complexipy-*-"${tag}"-"${tag}"-*.whl 2>/dev/null | head -1 || true)"
