@@ -991,11 +991,11 @@ for rem in removable:
 Use the official action:
 
 ```yaml
-- uses: rohaquinlop/complexipy-action@v2
+- uses: rohaquinlop/complexipy-action@v8
   with:
       paths: src tests
       max_complexity_allowed: 15
-      output_format: json
+      output_json: true
 ```
 
 Or run directly:
@@ -1028,7 +1028,7 @@ Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v5.1.0
+      rev: v8.1.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

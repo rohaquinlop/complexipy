@@ -96,11 +96,11 @@ for func in result.functions:
 <summary><strong>🔧 GitHub Actions</strong></summary>
 
 ```yaml
-- uses: rohaquinlop/complexipy-action@v2
+- uses: rohaquinlop/complexipy-action@v8
   with:
       paths: .
       max_complexity_allowed: 10
-      output_format: json
+      output_json: true
 ```
 
 </details>
@@ -111,7 +111,7 @@ for func in result.functions:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v5.1.0
+      rev: v8.1.0
       hooks:
           - id: complexipy
 ```
