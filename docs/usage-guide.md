@@ -1078,7 +1078,7 @@ complexity_report:
 
 ## VS Code Integration
 
-Install the [complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy). The extension is a client of the [language server](editors.md#vs-code) and needs the `complexipy` command installed.
+Install the [complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) from the Visual Studio Marketplace, or from [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). The extension is a client of the [language server](editors.md#vs-code) and needs the `complexipy` command installed.
 
 ## Tips and Best Practices
 

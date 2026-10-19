@@ -119,7 +119,9 @@ set its path:
 ## VS Code
 
 Install the
-[complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy).
+[complexipy extension](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy)
+from the Visual Studio Marketplace, or from
+[OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy) in VSCodium and other forks.
 It is a client of `complexipy lsp`: it starts the server for Python files and
 shows its inlay hints, hover, and warnings. VS Code shows inlay hints by
 default, so no editor setting is needed.

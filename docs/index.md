@@ -121,7 +121,7 @@ repos:
 <details>
 <summary><strong>🔌 VS Code Extension</strong></summary>
 
-Install from the [marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) It runs the complexipy language server, so install `complexipy` too (`uv tool install complexipy`). Inlay hints, hover, and warnings update as you type.
+Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) or [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). It runs the complexipy language server, so install `complexipy` too (`uv tool install complexipy`). Inlay hints, hover, and warnings update as you type.
 
 </details>
 

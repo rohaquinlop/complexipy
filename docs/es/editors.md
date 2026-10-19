@@ -122,7 +122,9 @@ define su ruta:
 ## VS Code
 
 Instala la
-[extensión de complexipy](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy).
+[extensión de complexipy](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy)
+desde el Visual Studio Marketplace, o desde
+[OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy) en VSCodium y otros forks.
 Es un cliente de `complexipy lsp`: arranca el servidor para los archivos de
 Python y muestra sus inlay hints, hover y advertencias. VS Code muestra los
 inlay hints por defecto, así que no hace falta ninguna configuración del
