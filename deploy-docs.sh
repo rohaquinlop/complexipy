@@ -5,7 +5,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-uv sync --group dev --no-install-project --frozen
+uv sync --group dev --no-install-project --frozen --inexact
 uv run --no-sync mkdocs build
 uv run --no-sync mkdocs build -f mkdocs.es.yml
 uv run --no-sync ghp-import -n -p -f site
