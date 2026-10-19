@@ -361,11 +361,14 @@ def test_a_malformed_pattern_keeps_the_valid_exclusions(
 
 
 def test_an_oversized_exclude_list_is_reported(tmp_path: Path) -> None:
-    patterns = ", ".join(f'"**/dir{index}/**/*.py"' for index in range(10_000))
+    directory = "d" * 400
+    patterns = ", ".join(
+        f'"**/{directory}{index}/**/*.py"' for index in range(2_000)
+    )
     (tmp_path / "complexipy.toml").write_text(
         f"max-complexity-allowed = 2\nexclude = [{patterns}]\n"
     )
-    excluded_uri = (tmp_path / "dir0" / "heavy.py").as_uri()
+    excluded_uri = (tmp_path / f"{directory}0" / "heavy.py").as_uri()
     analyzed_uri = (tmp_path / "heavy.py").as_uri()
 
     with LspSession(tmp_path) as session:
@@ -384,7 +387,7 @@ def test_an_oversized_exclude_list_is_reported(tmp_path: Path) -> None:
         stderr = session.stderr_text()
 
         assert "complexipy.toml" in stderr
-        assert "10000 patterns" in stderr
+        assert "2000 patterns" in stderr
         assert stderr.count("too large") == 1
 
 
