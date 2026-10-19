@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-cli"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "blake2",
  "clap",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-core"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "complexipy-types",
  "csv",
@@ -365,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-lsp"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "complexipy-core",
  "crossbeam-channel",
@@ -378,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-python"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "clap",
  "complexipy-cli",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-types"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "pyo3",
  "serde",
@@ -398,7 +398,7 @@ dependencies = [
 
 [[package]]
 name = "complexipy-wasm"
-version = "8.0.1"
+version = "8.1.0"
 dependencies = [
  "complexipy-core",
  "console_error_panic_hook",
