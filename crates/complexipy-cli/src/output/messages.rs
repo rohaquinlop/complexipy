@@ -4,6 +4,7 @@ use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
 use complexipy_core::runner::{SkipReason, SkippedPath};
+use complexipy_core::sanitize::escape_controls;
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
 
 pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: &str) -> String {
@@ -14,7 +15,7 @@ pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: 
     if snap.watermark_messages.is_empty() {
         format!(
             "Snapshot watermark passed. Baseline stored at {}",
-            output_snapshot_path
+            escape_controls(output_snapshot_path)
         )
     } else {
         snap.watermark_messages
@@ -24,7 +25,7 @@ pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: 
                     "{}: {}",
                     "Snapshot watermark".if_supports_color(Stream::Stdout, |text| text
                         .style(Style::new().bold().red())),
-                    message
+                    escape_controls(message)
                 )
             })
             .collect::<Vec<_>>()
@@ -58,7 +59,11 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
     for ignore in removable {
         lines.push(format!(
             "{}:{}  function={} complexity={}  {}",
-            ignore.path, ignore.line, ignore.function, ignore.complexity, ignore.comment
+            escape_controls(&ignore.path),
+            ignore.line,
+            escape_controls(&ignore.function),
+            ignore.complexity,
+            escape_controls(&ignore.comment)
         ));
     }
     lines.join("\n")
@@ -94,7 +99,11 @@ pub fn ignore_rule_skips_output(skipped: &[SkippedPath]) -> String {
         "{} Python file(s) were skipped by .gitignore, .ignore, or hidden-path rules:",
         paths.len()
     )];
-    lines.extend(paths.iter().map(|path| format!("  {}", path)));
+    lines.extend(
+        paths
+            .iter()
+            .map(|path| format!("  {}", escape_controls(path))),
+    );
     lines.join("\n")
 }
 

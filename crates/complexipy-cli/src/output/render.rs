@@ -8,6 +8,7 @@ use crate::output::refactor::output_refactor_plans;
 use crate::output::rows::{build_output_rows, truncate_top_n};
 use crate::types::{FileEntry, FunctionRow, Sort};
 use complexipy_core::classes::FileComplexity;
+use complexipy_core::sanitize::escape_controls;
 
 const RULE_WIDTH: usize = 80;
 
@@ -198,7 +199,9 @@ pub fn output_plain(file_entries: &[FileEntry]) -> String {
         for function in &entry.functions {
             lines.push(format!(
                 "{} {} {}",
-                entry.path, function.name, function.complexity
+                escape_controls(&entry.path),
+                escape_controls(&function.name),
+                function.complexity
             ));
         }
     }
@@ -216,8 +219,7 @@ pub fn output_file_entries(
 
     for (index, entry) in file_entries.iter().enumerate() {
         let mut lines = vec![
-            entry
-                .path
+            escape_controls(&entry.path)
                 .if_supports_color(Stream::Stdout, |text| text.bold())
                 .to_string(),
         ];
@@ -227,7 +229,10 @@ pub fn output_file_entries(
             let delta_text = output_delta_text(previous_functions, function, max_complexity);
             lines.push(format!(
                 "    {} {}{}  {}",
-                function.name, complexity_text, delta_text, status_text
+                escape_controls(&function.name),
+                complexity_text,
+                delta_text,
+                status_text
             ));
             if suggest_refactors {
                 let plans = output_refactor_plans(function, invocation_path);
@@ -326,7 +331,7 @@ pub fn print_invalid_paths(invalid_paths: &[String]) -> (bool, String) {
         lines.push(format!(
             "{}: Failed to process {} - Please check file/folder exists or check syntax",
             "error".if_supports_color(Stream::Stdout, |text| text.style(Style::new().bold().red())),
-            failed_path.if_supports_color(Stream::Stdout, |text| text
+            escape_controls(failed_path).if_supports_color(Stream::Stdout, |text| text
                 .style(Style::new().bold().white()))
         ));
     }

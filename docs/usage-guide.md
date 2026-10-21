@@ -315,7 +315,7 @@ complexipy . --fix
 ]
 ```
 
-JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output is unchanged and does not include plans. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
+JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output does not include plans, and a cell that a spreadsheet would run as a formula (one that starts with `=`, `+`, `-`, or `@`) is written with a leading `'`. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
 
 ### Color Output
 
@@ -328,6 +328,8 @@ complexipy . --color no    # Disable colors
 ```
 
 `auto` styles a stream only when it is a terminal and `NO_COLOR` is unset or empty. `--color` covers every styled line, including the `--fix` diff and the warnings on stderr, and `--plain` output is never styled.
+
+Text that comes from the analyzed files is printed with its control characters escaped: a path, a source line, or a configuration value shows an escape character as `\u{1b}` and a line break as `\u{a}`, so it cannot move the cursor, rewrite earlier lines, set the window title, or print a hidden link.
 
 ## Configuration Files
 

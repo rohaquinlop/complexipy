@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use complexipy_core::classes::{FileComplexity, FunctionComplexity, RefactorPlan};
 use complexipy_core::fix::{LineMap, apply_fixes, parses};
 use complexipy_core::fs_guard::{MAX_SOURCE_BYTES, is_within, read_bounded, write_atomic};
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{AnalysisOptions, cognitive_complexity::code_complexity_shared};
 
 use crate::output::fix::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
@@ -74,7 +75,7 @@ pub fn run_fix_pass(
         let text = match read_fix_target(&path, Path::new(invocation_path)) {
             Ok(text) => text,
             Err(error) => {
-                eprintln!("Failed to read {}: {}", display, error);
+                eprintln!("Failed to read {}: {}", escape_controls(&display), error);
                 continue;
             }
         };
@@ -127,7 +128,11 @@ pub fn run_fix_pass(
                     &target.text,
                     &report.patched,
                 ) {
-                    eprintln!("Failed to write {}: {}", target.display, error);
+                    eprintln!(
+                        "Failed to write {}: {}",
+                        escape_controls(&target.display),
+                        error
+                    );
                     target.plans.clear();
                     continue;
                 }

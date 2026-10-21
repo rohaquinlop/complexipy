@@ -20,13 +20,14 @@ use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::{analyze_paths, run_analysis_shared};
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let source = match load_run_config(&cli, invocation_path) {
         Ok(source) => source,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -37,7 +38,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -48,7 +49,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             eprintln!(
                 "{} {}",
                 "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                config_gate_change_warning(config_path, change)
+                escape_controls(&config_gate_change_warning(config_path, change))
             );
         }
     }
@@ -80,7 +81,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             eprintln!(
                 "{} {}",
                 "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                warning
+                escape_controls(&warning)
             );
         }
     }
@@ -89,7 +90,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let report = match analyze_paths(&config.paths, &config.exclude, &analysis, invocation_path) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -98,7 +99,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             eprintln!(
                 "{} {}",
                 "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                warning
+                escape_controls(&warning)
             );
         }
     }
@@ -127,7 +128,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if pass.wrote {
             match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
                 Ok((post_fix, _)) => files_complexities = post_fix,
-                Err(error) => eprintln!("{}", error),
+                Err(error) => eprintln!("{}", escape_controls(&error)),
             }
         }
     }
@@ -143,7 +144,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(snap) => snap,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -164,7 +165,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             }
         }
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     }
@@ -204,7 +205,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(result) => result,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -217,7 +218,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             println!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
-            println!("{}", ignored_saved_output(&path));
+            println!("{}", escape_controls(&ignored_saved_output(&path)));
         }
     }
 

@@ -244,8 +244,10 @@ nested function therefore shows its parent.
 - A malformed glob is reported once per configuration load and skipped.
   Each configuration problem (a malformed glob, an oversized list, an unknown
   rule id in `select` or `ignore`, a selection that leaves no rule active, or
-  a file that does not parse) appears in the editor as a warning message and
-  in the server log. The other patterns in the list keep applying.
+  a file that does not parse) is written to the server log, and the editor
+  shows one fixed warning that points to that log. The warning never quotes
+  the configuration, so a repository cannot place a link in it. The other
+  patterns in the list keep applying.
 - A list too large to compile as one program is reported once per
   configuration load and still applied one pattern at a time. A CLI run stops
   on the same list.

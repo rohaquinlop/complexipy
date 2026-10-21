@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 mod export_deps {
     pub use crate::classes::{FileComplexity, FunctionComplexity};
     pub use crate::fs_guard::write_atomic;
+    pub use crate::sanitize::neutralize_csv_cell;
     pub use csv::Writer;
     pub use serde_json;
     pub use std::path::Path;
@@ -81,9 +82,9 @@ pub fn output_csv_shared(
     for (path, file_name, function) in all_functions {
         writer
             .write_record([
-                &path,
-                &file_name,
-                &function.name,
+                neutralize_csv_cell(&path).as_ref(),
+                neutralize_csv_cell(&file_name).as_ref(),
+                neutralize_csv_cell(&function.name).as_ref(),
                 &function.complexity.to_string(),
             ])
             .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;

@@ -15,6 +15,7 @@ use crate::utils::gitlab::store_gitlab;
 use crate::utils::paths::resolve_output_paths;
 use crate::utils::sarif::store_sarif;
 use complexipy_core::classes::FileComplexity;
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::{ExportError, output_csv_shared, output_json_shared};
 
 pub struct DisplayOptions<'a> {
@@ -144,7 +145,10 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
                 suggest_refactors,
             )?,
         }
-        saved_lines.push(format!("Results saved at {}", output_path));
+        saved_lines.push(format!(
+            "Results saved at {}",
+            escape_controls(&output_path)
+        ));
     }
 
     Ok(saved_lines)

@@ -2,6 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
 use complexipy_core::config::config_file_names;
+use complexipy_core::sanitize::escape_controls;
 use crossbeam_channel::RecvTimeoutError;
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -31,6 +32,7 @@ pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
+pub const CONFIG_WARNING_MESSAGE: &str = "complexipy found a problem in the project configuration. See the complexipy output log for details.";
 pub const REGISTER_CAPABILITY: &str = "client/registerCapability";
 const CONFIG_WATCH_ID: &str = "complexipy-config-watch";
 pub const SHUTDOWN: &str = "shutdown";
@@ -403,17 +405,24 @@ impl Server {
         self.reanalyze_all();
     }
 
+    /// Logs each configuration warning to stderr, and shows the editor one
+    /// fixed message: a warning quotes repository text, which an editor
+    /// could render as a clickable link.
     fn report_warnings(&mut self) {
-        for warning in self.workspace.take_warnings() {
-            eprintln!("{}: {}", SERVER_NAME, warning);
-            self.send(Notification::new(
-                SHOW_MESSAGE.to_string(),
-                ShowMessageParams {
-                    typ: MessageType::WARNING,
-                    message: warning,
-                },
-            ));
+        let warnings = self.workspace.take_warnings();
+        if warnings.is_empty() {
+            return;
         }
+        for warning in &warnings {
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(warning));
+        }
+        self.send(Notification::new(
+            SHOW_MESSAGE.to_string(),
+            ShowMessageParams {
+                typ: MessageType::WARNING,
+                message: CONFIG_WARNING_MESSAGE.to_string(),
+            },
+        ));
     }
 
     fn reanalyze_all(&mut self) {

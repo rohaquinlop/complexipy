@@ -314,7 +314,7 @@ complexipy . --fix
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 
@@ -327,6 +327,8 @@ complexipy . --color no    # Deshabilita colores
 ```
 
 `auto` da estilo a un flujo solo cuando es una terminal y `NO_COLOR` no está definido o está vacío. `--color` cubre cada línea con estilo, incluido el diff de `--fix` y los avisos en stderr, y la salida `--plain` nunca lleva estilo.
+
+El texto que viene de los archivos analizados se imprime con sus caracteres de control escapados: una ruta, una línea de código o un valor de configuración muestra un carácter de escape como `\u{1b}` y un salto de línea como `\u{a}`, así que no puede mover el cursor, reescribir líneas anteriores, cambiar el título de la ventana ni imprimir un enlace oculto.
 
 ## Archivos de Configuración
 

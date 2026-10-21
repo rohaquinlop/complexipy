@@ -14,6 +14,7 @@ mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
 pub mod runner;
+pub mod sanitize;
 pub mod utils;
 
 #[cfg(feature = "runner")]

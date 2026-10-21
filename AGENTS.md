@@ -52,8 +52,7 @@ uv run mkdocs serve                                 # preview the docs site
   type declaration, the `#[pymodule]` export list, the stubs in
   `complexipy/_complexipy.pyi`, and `tests/test_stubs.py`, which reads the Rust
   declarations and fails when a stub disagrees.
-- Rules consume `ComplexityRegion`s. A rule never re-parses source to find
-  structure.
+- Rules consume `ComplexityRegion`s. A rule never re-parses source to find structure.
 - `--fix` applies a suggestion only inside a function over the threshold, and
   only when its tier is `MachineApplicable` and its `CodeSuggestion.spliceable`
   flag is true. Each pass checks the threshold again. Never gate fixes on
@@ -82,6 +81,10 @@ uv run mkdocs serve                                 # preview the docs site
 - The public Python API is a compatibility promise: `complexipy/__init__.py`, its
   `__all__`, and the `DiffStatus` values. A new export needs docs in `docs/` and
   `docs/es/`. `run_lsp` is a process entry point and stays out of `__all__`.
+- Treat repository content as untrusted. Read a file through
+  `fs_guard::read_bounded` and write one through `fs_guard::write_atomic`. Pass
+  repository text through `sanitize::escape_controls` before a terminal or a
+  log. The server's `showMessage` carries fixed text only.
 
 ## Testing
 
@@ -107,8 +110,7 @@ uv run mkdocs serve                                 # preview the docs site
 
 - Use `uv` for everything: `uv run pytest`, `uv run ruff`, `uv run complexipy`.
   Never `pip`, and never `python -m`.
-- Commit only when asked. Stage explicit paths, never `git add -A` or
-  `git add .`.
+- Commit only when asked. Stage explicit paths, never `git add -A` or `git add .`.
 - Commit subjects and PR titles follow Conventional Commits. `CONTRIBUTING.md`
   states the rule; CI enforces the PR side.
 - Before implementing, check the linked issue or pull request with `gh` for the
@@ -116,8 +118,7 @@ uv run mkdocs serve                                 # preview the docs site
 - A `vscode-vX.Y.Z` tag releases the VS Code extension through
   `vscode-release.yml`, and `release.yml` ignores it. Push one only after the
   complexipy release with every server feature that extension version needs.
-- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus
-  "no files to check".
+- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus "no files to check".
 
 ## Code Style
 
@@ -129,8 +130,7 @@ uv run mkdocs serve                                 # preview the docs site
   changelog or a history note.
 - ASCII punctuation only. No em dash, en dash, or horizontal bar in code,
   comments, docs, or commit messages.
-- Ruff runs at line-length 80 and indent-width 4, with `tests/**` excluded from
-  lint.
+- Ruff runs at line-length 80 and indent-width 4, with `tests/**` excluded from lint.
 - Pre-commit runs complexipy on itself with `max-complexity-allowed = 15`,
   mdformat, and yamlfix. `SKILL.md` files are excluded from mdformat: it has no
   frontmatter support and rewrites the opening and closing `---`, which destroys

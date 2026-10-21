@@ -109,6 +109,29 @@ fn plain_output_lines() {
 }
 
 #[test]
+fn plain_output_escapes_terminal_controls_and_line_breaks() {
+    let path = "csi_\u{1b}[1A\u{1b}[2KALL GOOD\nFAKE.py";
+    let entries = vec![FileEntry {
+        path: path.to_string(),
+        functions: vec![row("f", 5, true, path)],
+    }];
+
+    let output = output_plain(&entries);
+
+    assert!(!output.contains('\u{1b}'));
+    assert_eq!(output.lines().count(), 1);
+    assert!(output.starts_with("csi_\\u{1b}[1A"));
+}
+
+#[test]
+fn invalid_paths_escape_terminal_controls() {
+    let (_, raw) = print_invalid_paths(&["bad_\u{1b}]0;TITLE\u{7}.py".to_string()]);
+
+    assert!(!strip_ansi(&raw).contains('\u{7}'));
+    assert!(strip_ansi(&raw).contains("bad_\\u{1b}]0;TITLE\\u{7}.py"));
+}
+
+#[test]
 fn summary_no_files_message() {
     let (has_success, output) = output_summary(SummaryOptions {
         files: &[],
