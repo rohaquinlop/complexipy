@@ -360,6 +360,35 @@ fn an_edit_to_one_document_keeps_the_deadline_of_another() {
 }
 
 #[test]
+fn shutdown_answers_the_requests_still_waiting() {
+    let (mut server, client) = server(strict());
+    server
+        .documents
+        .open(uri(), SAMPLE.to_string(), 3, "python".to_string());
+    server.handle_request(hints_request(1));
+
+    let (exit_sender, exit_receiver) = crossbeam_channel::bounded(1);
+    let client_sender = client.sender.clone();
+    std::thread::spawn(move || {
+        let code = server.shutdown(Request::new(RequestId::from(2), SHUTDOWN.to_string(), ()));
+        let _ = exit_sender.send(code);
+    });
+    client_sender
+        .send(Notification::new(EXIT.to_string(), ()).into())
+        .unwrap();
+
+    assert_eq!(
+        exit_receiver.recv_timeout(Duration::from_secs(10)),
+        Ok(EXIT_CODE_CLEAN)
+    );
+    let ids: Vec<RequestId> = responses_of(&client)
+        .into_iter()
+        .map(|response| response.id)
+        .collect();
+    assert_eq!(ids, vec![RequestId::from(1), RequestId::from(2)]);
+}
+
+#[test]
 fn concurrent_requests_share_one_analysis() {
     let (mut server, client) = server(strict());
     server

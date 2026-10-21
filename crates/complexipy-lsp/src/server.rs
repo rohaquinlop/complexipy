@@ -342,7 +342,13 @@ impl Server {
         }
     }
 
-    fn shutdown(&self, request: Request) -> i32 {
+    fn shutdown(&mut self, request: Request) -> i32 {
+        while !self.requests.is_empty() {
+            let Ok(outcome) = self.outcomes.recv() else {
+                break;
+            };
+            self.accept(outcome);
+        }
         self.send(Response::new_ok(request.id, ()));
 
         self.await_exit()
