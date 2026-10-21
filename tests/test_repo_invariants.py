@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES_DIR = ROOT / "crates" / "complexipy-core" / "src" / "rules"
+SYNTAX_TREE = ROOT / "crates" / "complexipy-core" / "src" / "syntax_tree.rs"
 RULE_DOCS = (
     ROOT / "docs" / "refactoring-rules.md",
     ROOT / "docs" / "es" / "refactoring-rules.md",
@@ -125,6 +126,21 @@ def test_no_production_code_matches_on_rule_id() -> None:
 
     assert not offenders, (
         "rank rules through RuleMetadata, not a match on rule_id: "
+        + ", ".join(offenders)
+    )
+
+
+def test_only_the_syntax_tree_module_calls_the_parser() -> None:
+    offenders = [
+        str(path.relative_to(ROOT))
+        for path in production_rust_sources()
+        if path != SYNTAX_TREE
+        and "ruff_python_parser" in path.read_text(encoding="utf-8")
+    ]
+
+    assert not offenders, (
+        "parse through syntax_tree::parse_module or parse_expression, which "
+        "free a long expression chain without deep recursion: "
         + ", ".join(offenders)
     )
 
