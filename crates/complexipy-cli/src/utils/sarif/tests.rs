@@ -268,3 +268,63 @@ fn sarif_write_failure_is_io_error() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn sarif_uri_is_percent_encoded() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.sarif");
+    let files = vec![file_complexity(
+        "src/my file#1?.py",
+        "my file#1?.py",
+        vec![function_complexity("f", 20)],
+    )];
+
+    let sarif = write_and_load(&output, &files, 15, false);
+
+    assert_eq!(
+        sarif["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+        "src/my%20file%231%3F.py"
+    );
+}
+
+#[test]
+fn sarif_points_at_a_published_schema_and_fingerprints_each_result() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.sarif");
+    let moved = FunctionComplexity {
+        line_start: 30,
+        line_end: 40,
+        ..function_complexity("f", 20)
+    };
+
+    let before = write_and_load(
+        &output,
+        &[file_complexity(
+            "src/a.py",
+            "a.py",
+            vec![function_complexity("f", 20)],
+        )],
+        15,
+        false,
+    );
+    let after = write_and_load(
+        &output,
+        &[file_complexity("src/a.py", "a.py", vec![moved])],
+        15,
+        false,
+    );
+
+    assert!(
+        before["$schema"]
+            .as_str()
+            .unwrap()
+            .starts_with("https://docs.oasis-open.org/sarif/")
+    );
+    let fingerprint =
+        &before["runs"][0]["results"][0]["partialFingerprints"]["complexipyFindingHash/v1"];
+    assert_eq!(fingerprint.as_str().map(str::len), Some(64));
+    assert_eq!(
+        fingerprint,
+        &after["runs"][0]["results"][0]["partialFingerprints"]["complexipyFindingHash/v1"]
+    );
+}
