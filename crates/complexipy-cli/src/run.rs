@@ -128,6 +128,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let snap = match evaluate_snapshot(
         config.snapshot_create,
         config.snapshot_ignore,
+        !config.dry_run,
         &output_snapshot_path,
         config.max_complexity_allowed,
         &files_complexities,
@@ -172,6 +173,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         plain: config.plain,
         invocation_path,
         cache_dir: config.cache_dir.as_deref(),
+        write_cache: !config.dry_run,
         top: config.top,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
     });

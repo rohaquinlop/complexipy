@@ -29,6 +29,7 @@ pub struct DisplayOptions<'a> {
     pub plain: bool,
     pub invocation_path: &'a str,
     pub cache_dir: Option<&'a str>,
+    pub write_cache: bool,
     pub top: Option<u64>,
     pub suggest_refactors: bool,
 }
@@ -46,11 +47,12 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         plain,
         invocation_path,
         cache_dir,
+        write_cache,
         top,
         suggest_refactors,
     } = options;
 
-    let previous_functions = if !files_complexities.is_empty() {
+    let previous_functions = if write_cache && !files_complexities.is_empty() {
         remember_previous_functions(invocation_path, paths, files_complexities, cache_dir)
     } else {
         None

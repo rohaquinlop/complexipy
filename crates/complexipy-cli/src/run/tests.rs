@@ -425,6 +425,49 @@ fn a_directory_run_never_reads_through_links_that_leave_it() {
     assert_eq!(exit, std::process::ExitCode::SUCCESS);
 }
 
+#[test]
+fn dry_run_writes_no_cache_and_no_snapshot() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("fixable.py");
+    fs::write(&file, FIXABLE).expect("should write");
+    let snapshot = dir.path().join("complexipy-snapshot.json");
+    fs::write(&snapshot, "[]").expect("should write");
+
+    run_at(
+        fix_every_function("--dry-run", &file),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert!(!dir.path().join(".complexipy_cache").exists());
+    assert_eq!(fs::read_to_string(&snapshot).expect("should read"), "[]");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_report_path_symlinked_out_of_the_project_is_replaced_not_followed() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    let victim = outside.path().join("results.txt");
+    fs::write(&victim, "keep me").expect("should write");
+    let report = dir.path().join("complexipy-results.json");
+    std::os::unix::fs::symlink(&victim, &report).expect("should link");
+    let file = dir.path().join("simple.py");
+    fs::write(&file, SIMPLE).expect("should write");
+
+    let exit = run_at(
+        parse(&[file.to_str().unwrap(), "--output-format", "json"]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+    assert_eq!(fs::read_to_string(&victim).expect("should read"), "keep me");
+    assert!(
+        fs::symlink_metadata(&report)
+            .expect("report exists")
+            .is_file()
+    );
+}
+
 fn builds_plans(args: &[&str]) -> bool {
     let config = resolve_config(None, parse(args), ".").expect("config should resolve");
 

@@ -12,15 +12,18 @@ pub struct SnapshotEvaluation {
     pub snapshot_result: bool,
 }
 
+/// Checks the run against the snapshot. With `persist` false, as under
+/// `--dry-run`, the snapshot file is neither created nor rewritten.
 pub fn evaluate_snapshot(
     snapshot_create: bool,
     snapshot_ignore: bool,
+    persist: bool,
     output_snapshot_path: &str,
     max_complexity_allowed: u64,
     files_complexities: &[FileComplexity],
 ) -> Result<SnapshotEvaluation, ExportError> {
     handle_snapshot_file_creation(
-        snapshot_create,
+        snapshot_create && persist,
         output_snapshot_path,
         max_complexity_allowed,
         files_complexities,
@@ -38,6 +41,7 @@ pub fn evaluate_snapshot(
 
     let (watermark_success, watermark_messages) = handle_snapshot_watermark(
         should_run,
+        persist,
         snapshot_file_exists,
         output_snapshot_path,
         files_complexities,
@@ -132,6 +136,7 @@ pub fn merge_snapshot_files(
 
 fn handle_snapshot_watermark(
     snapshot_watermark: bool,
+    persist: bool,
     snapshot_exists: bool,
     output_snapshot_path: &str,
     files_complexities: &[FileComplexity],
@@ -196,6 +201,9 @@ fn handle_snapshot_watermark(
 
     if !violations.is_empty() {
         return Ok((false, violations));
+    }
+    if !persist {
+        return Ok((true, Vec::new()));
     }
 
     create_snapshot_file_shared(

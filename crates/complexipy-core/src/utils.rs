@@ -4,10 +4,10 @@ use std::sync::OnceLock;
 
 mod export_deps {
     pub use crate::classes::{FileComplexity, FunctionComplexity};
+    pub use crate::fs_guard::write_atomic;
     pub use csv::Writer;
     pub use serde_json;
-    pub use std::fs::File;
-    pub use std::io::Write;
+    pub use std::path::Path;
 }
 
 use export_deps::*;
@@ -45,12 +45,7 @@ pub fn output_csv_shared(
         other => return Err(ExportError::InvalidSort(other.to_string())),
     }
 
-    let mut writer = Writer::from_path(invocation_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create CSV at {}: {}",
-            invocation_path, e
-        ))
-    })?;
+    let mut writer = Writer::from_writer(Vec::new());
 
     writer
         .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
@@ -93,11 +88,15 @@ pub fn output_csv_shared(
             .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;
     }
 
-    writer
-        .flush()
-        .map_err(|e| ExportError::Io(format!("Failed to flush CSV to disk: {}", e)))?;
-
-    Ok(())
+    let bytes = writer
+        .into_inner()
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to create CSV at {}: {}",
+            invocation_path, e
+        ))
+    })
 }
 
 pub fn output_json_shared(
@@ -131,26 +130,16 @@ pub fn output_json_shared(
 
     let json_string = serde_json::to_string_pretty(&json_data)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    let mut file = File::create(invocation_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create JSON file at {}: {}",
-            invocation_path, e
-        ))
-    })?;
-    file.write_all(json_string.as_bytes()).map_err(|e| {
+    write_atomic(
+        Path::new(invocation_path),
+        format!("{}\n", json_string).as_bytes(),
+    )
+    .map_err(|e| {
         ExportError::Io(format!(
             "Failed to write JSON to {}: {}",
             invocation_path, e
         ))
-    })?;
-    file.write_all(b"\n").map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write JSON to {}: {}",
-            invocation_path, e
-        ))
-    })?;
-
-    Ok(())
+    })
 }
 
 pub fn create_snapshot_file_shared(
@@ -180,20 +169,12 @@ pub fn create_snapshot_file_shared(
 
     let json_string = serde_json::to_string_pretty(&files_snapshot)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    let mut file = File::create(snapshot_file_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create snapshot file at {}: {}",
-            snapshot_file_path, e
-        ))
-    })?;
-    file.write_all(json_string.as_bytes()).map_err(|e| {
+    write_atomic(Path::new(snapshot_file_path), json_string.as_bytes()).map_err(|e| {
         ExportError::Io(format!(
             "Failed to write snapshot file at {}: {}",
             snapshot_file_path, e
         ))
-    })?;
-
-    Ok(())
+    })
 }
 
 pub fn load_snapshot_file_shared(

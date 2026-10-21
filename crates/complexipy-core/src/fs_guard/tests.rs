@@ -5,7 +5,7 @@ use std::path::Path;
 
 use tempfile::TempDir;
 
-use super::{is_within, read_bounded, read_bounded_text};
+use super::{is_within, read_bounded, read_bounded_text, write_atomic};
 
 #[test]
 fn relative_paths_inside_the_root_are_within() {
@@ -126,4 +126,52 @@ fn a_symlink_out_of_the_root_is_refused_only_when_a_root_is_given() {
 
     assert!(read_bounded(&link, Some(root.path()), 1024).is_err());
     assert!(read_bounded(&link, None, 1024).is_ok());
+}
+
+#[test]
+fn write_atomic_replaces_the_file_and_leaves_no_temporary_file() {
+    let root = TempDir::new().unwrap();
+    let file = root.path().join("complexipy-results.json");
+    fs::write(&file, "old").unwrap();
+
+    write_atomic(&file, b"new").unwrap();
+
+    assert_eq!(fs::read_to_string(&file).unwrap(), "new");
+    assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn write_atomic_replaces_a_symlink_instead_of_following_it() {
+    let root = TempDir::new().unwrap();
+    let outside = TempDir::new().unwrap();
+    let victim = outside.path().join("results.txt");
+    fs::write(&victim, "keep me").unwrap();
+    let link = root.path().join("complexipy-results.json");
+    std::os::unix::fs::symlink(&victim, &link).unwrap();
+
+    write_atomic(&link, b"[]").unwrap();
+
+    assert_eq!(fs::read_to_string(&victim).unwrap(), "keep me");
+    assert!(fs::symlink_metadata(&link).unwrap().is_file());
+    assert_eq!(fs::read_to_string(&link).unwrap(), "[]");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failed_write_leaves_the_old_file_whole() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = TempDir::new().unwrap();
+    let dir = root.path().join("locked");
+    fs::create_dir(&dir).unwrap();
+    let file = dir.join("complexipy-snapshot.json");
+    fs::write(&file, "[]").unwrap();
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o555)).unwrap();
+
+    let result = write_atomic(&file, b"[{}]");
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert!(result.is_err());
+    assert_eq!(fs::read_to_string(&file).unwrap(), "[]");
 }

@@ -8,7 +8,7 @@ use blake2::digest::{Update, VariableOutput};
 use serde_json::{Value, json};
 
 use complexipy_core::classes::FileComplexity;
-use complexipy_core::fs_guard::{MAX_DATA_BYTES, is_within, read_bounded_text};
+use complexipy_core::fs_guard::{MAX_DATA_BYTES, is_within, read_bounded_text, write_atomic};
 
 const CACHE_DIR_NAME: &str = ".complexipy_cache";
 const CACHE_VALUES_DIR: &str = "v/cache";
@@ -333,7 +333,7 @@ fn persist_cache(cache_file: &Path, payload: &Value) -> bool {
     let Ok(serialized) = serde_json::to_string_pretty(payload) else {
         return false;
     };
-    fs::write(cache_file, serialized).is_ok()
+    write_atomic(cache_file, serialized.as_bytes()).is_ok()
 }
 
 fn ensure_cache_dir_and_supporting_files(cache_dir: &Path) -> Option<()> {
@@ -345,10 +345,10 @@ fn ensure_cache_dir_and_supporting_files(cache_dir: &Path) -> Option<()> {
 }
 
 fn write_support_file(path: &Path, content: &str) {
-    if path.exists() {
+    if fs::symlink_metadata(path).is_ok() {
         return;
     }
-    let _ = fs::write(path, content);
+    let _ = write_atomic(path, content.as_bytes());
 }
 
 fn now_seconds() -> f64 {
