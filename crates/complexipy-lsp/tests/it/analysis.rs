@@ -296,6 +296,19 @@ fn hover_reports_the_total_and_the_limit() {
 }
 
 #[test]
+fn hover_shows_the_function_name_literally() {
+    let source = "class Box:\n    def __init__(self, a, b):\n        if a:\n            if b:\n                return\n";
+    let mut analysis = analyzed(source, &config(2));
+    let hover = analysis.hover(&config(2), Position::new(1, 0)).unwrap();
+
+    let HoverContents::Markup(content) = hover.contents else {
+        panic!("expected markup content");
+    };
+
+    assert!(content.value.starts_with("**Box\\:\\:\\_\\_init\\_\\_**"));
+}
+
+#[test]
 fn hover_outside_a_function_is_empty() {
     let mut analysis = analyzed(SAMPLE, &config(2));
 

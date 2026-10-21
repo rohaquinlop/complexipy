@@ -78,13 +78,25 @@ pub fn is_python_path(path: &str) -> bool {
         .ends_with(PYTHON_EXTENSION)
 }
 
+/// The local path of a `file` URI. An empty or `localhost` authority names
+/// the local machine; another host names a UNC share on Windows and has no
+/// local path elsewhere.
 pub fn uri_to_path(uri: &Uri) -> Option<String> {
     let raw = uri.as_str();
     let rest = raw.strip_prefix("file://")?;
-    let path = rest.split(['?', '#']).next().unwrap_or(rest);
+    let rest = rest.split(['?', '#']).next().unwrap_or(rest);
+    let (authority, path) = rest
+        .find('/')
+        .map_or((rest, ""), |slash| rest.split_at(slash));
     let decoded = percent_decode(path);
 
-    Some(trim_drive_prefix(decoded))
+    if authority.is_empty() || authority.eq_ignore_ascii_case("localhost") {
+        Some(trim_drive_prefix(decoded))
+    } else if cfg!(windows) {
+        Some(format!("//{}{}", percent_decode(authority), decoded))
+    } else {
+        None
+    }
 }
 
 fn trim_drive_prefix(path: String) -> String {

@@ -420,6 +420,17 @@ fn function_range(bounds: &LineBounds, function: &FunctionComplexity) -> Range {
     )
 }
 
+fn escape_markdown(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        if character.is_ascii_punctuation() {
+            escaped.push('\\');
+        }
+        escaped.push(character);
+    }
+    escaped
+}
+
 fn hover_value(
     function: &FunctionComplexity,
     top_plan: Option<&RefactorPlan>,
@@ -427,7 +438,8 @@ fn hover_value(
 ) -> String {
     let mut value = format!(
         "**{}**: cognitive complexity {}",
-        function.name, function.complexity
+        escape_markdown(&function.name),
+        function.complexity
     );
 
     if is_over_threshold(function.complexity, config) {

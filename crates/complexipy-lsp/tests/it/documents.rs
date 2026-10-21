@@ -138,6 +138,29 @@ fn rejects_non_file_schemes() {
 }
 
 #[test]
+fn a_localhost_authority_names_the_local_machine() {
+    assert_eq!(
+        uri_to_path(&uri("file://localhost/tmp/a.py")).as_deref(),
+        Some("/tmp/a.py")
+    );
+    assert_eq!(
+        uri_to_path(&uri("file://LOCALHOST/tmp/a.py")).as_deref(),
+        Some("/tmp/a.py")
+    );
+}
+
+#[test]
+fn a_remote_authority_names_a_share() {
+    let path = uri_to_path(&uri("file://server/share/a.py"));
+
+    if cfg!(windows) {
+        assert_eq!(path.as_deref(), Some("//server/share/a.py"));
+    } else {
+        assert_eq!(path, None);
+    }
+}
+
+#[test]
 fn decodes_utf8_escapes() {
     assert_eq!(
         uri_to_path(&uri("file:///tmp/caf%C3%A9.py")).as_deref(),
