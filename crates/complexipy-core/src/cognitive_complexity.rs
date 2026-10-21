@@ -373,6 +373,7 @@ fn loop_complexity(
             boolean,
             total: own,
             bool_op_count: boolean,
+            has_else: !orelse.is_empty(),
             children,
             ..Default::default()
         },
@@ -507,6 +508,7 @@ fn statement_cognitive_complexity_shared(
                     total: own,
                     elif_count,
                     bool_op_count: boolean,
+                    has_else: !i.elif_else_clauses.is_empty(),
                     children,
                 },
             );
@@ -556,6 +558,7 @@ fn statement_cognitive_complexity_shared(
                     structural,
                     nesting: nesting_level,
                     total: own,
+                    has_else: !t.orelse.is_empty(),
                     children,
                     ..Default::default()
                 },

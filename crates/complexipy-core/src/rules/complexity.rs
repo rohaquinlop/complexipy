@@ -3,7 +3,7 @@ use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::syntax_tree::{Node, PreOrder, parse_expression};
 use crate::utils::{LineIndex, count_bool_ops, split_lines};
-use ruff_python_ast::{CmpOp, Expr};
+use ruff_python_ast::{BoolOp, CmpOp, Expr, UnaryOp};
 use std::sync::OnceLock;
 
 pub struct FlattenConditionRule;
@@ -88,7 +88,7 @@ impl RefactorRule for LoopGuardsRule {
             return None;
         }
 
-        let chain = collect_loop_if_chain(region, source, index);
+        let chain = collect_loop_if_chain(region);
 
         if chain.is_empty() {
             return None;
@@ -107,15 +107,20 @@ impl RefactorRule for LoopGuardsRule {
         }
 
         let suggestion = generate_loop_guard_suggestion(region, source, index);
-        let help = if suggestion.is_none() {
-            Some(
+        let help = match suggestion {
+            Some(_) => None,
+            None if chain[0].line_end != region.line_end => Some(
+                "A `continue` guard would also skip the statements that follow the nested \
+                 block in the loop body. Extract the nested block into a helper function, \
+                 or move those statements above it when their order allows."
+                    .to_string(),
+            ),
+            None => Some(
                 "Add `if not (<condition>): continue` guards at the top of the loop body \
                  for each nested if condition, then dedent the remaining logic by one \
                  level per guard."
                     .to_string(),
-            )
-        } else {
-            None
+            ),
         };
 
         Some(RefactorPlan {
@@ -505,7 +510,7 @@ impl RefactorRule for CollapsibleIfRule {
             return None;
         }
 
-        let chain = collect_if_chain(region, source, index);
+        let chain = collect_if_chain(region);
 
         if chain.len() < 2 {
             return None;
@@ -514,11 +519,15 @@ impl RefactorRule for CollapsibleIfRule {
         let innermost = chain.last().unwrap();
 
         let mut conditions = Vec::new();
+        let mut comments = Vec::new();
         let mut conditions_extracted = true;
         for r in &chain {
             let line = line_at(source, index, r.line_start)?;
             match extract_condition_from_line(line.trim_start()) {
-                Some(cond) => conditions.push(cond),
+                Some(cond) => {
+                    conditions.push(cond);
+                    comments.push(header_comment(line));
+                }
                 None => {
                     conditions_extracted = false;
                     break;
@@ -577,22 +586,48 @@ impl RefactorRule for CollapsibleIfRule {
         let mut suggestion = None;
         let mut help = None;
         if conditions_extracted {
-            match generate_collapsible_if_suggestion_chain(
-                outermost,
-                innermost,
-                &conditions,
-                source,
-                index,
-            ) {
-                Some(s) => suggestion = Some(s),
+            let comments: Option<Vec<&str>> = comments.into_iter().collect();
+            let written: Option<Vec<&str>> = comments.map(|comments| {
+                comments
+                    .into_iter()
+                    .filter(|comment| !comment.is_empty())
+                    .collect()
+            });
+            match written.as_deref() {
                 None => {
                     help = Some(
                         "Merge the nested if statements into a single `if <outer> and <inner>:` \
-                         block, adjusting the indentation of any multi-line string literals in \
-                         the body by hand - an automatic replacement would change their content."
+                         block, and move the inner body onto its own line below it."
                             .to_string(),
                     );
                 }
+                Some([_, _, ..]) => {
+                    help = Some(
+                        "Merge the nested if statements into a single `if <outer> and <inner>:` \
+                         block, and decide by hand where the comments of the merged header \
+                         lines belong."
+                            .to_string(),
+                    );
+                }
+                Some(comment) => match generate_collapsible_if_suggestion_chain(
+                    outermost,
+                    innermost,
+                    &conditions,
+                    comment.first().copied().unwrap_or(""),
+                    source,
+                    index,
+                ) {
+                    Some(s) => suggestion = Some(s),
+                    None => {
+                        help = Some(
+                            "Merge the nested if statements into a single \
+                             `if <outer> and <inner>:` block and dedent its body by hand. An \
+                             automatic replacement would change a multi-line string literal or \
+                             could not keep the indentation of the body consistent."
+                                .to_string(),
+                        );
+                    }
+                },
             }
         } else {
             help = Some(
@@ -650,144 +685,85 @@ fn generate_loop_guard_suggestion(
     source: &str,
     index: &LineIndex,
 ) -> Option<CodeSuggestion> {
-    let lines = span_lines(source, index, region.line_start, region.line_end)?;
-    if lines.is_empty() {
+    let chain = collect_loop_if_chain(region);
+    let head = *chain.first()?;
+    if region.has_else || head.has_else || head.line_end != region.line_end {
         return None;
     }
 
+    let lines = span_lines(source, index, region.line_start, region.line_end)?;
     let base = region.line_start;
     let span_idx = |line: u64| -> Option<usize> {
         let idx = line.checked_sub(base)? as usize;
         (idx < lines.len()).then_some(idx)
     };
 
-    let base_indent = get_indentation_from_str(lines[0]);
+    let mut headers = Vec::with_capacity(chain.len());
+    for member in &chain {
+        headers.push(span_idx(member.line_start)?);
+    }
 
     let mut guards = Vec::new();
-    let mut current_region: Option<&ComplexityRegion> = None;
-
-    for child in &region.children {
-        if child.kind == RegionKind::If {
-            current_region = Some(child);
-            break;
-        }
-    }
-
-    while let Some(r) = current_region {
-        let Some(line_idx) = span_idx(r.line_start) else {
+    for &header in &headers {
+        let line = lines[header].trim_start();
+        let (Some(condition), Some(comment)) =
+            (extract_condition_from_line(line), header_comment(line))
+        else {
             break;
         };
-        let condition = match extract_condition_from_line(lines[line_idx].trim_start()) {
-            Some(cond) => cond,
-            None => break,
-        };
-        guards.push((r, condition));
-
-        if r.children.len() == 1
-            && r.children[0].kind == RegionKind::If
-            && !has_else_branch(r, source, index)
-            && !has_else_branch(&r.children[0], source, index)
-        {
-            current_region = Some(&r.children[0]);
-            continue;
-        }
-        break;
+        guards.push((header, condition, comment));
+    }
+    if guards.is_empty() {
+        return None;
     }
 
-    // A loop-level `else` (for/while-else, aligned with the loop header)
-    // cannot survive the guard transformation: re-emitted as-is it becomes a
-    // dangling `else` inside the body. A first chain member with its own
-    // `else`/`elif` cannot become a guard either - the guard would skip the
-    // `else` branch entirely.
-    if has_else_branch(region, source, index)
-        || guards.is_empty()
-        || has_else_branch(guards[0].0, source, index)
+    let head_idx = headers[0];
+    let head_prefix = indentation_of(lines[head_idx]);
+    if loop_body_prefix(&lines)? != head_prefix {
+        return None;
+    }
+    if contains_multiline_string(lines.get(head_idx + 1..)?) {
+        return None;
+    }
+
+    let body_prefixes: Vec<&str> = (0..guards.len())
+        .map(|i| match headers.get(i + 1) {
+            Some(&next) => Some(indentation_of(lines[next])),
+            None => first_code_line(lines.get(headers[i] + 1..)?).map(indentation_of),
+        })
+        .collect::<Option<_>>()?;
+    let header_prefixes = headers.iter().map(|&header| indentation_of(lines[header]));
+    if !header_prefixes
+        .zip(&body_prefixes)
+        .all(|(header, body)| body.len() > header.len() && body.starts_with(header))
     {
         return None;
     }
+    let continue_prefix = format!("{head_prefix}{}", &body_prefixes[0][head_prefix.len()..]);
 
-    let innermost = guards.last().unwrap().0;
-    let innermost_start = span_idx(innermost.line_start)?;
-    let innermost_end = span_idx(innermost.line_end + 1).unwrap_or(lines.len());
-    let chain_start = span_idx(guards[0].0.line_start)?;
-
-    for i in 0..guards.len().saturating_sub(1) {
-        let range_start = span_idx(guards[i].0.line_start + 1).unwrap_or(lines.len());
-        let range_end = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
-        if contains_multiline_string(lines.get(range_start..range_end.min(lines.len()))?) {
-            return None;
-        }
-    }
-    if contains_multiline_string(lines.get(innermost_start + 1..innermost_end)?) {
-        return None;
-    }
-
-    // The body indent and step come from the first chain member's own line:
-    // the header may span several lines, so its continuation lines cannot be
-    // trusted to reveal the step. Header continuation lines fall into the
-    // leading range below and pass through unchanged.
-    let loop_body_indent = get_indentation_from_str(lines[chain_start]);
-    let indent_step = loop_body_indent.saturating_sub(base_indent);
-
-    let mut result = Vec::new();
-    result.push(lines[0].to_string());
-    result.extend(
-        lines
-            .get(1..chain_start)?
-            .iter()
-            .map(|line| (*line).to_string()),
-    );
-
-    for (i, (member, guard)) in guards.iter().enumerate() {
+    let mut result: Vec<String> = lines
+        .get(..head_idx)?
+        .iter()
+        .map(|line| (*line).to_string())
+        .collect();
+    for (i, (header, guard, comment)) in guards.iter().enumerate() {
         let guard_text = match strip_top_level_not(guard) {
             Some(rest) => rest,
             None => format!("not ({guard})"),
         };
         result.push(format!(
-            "{}if {}:",
-            " ".repeat(loop_body_indent),
-            guard_text
+            "{head_prefix}if {guard_text}:{}",
+            comment_suffix(comment)
         ));
-        result.push(format!(
-            "{}continue",
-            " ".repeat(loop_body_indent + indent_step)
-        ));
+        result.push(format!("{continue_prefix}continue"));
 
-        if i + 1 < guards.len() {
-            let next_start = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
-            let range_start = span_idx(member.line_start + 1).unwrap_or(lines.len());
-            let shift = indent_step * (i + 1);
-            for line in lines.get(range_start..next_start.min(lines.len()))? {
-                let trimmed = line.trim_start();
-                if trimmed.is_empty() {
-                    result.push(String::new());
-                    continue;
-                }
-                let current_indent = get_indentation_from_str(line);
-                let shifted = current_indent.saturating_sub(shift);
-                let padding = " ".repeat(shifted);
-                result.push(format!("{}{}", padding, trimmed));
-            }
-        }
+        let body_end = match guards.get(i + 1) {
+            Some((next, _, _)) => *next,
+            None => lines.len(),
+        };
+        let body = lines.get(header + 1..body_end)?;
+        result.extend(reindented(body, body_prefixes[i], head_prefix)?);
     }
-
-    for line in lines.get(innermost_start + 1..innermost_end)? {
-        let trimmed = line.trim_start();
-        if trimmed.is_empty() {
-            result.push(String::new());
-            continue;
-        }
-        let current_indent = get_indentation_from_str(line);
-        let shifted = current_indent.saturating_sub(indent_step * guards.len());
-        let padding = " ".repeat(shifted);
-        result.push(format!("{}{}", padding, trimmed));
-    }
-    result.extend(
-        lines
-            .get(innermost_end..)?
-            .iter()
-            .map(|line| (*line).to_string()),
-    );
 
     Some(CodeSuggestion {
         replacement: result.join("\n"),
@@ -800,36 +776,47 @@ fn generate_loop_guard_suggestion(
     })
 }
 
-/// Detect the indentation step (spaces per level) from a line range.
-/// Blank and comment-only lines carry no structural indent; pairing them
-/// against a body statement would report the body's full indent as the step.
-fn detect_indent_step_range(
-    source: &str,
-    index: &LineIndex,
-    from_line: u64,
-    to_line_excl: u64,
-) -> usize {
-    let mut prev_indent: Option<usize> = None;
-    let mut line_no = from_line;
-    while line_no < to_line_excl {
-        let Some(line) = line_at(source, index, line_no) else {
-            break;
-        };
-        let trimmed = line.trim_start();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            line_no += 1;
-            continue;
-        }
-        let indent = get_indentation_from_str(line);
-        if let Some(prev) = prev_indent
-            && indent > prev
-        {
-            return indent - prev;
-        }
-        prev_indent = Some(indent);
-        line_no += 1;
+fn indentation_of(line: &str) -> &str {
+    &line[..line.len() - line.trim_start().len()]
+}
+
+fn is_code_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    !trimmed.is_empty() && !trimmed.starts_with('#')
+}
+
+fn first_code_line<'a>(lines: &[&'a str]) -> Option<&'a str> {
+    lines.iter().copied().find(|line| is_code_line(line))
+}
+
+fn loop_body_prefix<'a>(lines: &[&'a str]) -> Option<&'a str> {
+    let header_end = lines
+        .iter()
+        .position(|line| line_ends_with_statement_colon(line))?;
+    first_code_line(lines.get(header_end + 1..)?).map(indentation_of)
+}
+
+/// Moves `lines` from the block indentation `from` to `to`. Blank lines
+/// become empty and comment lines outside the block keep their text.
+/// Returns `None` when a code line does not start with `from`.
+fn reindented(lines: &[&str], from: &str, to: &str) -> Option<Vec<String>> {
+    lines
+        .iter()
+        .map(|line| match line.strip_prefix(from) {
+            _ if line.trim_start().is_empty() => Some(String::new()),
+            Some(rest) => Some(format!("{to}{rest}")),
+            None if is_code_line(line) => None,
+            None => Some((*line).to_string()),
+        })
+        .collect()
+}
+
+fn comment_suffix(comment: &str) -> String {
+    if comment.is_empty() {
+        String::new()
+    } else {
+        format!("  {comment}")
     }
-    4
 }
 
 /// Detect the indentation step (spaces per level) forward from a header line.
@@ -1248,6 +1235,19 @@ fn line_ends_with_statement_colon(line: &str) -> bool {
 /// first `:` found at bracket depth 0 outside of any string literal. A `#` reached
 /// outside a string ends the scan (nothing after it can contain the statement colon).
 fn extract_condition_from_line(line: &str) -> Option<String> {
+    split_header(line).map(|(condition, _)| condition.to_string())
+}
+
+/// The trailing comment of an `if` / `elif` / `while` header line: `Some("")`
+/// when nothing follows the statement colon, the comment text when one does,
+/// and `None` when code follows the colon or no colon is found.
+fn header_comment(line: &str) -> Option<&str> {
+    let (_, rest) = split_header(line)?;
+    let rest = rest.trim();
+    (rest.is_empty() || rest.starts_with('#')).then_some(rest)
+}
+
+fn split_header(line: &str) -> Option<(&str, &str)> {
     let trimmed = line.trim_start();
 
     let keyword_len = if trimmed.starts_with("elif ") {
@@ -1330,39 +1330,12 @@ fn extract_condition_from_line(line: &str) -> Option<String> {
     if condition.is_empty() {
         return None;
     }
-    Some(condition.to_string())
-}
-
-fn has_else_branch(region: &ComplexityRegion, source: &str, index: &LineIndex) -> bool {
-    let Some(lines) = span_lines(source, index, region.line_start, region.line_end) else {
-        return false;
-    };
-    if lines.is_empty() {
-        return false;
-    }
-
-    let base_indent = get_indentation_from_str(lines[0]);
-    let mut in_triple_string: Option<char> = None;
-
-    for line in &lines {
-        if in_triple_string.is_none() {
-            let trimmed = line.trim_start();
-            let current_indent = get_indentation_from_str(line);
-
-            if current_indent == base_indent
-                && (trimmed.starts_with("else:") || trimmed.starts_with("elif "))
-            {
-                return true;
-            }
-        }
-        update_triple_string_state(line, &mut in_triple_string);
-    }
-
-    false
+    Some((condition, &trimmed[colon_byte + 1..]))
 }
 
 fn update_triple_string_state(line: &str, state: &mut Option<char>) {
     let chars: Vec<char> = line.chars().collect();
+    let mut single_quote: Option<char> = None;
     let mut i = 0;
     while i < chars.len() {
         if let Some(quote) = *state {
@@ -1382,6 +1355,17 @@ fn update_triple_string_state(line: &str, state: &mut Option<char>) {
             i += 1;
             continue;
         }
+        if let Some(quote) = single_quote {
+            if chars[i] == '\\' {
+                i += 2;
+                continue;
+            }
+            if chars[i] == quote {
+                single_quote = None;
+            }
+            i += 1;
+            continue;
+        }
         match chars[i] {
             '#' => break,
             '\'' | '"' => {
@@ -1389,6 +1373,7 @@ fn update_triple_string_state(line: &str, state: &mut Option<char>) {
                     *state = Some(chars[i]);
                     i += 3;
                 } else {
+                    single_quote = Some(chars[i]);
                     i += 1;
                 }
             }
@@ -1439,42 +1424,32 @@ fn generate_collapsible_if_suggestion_chain(
     outermost: &ComplexityRegion,
     innermost: &ComplexityRegion,
     conditions: &[String],
+    comment: &str,
     source: &str,
     index: &LineIndex,
 ) -> Option<CodeSuggestion> {
     let outer_line = line_at(source, index, outermost.line_start)?;
+    let inner_line = line_at(source, index, innermost.line_start)?;
     let inner_start = innermost.line_start + 1;
     let inner_end = innermost.line_end + 1;
     if contains_multiline_string_lines(source, index, inner_start, inner_end) {
         return None;
     }
 
-    let outer_indent = get_indentation_from_str(outer_line);
-    let indent_step = detect_indent_step_range(source, index, outermost.line_start, inner_end);
-
+    let body = span_lines(source, index, inner_start, innermost.line_end)?;
+    let body_lines = reindented(
+        &body,
+        indentation_of(inner_line),
+        indentation_of(outer_line),
+    )?;
     let combined = combine_conditions_chain(conditions);
-
-    let chain_depth = conditions.len();
-    let mut body_lines = Vec::new();
-    let mut line_no = inner_start;
-    while line_no < inner_end {
-        let Some(line) = line_at(source, index, line_no) else {
-            break;
-        };
-        let trimmed = line.trim_start();
-        if trimmed.is_empty() {
-            body_lines.push(String::new());
-        } else {
-            let current_indent = get_indentation_from_str(line);
-            let shifted = current_indent.saturating_sub(indent_step * (chain_depth - 1));
-            let padding = " ".repeat(shifted);
-            body_lines.push(format!("{}{}", padding, trimmed));
-        }
-        line_no += 1;
-    }
-
-    let indent = " ".repeat(outer_indent);
-    let replacement = format!("{}if {}:\n{}", indent, combined, body_lines.join("\n"));
+    let replacement = format!(
+        "{}if {}:{}\n{}",
+        indentation_of(outer_line),
+        combined,
+        comment_suffix(comment),
+        body_lines.join("\n")
+    );
 
     Some(CodeSuggestion {
         replacement,
@@ -1484,113 +1459,38 @@ fn generate_collapsible_if_suggestion_chain(
     })
 }
 
-/// Combine multiple conditions with 'and', wrapping 'or' conditions in parens.
-/// Returns a copy of `condition` with the contents of string literals and of
-/// bracketed groups replaced by `x`, preserving the top-level structure.
-///
-/// This lets callers look for top-level operators with plain substring checks
-/// without being fooled by `" or "` inside a string literal or a `:=` nested
-/// inside a call.
-fn mask_nested(condition: &str) -> String {
-    let chars: Vec<char> = condition.chars().collect();
-    let mut out = String::with_capacity(chars.len());
-    let mut i = 0;
-    let mut depth: i32 = 0;
-    let mut string_state: Option<(char, bool)> = None;
-
-    while i < chars.len() {
-        let c = chars[i];
-
-        if let Some((quote, triple)) = string_state {
-            out.push('x');
-            if c == '\\' {
-                if i + 1 < chars.len() {
-                    out.push('x');
-                }
-                i += 2;
-                continue;
-            }
-            if c == quote {
-                let closes_triple =
-                    triple && i + 2 < chars.len() && chars[i + 1] == quote && chars[i + 2] == quote;
-                if triple {
-                    if closes_triple {
-                        out.push('x');
-                        out.push('x');
-                        string_state = None;
-                        i += 3;
-                    } else {
-                        i += 1;
-                    }
-                } else {
-                    string_state = None;
-                    i += 1;
-                }
-                continue;
-            }
-            i += 1;
-            continue;
-        }
-
-        match c {
-            '\'' | '"' => {
-                let is_triple = i + 2 < chars.len() && chars[i + 1] == c && chars[i + 2] == c;
-                string_state = Some((c, is_triple));
-                out.push('x');
-                if is_triple {
-                    out.push('x');
-                    out.push('x');
-                    i += 3;
-                } else {
-                    i += 1;
-                }
-            }
-            '(' | '[' | '{' => {
-                depth += 1;
-                out.push('x');
-                i += 1;
-            }
-            ')' | ']' | '}' => {
-                depth -= 1;
-                out.push('x');
-                i += 1;
-            }
-            _ => {
-                out.push(if depth > 0 { 'x' } else { c });
-                i += 1;
-            }
-        }
-    }
-
-    out
-}
-
 /// True when `condition` must be parenthesized before being joined with `and`.
 ///
-/// `or`, conditional expressions (`x if c else y`) and assignment expressions
-/// (`:=`) all bind more loosely than `and`, so merging them unparenthesized
-/// silently changes what the condition means while still parsing:
-/// `n := len(items)` joined bare becomes `n := (len(items) and ...)`.
+/// `or`, conditional expressions (`x if c else y`), assignment expressions
+/// (`:=`) and lambdas bind more loosely than `and`, so merging them
+/// unparenthesized silently changes what the condition means while still
+/// parsing. A condition that does not parse on its own is parenthesized too.
 fn needs_parens_for_and(condition: &str) -> bool {
-    let masked = mask_nested(condition);
-    masked.contains(" or ") || masked.contains(" if ") || masked.contains(":=")
+    let Some(parsed) = parse_expression(condition) else {
+        return true;
+    };
+    let loose_start = match parsed.expr() {
+        Expr::BoolOp(bool_op) if bool_op.op == BoolOp::Or => bool_op.range.start(),
+        Expr::If(conditional) => conditional.range.start(),
+        Expr::Named(named) => named.range.start(),
+        Expr::Lambda(lambda) => lambda.range.start(),
+        _ => return false,
+    };
+    usize::from(loose_start) == 0
 }
 
-/// Returns the remainder of `condition` when it is a single top-level
-/// `not <expr>` whose `<expr>` holds no top-level `and`/`or`/conditional/
-/// walrus. The guard can then render as `if <expr>:` instead of the redundant
-/// `if not (not <expr>):`. Returns `None` for anything less certain.
+/// Returns the operand text of `condition` when the whole condition is one
+/// `not <expr>`, so the guard can render as `if <expr>:` instead of the
+/// redundant `if not (not <expr>):`. Returns `None` otherwise.
 fn strip_top_level_not(condition: &str) -> Option<String> {
-    let masked = mask_nested(condition);
-    let rest_masked = masked.strip_prefix("not ")?;
-    if rest_masked.contains(" and ")
-        || rest_masked.contains(" or ")
-        || rest_masked.contains(" if ")
-        || rest_masked.contains(":=")
-    {
+    let parsed = parse_expression(condition)?;
+    let Expr::UnaryOp(unary) = parsed.expr() else {
+        return None;
+    };
+    if unary.op != UnaryOp::Not || usize::from(unary.range.start()) != 0 {
         return None;
     }
-    Some(condition[4..].to_string())
+    Some(condition.strip_prefix("not")?.trim_start().to_string())
 }
 
 fn combine_conditions_chain(conditions: &[String]) -> String {
@@ -1612,11 +1512,7 @@ fn combine_conditions_chain(conditions: &[String]) -> String {
 /// - Current region has != 1 child
 /// - Child is not an If
 /// - Current or child has else/elif
-fn collect_if_chain<'a>(
-    region: &'a ComplexityRegion,
-    source: &str,
-    index: &LineIndex,
-) -> Vec<&'a ComplexityRegion> {
+fn collect_if_chain(region: &ComplexityRegion) -> Vec<&ComplexityRegion> {
     let mut chain = vec![region];
     let mut current = region;
 
@@ -1628,7 +1524,7 @@ fn collect_if_chain<'a>(
         if child.kind != RegionKind::If {
             break;
         }
-        if has_else_branch(current, source, index) || has_else_branch(child, source, index) {
+        if current.has_else || child.has_else {
             break;
         }
         chain.push(child);
@@ -1646,13 +1542,10 @@ fn fallback_boolean_count(chain: &[&ComplexityRegion]) -> u64 {
 }
 
 /// Walk the linear chain of single-child If regions starting from a loop's
-/// first If child, stopping at the same boundaries `collect_if_chain` does
-/// (a branch, an else/elif, or the end of the nesting).
-fn collect_loop_if_chain<'a>(
-    region: &'a ComplexityRegion,
-    source: &str,
-    index: &LineIndex,
-) -> Vec<&'a ComplexityRegion> {
+/// first If child. Each next member must be the last statement of the one
+/// before it, and the walk stops at a branch, an else/elif, or the end of
+/// the nesting.
+fn collect_loop_if_chain(region: &ComplexityRegion) -> Vec<&ComplexityRegion> {
     let mut chain = Vec::new();
     let mut current = region.children.iter().find(|c| c.kind == RegionKind::If);
 
@@ -1660,8 +1553,9 @@ fn collect_loop_if_chain<'a>(
         chain.push(r);
         current = if r.children.len() == 1
             && r.children[0].kind == RegionKind::If
-            && !has_else_branch(r, source, index)
-            && !has_else_branch(&r.children[0], source, index)
+            && !r.has_else
+            && !r.children[0].has_else
+            && r.children[0].line_end == r.line_end
         {
             Some(&r.children[0])
         } else {
