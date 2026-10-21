@@ -311,13 +311,10 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
 
     match expr {
         ast::Expr::BoolOp(b) => {
-            complexity += 1;
-            for value in b.values.iter() {
-                complexity += count_different_childs_type(value, expr);
-            }
+            complexity += operator_sequences(b, None);
         }
         ast::Expr::UnaryOp(u) => {
-            complexity += count_different_childs_type(&u.operand, expr);
+            complexity += nested_operator_sequences(&u.operand, None);
         }
         ast::Expr::Compare(c) => {
             complexity += count_bool_ops(&c.left, nesting_level);
@@ -403,39 +400,26 @@ fn count_comprehension(
     complexity
 }
 
-fn count_different_childs_type(expr: &ast::Expr, prev_pr: &ast::Expr) -> u64 {
-    let mut complexity: u64 = 0;
+/// Counts the sequences of like boolean operators in `bool_op`. The node
+/// starts a new sequence unless `enclosing` is the operator of the boolean
+/// operation directly around it; `None` means a unary operator or nothing
+/// encloses it.
+fn operator_sequences(bool_op: &ast::ExprBoolOp, enclosing: Option<ast::BoolOp>) -> u64 {
+    let starts_sequence = u64::from(enclosing != Some(bool_op.op));
+    starts_sequence
+        + bool_op
+            .values
+            .iter()
+            .map(|value| nested_operator_sequences(value, Some(bool_op.op)))
+            .sum::<u64>()
+}
 
+fn nested_operator_sequences(expr: &ast::Expr, enclosing: Option<ast::BoolOp>) -> u64 {
     match expr {
-        ast::Expr::BoolOp(b) => match prev_pr {
-            ast::Expr::BoolOp(p) => {
-                if b.op != p.op {
-                    complexity += 1;
-                }
-                for value in p.values.iter() {
-                    complexity += count_different_childs_type(value, expr);
-                }
-            }
-            ast::Expr::UnaryOp(p) => {
-                complexity = 1 + count_different_childs_type(&p.operand, expr);
-            }
-            _ => {}
-        },
-        ast::Expr::UnaryOp(..) => match prev_pr {
-            ast::Expr::BoolOp(p) => {
-                for value in p.values.iter() {
-                    complexity += count_different_childs_type(value, expr);
-                }
-            }
-            ast::Expr::UnaryOp(p) => {
-                complexity = count_different_childs_type(&p.operand, expr);
-            }
-            _ => {}
-        },
-        _ => {}
+        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing),
+        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None),
+        _ => 0,
     }
-
-    complexity
 }
 
 fn line_start_of(code: &str, offset: usize) -> usize {
