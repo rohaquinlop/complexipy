@@ -389,6 +389,44 @@ fn shutdown_answers_the_requests_still_waiting() {
 }
 
 #[test]
+fn a_flush_keeps_one_analysis_queued_so_a_request_goes_next() {
+    let (mut server, client) = server(strict());
+    let uris: Vec<Uri> = (0..3)
+        .map(|index| format!("file:///repo/doc{index}.py").parse().unwrap())
+        .collect();
+    for uri in &uris {
+        server
+            .documents
+            .open(uri.clone(), SAMPLE.to_string(), 1, "python".to_string());
+        server.mark_dirty(uri.clone());
+    }
+    for deadline in server.deadlines.values_mut() {
+        *deadline = Instant::now();
+    }
+
+    server.flush_due();
+    assert_eq!(server.analyzing.len(), 1);
+    assert_eq!(server.flushing.len(), 2);
+
+    server.handle_request(Request::new(
+        RequestId::from(1),
+        INLAY_HINT.to_string(),
+        InlayHintParams {
+            text_document: TextDocumentIdentifier {
+                uri: uris[2].clone(),
+            },
+            range: Range::new(Position::new(0, 0), Position::new(u32::MAX, u32::MAX)),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        },
+    ));
+    assert_eq!(server.analyzing.len(), 2);
+
+    settle(&mut server);
+    assert!(server.flushing.is_empty());
+    assert_eq!(diagnostics_of(&client).len(), 3);
+}
+
+#[test]
 fn concurrent_requests_share_one_analysis() {
     let (mut server, client) = server(strict());
     server

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -295,6 +295,7 @@ struct Server {
     planning: HashMap<(String, i32, u64), Vec<RequestId>>,
     requests: HashMap<RequestId, PendingRequest>,
     refresh_due: bool,
+    flushing: VecDeque<String>,
 }
 
 impl Server {
@@ -318,6 +319,7 @@ impl Server {
             planning: HashMap::new(),
             requests: HashMap::new(),
             refresh_due: false,
+            flushing: VecDeque::new(),
         }
     }
 
@@ -646,10 +648,26 @@ impl Server {
             .filter(|(_, deadline)| **deadline <= now)
             .map(|(key, _)| key.clone())
             .collect();
-        let mut published = false;
 
         for key in due {
             self.deadlines.remove(&key);
+            if !self.flushing.contains(&key) {
+                self.flushing.push_back(key);
+            }
+        }
+
+        self.pump_flush();
+        self.request_refresh_when_idle();
+    }
+
+    /// Refreshes the documents a flush is waiting on, keeping at most one of
+    /// their analyses queued, so a request queues its own analysis right
+    /// behind the one that is running instead of behind the whole flush.
+    fn pump_flush(&mut self) {
+        while !self.analyzing.values().any(|pending| pending.publish) {
+            let Some(key) = self.flushing.pop_front() else {
+                return;
+            };
             let Some(uri) = self
                 .documents
                 .get_keyed(&key)
@@ -658,11 +676,8 @@ impl Server {
                 continue;
             };
 
-            published |= self.refresh(&uri);
+            self.refresh_due |= self.refresh(&uri);
         }
-
-        self.refresh_due |= published;
-        self.request_refresh_when_idle();
     }
 
     /// Publishes the analysis of the document's current version. Returns
@@ -760,6 +775,7 @@ impl Server {
                 plans,
             } => self.accept_plans(key, version, line_start, generation, plans),
         }
+        self.pump_flush();
         self.request_refresh_when_idle();
     }
 
@@ -990,7 +1006,10 @@ impl Server {
     /// Asks the client to refresh inlay hints once the diagnostics a flush
     /// started have all been published.
     fn request_refresh_when_idle(&mut self) {
-        if !self.refresh_due || self.analyzing.values().any(|pending| pending.publish) {
+        if !self.refresh_due
+            || !self.flushing.is_empty()
+            || self.analyzing.values().any(|pending| pending.publish)
+        {
             return;
         }
 
