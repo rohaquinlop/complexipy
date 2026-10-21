@@ -19,6 +19,7 @@ fn options() -> AnalysisOptions {
         check_script: true,
         no_ignore: true,
         with_plans: true,
+        plans_above: None,
         rules: RuleSet::default(),
     }
 }

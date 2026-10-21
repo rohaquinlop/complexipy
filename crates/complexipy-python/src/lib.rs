@@ -96,6 +96,7 @@ mod _complexipy {
                 check_script,
                 no_ignore,
                 with_plans: true,
+                plans_above: None,
                 rules: RuleSet::default(),
             },
         )
@@ -115,6 +116,7 @@ mod _complexipy {
                 check_script,
                 no_ignore,
                 with_plans: true,
+                plans_above: None,
                 rules: RuleSet::default(),
             },
         )

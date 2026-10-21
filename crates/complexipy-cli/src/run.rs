@@ -9,7 +9,7 @@ use crate::output::messages::{
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
-use crate::types::{ExitReport, RunConfig};
+use crate::types::{ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
@@ -283,8 +283,24 @@ fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {
         check_script: config.check_script,
         no_ignore: config.no_ignore,
         with_plans: config.suggest_refactors,
+        plans_above: (!reports_passing_plans(config)).then_some(config.max_complexity_allowed),
         rules,
     }
+}
+
+/// Returns whether some output of the run shows the plans of a function at
+/// or under the threshold: the console and JSON list passing functions
+/// unless `--failed` is set, and SARIF and GitLab report every plan. The fix
+/// pass reads only the plans of functions over the threshold.
+fn reports_passing_plans(config: &RunConfig) -> bool {
+    let shows_plans = config.suggest_refactors && !config.dry_run;
+    let lists_passing =
+        !config.failed && (!config.quiet || config.output_format.contains(&OutputFormat::Json));
+    let reports_every_plan = config
+        .output_format
+        .iter()
+        .any(|format| matches!(format, OutputFormat::Sarif | OutputFormat::Gitlab));
+    shows_plans && (lists_passing || reports_every_plan)
 }
 
 fn format_diff_for(entries: &[complexipy_core::diff::DiffEntry], git_ref: &str) -> String {

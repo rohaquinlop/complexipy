@@ -256,7 +256,8 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
             continue;
         }
 
-        let spliced = splice_plan(plan, suggestion, &report.patched, &index)
+        let newline = line_ending_of(&report.patched);
+        let spliced = splice_plan(plan, suggestion, &report.patched, &index, newline)
             .filter(|text| parse_module(text).is_ok());
 
         match spliced {
@@ -291,25 +292,41 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
 /// Replaces the plan's line range in the source with the replacement. The
 /// byte offsets come from the index of the original text; callers splice
 /// bottom-to-top so the offsets of a pending span stay valid in the
-/// progressively patched text. The replacement's line breaks become the
-/// file's line breaks, and its trailing line breaks collapse into the one
-/// terminator the replaced range carried.
+/// progressively patched text. The replacement's line breaks become
+/// `newline`, the file's line break from `line_ending_of`, and its trailing
+/// line breaks collapse into the one terminator the replaced range carried.
 pub(crate) fn splice_plan(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
     source: &str,
     index: &LineIndex,
+    newline: &str,
 ) -> Option<String> {
+    splice_window(plan, suggestion, source, index, newline, (0, source.len()))
+}
+
+/// Splices like `splice_plan`, but returns only the text between the two
+/// byte offsets of `window`, with the replacement in place. Returns `None`
+/// when the plan's range does not lie inside the window.
+pub(crate) fn splice_window(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    source: &str,
+    index: &LineIndex,
+    newline: &str,
+    window: (usize, usize),
+) -> Option<String> {
+    let (window_start, window_end) = window;
     let byte_start = index.byte_of_line(plan.line_start)?;
     let byte_end = index
         .byte_of_line(plan.line_end + 1)
         .unwrap_or(source.len());
-    if byte_start > byte_end {
+    if byte_start > byte_end || byte_start < window_start || byte_end > window_end {
         return None;
     }
-    let mut spliced = String::with_capacity(source.len() + suggestion.replacement.len());
-    spliced.push_str(&source[..byte_start]);
-    let newline = line_ending_of(source);
+    let mut spliced =
+        String::with_capacity(window_end - window_start + suggestion.replacement.len());
+    spliced.push_str(&source[window_start..byte_start]);
     let normalized = suggestion
         .replacement
         .replace("\r\n", "\n")
@@ -318,11 +335,11 @@ pub(crate) fn splice_plan(
     if byte_end < source.len() || source.ends_with('\n') {
         spliced.push_str(newline);
     }
-    spliced.push_str(&source[byte_end..]);
+    spliced.push_str(&source[byte_end..window_end]);
     Some(spliced)
 }
 
-fn line_ending_of(source: &str) -> &'static str {
+pub(crate) fn line_ending_of(source: &str) -> &'static str {
     let crlf = source.matches("\r\n").count();
     let lf = source.matches('\n').count() - crlf;
     if crlf > lf { "\r\n" } else { "\n" }

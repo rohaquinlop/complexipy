@@ -88,6 +88,10 @@ pub fn run_fix_pass(
         });
     }
 
+    let fix_options = AnalysisOptions {
+        plans_above: Some(max_complexity_allowed),
+        ..options.clone()
+    };
     let mut parts: Vec<String> = Vec::new();
     let mut wrote = false;
     let mut applied_any = false;
@@ -161,7 +165,7 @@ pub fn run_fix_pass(
         }
         for target in targets.iter_mut() {
             if target.changed {
-                target.plans = analyze_plans(&target.text, options, max_complexity_allowed);
+                target.plans = analyze_plans(&target.text, &fix_options, max_complexity_allowed);
                 target.changed = false;
             }
         }
