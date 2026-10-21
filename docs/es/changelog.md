@@ -22,7 +22,8 @@ GitHub con todos los detalles.
   argumentos se analizan en paralelo, y `--fix` vuelve a analizar solo los
   archivos que escribió. La caché de análisis guarda sin interpretar las
   entradas de otros objetivos, reescribe su archivo solo cuando cambian los
-  resultados de esta ejecución y conserva como máximo 32 MiB de entradas.
+  resultados de esta ejecución y conserva como máximo 32 MiB de entradas. En
+  macOS, Windows y Linux de 64 bits, complexipy reserva memoria con mimalloc.
 - Los planes de refactorización se miden sobre su propia función en lugar del
   archivo completo, así que `--suggest-refactors` crece linealmente con el
   tamaño del archivo

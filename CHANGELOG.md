@@ -19,7 +19,8 @@ release section links to its GitHub release notes for the full details.
   report share one read of each file. File arguments are analyzed in parallel,
   and `--fix` analyzes again only the files it wrote. The analysis cache keeps
   the entries of other targets unparsed, rewrites its file only when this
-  run's results changed, and holds at most 32 MiB of entries.
+  run's results changed, and holds at most 32 MiB of entries. On macOS,
+  Windows, and 64-bit Linux, complexipy allocates with mimalloc.
 - Refactor plans are measured on their own function instead of the whole
   file, so `--suggest-refactors` grows linearly with the file size
   ([#274](https://github.com/rohaquinlop/complexipy/issues/274)). `--failed`,
