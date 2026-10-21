@@ -2,9 +2,9 @@ use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::helpers::exclude::get_paths_to_process;
 use crate::rules::{AnalysisOptions, RuleSet};
+use crate::syntax_tree::parse_module;
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
 use rayon::prelude::*;
-use ruff_python_parser::parse_module;
 use std::path;
 
 use crate::cognitive_complexity::code_complexity_shared;
@@ -264,9 +264,8 @@ fn collect_removable_ignores_from_file(
         return Ok(vec![]);
     }
     let parsed = parse_module(&code).map_err(|e| format!("Failed to parse code: {}", e))?;
-    let ast_body = parsed.into_suite();
     let (functions, _) = function_level_cognitive_complexity_shared(
-        &ast_body,
+        parsed.suite(),
         &code,
         &AnalysisOptions {
             no_ignore: true,

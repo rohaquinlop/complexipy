@@ -12,6 +12,7 @@ mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
 pub mod runner;
+mod syntax_tree;
 pub mod utils;
 
 #[cfg(feature = "runner")]

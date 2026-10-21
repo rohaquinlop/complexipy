@@ -1,10 +1,9 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
+use crate::syntax_tree::{Node, PreOrder, parse_expression};
 use crate::utils::{LineIndex, count_bool_ops, split_lines};
-use ruff_python_ast::visitor::{Visitor, walk_expr};
 use ruff_python_ast::{CmpOp, Expr};
-use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
 
 pub struct FlattenConditionRule;
@@ -302,9 +301,8 @@ fn single_variable_equality_subject(
 }
 
 fn equality_dispatch_subject(condition: &str) -> Option<String> {
-    let parsed = parse_expression(condition).ok()?;
-    let expr = *parsed.into_syntax().body;
-    let Expr::Compare(compare) = expr else {
+    let parsed = parse_expression(condition)?;
+    let Expr::Compare(compare) = parsed.expr() else {
         return None;
     };
     if compare.ops.as_ref() != [CmpOp::Eq] {
@@ -330,13 +328,24 @@ fn is_literal_expr(expr: &Expr) -> bool {
 }
 
 fn simple_reference_text(expr: &Expr) -> Option<String> {
-    match expr {
-        Expr::Name(n) => Some(n.id.to_string()),
-        Expr::Attribute(a) => {
-            let base = simple_reference_text(&a.value)?;
-            Some(format!("{base}.{}", a.attr.id))
+    let mut attributes: Vec<&str> = Vec::new();
+    let mut current = expr;
+    loop {
+        match current {
+            Expr::Name(name) => {
+                let mut text = name.id.to_string();
+                for attribute in attributes.iter().rev() {
+                    text.push('.');
+                    text.push_str(attribute);
+                }
+                return Some(text);
+            }
+            Expr::Attribute(attribute) => {
+                attributes.push(attribute.attr.id.as_str());
+                current = &attribute.value;
+            }
+            _ => return None,
         }
-        _ => None,
     }
 }
 
@@ -599,8 +608,8 @@ impl RefactorRule for CollapsibleIfRule {
         let boolean_count = if conditions_extracted {
             let combined = combine_conditions_chain(&conditions);
             match parse_expression(&combined) {
-                Ok(parsed) => count_bool_ops(&parsed.into_syntax().body, region.nesting),
-                Err(_) => fallback_boolean_count(&chain),
+                Some(parsed) => count_bool_ops(parsed.expr(), region.nesting),
+                None => fallback_boolean_count(&chain),
             }
         } else {
             fallback_boolean_count(&chain)
@@ -1009,53 +1018,35 @@ const PYTHON_BUILTINS: &[&str] = &[
     "zip",
 ];
 
-struct FreeNameCollector<'a> {
-    builtins: &'a [&'a str],
-    names: Vec<String>,
-    disqualified: bool,
-}
-
-impl<'a> Visitor<'a> for FreeNameCollector<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        match expr {
-            Expr::Named(_) | Expr::Lambda(_) => {
-                self.disqualified = true;
-                return;
-            }
-            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {
-                self.disqualified = true;
-                return;
-            }
-            Expr::Name(name) => {
-                let is_new = !self.builtins.contains(&name.id.as_str())
-                    && !self.names.iter().any(|n| n == name.id.as_str());
-                if is_new {
-                    self.names.push(name.id.to_string());
-                }
-            }
-            _ => {}
-        }
-        walk_expr(self, expr);
-    }
-}
-
 /// The condition's free variables, in first-use order, with builtins
 /// excluded. Returns `None` when the condition binds a name (`:=`) or holds
 /// a nested scope (lambda, comprehension) - the parameter list could not be
 /// trusted, so callers fall back to help text.
 fn collect_free_names(condition: &str) -> Option<Vec<String>> {
-    let parsed = parse_expression(condition).ok()?;
-    let expr = *parsed.into_syntax().body;
-    let mut collector = FreeNameCollector {
-        builtins: PYTHON_BUILTINS,
-        names: Vec::new(),
-        disqualified: false,
-    };
-    collector.visit_expr(&expr);
-    if collector.disqualified {
-        return None;
+    let parsed = parse_expression(condition)?;
+    let mut names: Vec<String> = Vec::new();
+    let mut walk = PreOrder::new(std::iter::once(Node::Expr(parsed.expr())));
+    while let Some(node) = walk.next() {
+        match node {
+            Node::Expr(
+                Expr::Named(_)
+                | Expr::Lambda(_)
+                | Expr::ListComp(_)
+                | Expr::SetComp(_)
+                | Expr::DictComp(_)
+                | Expr::Generator(_),
+            ) => return None,
+            Node::Expr(Expr::Name(name))
+                if !PYTHON_BUILTINS.contains(&name.id.as_str())
+                    && !names.iter().any(|known| known == name.id.as_str()) =>
+            {
+                names.push(name.id.to_string());
+            }
+            _ => {}
+        }
+        walk.descend(node);
     }
-    Some(collector.names)
+    Some(names)
 }
 
 /// Line indices (outermost first) of the block headers enclosing the

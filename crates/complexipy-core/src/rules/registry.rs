@@ -3,8 +3,8 @@ use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::fix::splice_plan;
 use crate::refactor_plans::ComplexityRegion;
+use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
-use ruff_python_parser::parse_module;
 use std::collections::HashMap;
 
 /// Everything a rule needs about the function or module being planned.
@@ -169,7 +169,7 @@ fn measure_reduction(
     let spliced = splice_plan(plan, suggestion, source, index)?;
     let parsed = parse_module(&spliced).ok()?;
     let (functions, _) = function_level_cognitive_complexity_shared(
-        &parsed.into_suite(),
+        parsed.suite(),
         &spliced,
         &AnalysisOptions {
             check_script: true,

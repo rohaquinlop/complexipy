@@ -241,10 +241,9 @@ fn resolve_git_path(file_path: &str, git_ref: &str, invocation_path: &str) -> St
 
 fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>> {
     let content = content?;
-    let parsed = ruff_python_parser::parse_module(content).ok()?;
-    let ast_body = parsed.into_suite();
+    let parsed = crate::syntax_tree::parse_module(content).ok()?;
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
-        &ast_body,
+        parsed.suite(),
         content,
         &crate::rules::AnalysisOptions::default(),
     );

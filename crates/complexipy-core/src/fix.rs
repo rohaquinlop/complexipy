@@ -1,6 +1,6 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan};
+use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
-use ruff_python_parser::parse_module;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SkipReason {

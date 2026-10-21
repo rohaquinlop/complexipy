@@ -1,4 +1,5 @@
 mod config;
+mod deep_expressions;
 mod exclude;
 mod lib_surface;
 mod line_endings;
