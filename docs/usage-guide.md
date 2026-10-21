@@ -630,14 +630,15 @@ if has_regressions(entries, 15):
 
 `DiffEntry` exposes `file_path`, `func_name`, `old_complexity`, and
 `new_complexity` (either may be `None` for NEW / REMOVED functions), plus the
-`status` and `delta` properties. `status` is a `DiffStatus` member - a
+`status` property. `status` is a `DiffStatus` member - a
 `str`-based enum, so it compares equal to its string value (e.g.
 `DiffStatus.REGRESSED == "REGRESSED"`).
 
 ```python
 for e in entries:
     if e.status != DiffStatus.UNCHANGED:
-        print(f"{e.file_path}::{e.func_name}: {e.status} {e.delta}")
+        print(f"{e.file_path}::{e.func_name}: {e.status} "
+              f"{e.old_complexity} -> {e.new_complexity}")
 ```
 
 ### Practical API Usage
@@ -944,7 +945,7 @@ from complexipy import collect_all_ignored_locations
 
 locations, failed = collect_all_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
 )
 for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
@@ -977,7 +978,7 @@ from complexipy import collect_removable_ignored_locations
 
 removable, failed = collect_removable_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
     max_complexity_allowed=15,
 )
 for rem in removable:

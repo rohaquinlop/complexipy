@@ -8,8 +8,9 @@ The complete Python API exposed by complexipy. Import everything from the
 # Core functions
 file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
 code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
-collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
-compute_diff(files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
+collect_all_ignored_locations(paths: List[str], exclude: List[str], invocation_path: str = ".") -> Tuple[List[IgnoredLocation], List[str]]
+collect_removable_ignored_locations(paths: List[str], exclude: List[str], max_complexity_allowed: int, invocation_path: str = ".") -> Tuple[List[RemovableIgnore], List[str]]
+compute_diff(current_files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
 has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool
 
 # Return types
@@ -72,8 +73,11 @@ DiffEntry:
   ├─ func_name: str
   ├─ old_complexity: Optional[int]
   ├─ new_complexity: Optional[int]
-  ├─ status: DiffStatus (property)
-  └─ delta: Optional[int] (property)
+  └─ status: DiffStatus (property)
 
 DiffStatus: REGRESSED | IMPROVED | UNCHANGED | NEW | REMOVED
 ```
+
+## Errors
+
+`file_complexity` raises `ValueError` when the file cannot be read or decoded as UTF-8, or does not parse. `code_complexity` raises `ValueError` when the code does not parse. An internal error inside any analysis function also surfaces as `ValueError`, so one `except ValueError` skips a file that cannot be analyzed.

@@ -72,9 +72,8 @@ def file_complexity(
         file, including all functions found and their complexity scores.
 
     Raises:
-        FileNotFoundError: If the specified file does not exist.
-        PermissionError: If the file cannot be read due to permissions.
-        SyntaxError: If the Python file contains syntax errors.
+        ValueError: If the file cannot be read, is not UTF-8 text, or
+            does not parse.
     """
     path = Path(file_path).resolve()
     cwd = Path.cwd().resolve()

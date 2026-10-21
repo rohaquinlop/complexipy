@@ -1,5 +1,66 @@
 use pyo3::prelude::*;
 
+mod host {
+    use std::any::Any;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use std::sync::{Arc, Mutex, PoisonError};
+
+    use pyo3::PyErr;
+    use pyo3::prelude::*;
+    use rayon::{ThreadPool, ThreadPoolBuilder};
+
+    /// Runs `task` and turns a panic into `error`, so callers see an
+    /// exception they can catch with `except Exception`.
+    pub fn guarded<T>(
+        error: fn(String) -> PyErr,
+        task: impl FnOnce() -> PyResult<T>,
+    ) -> PyResult<T> {
+        catch_unwind(AssertUnwindSafe(task)).unwrap_or_else(|payload| {
+            Err(error(format!(
+                "complexipy hit an internal error: {}",
+                panic_text(payload.as_ref())
+            )))
+        })
+    }
+
+    fn panic_text(payload: &(dyn Any + Send)) -> &str {
+        payload
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("panic")
+    }
+
+    /// Runs `task` on a thread pool owned by this process. A process forked
+    /// from a parent that already ran parallel work inherits the parent's
+    /// pool without its threads, so the child builds its own pool instead
+    /// of waiting forever on the inherited one.
+    pub fn in_process_pool<T: Send>(task: impl FnOnce() -> T + Send) -> T {
+        match process_pool() {
+            Some(pool) => pool.install(task),
+            None => task(),
+        }
+    }
+
+    fn process_pool() -> Option<Arc<ThreadPool>> {
+        static POOL: Mutex<Option<(u32, Arc<ThreadPool>)>> = Mutex::new(None);
+
+        let process = std::process::id();
+        let mut slot = POOL.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some((owner, pool)) = slot.as_ref()
+            && *owner == process
+        {
+            return Some(Arc::clone(pool));
+        }
+        if let Some(inherited) = slot.take() {
+            std::mem::forget(inherited);
+        }
+        let pool = Arc::new(ThreadPoolBuilder::new().build().ok()?);
+        *slot = Some((process, Arc::clone(&pool)));
+        Some(pool)
+    }
+}
+
 mod py_diff {
     use pyo3::prelude::*;
 
@@ -70,9 +131,10 @@ mod py_diff {
 #[pyo3(name = "_complexipy")]
 mod _complexipy {
     use clap::Parser;
-    use pyo3::exceptions::PyValueError;
+    use pyo3::exceptions::{PyRuntimeError, PyValueError};
     use pyo3::prelude::*;
 
+    use super::host::{guarded, in_process_pool};
     use super::py_diff::DiffEntry;
 
     use complexipy_core::classes::{
@@ -89,17 +151,19 @@ mod _complexipy {
         check_script: bool,
         no_ignore: bool,
     ) -> PyResult<FileComplexity> {
-        complexipy_core::runner::file_complexity_shared(
-            file_path,
-            base_path,
-            &AnalysisOptions {
-                check_script,
-                no_ignore,
-                with_plans: true,
-                rules: RuleSet::default(),
-            },
-        )
-        .map_err(PyValueError::new_err)
+        guarded(PyValueError::new_err, || {
+            complexipy_core::runner::file_complexity_shared(
+                file_path,
+                base_path,
+                &AnalysisOptions {
+                    check_script,
+                    no_ignore,
+                    with_plans: true,
+                    rules: RuleSet::default(),
+                },
+            )
+            .map_err(PyValueError::new_err)
+        })
     }
 
     #[pyfunction]
@@ -109,16 +173,18 @@ mod _complexipy {
         check_script: bool,
         no_ignore: bool,
     ) -> PyResult<CodeComplexity> {
-        complexipy_core::cognitive_complexity::code_complexity_shared(
-            code,
-            &AnalysisOptions {
-                check_script,
-                no_ignore,
-                with_plans: true,
-                rules: RuleSet::default(),
-            },
-        )
-        .map_err(PyValueError::new_err)
+        guarded(PyValueError::new_err, || {
+            complexipy_core::cognitive_complexity::code_complexity_shared(
+                code,
+                &AnalysisOptions {
+                    check_script,
+                    no_ignore,
+                    with_plans: true,
+                    rules: RuleSet::default(),
+                },
+            )
+            .map_err(PyValueError::new_err)
+        })
     }
 
     #[pyfunction]
@@ -128,12 +194,16 @@ mod _complexipy {
         exclude: Vec<String>,
         invocation_path: &str,
     ) -> PyResult<(Vec<IgnoredLocation>, Vec<String>)> {
-        complexipy_core::runner::collect_all_ignored_locations_shared(
-            &paths,
-            &exclude,
-            invocation_path,
-        )
-        .map_err(PyValueError::new_err)
+        guarded(PyValueError::new_err, || {
+            in_process_pool(|| {
+                complexipy_core::runner::collect_all_ignored_locations_shared(
+                    &paths,
+                    &exclude,
+                    invocation_path,
+                )
+            })
+            .map_err(PyValueError::new_err)
+        })
     }
 
     #[pyfunction]
@@ -144,55 +214,66 @@ mod _complexipy {
         max_complexity_allowed: u64,
         invocation_path: &str,
     ) -> PyResult<(Vec<RemovableIgnore>, Vec<String>)> {
-        complexipy_core::runner::collect_removable_ignored_locations_shared(
-            &paths,
-            &exclude,
-            max_complexity_allowed,
-            invocation_path,
-        )
-        .map_err(PyValueError::new_err)
+        guarded(PyValueError::new_err, || {
+            in_process_pool(|| {
+                complexipy_core::runner::collect_removable_ignored_locations_shared(
+                    &paths,
+                    &exclude,
+                    max_complexity_allowed,
+                    invocation_path,
+                )
+            })
+            .map_err(PyValueError::new_err)
+        })
     }
 
     #[pyfunction]
     #[pyo3(signature = (argv, invocation_path = None))]
-    fn run_cli(argv: Vec<String>, invocation_path: Option<&str>) -> i32 {
-        let cli = match complexipy_cli::args::CliArgs::try_parse_from(
-            std::iter::once("complexipy".to_string()).chain(argv),
-        ) {
-            Ok(cli) => cli,
-            Err(error) => {
-                let code = error.exit_code();
-                let _ = error.print();
-                return code;
-            }
-        };
-        let exit = complexipy_cli::run::run_at(cli, invocation_path.unwrap_or("."));
-        if exit == std::process::ExitCode::SUCCESS {
-            0
-        } else {
-            1
-        }
+    fn run_cli(argv: Vec<String>, invocation_path: Option<&str>) -> PyResult<i32> {
+        guarded(PyRuntimeError::new_err, || {
+            let cli = match complexipy_cli::args::CliArgs::try_parse_from(
+                std::iter::once("complexipy".to_string()).chain(argv),
+            ) {
+                Ok(cli) => cli,
+                Err(error) => {
+                    let code = error.exit_code();
+                    let _ = error.print();
+                    return Ok(code);
+                }
+            };
+            let exit = in_process_pool(|| {
+                complexipy_cli::run::run_at(cli, invocation_path.unwrap_or("."))
+            });
+            Ok(if exit == std::process::ExitCode::SUCCESS {
+                0
+            } else {
+                1
+            })
+        })
     }
 
     #[pyfunction]
-    fn run_lsp(py: Python<'_>) -> i32 {
-        py.detach(complexipy_lsp::run_server)
+    fn run_lsp(py: Python<'_>) -> PyResult<i32> {
+        py.detach(|| guarded(PyRuntimeError::new_err, || Ok(complexipy_lsp::run_server())))
     }
 
     #[pyfunction]
+    #[pyo3(signature = (current_files, git_ref, invocation_path=None))]
     fn compute_diff(
         current_files: Vec<FileComplexity>,
         git_ref: &str,
         invocation_path: Option<&str>,
     ) -> PyResult<Vec<DiffEntry>> {
-        Ok(complexipy_core::diff::compute_diff(
-            &current_files,
-            git_ref,
-            invocation_path.unwrap_or("."),
-        )
-        .into_iter()
-        .map(DiffEntry::from)
-        .collect())
+        guarded(PyValueError::new_err, || {
+            Ok(complexipy_core::diff::compute_diff(
+                &current_files,
+                git_ref,
+                invocation_path.unwrap_or("."),
+            )
+            .into_iter()
+            .map(DiffEntry::from)
+            .collect())
+        })
     }
 
     #[pyfunction]

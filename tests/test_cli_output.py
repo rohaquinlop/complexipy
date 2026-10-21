@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+from complexipy import cli
 from complexipy._complexipy import run_cli
 
 NESTED = (
@@ -177,3 +179,22 @@ def test_a_diff_ref_wider_than_the_terminal_prints(tmp_path) -> None:
     assert "panicked" not in result.stderr
     assert "Complexity diff (vs bbbb" in result.stdout
     assert "Net: 1 regressed" in result.stdout
+
+
+def test_the_console_script_lets_ctrl_c_end_the_run(monkeypatch) -> None:
+    seen = {}
+
+    def record_handler(arguments: list[str]) -> int:
+        seen["handler"] = signal.getsignal(signal.SIGINT)
+        return 0
+
+    monkeypatch.setattr(cli, "run_cli", record_handler)
+    monkeypatch.setattr(sys, "argv", ["complexipy", "."])
+    previous = signal.getsignal(signal.SIGINT)
+    try:
+        with pytest.raises(SystemExit):
+            cli.main()
+    finally:
+        signal.signal(signal.SIGINT, previous)
+
+    assert seen["handler"] == signal.SIG_DFL
