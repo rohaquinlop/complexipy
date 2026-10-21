@@ -44,8 +44,17 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "16.x",
+    "@types/vscode": "^1.85.0",
     "eslint": "^8.56.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode, complexipy ignores complexipy.server.path from workspace settings and runs complexipy from your user settings or the PATH.",
+      "restrictedConfigurations": [
+        "complexipy.server.path"
+      ]
+    }
   }
 }

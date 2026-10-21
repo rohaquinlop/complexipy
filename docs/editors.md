@@ -138,6 +138,11 @@ set its path in `settings.json`:
 }
 ```
 
+A relative path resolves against the first workspace folder. In Restricted
+Mode, VS Code ignores a `complexipy.server.path` set in the workspace's
+settings, so an untrusted repository cannot choose the binary; the extension
+then runs the path from your user settings, or `complexipy` from the `PATH`.
+
 ## Configuration
 
 The server reads the same configuration files as the CLI - `complexipy.toml`,

@@ -9,8 +9,13 @@ let statusBarItem;
 let serverFailed = false;
 let pendingRestart = Promise.resolve();
 
-function createClient(command, args) {
-	const serverOptions = { command, args, transport: TransportKind.stdio };
+function workspaceRoot() {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	return folder?.uri.scheme === 'file' ? folder.uri.fsPath : undefined;
+}
+
+function createClient(command, args, cwd) {
+	const serverOptions = { command, args, transport: TransportKind.stdio, options: cwd === undefined ? {} : { cwd } };
 	const clientOptions = {
 		documentSelector: [
 			{ scheme: 'file', language: 'python' },
@@ -22,12 +27,13 @@ function createClient(command, args) {
 
 async function startClient() {
 	const { command, args } = serverCommand(vscode.workspace.getConfiguration('complexipy').get('server.path'));
-	const executable = findExecutable(command);
+	const cwd = workspaceRoot();
+	const executable = findExecutable(command, process.env, process.platform, cwd);
 	serverFailed = executable === undefined;
 	if (serverFailed) {
 		vscode.window.showErrorMessage(`complexipy: cannot find "${command}". ${INSTALL_HINT}`);
 	} else {
-		client = createClient(executable, args);
+		client = createClient(executable, args, cwd);
 		try {
 			await client.start();
 		} catch (err) {
@@ -84,7 +90,8 @@ async function activate(context) {
 			if (event.affectsConfiguration('complexipy.server.path')) {
 				restartClient();
 			}
-		})
+		}),
+		vscode.workspace.onDidGrantWorkspaceTrust(restartClient)
 	);
 
 	await restartClient();

@@ -51,3 +51,30 @@ test('findExecutable resolves commands on PATH and absolute paths', t => {
 	assert.strictEqual(findExecutable(plain, {}, 'darwin'), undefined);
 	assert.strictEqual(findExecutable(dir, {}, 'darwin'), undefined);
 });
+
+test('findExecutable resolves a relative path against the workspace root only', t => {
+	const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'complexipy-workspace-'));
+	t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
+	fs.mkdirSync(path.join(workspace, 'tools'));
+	const binary = path.join(workspace, 'tools', 'complexipy');
+	fs.writeFileSync(binary, '');
+	fs.chmodSync(binary, 0o755);
+
+	assert.strictEqual(findExecutable('./tools/complexipy', {}, 'darwin', workspace), binary);
+	assert.strictEqual(findExecutable('tools/complexipy', {}, 'darwin', workspace), binary);
+	assert.strictEqual(findExecutable('./tools/complexipy', {}, 'darwin'), undefined);
+});
+
+test('findExecutable skips relative PATH entries', t => {
+	const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'complexipy-workspace-'));
+	t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
+	const binary = path.join(workspace, 'complexipy');
+	fs.writeFileSync(binary, '');
+	fs.chmodSync(binary, 0o755);
+	const previous = process.cwd();
+	process.chdir(workspace);
+	t.after(() => process.chdir(previous));
+
+	assert.strictEqual(findExecutable('complexipy', { PATH: '.' }, 'darwin', workspace), undefined);
+	assert.strictEqual(findExecutable('complexipy', { PATH: `.:${workspace}` }, 'darwin', workspace), binary);
+});

@@ -1,5 +1,12 @@
 # Change Log
 
+## Unreleased
+
+### Changed
+
+- In Restricted Mode, `complexipy.server.path` from workspace settings is ignored, and the extension runs the binary from your user settings or the `PATH`. Before, the extension was disabled in Restricted Mode.
+- A relative `complexipy.server.path` resolves against the first workspace folder, the directory the server starts in, and relative `PATH` entries are skipped.
+
 ## [0.3.0] - 2026-10-18
 
 ### Breaking Changes

@@ -143,6 +143,12 @@ define su ruta en `settings.json`:
 }
 ```
 
+Una ruta relativa se resuelve contra la primera carpeta del espacio de
+trabajo. En Modo Restringido, VS Code ignora un `complexipy.server.path`
+definido en la configuración del espacio de trabajo, así que un repositorio
+no confiable no puede elegir el binario; la extensión ejecuta entonces la
+ruta de tu configuración de usuario, o `complexipy` desde el `PATH`.
+
 ## Configuración
 
 El servidor lee los mismos archivos de configuración que la CLI -

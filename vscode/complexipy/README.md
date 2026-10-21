@@ -32,7 +32,8 @@ or `pip install complexipy`.
 
 - `complexipy.server.path`: the path to the `complexipy` executable. The
   extension runs `<path> lsp`. Leave it empty to use `complexipy` from the
-  `PATH`.
+  `PATH`. A relative path resolves against the first workspace folder. In
+  Restricted Mode, a value from workspace settings is ignored.
 
 If the extension cannot start the server, VS Code shows an error and the
 status bar shows an error icon. Server logs are in the Output panel, in the
