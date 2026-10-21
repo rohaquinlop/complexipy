@@ -114,7 +114,8 @@ complexipy . --exclude "src/legacy/old_code.py"
 
 !!! note "How exclusion works"
 
-    - Exclusions are glob patterns evaluated relative to each provided root path
+    - Exclusions are glob patterns evaluated relative to each provided root path, and relative to the directory the command runs in, where the configuration file lives
+    - A pattern that starts with `/`, `./`, or `../`, or ends with `/`, never matches; complexipy warns about it
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
     - Gitignore rules are still respected during file discovery

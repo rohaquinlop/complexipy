@@ -661,8 +661,10 @@ def collect_all_ignored_locations(
     Args:
         paths: List of file and directory paths.
         exclude: List of file/directory paths or globs to exclude from scanning.
-        invocation_path: Accepted for compatibility; relative paths resolve
-            against the process working directory.
+        invocation_path: Directory that returned paths inside it are
+            relative to, and that exclude patterns also match against.
+            Relative paths to scan resolve against the process working
+            directory.
 
     Returns:
         A tuple of (ignored_locations, failed_paths) where:
@@ -705,8 +707,10 @@ def collect_removable_ignored_locations(
         exclude: List of file/directory paths or globs to exclude from scanning.
         max_complexity_allowed: Complexity threshold; markers suppressing
             functions at or below this value are reported as removable.
-        invocation_path: Accepted for compatibility; relative paths resolve
-            against the process working directory.
+        invocation_path: Directory that returned paths inside it are
+            relative to, and that exclude patterns also match against.
+            Relative paths to scan resolve against the process working
+            directory.
 
     Returns:
         A tuple of (removable_ignores, failed_paths) where:

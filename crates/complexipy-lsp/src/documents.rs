@@ -91,12 +91,41 @@ pub fn uri_to_path(uri: &Uri) -> Option<String> {
     let decoded = percent_decode(path);
 
     if authority.is_empty() || authority.eq_ignore_ascii_case("localhost") {
-        Some(trim_drive_prefix(decoded))
+        Some(lexically_normalized(&trim_drive_prefix(decoded)))
     } else if cfg!(windows) {
-        Some(format!("//{}{}", percent_decode(authority), decoded))
+        Some(lexically_normalized(&format!(
+            "//{}{}",
+            percent_decode(authority),
+            decoded
+        )))
     } else {
         None
     }
+}
+
+/// Removes `.` and empty segments and resolves `..` against the segment
+/// before it, without touching the file system.
+pub fn lexically_normalized(path: &str) -> String {
+    let (prefix, rest) = if let Some(rest) = path.strip_prefix("//") {
+        ("//", rest)
+    } else if let Some(rest) = path.strip_prefix('/') {
+        ("/", rest)
+    } else {
+        ("", path)
+    };
+    let mut segments: Vec<&str> = Vec::new();
+    for segment in rest.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if segments.last().is_some_and(|last| !last.ends_with(':')) {
+                    segments.pop();
+                }
+            }
+            other => segments.push(other),
+        }
+    }
+    format!("{}{}", prefix, segments.join("/"))
 }
 
 fn trim_drive_prefix(path: String) -> String {

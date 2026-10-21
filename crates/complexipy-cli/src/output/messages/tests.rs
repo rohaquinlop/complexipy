@@ -1,6 +1,6 @@
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output, unknown_rule_warning,
+    removable_ignores_output, unknown_rule_warning, unmatchable_exclude_warning,
 };
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
@@ -107,4 +107,12 @@ fn diff_flags_warning_text() {
         diff_flags_warning(),
         "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
     );
+}
+
+#[test]
+fn unmatchable_pattern_warning_names_the_pattern_and_a_fix() {
+    let warning = unmatchable_exclude_warning("./legacy/**");
+
+    assert!(warning.contains("\"./legacy/**\""));
+    assert!(warning.contains("legacy/**`"));
 }

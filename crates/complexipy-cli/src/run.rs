@@ -18,6 +18,7 @@ use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
     no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    unmatchable_exclude_warning,
 };
 use crate::output::render::{
     color_enabled_for, handle_console_settings, print_invalid_paths, rule,
@@ -33,7 +34,9 @@ use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::run_analysis_shared;
-use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
+use complexipy_core::{
+    AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let toml_config = get_complexipy_toml_config(invocation_path);
@@ -71,6 +74,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if !rules.has_active_rule(&known_rules) {
             warnings.push(no_active_rule_warning());
         }
+        warnings.extend(
+            unmatchable_exclude_patterns(&config.exclude)
+                .iter()
+                .map(|pattern| unmatchable_exclude_warning(pattern)),
+        );
         let label =
             if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
                 "Warning:".yellow().to_string()

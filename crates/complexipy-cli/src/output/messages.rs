@@ -65,6 +65,15 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
     lines.join("\n")
 }
 
+pub fn unmatchable_exclude_warning(pattern: &str) -> String {
+    format!(
+        "Exclude pattern {:?} can never match: paths are matched relative to the \
+         analyzed path without a leading `/` or `./`, and never end with `/`. Use a \
+         pattern such as `legacy/**`.",
+        pattern
+    )
+}
+
 pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
 }
