@@ -39,3 +39,6 @@ tempfile = { workspace = true }
 complexipy-core = { path = "../complexipy-core", features = ["config", "schema"] }
 schemars = { workspace = true }
 jsonschema = { workspace = true }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows", all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
+mimalloc = "0.1.49"

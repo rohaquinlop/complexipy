@@ -1,5 +1,16 @@
 use pyo3::prelude::*;
 
+#[cfg(any(
+    target_os = "macos",
+    target_os = "windows",
+    all(
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod py_diff {
     use pyo3::prelude::*;
 
