@@ -84,7 +84,7 @@ pub fn function_level_cognitive_complexity_shared(
     }
 
     if opts.check_script {
-        let total_lines = code.lines().count() as u64;
+        let total_lines = crate::utils::split_lines(code).count() as u64;
         let (refactor_plans, additional_refactor_plans) = if opts.with_plans {
             build_refactor_plans(
                 module_complexity,

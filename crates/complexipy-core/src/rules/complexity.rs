@@ -1,7 +1,7 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
-use crate::utils::{LineIndex, count_bool_ops};
+use crate::utils::{LineIndex, count_bool_ops, split_lines};
 use ruff_python_ast::visitor::{Visitor, walk_expr};
 use ruff_python_ast::{CmpOp, Expr};
 use ruff_python_parser::parse_expression;
@@ -705,11 +705,11 @@ fn generate_loop_guard_suggestion(
     for i in 0..guards.len().saturating_sub(1) {
         let range_start = span_idx(guards[i].0.line_start + 1).unwrap_or(lines.len());
         let range_end = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
-        if contains_multiline_string(&lines[range_start..range_end.min(lines.len())]) {
+        if contains_multiline_string(lines.get(range_start..range_end.min(lines.len()))?) {
             return None;
         }
     }
-    if contains_multiline_string(&lines[(innermost_start + 1)..innermost_end]) {
+    if contains_multiline_string(lines.get(innermost_start + 1..innermost_end)?) {
         return None;
     }
 
@@ -722,7 +722,12 @@ fn generate_loop_guard_suggestion(
 
     let mut result = Vec::new();
     result.push(lines[0].to_string());
-    result.extend(lines[1..chain_start].iter().map(|line| (*line).to_string()));
+    result.extend(
+        lines
+            .get(1..chain_start)?
+            .iter()
+            .map(|line| (*line).to_string()),
+    );
 
     for (i, (member, guard)) in guards.iter().enumerate() {
         let guard_text = match strip_top_level_not(guard) {
@@ -743,7 +748,7 @@ fn generate_loop_guard_suggestion(
             let next_start = span_idx(guards[i + 1].0.line_start).unwrap_or(lines.len());
             let range_start = span_idx(member.line_start + 1).unwrap_or(lines.len());
             let shift = indent_step * (i + 1);
-            for line in &lines[range_start..next_start.min(lines.len())] {
+            for line in lines.get(range_start..next_start.min(lines.len()))? {
                 let trimmed = line.trim_start();
                 if trimmed.is_empty() {
                     result.push(String::new());
@@ -757,7 +762,7 @@ fn generate_loop_guard_suggestion(
         }
     }
 
-    for line in &lines[(innermost_start + 1)..innermost_end] {
+    for line in lines.get(innermost_start + 1..innermost_end)? {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             result.push(String::new());
@@ -769,7 +774,8 @@ fn generate_loop_guard_suggestion(
         result.push(format!("{}{}", padding, trimmed));
     }
     result.extend(
-        lines[innermost_end..]
+        lines
+            .get(innermost_end..)?
             .iter()
             .map(|line| (*line).to_string()),
     );
@@ -908,11 +914,7 @@ fn generate_predicate_suggestion(
 }
 
 fn line_at<'a>(source: &'a str, index: &LineIndex, line: u64) -> Option<&'a str> {
-    let start = index.byte_of_line(line)?;
-    let end = source[start..]
-        .find('\n')
-        .map_or(source.len(), |i| start + i);
-    Some(source[start..end].trim_end_matches('\r'))
+    index.line_text(source, line)
 }
 
 fn span_lines<'a>(
@@ -926,7 +928,7 @@ fn span_lines<'a>(
     if end_byte < start_byte {
         return Some(Vec::new());
     }
-    Some(source[start_byte..end_byte].lines().collect())
+    Some(split_lines(&source[start_byte..end_byte]).collect())
 }
 
 fn get_indentation_from_str(line: &str) -> usize {

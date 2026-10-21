@@ -161,3 +161,21 @@ fn caret_span_rendered_from_source() {
     assert!(output.contains("2 | "));
     assert!(output.contains("^"));
 }
+
+#[test]
+fn caret_span_counts_columns_in_characters() {
+    let mut p = plan();
+    p.column_start = 3;
+    let output = crate::output::refactor::output_single_plan_for_test(
+        &p,
+        1,
+        "src/a.py",
+        Some(&[
+            "line one".to_string(),
+            "\u{20ac}\u{20ac}if x:".to_string(),
+            "        return 1".to_string(),
+        ]),
+    );
+
+    assert!(strip_ansi(&output).contains("|   ^^^^^\n"));
+}
