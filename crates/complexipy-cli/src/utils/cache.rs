@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -47,7 +48,8 @@ pub fn remember_previous_functions(
 
     ensure_cache_dir_and_supporting_files(&cache_dir_path)?;
 
-    let mut cache_store = load_cache_store(&cache_file);
+    let content = fs::read_to_string(&cache_file).unwrap_or_default();
+    let mut cache_store = CacheStore::parse(&content).unwrap_or_default();
     let previous_entry = cache_store.entry(&cache_key);
     let previous_map = previous_entry.as_ref().and_then(load_previous_map);
 
@@ -184,14 +186,25 @@ fn cache_value_path(cache_dir: &Path, key: &str) -> PathBuf {
 }
 
 /// The cache file: an object whose `entries` maps each cache key to one
-/// run's results. Entries and any other top-level field stay unparsed text.
+/// run's results. Entries and any other top-level field stay unparsed text,
+/// borrowed from the file's content.
 #[derive(Default)]
-struct CacheStore {
-    fields: BTreeMap<String, Box<RawValue>>,
-    entries: BTreeMap<String, Box<RawValue>>,
+struct CacheStore<'a> {
+    fields: BTreeMap<String, Cow<'a, RawValue>>,
+    entries: BTreeMap<String, Cow<'a, RawValue>>,
 }
 
-impl CacheStore {
+impl<'a> CacheStore<'a> {
+    fn parse(content: &'a str) -> Option<Self> {
+        let mut fields: BTreeMap<String, &'a RawValue> = serde_json::from_str(content).ok()?;
+        let entries: BTreeMap<String, &'a RawValue> =
+            serde_json::from_str(fields.remove("entries")?.get()).ok()?;
+        Some(Self {
+            fields: borrowed(fields),
+            entries: borrowed(entries),
+        })
+    }
+
     fn entry(&self, cache_key: &str) -> Option<Value> {
         serde_json::from_str(self.entries.get(cache_key)?.get()).ok()
     }
@@ -200,7 +213,7 @@ impl CacheStore {
         let Ok(raw) = serde_json::value::to_raw_value(entry) else {
             return false;
         };
-        self.entries.insert(cache_key.to_string(), raw);
+        self.entries.insert(cache_key.to_string(), Cow::Owned(raw));
         true
     }
 
@@ -213,7 +226,7 @@ impl CacheStore {
             return;
         }
 
-        let mut sorted: Vec<(f64, String, Box<RawValue>)> = std::mem::take(&mut self.entries)
+        let mut sorted: Vec<(f64, String, Cow<'a, RawValue>)> = std::mem::take(&mut self.entries)
             .into_iter()
             .map(|(key, raw)| (entry_updated_at(&raw), key, raw))
             .collect();
@@ -234,8 +247,10 @@ impl CacheStore {
     }
 }
 
-fn load_cache_store(cache_file: &Path) -> CacheStore {
-    load_cache(cache_file).unwrap_or_default()
+fn borrowed<'a>(raw: BTreeMap<String, &'a RawValue>) -> BTreeMap<String, Cow<'a, RawValue>> {
+    raw.into_iter()
+        .map(|(key, value)| (key, Cow::Borrowed(value)))
+        .collect()
 }
 
 fn load_previous_map(raw: &Value) -> Option<HashMap<(String, String, String), u64>> {
@@ -281,13 +296,6 @@ fn load_previous_map(raw: &Value) -> Option<HashMap<(String, String, String), u6
     } else {
         Some(mapping)
     }
-}
-
-fn load_cache(cache_file: &Path) -> Option<CacheStore> {
-    let content = fs::read_to_string(cache_file).ok()?;
-    let mut fields: BTreeMap<String, Box<RawValue>> = serde_json::from_str(&content).ok()?;
-    let entries = serde_json::from_str(fields.remove("entries")?.get()).ok()?;
-    Some(CacheStore { fields, entries })
 }
 
 fn python_int(value: &Value) -> Option<u64> {
