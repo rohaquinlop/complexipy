@@ -222,20 +222,29 @@ impl Job {
     }
 }
 
+/// Starts the analysis thread, with a large stack where the platform can
+/// reserve one and the default stack otherwise.
 fn spawn_worker() -> (Sender<Job>, Receiver<Outcome>) {
     let (jobs, queued) = crossbeam_channel::unbounded::<Job>();
     let (done, outcomes) = crossbeam_channel::unbounded::<Outcome>();
-    let work = move || {
-        for job in queued {
-            if done.send(job.run()).is_err() {
-                break;
+    let spawn = |stack_size: Option<usize>| {
+        let queued = queued.clone();
+        let done = done.clone();
+        let builder = thread::Builder::new().name(format!("{}-analysis", SERVER_NAME));
+        let builder = match stack_size {
+            Some(size) => builder.stack_size(size),
+            None => builder,
+        };
+        builder.spawn(move || {
+            for job in queued {
+                if done.send(job.run()).is_err() {
+                    break;
+                }
             }
-        }
+        })
     };
-    thread::Builder::new()
-        .name(format!("{}-analysis", SERVER_NAME))
-        .stack_size(WORKER_STACK_SIZE)
-        .spawn(work)
+    spawn(Some(WORKER_STACK_SIZE))
+        .or_else(|_| spawn(None))
         .expect("failed to start the analysis thread");
 
     (jobs, outcomes)
