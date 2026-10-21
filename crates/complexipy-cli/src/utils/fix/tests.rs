@@ -126,7 +126,7 @@ fn later_passes_fix_plans_that_were_not_surfaced_at_first() {
         0,
     );
 
-    assert!(result.wrote);
+    assert!(!result.written.is_empty());
     let fixed = fs::read_to_string(&file).expect("should read");
     assert!(fixed.contains("if a and b:"));
     assert!(fixed.contains("if c and d:"));
@@ -149,7 +149,7 @@ fn nothing_fixable_reports_no_fixes() {
     );
 
     assert_eq!(result.console, "No fixes to apply.");
-    assert!(!result.wrote);
+    assert!(result.written.is_empty());
 }
 
 #[test]
@@ -181,7 +181,7 @@ fn non_fixable_plans_are_reported_once_each() {
         0,
     );
 
-    assert!(result.wrote);
+    assert!(!result.written.is_empty());
     let fixed = fs::read_to_string(&file).expect("should read");
     assert!(fixed.contains("if a and b:"));
     assert!(expected_skips > 0);
