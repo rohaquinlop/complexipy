@@ -263,6 +263,24 @@ def test_refactor_plan_exported_and_available_on_python_api() -> None:
     assert func.refactor_plans[0].estimated_complexity_after <= func.complexity
 
 
+def test_with_plans_false_keeps_scores_and_skips_plans(tmp_path) -> None:
+    source = load_source("collapsible_if_simple.py")
+    path = tmp_path / "collapsible.py"
+    path.write_text(source)
+
+    with_plans = code_complexity(source)
+    without_plans = code_complexity(source, with_plans=False)
+    from_file = complexipy.file_complexity(str(path), with_plans=False)
+
+    assert with_plans.functions[0].refactor_plans
+    for result in (without_plans, from_file):
+        assert result.complexity == with_plans.complexity
+        assert [f.complexity for f in result.functions] == [
+            f.complexity for f in with_plans.functions
+        ]
+        assert all(f.refactor_plans == [] for f in result.functions)
+
+
 def test_single_line_function_creates_no_plans() -> None:
     func = first_func(load_source("single_line_function.py"))
     assert func.complexity == 0

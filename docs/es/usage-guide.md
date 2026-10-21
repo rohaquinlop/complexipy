@@ -596,6 +596,14 @@ for func in result.functions:
 result = code_complexity(code, no_ignore=True)
 ```
 
+Ambas funciones construyen planes de refactorización por defecto. Pasa
+`with_plans=False` cuando solo necesites las puntuaciones: `refactor_plans`
+queda vacío y el análisis omite el trabajo de los planes.
+
+```python
+result = file_complexity("src/main.py", with_plans=False)
+```
+
 ### Comparar Contra una Referencia de Git
 
 `compute_diff` compara los resultados de complejidad actuales contra una

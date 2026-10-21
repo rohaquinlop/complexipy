@@ -454,7 +454,10 @@ class RemovableIgnore:
     """The function's cognitive complexity measured without the ignore comment."""
 
 def code_complexity(
-    code: str, check_script: bool = False, no_ignore: bool = False
+    code: str,
+    check_script: bool = False,
+    no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> CodeComplexity:
     """
     Analyze cognitive complexity of Python code provided as a string.
@@ -472,6 +475,10 @@ def code_complexity(
         code: A string containing valid Python source code. The code should
               be properly formatted and syntactically correct. Syntax errors
               will cause the analysis to fail.
+        check_script: Also report module-level code as a '<module>' entry.
+        no_ignore: Disregard inline ignore comments.
+        with_plans: Build refactor plans. When False, every
+                    'refactor_plans' list is empty.
 
     Returns:
         CodeComplexity object containing the analysis results, including
@@ -511,6 +518,7 @@ def file_complexity(
     base_path: str,
     check_script: bool = False,
     no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
@@ -531,6 +539,10 @@ def file_complexity(
                    in the analysis results. This is typically the project
                    root directory and affects the 'path' field in the
                    returned FileComplexity object.
+        check_script: Also report module-level code as a '<module>' entry.
+        no_ignore: Disregard inline ignore comments.
+        with_plans: Build refactor plans. When False, every
+                    'refactor_plans' list is empty.
 
     Returns:
         FileComplexity object containing complete analysis results for the

@@ -82,12 +82,13 @@ mod _complexipy {
     use complexipy_core::{AnalysisOptions, RuleSet};
 
     #[pyfunction]
-    #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
+    #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false, with_plans=true))]
     fn file_complexity(
         file_path: &str,
         base_path: &str,
         check_script: bool,
         no_ignore: bool,
+        with_plans: bool,
     ) -> PyResult<FileComplexity> {
         complexipy_core::runner::file_complexity_shared(
             file_path,
@@ -95,7 +96,7 @@ mod _complexipy {
             &AnalysisOptions {
                 check_script,
                 no_ignore,
-                with_plans: true,
+                with_plans,
                 plans_above: None,
                 rules: RuleSet::default(),
             },
@@ -104,18 +105,19 @@ mod _complexipy {
     }
 
     #[pyfunction]
-    #[pyo3(signature = (code, check_script=false, no_ignore=false))]
+    #[pyo3(signature = (code, check_script=false, no_ignore=false, with_plans=true))]
     fn code_complexity(
         code: &str,
         check_script: bool,
         no_ignore: bool,
+        with_plans: bool,
     ) -> PyResult<CodeComplexity> {
         complexipy_core::cognitive_complexity::code_complexity_shared(
             code,
             &AnalysisOptions {
                 check_script,
                 no_ignore,
-                with_plans: true,
+                with_plans,
                 plans_above: None,
                 rules: RuleSet::default(),
             },
