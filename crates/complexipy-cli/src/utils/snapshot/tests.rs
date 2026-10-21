@@ -400,3 +400,28 @@ fn a_snapshot_that_is_a_device_fails_closed_without_reading() {
 
     assert!(load_snapshot_file_shared(snapshot_path(&dir).to_str().unwrap()).is_err());
 }
+
+#[test]
+fn a_same_name_function_needs_its_own_snapshot_entry() {
+    let dir = tempdir().expect("tempdir should work");
+    let path = snapshot_path(&dir);
+    let baseline = vec![file_complexity(
+        "svc.py",
+        "svc.py",
+        &[("Svc::value", 26), ("Svc::value", 2)],
+    )];
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
+
+    let current = vec![file_complexity(
+        "svc.py",
+        "svc.py",
+        &[("Svc::value", 26), ("Svc::value", 26)],
+    )];
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &current)
+        .expect("should evaluate");
+
+    assert!(!result.watermark_success);
+    assert_eq!(result.watermark_messages.len(), 1);
+    assert!(result.watermark_messages[0].contains("Svc::value#2"));
+}

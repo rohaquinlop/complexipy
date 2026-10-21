@@ -4,9 +4,9 @@ use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
-    config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
-    ignored_summary_output, no_active_rule_warning, removable_ignores_output, skipped_path_warning,
-    unknown_rule_warning,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
+    ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
+    nothing_selected_warning, removable_ignores_output, skipped_path_warning, unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
@@ -94,16 +94,24 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         }
     };
     if !config.quiet {
-        for skipped in &report.skipped {
+        for warning in report.skipped.iter().filter_map(skipped_path_warning) {
             eprintln!(
                 "{} {}",
                 "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                skipped_path_warning(skipped)
+                warning
             );
         }
     }
+    if report.files.is_empty() && report.failed_paths.is_empty() {
+        eprintln!(
+            "{} {}",
+            "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
+            nothing_selected_warning(&report.skipped)
+        );
+    }
     let mut files_complexities = report.files;
     let failed_paths = report.failed_paths;
+    let skipped = report.skipped;
 
     let mut fix_console = String::new();
     if config.fix || config.dry_run {
@@ -206,6 +214,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 "{}",
                 ignored_summary_output(ignored_locations.len(), config.no_ignore)
             );
+            println!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
             println!("{}", ignored_saved_output(&path));

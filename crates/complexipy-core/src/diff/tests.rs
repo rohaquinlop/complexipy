@@ -407,3 +407,47 @@ fn an_option_like_ref_never_reaches_git_diff_as_an_option() {
     assert_eq!(entries, Some(Vec::new()));
     assert_eq!(fs::read_to_string(&victim).unwrap(), "keep me");
 }
+
+const PROPERTY_PAIR: &str = "class Svc:\n    @property\n    def value(self):\n        for x in self.a:\n            if x:\n                if self.b:\n                    return x\n        return 0\n\n    @value.setter\n    def value(self, v):\n        self.v = v\n";
+
+#[test]
+fn a_property_setter_cannot_hide_its_getter_in_a_staged_diff() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("a.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("svc.py"), PROPERTY_PAIR).unwrap();
+    git(dir.path(), &["add", "svc.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    let mut keys: Vec<(&str, Option<u64>)> = entries
+        .iter()
+        .map(|entry| (entry.func_name.as_str(), entry.new_complexity))
+        .collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        vec![("Svc::value", Some(6)), ("Svc::value#2", Some(0))]
+    );
+    assert!(has_regressions(&entries, 3));
+}
+
+#[test]
+fn function_keys_number_repeated_names_in_source_order() {
+    use crate::classes::FunctionComplexity;
+    use crate::diff::function_keys;
+
+    let function = |name: &str, line_start: u64| FunctionComplexity {
+        name: name.to_string(),
+        complexity: 0,
+        line_start,
+        line_end: line_start,
+        line_complexities: vec![],
+        refactor_plans: vec![],
+        additional_refactor_plans: 0,
+    };
+    let functions = [function("f", 9), function("g", 5), function("f", 1)];
+
+    assert_eq!(function_keys(&functions), vec!["f#2", "g", "f"]);
+}

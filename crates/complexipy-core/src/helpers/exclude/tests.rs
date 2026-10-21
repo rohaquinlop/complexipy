@@ -239,6 +239,56 @@ fn discovery_skips_links_that_leave_the_root_and_entries_that_are_not_files() {
 }
 
 #[test]
+fn files_hidden_by_ignore_rules_are_reported_as_skipped() {
+    let dir = tree();
+    fs::write(dir.path().join(".ignore"), "legacy/\n").unwrap();
+    fs::create_dir(dir.path().join(".impl")).unwrap();
+    fs::write(
+        dir.path().join(".impl/hidden.py"),
+        "def h():\n    return 1\n",
+    )
+    .unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+    let mut hidden: Vec<String> = discovery
+        .skipped
+        .iter()
+        .filter(|skipped| skipped.reason == SkipReason::IgnoreRule)
+        .map(|skipped| skipped.path.trim_start_matches(&root).to_string())
+        .collect();
+    hidden.sort();
+
+    assert_eq!(hidden, vec!["/.impl/hidden.py", "/legacy/old.py"]);
+    assert_eq!(discovery.files.len(), 2);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_file_name_that_is_not_utf8_is_selected_and_fails_its_read() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let dir = tree();
+    fs::write(
+        dir.path().join(OsStr::from_bytes(b"bad\xff.py")),
+        "def evil():\n    return 1\n",
+    )
+    .unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+
+    assert_eq!(discovery.files.len(), 4);
+    let lossy = discovery
+        .files
+        .iter()
+        .find(|file| file.contains('\u{fffd}'))
+        .expect("the non-UTF-8 file is selected");
+    assert!(fs::read(lossy).is_err());
+}
+
+#[test]
 fn a_sibling_directory_is_not_inside_the_root() {
     let dir = tree();
     let root = canonical_root(&dir);

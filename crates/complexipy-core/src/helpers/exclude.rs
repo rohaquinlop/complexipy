@@ -97,7 +97,10 @@ pub struct Discovery {
 
 /// Selects the `*.py` files under `root_path`. A selected file is a regular
 /// file inside the root; a symlink to a file elsewhere, a dangling link, and
-/// a directory named `*.py` are skipped and reported, never read.
+/// a directory named `*.py` are skipped and reported, never read, and so is
+/// every file that `.gitignore`, `.ignore`, or a hidden path hides, and every
+/// directory the walk cannot read. A file whose name is not UTF-8 is
+/// selected under a lossy name, so its read fails and the run reports it.
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,
@@ -115,11 +118,8 @@ pub fn get_paths_to_process(
         .collect();
 
     let gitignore_walk = Walk::new(&normalized_root);
-    let non_ignored: HashSet<String> = gitignore_walk
-        .filter_map(|result| match result {
-            Ok(entry) => entry.path().to_str().map(|s| s.replace('\\', "/")),
-            Err(_) => None,
-        })
+    let non_ignored: HashSet<PathBuf> = gitignore_walk
+        .filter_map(|result| result.ok().map(|entry| entry.into_path()))
         .collect();
 
     let exclude_refs: Vec<&str> = normalized_excludes.iter().map(|s| s.as_str()).collect();
@@ -129,29 +129,41 @@ pub fn get_paths_to_process(
         .not(any(exclude_refs))
         .map_err(|e| format!("Failed to apply exclude patterns: {}", e))?;
 
-    for entry in non_excluded_entries
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .path()
-                .to_str()
-                .map(|s| non_ignored.contains(&s.replace('\\', "/")))
-                .unwrap_or(false)
-        })
-    {
+    for entry in non_excluded_entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                if let Some(path) = error.path() {
+                    discovery
+                        .skipped
+                        .push(skipped(path, SkipReason::Unreadable));
+                }
+                continue;
+            }
+        };
         let entry_path = entry.path();
+        if !non_ignored.contains(entry_path) {
+            discovery
+                .skipped
+                .push(skipped(entry_path, SkipReason::IgnoreRule));
+            continue;
+        }
         match selected_file(entry_path, &canonical_root) {
             Ok(file_abs) => discovery
                 .files
                 .push(file_abs.to_string_lossy().replace('\\', "/")),
-            Err(reason) => discovery.skipped.push(SkippedPath {
-                path: entry_path.to_string_lossy().replace('\\', "/"),
-                reason,
-            }),
+            Err(reason) => discovery.skipped.push(skipped(entry_path, reason)),
         }
     }
 
     Ok(discovery)
+}
+
+fn skipped(path: &Path, reason: SkipReason) -> SkippedPath {
+    SkippedPath {
+        path: path.to_string_lossy().replace('\\', "/"),
+        reason,
+    }
 }
 
 fn selected_file(entry_path: &Path, canonical_root: &Path) -> Result<PathBuf, SkipReason> {

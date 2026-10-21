@@ -5,6 +5,7 @@ pub mod cognitive_complexity;
 #[cfg(feature = "config")]
 pub mod config;
 pub mod diff;
+pub mod encoding;
 pub mod fix;
 pub mod fs_guard;
 #[cfg(feature = "runner")]

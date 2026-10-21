@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::classes::FileComplexity;
+use crate::classes::{FileComplexity, FunctionComplexity};
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(15);
 const GIT_ROOT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -54,11 +54,7 @@ pub fn compute_diff(
 
     for file in current_files {
         let path_from_root = resolve_git_path(&file.path, git_ref, invocation_path);
-        let current_map: HashMap<String, u64> = file
-            .functions
-            .iter()
-            .map(|function| (function.name.clone(), function.complexity))
-            .collect();
+        let current_map = keyed_complexities(&file.functions);
 
         let Some(old_content) = file_content_at_ref(git_ref, &path_from_root, invocation_path)
         else {
@@ -249,12 +245,37 @@ fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>>
         content,
         &crate::rules::AnalysisOptions::default(),
     );
-    Some(
-        functions
-            .into_iter()
-            .map(|function| (function.name, function.complexity))
-            .collect(),
-    )
+    Some(keyed_complexities(&functions))
+}
+
+/// One key per function, in input order: the qualified name, then `#N` for
+/// the N-th function of that name in source order. A property's getter and
+/// setter, or a redefinition, never share a key, in the diff or in the
+/// snapshot.
+pub fn function_keys(functions: &[FunctionComplexity]) -> Vec<String> {
+    let mut order: Vec<usize> = (0..functions.len()).collect();
+    order.sort_by_key(|&index| functions[index].line_start);
+
+    let mut keys = vec![String::new(); functions.len()];
+    let mut seen: HashMap<&str, usize> = HashMap::new();
+    for index in order {
+        let name = functions[index].name.as_str();
+        let ordinal = seen.entry(name).or_insert(0);
+        *ordinal += 1;
+        keys[index] = if *ordinal == 1 {
+            name.to_string()
+        } else {
+            format!("{}#{}", name, ordinal)
+        };
+    }
+    keys
+}
+
+fn keyed_complexities(functions: &[FunctionComplexity]) -> HashMap<String, u64> {
+    function_keys(functions)
+        .into_iter()
+        .zip(functions.iter().map(|function| function.complexity))
+        .collect()
 }
 
 fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)> {

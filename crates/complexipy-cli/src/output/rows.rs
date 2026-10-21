@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::types::{FileEntry, FunctionRow, Sort};
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{FileComplexity, FunctionComplexity};
+use complexipy_core::diff::function_keys;
 
 pub fn build_output_rows(
     files: &[FileComplexity],
@@ -16,6 +17,12 @@ pub fn build_output_rows(
     let mut all_pass = true;
 
     for file in files {
+        let keys: HashMap<(&str, u64), String> = file
+            .functions
+            .iter()
+            .zip(function_keys(&file.functions))
+            .map(|(function, key)| ((function.name.as_str(), function.line_start), key))
+            .collect();
         let sorted_functions = sort_functions(&file.functions, &sort);
         let mut displayable_functions = Vec::new();
 
@@ -23,6 +30,7 @@ pub fn build_output_rows(
             total_functions += 1;
             let passed = is_function_passing(
                 &function,
+                &keys[&(function.name.as_str(), function.line_start)],
                 &file.path,
                 &file.file_name,
                 max_complexity,
@@ -72,8 +80,11 @@ pub fn sort_functions(functions: &[FunctionComplexity], sort: &Sort) -> Vec<Func
     sorted
 }
 
+/// Whether `function` passes: at or under the threshold, or no worse than
+/// its snapshot entry, looked up by `key` from `function_keys`.
 pub fn is_function_passing(
     function: &FunctionComplexity,
+    key: &str,
     file_path: &str,
     file_name: &str,
     max_complexity: u64,
@@ -88,7 +99,7 @@ pub fn is_function_passing(
     let previous = snapshot_map.get(&(
         file_path.to_string(),
         file_name.to_string(),
-        function.name.clone(),
+        key.to_string(),
     ));
     previous.is_some_and(|previous| function.complexity <= *previous)
 }
@@ -99,15 +110,19 @@ pub fn has_success_functions(
     snapshot_map: Option<&HashMap<(String, String, String), u64>>,
 ) -> bool {
     files.iter().all(|file| {
-        file.functions.iter().all(|function| {
-            is_function_passing(
-                function,
-                &file.path,
-                &file.file_name,
-                max_complexity,
-                snapshot_map,
-            )
-        })
+        file.functions
+            .iter()
+            .zip(function_keys(&file.functions))
+            .all(|(function, key)| {
+                is_function_passing(
+                    function,
+                    &key,
+                    &file.path,
+                    &file.file_name,
+                    max_complexity,
+                    snapshot_map,
+                )
+            })
     })
 }
 

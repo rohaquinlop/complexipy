@@ -81,27 +81,48 @@ fn sort_file_name_by_lowercased_name() {
 #[test]
 fn passing_within_threshold() {
     let f = function("f", 5);
-    assert!(is_function_passing(&f, "a.py", "a.py", 5, None));
-    assert!(is_function_passing(&f, "a.py", "a.py", 10, None));
+    assert!(is_function_passing(&f, &f.name, "a.py", "a.py", 5, None));
+    assert!(is_function_passing(&f, &f.name, "a.py", "a.py", 10, None));
 }
 
 #[test]
 fn passing_above_threshold_without_snapshot_fails() {
     let f = function("f", 10);
-    assert!(!is_function_passing(&f, "a.py", "a.py", 5, None));
+    assert!(!is_function_passing(&f, &f.name, "a.py", "a.py", 5, None));
 }
 
 #[test]
 fn passing_with_snapshot_allows_same_or_better() {
     let f = function("f", 10);
     let map = snapshot_map(&[("a.py", "a.py", "f", 12)]);
-    assert!(is_function_passing(&f, "a.py", "a.py", 5, Some(&map)));
+    assert!(is_function_passing(
+        &f,
+        &f.name,
+        "a.py",
+        "a.py",
+        5,
+        Some(&map)
+    ));
 
     let map = snapshot_map(&[("a.py", "a.py", "f", 10)]);
-    assert!(is_function_passing(&f, "a.py", "a.py", 5, Some(&map)));
+    assert!(is_function_passing(
+        &f,
+        &f.name,
+        "a.py",
+        "a.py",
+        5,
+        Some(&map)
+    ));
 
     let map = snapshot_map(&[("a.py", "a.py", "f", 8)]);
-    assert!(!is_function_passing(&f, "a.py", "a.py", 5, Some(&map)));
+    assert!(!is_function_passing(
+        &f,
+        &f.name,
+        "a.py",
+        "a.py",
+        5,
+        Some(&map)
+    ));
 }
 
 #[test]

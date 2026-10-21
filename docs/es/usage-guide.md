@@ -118,7 +118,7 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
-    - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos
+    - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos, y también los archivos `.ignore` y los archivos y directorios ocultos. `--report-ignored` lista cada archivo `*.py` que estas reglas omiten, y una ejecución que no selecciona ningún archivo imprime una advertencia en stderr, incluso bajo `--quiet`
     - Un enlace simbólico `*.py` se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados `*.py` se omiten con una advertencia
     - Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse
 
@@ -228,6 +228,17 @@ complexipy path/to/script.py --check-script --max-complexity-allowed 5
 
 Esto es útil para scripts con flujo de control complejo en el nivel superior,
 fuera de las funciones.
+
+Cada función que define un módulo se puntúa por separado, esté donde esté el
+`def`: bajo un `if`, `try`, `with`, `for`, `while` o `match` a nivel de módulo,
+y en clases anidadas, cuyos métodos se llaman `Outer::Inner::method`. Una
+función definida dentro de otra función cuenta para la función exterior.
+
+Un archivo fuente con una declaración de codificación PEP 263 se lee en esa
+codificación: UTF-8 y Latin-1 siempre, y una codificación compatible con ASCII
+como `cp1252` cuando el archivo es ASCII puro. Un archivo que declara otra
+codificación, como `utf-7`, se reporta como fallido, porque leerlo como UTF-8
+no mostraría el código que ejecuta Python.
 
 ### Sugerencias de Refactorización
 
@@ -861,6 +872,8 @@ complexipy . --snapshot-ignore
 
 Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución - las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
 
+Las funciones de un mismo archivo que comparten nombre, como el getter y el setter de una propiedad, reciben entradas separadas: la primera en orden de código fuente conserva el nombre, y las siguientes se guardan como `name#2`, `name#3`. `--diff` compara con las mismas claves.
+
 ## Selección de Reglas
 
 Las reglas de refactorización llevan ids como `C001` (ver
@@ -917,6 +930,13 @@ El comentario de ignorar también puede colocarse en la línea anterior a la def
 def complex_function():
     pass
 ```
+
+Una marca cuenta solo dentro de un comentario: en la línea del `def`, en una
+línea de su firma o de sus decoradores, o como comentario en su propia línea
+justo encima. El mismo texto en una cadena, un docstring o un argumento de
+decorador, o un comentario al final de la línea de código anterior, no suprime
+nada. Las palabras se comparan completas y separadas solo por espacios o
+tabuladores, así que `# complexipy: ignored` no es una marca.
 
 ### Suprimir Reglas Específicas
 

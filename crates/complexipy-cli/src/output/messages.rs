@@ -68,12 +68,50 @@ pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
 }
 
-pub fn skipped_path_warning(skipped: &SkippedPath) -> String {
+/// The warning for a skipped entry, or `None` for a file an ignore rule
+/// hides, which `--report-ignored` lists instead.
+pub fn skipped_path_warning(skipped: &SkippedPath) -> Option<String> {
     let reason = match skipped.reason {
         SkipReason::NotRegularFile => "it is not a regular file",
         SkipReason::OutsideRoot => "it is a symlink that resolves outside the analyzed directory",
+        SkipReason::Unreadable => "the directory cannot be read",
+        SkipReason::IgnoreRule => return None,
     };
-    format!("Skipped {}: {}.", skipped.path, reason)
+    Some(format!("Skipped {}: {}.", skipped.path, reason))
+}
+
+pub fn ignore_rule_skips_output(skipped: &[SkippedPath]) -> String {
+    let paths: Vec<&str> = skipped
+        .iter()
+        .filter(|skipped| skipped.reason == SkipReason::IgnoreRule)
+        .map(|skipped| skipped.path.as_str())
+        .collect();
+    if paths.is_empty() {
+        return "No Python files were skipped by .gitignore, .ignore, or hidden-path rules."
+            .to_string();
+    }
+    let mut lines = vec![format!(
+        "{} Python file(s) were skipped by .gitignore, .ignore, or hidden-path rules:",
+        paths.len()
+    )];
+    lines.extend(paths.iter().map(|path| format!("  {}", path)));
+    lines.join("\n")
+}
+
+pub fn nothing_selected_warning(skipped: &[SkippedPath]) -> String {
+    let hidden = skipped
+        .iter()
+        .filter(|skipped| skipped.reason == SkipReason::IgnoreRule)
+        .count();
+    if hidden == 0 {
+        "No Python file was selected, so this run checks nothing.".to_string()
+    } else {
+        format!(
+            "No Python file was selected, so this run checks nothing. {} file(s) were skipped \
+             by .gitignore, .ignore, or hidden-path rules; --report-ignored lists them.",
+            hidden
+        )
+    }
 }
 
 pub fn config_gate_change_warning(config_path: &str, change: &ConfigGateChange) -> String {

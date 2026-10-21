@@ -1,6 +1,7 @@
 use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
-use crate::fs_guard::{MAX_SOURCE_BYTES, read_bounded_text};
+use crate::encoding::decode_python_source;
+use crate::fs_guard::{MAX_SOURCE_BYTES, read_bounded};
 use crate::helpers::exclude::get_paths_to_process;
 use crate::rules::{AnalysisOptions, RuleSet};
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
@@ -22,6 +23,8 @@ type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
 pub enum SkipReason {
     NotRegularFile,
     OutsideRoot,
+    IgnoreRule,
+    Unreadable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -219,8 +222,9 @@ pub fn collect_removable_ignored_locations_shared(
 }
 
 fn read_source(file_path: &str) -> Result<String, String> {
-    read_bounded_text(path::Path::new(file_path), None, MAX_SOURCE_BYTES)
-        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))
+    let bytes = read_bounded(path::Path::new(file_path), None, MAX_SOURCE_BYTES)
+        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    decode_python_source(&bytes).map_err(|e| format!("File '{}' {}", file_path, e))
 }
 
 trait Located {

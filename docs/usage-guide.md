@@ -117,7 +117,7 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Exclusions are glob patterns evaluated relative to each provided root path
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
-    - Gitignore rules are still respected during file discovery
+    - Gitignore rules are still respected during file discovery, and so are `.ignore` files and hidden files and directories. `--report-ignored` lists every `*.py` file these rules skip, and a run that selects no file at all prints a warning on stderr, even under `--quiet`
     - A `*.py` symlink is analyzed only when it resolves to a regular file inside the analyzed directory. Links that leave it, dangling links, devices, and directories named `*.py` are skipped with a warning
     - A source file larger than 64 MiB is reported as failed instead of read
 
@@ -229,6 +229,17 @@ complexipy path/to/script.py --check-script --max-complexity-allowed 5
 
 This is useful for scripts with complex top-level control flow outside
 functions.
+
+Every function a module defines is scored on its own, wherever the `def`
+sits: under a module-level `if`, `try`, `with`, `for`, `while`, or `match`,
+and in nested classes, whose methods are named `Outer::Inner::method`. A
+function defined inside another function counts toward the outer one.
+
+A source file with a PEP 263 coding cookie is read in that encoding: UTF-8
+and Latin-1 always, and an ASCII-compatible encoding such as `cp1252` when
+the file is pure ASCII. A file that declares any other encoding, such as
+`utf-7`, is reported as failed, because reading it as UTF-8 would not show
+the code Python runs.
 
 ### Refactor Suggestions
 
@@ -853,6 +864,8 @@ Use this when:
 
 Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
+Functions of one file that share a name, such as a property's getter and setter, get separate entries: the first in source order keeps the name, and the next ones are stored as `name#2`, `name#3`. `--diff` keys its comparison the same way.
+
 ## Rule Selection
 
 Refactoring rules carry ids like `C001` (see
@@ -907,6 +920,13 @@ The ignore comment can also be placed on the line above the function definition:
 def complex_function():
     pass
 ```
+
+A marker counts only inside a comment: on the `def` line, on a line of its
+signature or decorators, or as a comment on its own line directly above. The
+same text in a string, a docstring, or a decorator argument, or a trailing
+comment on the code line above, suppresses nothing. The words are matched
+whole and separated by spaces or tabs only, so `# complexipy: ignored` is
+not a marker.
 
 ### Suppressing Specific Rules
 

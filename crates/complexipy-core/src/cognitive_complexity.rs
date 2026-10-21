@@ -3,10 +3,14 @@ mod shared_deps {
     pub use crate::refactor_plans::{
         ComplexityRegion, ComplexityResult, RegionKind, build_refactor_plans,
     };
-    pub use crate::rules::{AnalysisOptions, RuleSet};
-    pub use crate::utils::{LineIndex, count_bool_ops, find_noqa_comment, is_decorator};
+    pub use crate::rules::AnalysisOptions;
+    pub use crate::utils::{
+        CommentRanges, LineIndex, count_bool_ops, find_noqa_comment, is_decorator,
+    };
     pub use ruff_python_ast::{self as ast, Stmt};
 }
+
+use std::borrow::Cow;
 
 use crate::classes::CodeComplexity;
 
@@ -53,6 +57,7 @@ pub fn function_level_cognitive_complexity_shared(
 ) -> (Vec<FunctionComplexity>, u64) {
     let index = LineIndex::new(code);
     let def_names = crate::utils::collect_def_names(code);
+    let comments = CommentRanges::of(code);
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
     let mut module_complexity: u64 = 0;
@@ -60,26 +65,32 @@ pub fn function_level_cognitive_complexity_shared(
     let mut module_regions: Vec<ComplexityRegion> = Vec::new();
 
     for node in ast_body.iter() {
-        match named_functions(node) {
-            Some(defs) => {
-                for (node, f, name) in defs {
-                    if !is_ignored(f, code, opts.no_ignore) {
-                        functions.push(analyze_function(
-                            node, f, name, code, &index, &def_names, opts,
-                        ));
-                    }
-                }
+        let defs = named_functions(node);
+        let has_defs = !defs.is_empty();
+        for (def_node, f, name) in defs {
+            if !is_ignored(f, code, &comments, opts.no_ignore) {
+                let opts = options_for(opts, f, code, &comments);
+                functions.push(analyze_function(
+                    def_node, f, name, code, &index, &def_names, &opts,
+                ));
             }
-            None => {
-                let result = statement_cognitive_complexity_shared(node, 0, code, &index);
-                if opts.check_script {
-                    module_complexity += result.complexity;
-                    module_line_complexities.extend(result.line_complexities);
-                    module_regions.extend(result.regions);
-                } else {
-                    complexity += result.complexity;
-                }
-            }
+        }
+        if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
+            continue;
+        }
+
+        let statement = if has_defs {
+            Cow::Owned(without_definitions(node))
+        } else {
+            Cow::Borrowed(node)
+        };
+        let result = statement_cognitive_complexity_shared(&statement, 0, code, &index);
+        if opts.check_script {
+            module_complexity += result.complexity;
+            module_line_complexities.extend(result.line_complexities);
+            module_regions.extend(result.regions);
+        } else {
+            complexity += result.complexity;
         }
     }
 
@@ -132,17 +143,18 @@ pub fn plans_for_function(
         ..opts.clone()
     };
 
+    let comments = CommentRanges::of(code);
     let Some((node, f, name)) = ast_body
         .iter()
-        .filter_map(named_functions)
-        .flatten()
-        .filter(|(_, f, _)| !is_ignored(f, code, opts.no_ignore))
+        .flat_map(named_functions)
+        .filter(|(_, f, _)| !is_ignored(f, code, &comments, opts.no_ignore))
         .find(|(_, f, _)| index.line_of(usize::from(f.range.start())) == line_start)
     else {
         return Ok(None);
     };
 
     let def_names = crate::utils::collect_def_names(code);
+    let opts = options_for(&opts, f, code, &comments);
     let function = analyze_function(node, f, name, code, &index, &def_names, &opts);
 
     Ok(Some((
@@ -151,39 +163,156 @@ pub fn plans_for_function(
     )))
 }
 
-fn named_functions(node: &Stmt) -> Option<Vec<(&Stmt, &ast::StmtFunctionDef, String)>> {
+type NamedFunction<'a> = (&'a Stmt, &'a ast::StmtFunctionDef, String);
+
+/// Every function a module-level statement defines: the statement itself
+/// when it is a `def`, the methods of a class and of its nested classes, and
+/// the definitions under `if`, `try`, `with`, `for`, `while`, and `match`.
+/// Methods are named `Class::method`, through every enclosing class. The
+/// bodies of functions are not searched: a nested function belongs to the
+/// function that holds it.
+fn named_functions(node: &Stmt) -> Vec<NamedFunction<'_>> {
+    let mut defs = Vec::new();
+    collect_named_functions(node, None, &mut defs);
+    defs
+}
+
+fn collect_named_functions<'a>(
+    node: &'a Stmt,
+    class: Option<&str>,
+    defs: &mut Vec<NamedFunction<'a>>,
+) {
     match node {
-        Stmt::FunctionDef(f) => Some(vec![(node, f, f.name.to_string())]),
-        Stmt::ClassDef(c) => Some(
-            c.body
-                .iter()
-                .filter_map(|node| match node {
-                    Stmt::FunctionDef(f) => Some((node, f, format!("{}::{}", c.name, f.name))),
-                    _ => None,
-                })
-                .collect(),
-        ),
-        _ => None,
+        Stmt::FunctionDef(f) => defs.push((node, f, qualified(class, f.name.as_str()))),
+        Stmt::ClassDef(c) => {
+            let name = qualified(class, c.name.as_str());
+            for child in c.body.iter() {
+                collect_named_functions(child, Some(&name), defs);
+            }
+        }
+        _ => {
+            for suite in nested_suites(node) {
+                for child in suite.iter() {
+                    collect_named_functions(child, class, defs);
+                }
+            }
+        }
     }
 }
 
-fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
+fn qualified(class: Option<&str>, name: &str) -> String {
+    match class {
+        Some(class) => format!("{}::{}", class, name),
+        None => name.to_string(),
+    }
+}
+
+fn nested_suites(node: &Stmt) -> Vec<&[Stmt]> {
+    match node {
+        Stmt::If(i) => std::iter::once(i.body.as_slice())
+            .chain(
+                i.elif_else_clauses
+                    .iter()
+                    .map(|clause| clause.body.as_slice()),
+            )
+            .collect(),
+        Stmt::For(f) => vec![&f.body, &f.orelse],
+        Stmt::While(w) => vec![&w.body, &w.orelse],
+        Stmt::Try(t) => std::iter::once(t.body.as_slice())
+            .chain(t.handlers.iter().map(|handler| {
+                let ast::ExceptHandler::ExceptHandler(handler) = handler;
+                handler.body.as_slice()
+            }))
+            .chain([t.orelse.as_slice(), t.finalbody.as_slice()])
+            .collect(),
+        Stmt::With(w) => vec![&w.body],
+        Stmt::Match(m) => m.cases.iter().map(|case| case.body.as_slice()).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn nested_suites_mut(node: &mut Stmt) -> Vec<&mut Vec<Stmt>> {
+    match node {
+        Stmt::If(i) => std::iter::once(&mut i.body)
+            .chain(
+                i.elif_else_clauses
+                    .iter_mut()
+                    .map(|clause| &mut clause.body),
+            )
+            .collect(),
+        Stmt::For(f) => vec![&mut f.body, &mut f.orelse],
+        Stmt::While(w) => vec![&mut w.body, &mut w.orelse],
+        Stmt::Try(t) => std::iter::once(&mut t.body)
+            .chain(t.handlers.iter_mut().map(|handler| {
+                let ast::ExceptHandler::ExceptHandler(handler) = handler;
+                &mut handler.body
+            }))
+            .chain([&mut t.orelse, &mut t.finalbody])
+            .collect(),
+        Stmt::With(w) => vec![&mut w.body],
+        Stmt::Match(m) => m.cases.iter_mut().map(|case| &mut case.body).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// A copy of a module-level compound statement with every `def` and `class`
+/// it holds replaced by `pass`, because those are scored on their own and
+/// must not count again toward the module.
+fn without_definitions(node: &Stmt) -> Stmt {
+    let mut stripped = node.clone();
+    strip_definitions(&mut stripped);
+    stripped
+}
+
+fn strip_definitions(node: &mut Stmt) {
+    for suite in nested_suites_mut(node) {
+        for child in suite.iter_mut() {
+            let range = match child {
+                Stmt::FunctionDef(f) => f.range,
+                Stmt::ClassDef(c) => c.range,
+                other => {
+                    strip_definitions(other);
+                    continue;
+                }
+            };
+            *child = Stmt::Pass(ast::StmtPass {
+                node_index: Default::default(),
+                range,
+            });
+        }
+    }
+}
+
+fn is_ignored(
+    f: &ast::StmtFunctionDef,
+    code: &str,
+    comments: &CommentRanges,
+    no_ignore: bool,
+) -> bool {
     !no_ignore
-        && find_noqa_comment(usize::from(f.range.start()), code)
+        && find_noqa_comment(usize::from(f.range.start()), code, comments)
             .is_some_and(|directive| directive.rules.is_none())
 }
 
-fn active_rules_for<'a>(
+/// The options to analyze `f` with: the run's options, minus the rules that
+/// a bracketed ignore marker names for this function.
+fn options_for<'a>(
     opts: &'a AnalysisOptions,
-    byte_offset: usize,
+    f: &ast::StmtFunctionDef,
     code: &str,
-) -> std::borrow::Cow<'a, RuleSet> {
+    comments: &CommentRanges,
+) -> Cow<'a, AnalysisOptions> {
     if opts.no_ignore {
-        return std::borrow::Cow::Borrowed(&opts.rules);
+        return Cow::Borrowed(opts);
     }
-    match find_noqa_comment(byte_offset, code).and_then(|directive| directive.rules) {
-        Some(rules) => std::borrow::Cow::Owned(opts.rules.without(&rules)),
-        None => std::borrow::Cow::Borrowed(&opts.rules),
+    match find_noqa_comment(usize::from(f.range.start()), code, comments)
+        .and_then(|directive| directive.rules)
+    {
+        Some(rules) => Cow::Owned(AnalysisOptions {
+            rules: opts.rules.without(&rules),
+            ..opts.clone()
+        }),
+        None => Cow::Borrowed(opts),
     }
 }
 
@@ -201,7 +330,6 @@ fn analyze_function(
         result.complexity += 1;
         push_line(&mut result, line, 1);
     }
-    let rules = active_rules_for(opts, usize::from(f.range.start()), code);
     let (refactor_plans, additional_refactor_plans) = if opts.with_plans {
         build_refactor_plans(
             result.complexity,
@@ -210,7 +338,7 @@ fn analyze_function(
             index,
             def_names,
             false,
-            rules.as_ref(),
+            &opts.rules,
         )
     } else {
         (Vec::new(), 0)
