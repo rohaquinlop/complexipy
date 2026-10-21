@@ -399,6 +399,32 @@ fn a_config_output_outside_the_project_writes_nothing() {
     assert_eq!(fs::read_to_string(&target).expect("should read"), "keep me");
 }
 
+#[cfg(unix)]
+#[test]
+fn a_directory_run_never_reads_through_links_that_leave_it() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    fs::write(outside.path().join("y.py"), COMPLEX).expect("should write");
+    fs::write(dir.path().join("simple.py"), SIMPLE).expect("should write");
+    std::os::unix::fs::symlink(outside.path().join("y.py"), dir.path().join("x.py"))
+        .expect("should link");
+    std::os::unix::fs::symlink("/dev/zero", dir.path().join("zero.py")).expect("should link");
+    std::os::unix::fs::symlink(dir.path().join("gone.py"), dir.path().join("dangling.py"))
+        .expect("should link");
+    fs::create_dir(dir.path().join("pkg.py")).expect("should create");
+
+    let exit = run_at(
+        parse(&[
+            dir.path().to_str().unwrap(),
+            "--max-complexity-allowed",
+            "3",
+        ]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::SUCCESS);
+}
+
 fn builds_plans(args: &[&str]) -> bool {
     let config = resolve_config(None, parse(args), ".").expect("config should resolve");
 

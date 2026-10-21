@@ -49,7 +49,7 @@ fn canonical_root(dir: &TempDir) -> String {
 }
 
 fn agreement(root: &str, patterns: &[String]) {
-    let mut kept = get_paths_to_process(root, patterns.to_vec()).unwrap();
+    let mut kept = get_paths_to_process(root, patterns.to_vec()).unwrap().files;
     kept.sort();
 
     for file in FILES {
@@ -193,6 +193,49 @@ fn a_list_too_large_for_one_program_is_reported_as_overflowing() {
 
     assert!(invalid_exclude_patterns(&patterns).is_empty());
     assert!(exclude_list_overflows(&patterns));
+}
+
+#[cfg(unix)]
+#[test]
+fn discovery_skips_links_that_leave_the_root_and_entries_that_are_not_files() {
+    use std::os::unix::fs::symlink;
+
+    let dir = tree();
+    let outside = TempDir::new().unwrap();
+    fs::write(outside.path().join("y.py"), "def secret():\n    return 1\n").unwrap();
+    symlink(outside.path().join("y.py"), dir.path().join("x.py")).unwrap();
+    symlink("/dev/zero", dir.path().join("zero.py")).unwrap();
+    symlink(
+        dir.path().join("missing.py"),
+        dir.path().join("dangling.py"),
+    )
+    .unwrap();
+    fs::create_dir(dir.path().join("pkg.py")).unwrap();
+    symlink(dir.path().join("mix.py"), dir.path().join("alias.py")).unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+    let mut skipped: Vec<(String, SkipReason)> = discovery
+        .skipped
+        .into_iter()
+        .map(|skipped| {
+            let name = skipped.path.rsplit('/').next().unwrap().to_string();
+            (name, skipped.reason)
+        })
+        .collect();
+    skipped.sort_by(|a, b| a.0.cmp(&b.0));
+
+    assert_eq!(
+        skipped,
+        vec![
+            ("dangling.py".to_string(), SkipReason::NotRegularFile),
+            ("pkg.py".to_string(), SkipReason::NotRegularFile),
+            ("x.py".to_string(), SkipReason::OutsideRoot),
+            ("zero.py".to_string(), SkipReason::OutsideRoot),
+        ]
+    );
+    assert!(discovery.files.iter().all(|file| file.starts_with(&root)));
+    assert!(discovery.files.contains(&format!("{}/mix.py", root)));
 }
 
 #[test]

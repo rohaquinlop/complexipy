@@ -199,7 +199,17 @@ pub fn create_snapshot_file_shared(
 pub fn load_snapshot_file_shared(
     snapshot_file_path: &str,
 ) -> Result<Vec<FileComplexity>, ExportError> {
-    let snapshot_content = std::fs::read_to_string(snapshot_file_path).map_err(|e| {
+    let snapshot_path = std::path::Path::new(snapshot_file_path);
+    let root = snapshot_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    let snapshot_content = crate::fs_guard::read_bounded_text(
+        snapshot_path,
+        Some(root),
+        crate::fs_guard::MAX_DATA_BYTES,
+    )
+    .map_err(|e| {
         ExportError::Io(format!(
             "Failed to read snapshot file {}: {}",
             snapshot_file_path, e

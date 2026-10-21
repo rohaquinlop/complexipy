@@ -285,6 +285,71 @@ fn a_named_config_file_is_read_whole_or_by_section() {
 }
 
 #[test]
+fn a_syntax_error_names_the_position_but_never_the_contents() {
+    let dir = TempDir::new().unwrap();
+    write(
+        &dir,
+        "complexipy.toml",
+        "max-complexity-allowed = 2\naws_access_key_id = AKIAFAKE1234\n",
+    );
+
+    let (_, warnings) = read_complexipy_config::<LspConfig>(&dir.path().to_string_lossy());
+
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].ends_with("TOML syntax error at line 2, column 21"));
+    assert!(!warnings[0].contains("AKIAFAKE1234"));
+}
+
+#[test]
+fn a_type_error_names_the_key_but_never_the_value() {
+    let dir = TempDir::new().unwrap();
+    write(
+        &dir,
+        "complexipy.toml",
+        "max-complexity-allowed = \"[Open](command:workbench.action.terminal.new)\"\n",
+    );
+
+    let (_, warnings) = read_complexipy_config::<LspConfig>(&dir.path().to_string_lossy());
+
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].ends_with("invalid value for \"max-complexity-allowed\""));
+    assert!(!warnings[0].contains("command:"));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_config_symlink_out_of_the_directory_is_skipped_unread() {
+    let dir = TempDir::new().unwrap();
+    let outside = TempDir::new().unwrap();
+    fs_sync::write(
+        outside.path().join("credentials"),
+        "[default]\naws_access_key_id = AKIAFAKE1234\n",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("credentials"),
+        dir.path().join("pyproject.toml"),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink("/dev/zero", dir.path().join("complexipy.toml")).unwrap();
+
+    let (source, warnings) = read_complexipy_config::<LspConfig>(&dir.path().to_string_lossy());
+
+    assert!(source.is_none());
+    assert_eq!(warnings.len(), 2);
+    assert!(
+        warnings
+            .iter()
+            .all(|warning| warning.starts_with("Skipped "))
+    );
+    assert!(
+        warnings
+            .iter()
+            .all(|warning| !warning.contains("AKIAFAKE1234"))
+    );
+}
+
+#[test]
 fn a_missing_named_config_file_is_an_error() {
     let dir = TempDir::new().unwrap();
 

@@ -118,6 +118,8 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
     - Gitignore rules are still respected during file discovery
+    - A `*.py` symlink is analyzed only when it resolves to a regular file inside the analyzed directory. Links that leave it, dangling links, devices, and directories named `*.py` are skipped with a warning
+    - A source file larger than 64 MiB is reported as failed instead of read
 
 ### Output Formats
 
@@ -333,6 +335,11 @@ holds settings, a warning names the file that is not applied.
 only the named file: its `[tool.complexipy]` section when the file is named
 `pyproject.toml`, and the whole file otherwise. Use either one in CI to pin
 the gate, so a change to the repository's configuration cannot change it.
+
+A configuration file that is not a regular file, that is larger than 4 MiB,
+or that is a symlink resolving outside the directory is skipped with a
+warning. A configuration error names the file, the line and column, or the
+key, and never repeats the file's contents.
 
 Values read from a configuration file are checked before use: `paths`,
 `output`, and `cache-dir` must stay inside the directory complexipy runs

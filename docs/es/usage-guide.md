@@ -119,6 +119,8 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
     - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos
+    - Un enlace simbólico `*.py` se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados `*.py` se omiten con una advertencia
+    - Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse
 
 ### Formatos de Salida
 
@@ -334,6 +336,11 @@ lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el archivo
 se llama `pyproject.toml`, y el archivo completo en otro caso. Usa cualquiera
 de los dos en CI para fijar el gate, de modo que un cambio en la configuración
 del repositorio no pueda alterarlo.
+
+Un archivo de configuración que no es un archivo regular, que pesa más de
+4 MiB, o que es un enlace simbólico que sale del directorio se omite con una
+advertencia. Un error de configuración nombra el archivo, la línea y la
+columna, o la clave, y nunca repite el contenido del archivo.
 
 Los valores leídos de un archivo de configuración se validan antes de usarse:
 `paths`, `output` y `cache-dir` deben quedar dentro del directorio desde el

@@ -1,9 +1,10 @@
-use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
+use crate::fs_guard::{MAX_CONFIG_BYTES, read_bounded_text};
 use crate::rules::RuleSet;
 
 pub const DEFAULT_MAX_COMPLEXITY_ALLOWED: u64 = 15;
@@ -43,6 +44,7 @@ pub enum ConfigFileKind {
 pub struct ConfigCandidate {
     pub path: PathBuf,
     pub kind: ConfigFileKind,
+    pub root: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -181,17 +183,32 @@ pub fn config_candidates(invocation_path: &str) -> Vec<ConfigCandidate> {
         .into_iter()
         .filter_map(|(file_name, kind)| {
             let path = invocation_path.join(file_name);
-            path.exists().then_some(ConfigCandidate { path, kind })
+            path.exists().then(|| ConfigCandidate {
+                path,
+                kind,
+                root: Some(invocation_path.to_path_buf()),
+            })
         })
         .collect()
 }
 
+/// Reads and parses one candidate. A candidate that is not a regular file,
+/// that resolves outside its directory, or that is oversized is an error,
+/// and no error repeats the file's contents.
 pub fn read_candidate_value(candidate: &ConfigCandidate) -> Result<Option<toml::Value>, String> {
-    let Ok(content) = fs::read_to_string(&candidate.path) else {
-        return Ok(None);
-    };
-    let value = toml::from_str(&content)
-        .map_err(|e| format!("Failed to parse {}: {}", candidate.path.display(), e))?;
+    let content =
+        match read_bounded_text(&candidate.path, candidate.root.as_deref(), MAX_CONFIG_BYTES) {
+            Ok(content) => content,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(format!("Skipped {}: {}", candidate.path.display(), error)),
+        };
+    let value = toml::from_str(&content).map_err(|error| {
+        format!(
+            "Failed to parse {}: {}",
+            candidate.path.display(),
+            syntax_error_location(&content, &error)
+        )
+    })?;
 
     Ok(match candidate.kind {
         ConfigFileKind::ComplexipyToml | ConfigFileKind::DotComplexipyToml => Some(value),
@@ -251,6 +268,7 @@ pub fn read_config_file<T: DeserializeOwned>(path: &Path) -> Result<ConfigSource
     let candidate = ConfigCandidate {
         path: path.to_path_buf(),
         kind,
+        root: None,
     };
     if !candidate.path.is_file() {
         return Err(format!("Config file {} does not exist", path.display()));
@@ -269,10 +287,50 @@ fn deserialize<T: DeserializeOwned>(
     candidate: &ConfigCandidate,
     value: Option<toml::Value>,
 ) -> Result<Option<T>, String> {
-    value
-        .map(|value| value.try_into::<T>())
-        .transpose()
-        .map_err(|error| format!("Invalid config in {}: {}", candidate.path.display(), error))
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    match value.clone().try_into::<T>() {
+        Ok(config) => Ok(Some(config)),
+        Err(_) => Err(format!(
+            "Invalid config in {}: {}",
+            candidate.path.display(),
+            invalid_keys::<T>(&value)
+        )),
+    }
+}
+
+fn syntax_error_location(content: &str, error: &toml::de::Error) -> String {
+    let Some(span) = error.span() else {
+        return "TOML syntax error".to_string();
+    };
+    let before = content.get(..span.start).unwrap_or(content);
+    let line = before.matches('\n').count() + 1;
+    let column = before
+        .rsplit('\n')
+        .next()
+        .map_or(0, |text| text.chars().count())
+        + 1;
+    format!("TOML syntax error at line {}, column {}", line, column)
+}
+
+fn invalid_keys<T: DeserializeOwned>(value: &toml::Value) -> String {
+    let keys: Vec<String> = value
+        .as_table()
+        .into_iter()
+        .flatten()
+        .filter(|(key, item)| {
+            let mut single = toml::Table::new();
+            single.insert(key.to_string(), (*item).clone());
+            toml::Value::Table(single).try_into::<T>().is_err()
+        })
+        .map(|(key, _)| format!("{:?}", key))
+        .collect();
+    if keys.is_empty() {
+        "the settings are not a table of known keys".to_string()
+    } else {
+        format!("invalid value for {}", keys.join(", "))
+    }
 }
 
 fn section_of(value: toml::Value) -> Option<toml::Value> {

@@ -1,4 +1,4 @@
-use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
 
 use owo_colors::{OwoColorize, Stream, Style};
@@ -9,6 +9,7 @@ use syntect::parsing::SyntaxSet;
 use crate::types::FunctionRow;
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
+use complexipy_core::fs_guard::{MAX_SOURCE_BYTES, read_bounded_text};
 
 pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> String {
     if function.refactor_plans.is_empty() {
@@ -63,7 +64,7 @@ fn read_source_lines(invocation_path: &str, path: &str, file_name: &str) -> Opti
     } else {
         full_path
     };
-    fs::read_to_string(full_path)
+    read_bounded_text(Path::new(&full_path), None, MAX_SOURCE_BYTES)
         .ok()
         .map(|content| content.lines().map(str::to_string).collect())
 }

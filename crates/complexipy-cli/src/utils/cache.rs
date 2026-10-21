@@ -8,6 +8,7 @@ use blake2::digest::{Update, VariableOutput};
 use serde_json::{Value, json};
 
 use complexipy_core::classes::FileComplexity;
+use complexipy_core::fs_guard::{MAX_DATA_BYTES, is_within, read_bounded_text};
 
 const CACHE_DIR_NAME: &str = ".complexipy_cache";
 const CACHE_VALUES_DIR: &str = "v/cache";
@@ -33,13 +34,16 @@ pub fn remember_previous_functions(
     cache_dir: Option<&str>,
 ) -> Option<HashMap<(String, String, String), u64>> {
     let cache_key = build_cache_key(invocation_path, targets)?;
+    if cache_dir.is_none() && !is_within(Path::new(invocation_path), Path::new(CACHE_DIR_NAME)) {
+        return None;
+    }
 
     let cache_dir_path = resolve_cache_dir(invocation_path, cache_dir);
     let cache_file = cache_value_path(&cache_dir_path, FUNCTIONS_CACHE_KEY);
 
     ensure_cache_dir_and_supporting_files(&cache_dir_path)?;
 
-    let mut cache_store = load_cache_store(&cache_file);
+    let mut cache_store = load_cache_store(&cache_file, &cache_dir_path);
     let previous_map = load_previous_map_from_store(&cache_store, &cache_key);
 
     cache_store["entries"][cache_key.as_str()] = json!({
@@ -161,8 +165,8 @@ fn cache_value_path(cache_dir: &Path, key: &str) -> PathBuf {
     cache_dir.join(CACHE_VALUES_DIR).join(key)
 }
 
-fn load_cache_store(cache_file: &Path) -> Value {
-    match load_cache(cache_file) {
+fn load_cache_store(cache_file: &Path, cache_dir: &Path) -> Value {
+    match load_cache(cache_file, cache_dir) {
         Some(raw)
             if raw
                 .get("entries")
@@ -230,8 +234,8 @@ fn load_previous_map(raw: &Value) -> Option<HashMap<(String, String, String), u6
     }
 }
 
-fn load_cache(cache_file: &Path) -> Option<Value> {
-    let content = fs::read_to_string(cache_file).ok()?;
+fn load_cache(cache_file: &Path, cache_dir: &Path) -> Option<Value> {
+    let content = read_bounded_text(cache_file, Some(cache_dir), MAX_DATA_BYTES).ok()?;
     let raw: Value = serde_json::from_str(&content).ok()?;
     if !raw.is_object() {
         return None;

@@ -354,3 +354,33 @@ fn corrupt_snapshot_propagates_error() {
 
     assert!(result.is_err());
 }
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_symlinked_out_of_the_project_fails_closed() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    let target = outside.path().join("baseline.json");
+    fs::write(&target, "[]").expect("should write");
+    std::os::unix::fs::symlink(&target, snapshot_path(&dir)).expect("should link");
+    let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
+
+    let result = evaluate_snapshot(
+        false,
+        false,
+        snapshot_path(&dir).to_str().unwrap(),
+        15,
+        &files,
+    );
+
+    assert!(result.is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_that_is_a_device_fails_closed_without_reading() {
+    let dir = tempdir().expect("tempdir should work");
+    std::os::unix::fs::symlink("/dev/zero", snapshot_path(&dir)).expect("should link");
+
+    assert!(load_snapshot_file_shared(snapshot_path(&dir).to_str().unwrap()).is_err());
+}

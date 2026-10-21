@@ -5,7 +5,8 @@ use owo_colors::{OwoColorize, Stream};
 use crate::args::CliArgs;
 use crate::output::messages::{
     config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
-    ignored_summary_output, no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    ignored_summary_output, no_active_rule_warning, removable_ignores_output, skipped_path_warning,
+    unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
@@ -18,7 +19,7 @@ use crate::utils::toml::load_run_config;
 use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
-use complexipy_core::runner::run_analysis_shared;
+use complexipy_core::runner::{analyze_paths, run_analysis_shared};
 use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
@@ -85,14 +86,24 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }
     let analysis = analysis_options(&config, rules);
 
-    let (mut files_complexities, failed_paths) =
-        match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
-            Ok(result) => result,
-            Err(error) => {
-                eprintln!("{}", error);
-                return ExitCode::FAILURE;
-            }
-        };
+    let report = match analyze_paths(&config.paths, &config.exclude, &analysis, invocation_path) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{}", error);
+            return ExitCode::FAILURE;
+        }
+    };
+    if !config.quiet {
+        for skipped in &report.skipped {
+            eprintln!(
+                "{} {}",
+                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
+                skipped_path_warning(skipped)
+            );
+        }
+    }
+    let mut files_complexities = report.files;
+    let failed_paths = report.failed_paths;
 
     let mut fix_console = String::new();
     if config.fix || config.dry_run {

@@ -3,6 +3,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
+use complexipy_core::runner::{SkipReason, SkippedPath};
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
 
 pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: &str) -> String {
@@ -65,6 +66,14 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
 
 pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
+}
+
+pub fn skipped_path_warning(skipped: &SkippedPath) -> String {
+    let reason = match skipped.reason {
+        SkipReason::NotRegularFile => "it is not a regular file",
+        SkipReason::OutsideRoot => "it is a symlink that resolves outside the analyzed directory",
+    };
+    format!("Skipped {}: {}.", skipped.path, reason)
 }
 
 pub fn config_gate_change_warning(config_path: &str, change: &ConfigGateChange) -> String {

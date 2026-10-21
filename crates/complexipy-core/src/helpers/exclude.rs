@@ -1,6 +1,8 @@
+use crate::runner::{SkipReason, SkippedPath};
 use ignore::Walk;
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use wax::walk::{Entry, FileIterator};
 use wax::{Any, Glob, Program, any};
 
@@ -87,14 +89,26 @@ pub fn exclude_list_overflows(patterns: &[String]) -> bool {
     ExcludeMatcher::new(patterns).overflows()
 }
 
+#[derive(Debug, Default)]
+pub struct Discovery {
+    pub files: Vec<String>,
+    pub skipped: Vec<SkippedPath>,
+}
+
+/// Selects the `*.py` files under `root_path`. A selected file is a regular
+/// file inside the root; a symlink to a file elsewhere, a dangling link, and
+/// a directory named `*.py` are skipped and reported, never read.
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,
-) -> Result<Vec<String>, String> {
-    let mut files_paths: Vec<String> = Vec::new();
+) -> Result<Discovery, String> {
+    let mut discovery = Discovery::default();
     let glob = Glob::new("**/*.py").unwrap();
 
     let normalized_root = root_path.replace('\\', "/");
+    let canonical_root = Path::new(&normalized_root)
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve {}: {}", root_path, e))?;
     let normalized_excludes: Vec<String> = to_exclude_paths
         .iter()
         .map(|s| s.replace('\\', "/"))
@@ -126,15 +140,31 @@ pub fn get_paths_to_process(
         })
     {
         let entry_path = entry.path();
-        let file_abs = match entry_path.canonicalize() {
-            Ok(p) => p,
-            Err(_) => entry_path.to_path_buf(),
-        };
-        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
-        files_paths.push(file_abs_str);
+        match selected_file(entry_path, &canonical_root) {
+            Ok(file_abs) => discovery
+                .files
+                .push(file_abs.to_string_lossy().replace('\\', "/")),
+            Err(reason) => discovery.skipped.push(SkippedPath {
+                path: entry_path.to_string_lossy().replace('\\', "/"),
+                reason,
+            }),
+        }
     }
 
-    Ok(files_paths)
+    Ok(discovery)
+}
+
+fn selected_file(entry_path: &Path, canonical_root: &Path) -> Result<PathBuf, SkipReason> {
+    let file_abs = entry_path
+        .canonicalize()
+        .map_err(|_| SkipReason::NotRegularFile)?;
+    if !file_abs.starts_with(canonical_root) {
+        return Err(SkipReason::OutsideRoot);
+    }
+    if !file_abs.is_file() {
+        return Err(SkipReason::NotRegularFile);
+    }
+    Ok(file_abs)
 }
 
 #[cfg(test)]
