@@ -12,6 +12,7 @@ word reserves the command line, so a path named ``lsp`` needs
 
 from __future__ import annotations
 
+import signal
 import sys
 from pathlib import Path
 
@@ -40,7 +41,11 @@ def lsp_shadow_warning() -> str | None:
 
 
 def main() -> None:
-    """Run the Rust CLI, or the language server for ``complexipy lsp``."""
+    """Run the Rust CLI, or the language server for ``complexipy lsp``.
+
+    Ctrl-C ends the process at once, also while the Rust call runs.
+    """
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     arguments = sys.argv[1:]
 
     if arguments[:1] == [LSP_ARGUMENT]:

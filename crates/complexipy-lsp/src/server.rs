@@ -39,16 +39,25 @@ pub const EXIT: &str = "exit";
 pub const EXIT_CODE_CLEAN: i32 = 0;
 pub const EXIT_CODE_FAILURE: i32 = 1;
 
+const MAX_LOGGED_ERROR_CHARS: usize = 200;
+
 pub fn serve(connection: Connection) -> i32 {
     let initialized = match handshake(&connection) {
         Ok(initialized) => initialized,
         Err(error) => {
-            eprintln!("{}: {}", SERVER_NAME, error);
+            eprintln!("{}: {}", SERVER_NAME, shortened(&error));
             return EXIT_CODE_FAILURE;
         }
     };
 
     Server::new(connection, initialized).run()
+}
+
+fn shortened(text: &str) -> String {
+    match text.char_indices().nth(MAX_LOGGED_ERROR_CHARS) {
+        Some((end, _)) => format!("{}...", &text[..end]),
+        None => text.to_string(),
+    }
 }
 
 struct Initialized {
@@ -215,6 +224,11 @@ impl Server {
                 Ok(Message::Notification(notification)) if notification.method == EXIT => {
                     return EXIT_CODE_CLEAN;
                 }
+                Ok(Message::Request(request)) => self.send(Response::new_err(
+                    request.id,
+                    ErrorCode::InvalidRequest as i32,
+                    "the server is shutting down".to_string(),
+                )),
                 Ok(_) => {}
                 Err(_) => return EXIT_CODE_CLEAN,
             }

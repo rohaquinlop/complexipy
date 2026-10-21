@@ -121,6 +121,8 @@ pub struct LspConfig {
     #[serde(default = "default_max_complexity_allowed")]
     pub max_complexity_allowed: u64,
     #[serde(default)]
+    pub paths: StringOrList<String>,
+    #[serde(default)]
     pub exclude: StringOrList<String>,
     #[serde(default)]
     pub no_ignore: bool,
@@ -150,6 +152,7 @@ impl Default for LspConfig {
     fn default() -> Self {
         Self {
             max_complexity_allowed: DEFAULT_MAX_COMPLEXITY_ALLOWED,
+            paths: StringOrList::default(),
             exclude: StringOrList::default(),
             no_ignore: false,
             select: StringOrList::default(),

@@ -4,6 +4,7 @@ mod shared_deps {
         ComplexityRegion, ComplexityResult, RegionKind, build_refactor_plans,
     };
     pub use crate::rules::{AnalysisOptions, RuleSet};
+    pub use crate::syntax_tree::{Node, PreOrder, parse_module};
     pub use crate::utils::{LineIndex, count_bool_ops, find_noqa_comment, is_decorator};
     pub use ruff_python_ast::{self as ast, Stmt};
 }
@@ -21,7 +22,7 @@ pub struct SyntaxError {
 /// Returns the first syntax error the parser reports for `code`, with its
 /// byte range, or `None` when `code` parses.
 pub fn syntax_error(code: &str) -> Option<SyntaxError> {
-    let error = ruff_python_parser::parse_module(code).err()?;
+    let error = parse_module(code).err()?;
 
     Some(SyntaxError {
         message: error.error.to_string(),
@@ -34,10 +35,9 @@ pub fn code_complexity_shared(
     code: &str,
     opts: &AnalysisOptions,
 ) -> Result<CodeComplexity, String> {
-    let parsed = ruff_python_parser::parse_module(code)
-        .map_err(|e| format!("Failed to parse code: {}", e))?;
-    let ast_body = parsed.into_suite();
-    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code, opts);
+    let parsed = parse_module(code).map_err(|e| format!("Failed to parse code: {}", e))?;
+    let (functions, complexity) =
+        function_level_cognitive_complexity_shared(parsed.suite(), code, opts);
     Ok(CodeComplexity {
         functions,
         complexity,
@@ -84,7 +84,7 @@ pub fn function_level_cognitive_complexity_shared(
     }
 
     if opts.check_script {
-        let total_lines = code.lines().count() as u64;
+        let total_lines = crate::utils::split_lines(code).count() as u64;
         let (refactor_plans, additional_refactor_plans) = if opts.with_plans {
             build_refactor_plans(
                 module_complexity,
@@ -123,16 +123,15 @@ pub fn plans_for_function(
     line_start: u64,
     opts: &AnalysisOptions,
 ) -> Result<Option<(Vec<crate::classes::RefactorPlan>, u64)>, String> {
-    let parsed = ruff_python_parser::parse_module(code)
-        .map_err(|e| format!("Failed to parse code: {}", e))?;
-    let ast_body = parsed.into_suite();
+    let parsed = parse_module(code).map_err(|e| format!("Failed to parse code: {}", e))?;
     let index = LineIndex::new(code);
     let opts = AnalysisOptions {
         with_plans: true,
         ..opts.clone()
     };
 
-    let Some((node, f, name)) = ast_body
+    let Some((node, f, name)) = parsed
+        .suite()
         .iter()
         .filter_map(named_functions)
         .flatten()
@@ -226,44 +225,20 @@ fn analyze_function(
     }
 }
 
-struct RecursionFinder<'a> {
-    name: &'a str,
-    found: Option<usize>,
-}
-
-impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        if self.found.is_some() {
-            return;
-        }
-        if matches!(stmt, Stmt::FunctionDef(_) | Stmt::ClassDef(_)) {
-            return;
-        }
-        ast::visitor::walk_stmt(self, stmt);
-    }
-
-    fn visit_expr(&mut self, expr: &'a ast::Expr) {
-        if self.found.is_some() {
-            return;
-        }
-        if let ast::Expr::Call(c) = expr
-            && let ast::Expr::Name(n) = c.func.as_ref()
-            && n.id.as_str() == self.name
-        {
-            self.found = Some(usize::from(c.range.start()));
-            return;
-        }
-        if matches!(expr, ast::Expr::Lambda(_)) {
-            return;
-        }
-        ast::visitor::walk_expr(self, expr);
-    }
-}
-
 fn detect_direct_recursion(body: &[Stmt], name: &str, index: &LineIndex) -> Option<u64> {
-    let mut finder = RecursionFinder { name, found: None };
-    ast::visitor::walk_body(&mut finder, body);
-    finder.found.map(|offset| index.line_of(offset))
+    let mut walk = PreOrder::new(body.iter().map(Node::Stmt));
+    while let Some(node) = walk.next() {
+        match node {
+            Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_)) => continue,
+            Node::Expr(ast::Expr::Call(call)) if matches!(call.func.as_ref(), ast::Expr::Name(callee) if callee.id.as_str() == name) =>
+            {
+                return Some(index.line_of(usize::from(call.range.start())));
+            }
+            Node::Expr(ast::Expr::Lambda(_)) => continue,
+            _ => walk.descend(node),
+        }
+    }
+    None
 }
 
 fn empty_result() -> ComplexityResult {
@@ -398,6 +373,7 @@ fn loop_complexity(
             boolean,
             total: own,
             bool_op_count: boolean,
+            has_else: !orelse.is_empty(),
             children,
             ..Default::default()
         },
@@ -532,6 +508,7 @@ fn statement_cognitive_complexity_shared(
                     total: own,
                     elif_count,
                     bool_op_count: boolean,
+                    has_else: !i.elif_else_clauses.is_empty(),
                     children,
                 },
             );
@@ -581,6 +558,7 @@ fn statement_cognitive_complexity_shared(
                     structural,
                     nesting: nesting_level,
                     total: own,
+                    has_else: !t.orelse.is_empty(),
                     children,
                     ..Default::default()
                 },

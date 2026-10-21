@@ -386,6 +386,7 @@ dependencies = [
  "complexipy-lsp",
  "complexipy-types",
  "pyo3",
+ "rayon",
 ]
 
 [[package]]

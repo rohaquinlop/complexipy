@@ -9,8 +9,9 @@ use syntect::parsing::SyntaxSet;
 use crate::types::FunctionRow;
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
+use complexipy_core::utils::split_lines;
 
-pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> String {
+pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str, color: bool) -> String {
     if function.refactor_plans.is_empty() {
         return String::new();
     }
@@ -34,6 +35,7 @@ pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> S
             index + 1,
             &display_path,
             source_lines.as_deref(),
+            color,
         ));
     }
 
@@ -65,7 +67,7 @@ fn read_source_lines(invocation_path: &str, path: &str, file_name: &str) -> Opti
     };
     fs::read_to_string(full_path)
         .ok()
-        .map(|content| content.lines().map(str::to_string).collect())
+        .map(|content| split_lines(&content).map(str::to_string).collect())
 }
 
 fn output_single_plan(
@@ -73,6 +75,7 @@ fn output_single_plan(
     index: usize,
     display_path: &str,
     source_lines: Option<&[String]>,
+    color: bool,
 ) -> String {
     let category_icon = get_category_icon(&plan.category);
     let category_name = get_category_name(&plan.category);
@@ -131,7 +134,7 @@ fn output_single_plan(
     }
 
     if let Some(suggestion) = &plan.suggestion {
-        sections.push(output_suggestion(plan, suggestion, source_lines));
+        sections.push(output_suggestion(plan, suggestion, source_lines, color));
     } else if let Some(help) = &plan.help {
         sections.push(output_help(help));
     }
@@ -203,6 +206,7 @@ fn output_suggestion(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
     source_lines: Option<&[String]>,
+    color: bool,
 ) -> String {
     let applicability_icon = get_applicability_icon(&suggestion.applicability);
     let applicability_name = get_applicability_name(&suggestion.applicability);
@@ -232,7 +236,7 @@ fn output_suggestion(
                     "\n          {}",
                     "Original:".if_supports_color(Stream::Stdout, |text| text.dimmed())
                 ));
-                sections.push(output_code_snippet(&original_code, original_start));
+                sections.push(output_code_snippet(&original_code, original_start, color));
             }
         }
     }
@@ -245,6 +249,7 @@ fn output_suggestion(
         sections.push(output_code_snippet(
             &suggestion.replacement,
             plan.line_start as usize,
+            color,
         ));
     }
 
@@ -265,11 +270,11 @@ fn output_caret_span(plan: &RefactorPlan, source_lines: Option<&[String]>) -> St
     };
 
     let column_index = plan.column_start as usize - 1;
-    if column_index >= source_line.chars().count() {
+    let Some((byte_index, _)) = source_line.char_indices().nth(column_index) else {
         return String::new();
-    }
+    };
 
-    let caret_width = source_line[column_index..].trim_end().chars().count();
+    let caret_width = source_line[byte_index..].trim_end().chars().count();
     if caret_width == 0 {
         return String::new();
     }
@@ -297,12 +302,17 @@ fn output_help(help_text: &str) -> String {
     )
 }
 
-fn output_code_snippet(code: &str, start_line: usize) -> String {
+fn output_code_snippet(code: &str, start_line: usize, color: bool) -> String {
     if code.is_empty() {
         return String::new();
     }
 
-    highlight_regions(code, &|_| None)
+    let rendered = if color {
+        highlight_regions(code, &|_| None)
+    } else {
+        split_lines(code).map(str::to_string).collect()
+    };
+    rendered
         .into_iter()
         .enumerate()
         .map(|(offset, rendered)| format!("{:>12}{:>4} | {}", "", start_line + offset, rendered))
@@ -326,22 +336,28 @@ pub fn highlight_regions(code: &str, tint: &dyn Fn(usize) -> Option<(u8, u8, u8)
     let theme = &theme_set.themes["base16-ocean.dark"];
 
     let mut highlight = HighlightLines::new(syntax, theme);
-    code.lines()
+    split_lines(code)
         .enumerate()
         .map(|(index, line)| {
             let background = tint(index);
+            let terminated = format!("{line}\n");
             let regions = highlight
-                .highlight_line(line, syntax_set)
+                .highlight_line(&terminated, syntax_set)
                 .unwrap_or_default();
             regions
                 .into_iter()
-                .map(|(style, text)| paint(text, style.foreground, background))
+                .map(|(style, text)| {
+                    paint(text.trim_end_matches('\n'), style.foreground, background)
+                })
                 .collect()
         })
         .collect()
 }
 
 fn paint(text: &str, color: SyntaxColor, background: Option<(u8, u8, u8)>) -> String {
+    if text.is_empty() {
+        return String::new();
+    }
     let mut codes: Vec<String> = Vec::new();
     if color.a != 0 {
         codes.push(format!("38;2;{};{};{}", color.r, color.g, color.b));
@@ -361,8 +377,9 @@ pub fn output_single_plan_for_test(
     index: usize,
     display_path: &str,
     source_lines: Option<&[String]>,
+    color: bool,
 ) -> String {
-    output_single_plan(plan, index, display_path, source_lines)
+    output_single_plan(plan, index, display_path, source_lines, color)
 }
 
 #[cfg(test)]
