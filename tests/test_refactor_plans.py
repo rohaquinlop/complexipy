@@ -281,6 +281,22 @@ def test_with_plans_false_keeps_scores_and_skips_plans(tmp_path) -> None:
         assert all(f.refactor_plans == [] for f in result.functions)
 
 
+def test_list_attributes_are_fresh_lists_over_shared_objects() -> None:
+    result = code_complexity(load_source("collapsible_if_simple.py"))
+    first, second = result.functions, result.functions
+
+    assert isinstance(first, list)
+    assert first is not second
+    assert first[0] is second[0]
+    first.clear()
+    assert len(result.functions) == len(second)
+
+    func = second[0]
+    assert isinstance(func.line_complexities, list)
+    assert func.line_complexities[0] is func.line_complexities[0]
+    assert func.refactor_plans[0] is func.refactor_plans[0]
+
+
 def test_single_line_function_creates_no_plans() -> None:
     func = first_func(load_source("single_line_function.py"))
     assert func.complexity == 0
