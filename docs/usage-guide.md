@@ -495,7 +495,7 @@ equals the threshold passes, as it does on the command line.
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
+| `--report-ignored` | List every file:line where an ignore comment suppresses a function. `--quiet` hides the list | `false` |
 
 Boolean flags take an explicit value only in the attached form
 `--flag=<true|false>`. A bare flag means `true`, and the following
@@ -806,7 +806,7 @@ Use this when:
 ```json
 [
     {
-        "path": "src",
+        "path": "src/legacy.py",
         "file_name": "legacy.py",
         "functions": [
             {
@@ -926,7 +926,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-The output format is `path:line  # comment-text`. When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. The report prints even under `--quiet`.
+Each location prints as `path:line  # comment-text`, followed by the count. When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. `--quiet` hides the list, and the JSON export is still written.
 
 Both flags are also available in the Python API via `no_ignore=True`:
 

@@ -190,7 +190,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if !config.quiet {
             emit!(
                 "{}",
-                ignored_summary_output(ignored_locations.len(), config.no_ignore)
+                ignored_summary_output(&ignored_locations, config.no_ignore)
             );
         }
         if let Some(path) = ignored_json_path {

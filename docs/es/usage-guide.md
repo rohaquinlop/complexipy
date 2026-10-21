@@ -497,7 +497,7 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
+| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. `--quiet` oculta la lista | `false` |
 
 Las banderas booleanas aceptan un valor explícito solo en la forma
 adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
@@ -809,7 +809,7 @@ complexipy . --snapshot-ignore
 ```json
 [
     {
-        "path": "src",
+        "path": "src/legacy.py",
         "file_name": "legacy.py",
         "functions": [
             {
@@ -933,7 +933,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-El formato de salida es `ruta:línea  # texto-del-comentario`. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. El informe se imprime incluso bajo `--quiet`.
+Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos.
 
 Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
 
