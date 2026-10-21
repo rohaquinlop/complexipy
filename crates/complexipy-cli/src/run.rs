@@ -19,7 +19,9 @@ use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
     no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
 };
-use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
+use crate::output::render::{
+    color_enabled_for, handle_console_settings, print_invalid_paths, rule,
+};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
 use crate::types::{ExitReport, RunConfig};
 use crate::utils::config::resolve_config;
@@ -69,12 +71,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if !rules.has_active_rule(&known_rules) {
             warnings.push(no_active_rule_warning());
         }
+        let label =
+            if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
+                "Warning:".yellow().to_string()
+            } else {
+                "Warning:".to_string()
+            };
         for warning in warnings {
-            emit_error!(
-                "{} {}",
-                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                warning
-            );
+            emit_error!("{} {}", label, warning);
         }
     }
     let analysis = analysis_options(&config, rules);
@@ -157,6 +161,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         cache_dir: config.cache_dir.as_deref(),
         top: config.top,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
+        color: settings.color_enabled,
     });
     if !display_output.is_empty() {
         emit!("{}", display_output);

@@ -52,6 +52,7 @@ pub struct DisplayOptions<'a> {
     pub cache_dir: Option<&'a str>,
     pub top: Option<u64>,
     pub suggest_refactors: bool,
+    pub color: bool,
 }
 
 pub fn handle_display(options: DisplayOptions) -> (bool, String) {
@@ -69,6 +70,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         cache_dir,
         top,
         suggest_refactors,
+        color,
     } = options;
 
     let previous_functions = if !files_complexities.is_empty() {
@@ -99,6 +101,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         top,
         suggest_refactors,
         invocation_path,
+        color,
     });
     (has_success, output)
 }

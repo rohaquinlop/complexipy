@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from complexipy._complexipy import run_cli
 
 NESTED = (
@@ -25,12 +27,24 @@ RUN_CLI = (
 )
 
 
-def project(tmp_path: Path) -> Path:
+def project(tmp_path: Path, files: int = 40) -> Path:
     root = tmp_path / "project"
     root.mkdir()
-    for index in range(40):
+    for index in range(files):
         (root / f"module_{index}.py").write_text(NESTED)
     return root
+
+
+def environment_without_color_overrides() -> dict[str, str]:
+    overrides = (
+        "NO_COLOR",
+        "FORCE_COLOR",
+        "CLICOLOR_FORCE",
+        "IGNORE_IS_TERMINAL",
+    )
+    return {
+        key: value for key, value in os.environ.items() if key not in overrides
+    }
 
 
 def run_console(
@@ -73,6 +87,68 @@ def test_quiet_keeps_ignore_complexity(tmp_path) -> None:
     assert (
         run_cli([".", "--max-complexity-allowed=0", "--quiet"], str(root)) == 1
     )
+
+
+@pytest.mark.parametrize(
+    "arguments, environment",
+    [
+        (["--color", "no"], {}),
+        ([], {"NO_COLOR": "1"}),
+        ([], {}),
+    ],
+    ids=["color-no", "no-color-env", "pipe"],
+)
+def test_suggestions_carry_no_color_when_color_is_off(
+    tmp_path, arguments, environment
+) -> None:
+    root = project(tmp_path)
+    result = run_console(
+        [".", "--suggest-refactors", *arguments],
+        root,
+        stdout=subprocess.PIPE,
+        env={**environment_without_color_overrides(), **environment},
+    )
+
+    assert "Replacement:" in result.stdout
+    assert "\x1b[" not in result.stdout
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs a pseudo-terminal")
+def test_color_is_decided_again_on_each_run(tmp_path) -> None:
+    root = project(tmp_path, files=1)
+    script = (
+        "import os, pty, sys\n"
+        "from complexipy._complexipy import run_cli\n"
+        "leader, follower = pty.openpty()\n"
+        "saved = os.dup(1)\n"
+        "os.dup2(follower, 1)\n"
+        "run_cli(['.', '-C', 'auto'])\n"
+        "reader, writer = os.pipe()\n"
+        "os.dup2(writer, 1)\n"
+        "os.close(writer)\n"
+        "run_cli(['.', '-C', 'auto'])\n"
+        "os.dup2(saved, 1)\n"
+        "chunks = []\n"
+        "while True:\n"
+        "    chunk = os.read(reader, 65536)\n"
+        "    if not chunk:\n"
+        "        break\n"
+        "    chunks.append(chunk)\n"
+        "sys.stderr.write(repr(b''.join(chunks)))\n"
+    )
+    environment = environment_without_color_overrides()
+    environment["TERM"] = "xterm-256color"
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=environment,
+    )
+
+    assert "complexipy" in result.stderr
+    assert "\\x1b[" not in result.stderr
 
 
 def git(root: Path, *arguments: str) -> None:
