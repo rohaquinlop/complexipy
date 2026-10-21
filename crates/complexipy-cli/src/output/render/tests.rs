@@ -226,6 +226,14 @@ fn rule_matches_rich_layout_at_width() {
 }
 
 #[test]
+fn rule_fits_a_title_wider_than_the_terminal() {
+    let title = format!("Complexity diff (vs {})", "x".repeat(120));
+    let output = strip_ansi(&rule_at(&title, 80));
+
+    assert_eq!(UnicodeWidthStr::width(output.as_str()), 80);
+}
+
+#[test]
 fn console_settings_banner() {
     let _guard = color_lock();
     let settings = handle_console_settings(&Color::Yes, false, false);

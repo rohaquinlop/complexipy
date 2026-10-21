@@ -1,5 +1,17 @@
 use std::process::ExitCode;
 
+macro_rules! emit {
+    ($($arguments:tt)*) => {
+        crate::output::emit(format_args!($($arguments)*))
+    };
+}
+
+macro_rules! emit_error {
+    ($($arguments:tt)*) => {
+        crate::output::emit_error(format_args!($($arguments)*))
+    };
+}
+
 use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
@@ -27,20 +39,20 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let config = match resolve_config(toml_config, cli) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
     if !settings.banner.is_empty() {
-        println!("{}", settings.banner);
+        emit!("{}", settings.banner);
     }
 
     let (diff, diff_only) =
         resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
     if !config.quiet && diff_only.is_some() && diff.is_none() {
-        println!(
+        emit!(
             "{} {}",
             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
             diff_flags_warning()
@@ -58,7 +70,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             warnings.push(no_active_rule_warning());
         }
         for warning in warnings {
-            eprintln!(
+            emit_error!(
                 "{} {}",
                 "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
                 warning
@@ -71,7 +83,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
             Ok(result) => result,
             Err(error) => {
-                eprintln!("{}", error);
+                emit_error!("{}", error);
                 return ExitCode::FAILURE;
             }
         };
@@ -90,7 +102,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if pass.wrote {
             match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
                 Ok((post_fix, _)) => files_complexities = post_fix,
-                Err(error) => eprintln!("{}", error),
+                Err(error) => emit_error!("{}", error),
             }
         }
     }
@@ -105,7 +117,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(snap) => snap,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
@@ -122,11 +134,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
-                println!("{}", line);
+                emit!("{}", line);
             }
         }
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     }
@@ -147,11 +159,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         suggest_refactors: config.suggest_refactors && !config.dry_run,
     });
     if !display_output.is_empty() {
-        println!("{}", display_output);
+        emit!("{}", display_output);
     }
 
     if !config.quiet && !fix_console.is_empty() {
-        println!("{}", fix_console);
+        emit!("{}", fix_console);
     }
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(
@@ -165,19 +177,19 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(result) => result,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
     if config.report_ignored {
         if !config.quiet {
-            println!(
+            emit!(
                 "{}",
                 ignored_summary_output(ignored_locations.len(), config.no_ignore)
             );
         }
         if let Some(path) = ignored_json_path {
-            println!("{}", ignored_saved_output(&path));
+            emit!("{}", ignored_saved_output(&path));
         }
     }
 
@@ -190,7 +202,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         );
         let removable_output = removable_ignores_output(&removable);
         if !removable_output.is_empty() {
-            println!("{}", removable_output);
+            emit!("{}", removable_output);
         }
     }
 
@@ -203,14 +215,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     } else {
         let snapshot_output = handle_snapshot_console(&snap, &output_snapshot_path);
         if !snapshot_output.is_empty() {
-            println!("{}", snapshot_output);
+            emit!("{}", snapshot_output);
         }
         snap.watermark_success
     };
 
     let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths);
     if !invalid_paths_output.is_empty() {
-        println!("{}", invalid_paths_output);
+        emit!("{}", invalid_paths_output);
     }
 
     let diff_ref = diff.clone().or_else(|| diff_only.clone());
@@ -219,7 +231,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             match compute_staged_diff(&diff_ref, invocation_path) {
                 Some(entries) => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{}",
                             format_diff_for(&entries, &format!("{} (staged)", diff_ref))
                         );
@@ -228,7 +240,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 }
                 None => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{} --staged requires a git repository; skipping the staged diff.",
                             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
                         );
@@ -239,7 +251,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         } else if !files_complexities.is_empty() {
             let entries = compute_diff(&files_complexities, &diff_ref, invocation_path);
             if !config.quiet {
-                println!("{}", format_diff_for(&entries, &diff_ref));
+                emit!("{}", format_diff_for(&entries, &diff_ref));
             }
             Some(entries)
         } else {
@@ -258,9 +270,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
 
     if !config.quiet && !config.plain {
         if cfg!(windows) {
-            println!("{}", rule("Analysis completed!"));
+            emit!("{}", rule("Analysis completed!"));
         } else {
-            println!("{}", rule("🎉 Analysis completed! 🎉"));
+            emit!("{}", rule("🎉 Analysis completed! 🎉"));
         }
     }
 

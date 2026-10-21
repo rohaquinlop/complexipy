@@ -76,9 +76,9 @@ fn rule_at(title: &str, width: usize) -> String {
     }
 
     let title_cells = UnicodeWidthStr::width(title);
-    let side_width = (width - title_cells) / 2;
+    let side_width = width.saturating_sub(title_cells) / 2;
     let left = side_width.saturating_sub(1);
-    let right_length = width - left - title_cells;
+    let right_length = width.saturating_sub(left + title_cells);
     let right = (side_width + 1).min(right_length);
 
     let plain = format!("{} {} {}", "─".repeat(left), title, "─".repeat(right));
