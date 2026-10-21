@@ -483,7 +483,12 @@ def test_fix_keeps_what_the_function_does(tmp_path, fixture) -> None:
     target.write_text(source)
 
     run_cli(
-        ["--fix", "--max-complexity-allowed=1", "--ignore-complexity", str(target)],
+        [
+            "--fix",
+            "--max-complexity-allowed=1",
+            "--ignore-complexity",
+            str(target),
+        ],
         str(tmp_path),
     )
 
