@@ -25,7 +25,7 @@ pub fn run_analysis_shared(
 ) -> Result<ComplexitiesAndFailedPaths, String> {
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
-    let mut seen: HashSet<PathBuf> = HashSet::new();
+    let mut seen: HashSet<String> = HashSet::new();
     let inv_abs = canonical(invocation_path);
     let opts = ProcessOptions {
         exclude: exclude.to_vec(),
@@ -41,7 +41,7 @@ pub fn run_analysis_shared(
 
         let (mut complexities, mut f_paths) = if path_obj.is_dir() {
             evaluate_dir_shared(path, &opts, &inv_abs, &mut seen)
-        } else if !seen.insert(canonical(path)) {
+        } else if !seen.insert(slashed(&canonical(path))) {
             continue;
         } else {
             match analyze_file_shared(path, &opts, &inv_abs) {
@@ -72,18 +72,22 @@ fn canonical(path: &str) -> PathBuf {
         .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
 }
 
+fn slashed(path: &path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn evaluate_dir_shared(
     path: &str,
     opts: &ProcessOptions,
     invocation_path: &path::Path,
-    seen: &mut HashSet<PathBuf>,
+    seen: &mut HashSet<String>,
 ) -> ComplexitiesAndFailedPaths {
     let mut files_paths_to_process =
         match get_paths_to_process(path, opts.exclude.clone(), invocation_path) {
             Ok(paths) => paths,
             Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
         };
-    files_paths_to_process.retain(|file_path| seen.insert(PathBuf::from(file_path)));
+    files_paths_to_process.retain(|file_path| seen.insert(file_path.clone()));
 
     let results: Vec<Result<FileComplexity, String>> = files_paths_to_process
         .par_iter()
@@ -232,9 +236,9 @@ where
 {
     let mut all_locations = Vec::new();
     let mut failed_paths = Vec::new();
-    let mut seen: HashSet<PathBuf> = HashSet::new();
+    let mut seen: HashSet<String> = HashSet::new();
     let inv_abs = canonical(invocation_path);
-    let inv_str = inv_abs.to_string_lossy().replace('\\', "/");
+    let inv_str = slashed(&inv_abs);
 
     for path_str in paths {
         let path_obj = path::Path::new(path_str);
@@ -247,15 +251,12 @@ where
                     continue;
                 }
             };
-            files.retain(|file_path| seen.insert(PathBuf::from(file_path)));
+            files.retain(|file_path| seen.insert(file_path.clone()));
             let root = canonical(path_str);
             let base_dir = if root.starts_with(&inv_abs) {
                 inv_str.clone()
             } else {
-                root.parent()
-                    .unwrap_or(path::Path::new("."))
-                    .to_string_lossy()
-                    .replace('\\', "/")
+                slashed(root.parent().unwrap_or(path::Path::new(".")))
             };
             let results: Vec<Result<Vec<T>, String>> = files
                 .par_iter()
@@ -266,11 +267,11 @@ where
             }
         } else if path_obj.is_file() {
             let file_abs = canonical(path_str);
-            if !seen.insert(file_abs.clone()) {
+            if !seen.insert(slashed(&file_abs)) {
                 continue;
             }
             let collected = if file_abs.starts_with(&inv_abs) {
-                collect_file(&file_abs.to_string_lossy().replace('\\', "/"), &inv_str)
+                collect_file(&slashed(&file_abs), &inv_str)
             } else {
                 let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");
                 collect_file(path_str, parent_dir)
