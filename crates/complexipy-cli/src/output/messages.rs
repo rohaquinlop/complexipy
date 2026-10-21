@@ -1,5 +1,6 @@
 use owo_colors::{OwoColorize, Stream, Style};
 
+use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
@@ -64,6 +65,27 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
 
 pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
+}
+
+pub fn config_gate_change_warning(config_path: &str, change: &ConfigGateChange) -> String {
+    let effect = match change {
+        ConfigGateChange::DiffRef(reference) => format!(
+            "sets [diff] branch = {:?}, so the exit code fails only on functions that regressed \
+             or appeared since that reference, not on every function over the threshold",
+            reference
+        ),
+        ConfigGateChange::StagedDiff => "sets [diff] staged = true, so the exit code checks only \
+             the staged changes, not every function over the threshold"
+            .to_string(),
+        ConfigGateChange::SnapshotCreate => "sets snapshot-create = true, so this run rewrites \
+             complexipy-snapshot.json before checking against it, and every current violation \
+             passes"
+            .to_string(),
+    };
+    format!(
+        "{} {}. Pass the matching flag, --isolated, or --config <file> to pin the gate in CI.",
+        config_path, effect
+    )
 }
 
 #[cfg(test)]

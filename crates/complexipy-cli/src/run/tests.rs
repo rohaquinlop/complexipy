@@ -288,8 +288,119 @@ fn fix_outside_a_repository_writes() {
     );
 }
 
+fn committed_over_threshold(config: &str) -> tempfile::TempDir {
+    let dir = tempdir().expect("tempdir should work");
+    fs::write(dir.path().join("complex.py"), COMPLEX).expect("should write");
+    fs::write(dir.path().join("complexipy.toml"), config).expect("should write");
+    init_repo(dir.path());
+    dir
+}
+
+fn gate(dir: &Path, extra: &[&str]) -> std::process::ExitCode {
+    let file = dir.join("complex.py");
+    let mut args = vec![file.to_str().unwrap(), "--max-complexity-allowed", "3"];
+    args.extend_from_slice(extra);
+    run_at(parse(&args), dir.to_str().unwrap())
+}
+
+#[test]
+fn a_config_diff_section_switches_the_gate_unless_isolated() {
+    let dir = committed_over_threshold("[diff]\nbranch = \"HEAD\"\n");
+
+    assert_eq!(gate(dir.path(), &[]), std::process::ExitCode::SUCCESS);
+    assert_eq!(
+        gate(dir.path(), &["--isolated"]),
+        std::process::ExitCode::FAILURE
+    );
+}
+
+#[test]
+fn an_empty_config_branch_keeps_the_absolute_gate() {
+    let dir = committed_over_threshold("[diff]\nbranch = \"\"\nstaged = true\n");
+
+    assert_eq!(gate(dir.path(), &[]), std::process::ExitCode::FAILURE);
+}
+
+#[test]
+fn a_config_file_on_the_command_line_replaces_the_project_config() {
+    let dir = committed_over_threshold("[diff]\nbranch = \"HEAD\"\n");
+    let pinned = dir.path().join("ci.toml");
+    fs::write(&pinned, "max-complexity-allowed = 3\n").expect("should write");
+    let file = dir.path().join("complex.py");
+
+    let exit = run_at(
+        parse(&[file.to_str().unwrap(), "--config", pinned.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::FAILURE);
+}
+
+#[test]
+fn a_missing_config_file_on_the_command_line_fails() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("simple.py");
+    fs::write(&file, SIMPLE).expect("should write");
+    let missing = dir.path().join("missing.toml");
+
+    let exit = run_at(
+        parse(&[
+            file.to_str().unwrap(),
+            "--config",
+            missing.to_str().unwrap(),
+        ]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::FAILURE);
+}
+
+#[test]
+fn an_option_like_config_branch_writes_nothing_through_git() {
+    let dir = committed_over_threshold("");
+    let victim = dir.path().join("victim.txt");
+    fs::write(&victim, "keep me").expect("should write");
+    let branch = format!("--output={}", victim.display());
+    fs::write(
+        dir.path().join("complexipy.toml"),
+        format!("[diff]\nbranch = {:?}\nstaged = true\n", branch),
+    )
+    .expect("should write");
+
+    let exit = gate(dir.path(), &["--quiet"]);
+
+    assert_eq!(exit, std::process::ExitCode::FAILURE);
+    assert_eq!(fs::read_to_string(&victim).expect("should read"), "keep me");
+}
+
+#[test]
+fn a_config_output_outside_the_project_writes_nothing() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    let target = outside.path().join("existing.json");
+    fs::write(&target, "keep me").expect("should write");
+    fs::write(
+        dir.path().join("complexipy.toml"),
+        format!(
+            "output-format = [\"json\"]\noutput = {:?}\n",
+            target.display().to_string()
+        ),
+    )
+    .expect("should write");
+    let file = dir.path().join("simple.py");
+    fs::write(&file, SIMPLE).expect("should write");
+
+    let exit = run_at(
+        parse(&[file.to_str().unwrap()]),
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(exit, std::process::ExitCode::FAILURE);
+    assert_eq!(fs::read_to_string(&target).expect("should read"), "keep me");
+}
+
 fn builds_plans(args: &[&str]) -> bool {
-    let config = resolve_config(None, parse(args)).expect("config should resolve");
+    let config = resolve_config(None, parse(args), ".").expect("config should resolve");
 
     analysis_options(&config, RuleSet::default()).with_plans
 }

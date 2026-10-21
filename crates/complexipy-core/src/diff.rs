@@ -167,13 +167,13 @@ fn git_root(cwd: &str) -> Option<String> {
 
 fn file_content_at_ref(git_ref: &str, path_from_root: &str, cwd: &str) -> Option<String> {
     let argument = format!("{}:{}", git_ref, path_from_root);
-    let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
+    let (success, output) = run_git(cwd, &["show", "--end-of-options", &argument], GIT_TIMEOUT)?;
     if success { Some(output) } else { None }
 }
 
 fn file_content_at_index(path_from_root: &str, cwd: &str) -> Option<String> {
     let argument = format!(":{}", path_from_root);
-    let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
+    let (success, output) = run_git(cwd, &["show", "--end-of-options", &argument], GIT_TIMEOUT)?;
     if success { Some(output) } else { None }
 }
 
@@ -186,6 +186,7 @@ fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
             "--cached",
             "--no-renames",
             "--diff-filter=ACMRD",
+            "--end-of-options",
             git_ref,
             "--",
             "*.py",

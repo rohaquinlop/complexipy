@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 
 use crate::rules::RuleSet;
 
@@ -45,9 +46,9 @@ pub struct ConfigCandidate {
 }
 
 #[derive(Debug, Clone)]
-pub struct ConfigSource {
+pub struct ConfigSource<T> {
     pub path: PathBuf,
-    pub value: toml::Value,
+    pub value: T,
 }
 
 fn default_max_complexity_allowed() -> u64 {
@@ -185,13 +186,6 @@ pub fn config_candidates(invocation_path: &str) -> Vec<ConfigCandidate> {
         .collect()
 }
 
-pub fn load_candidate_value(candidate: &ConfigCandidate) -> Option<toml::Value> {
-    read_candidate_value(candidate).unwrap_or_else(|error| {
-        eprintln!("{}", error);
-        None
-    })
-}
-
 pub fn read_candidate_value(candidate: &ConfigCandidate) -> Result<Option<toml::Value>, String> {
     let Ok(content) = fs::read_to_string(&candidate.path) else {
         return Ok(None);
@@ -205,24 +199,80 @@ pub fn read_candidate_value(candidate: &ConfigCandidate) -> Result<Option<toml::
     })
 }
 
-pub fn read_complexipy_config(invocation_path: &str) -> (Option<ConfigSource>, Vec<String>) {
-    let mut errors = Vec::new();
+/// Reads the first config file of the invocation directory that parses and
+/// deserializes into `T`, as the CLI and the server both do. Every file
+/// skipped on the way, and every later file it shadows, is a warning: files
+/// are never merged.
+pub fn read_complexipy_config<T: DeserializeOwned>(
+    invocation_path: &str,
+) -> (Option<ConfigSource<T>>, Vec<String>) {
+    let mut warnings = Vec::new();
+    let mut candidates = config_candidates(invocation_path).into_iter();
+    let mut found = None;
 
-    for candidate in config_candidates(invocation_path) {
-        match read_candidate_value(&candidate) {
+    for candidate in candidates.by_ref() {
+        match read_candidate_value(&candidate).and_then(|value| deserialize(&candidate, value)) {
             Ok(Some(value)) => {
-                let source = ConfigSource {
+                found = Some(ConfigSource {
                     path: candidate.path,
                     value,
-                };
-                return (Some(source), errors);
+                });
+                break;
             }
             Ok(None) => {}
-            Err(error) => errors.push(error),
+            Err(error) => warnings.push(error),
         }
     }
 
-    (None, errors)
+    if let Some(source) = &found {
+        for shadowed in
+            candidates.filter(|candidate| matches!(read_candidate_value(candidate), Ok(Some(_))))
+        {
+            warnings.push(format!(
+                "{} takes precedence over {}; config files are not merged, so {} is not applied",
+                source.path.display(),
+                shadowed.path.display(),
+                shadowed.path.display()
+            ));
+        }
+    }
+
+    (found, warnings)
+}
+
+/// Reads one config file named on the command line. A file named
+/// `pyproject.toml` contributes its `[tool.complexipy]` section; any other
+/// file is read whole.
+pub fn read_config_file<T: DeserializeOwned>(path: &Path) -> Result<ConfigSource<T>, String> {
+    let kind = match path.file_name().and_then(|name| name.to_str()) {
+        Some("pyproject.toml") => ConfigFileKind::PyprojectToml,
+        _ => ConfigFileKind::ComplexipyToml,
+    };
+    let candidate = ConfigCandidate {
+        path: path.to_path_buf(),
+        kind,
+    };
+    if !candidate.path.is_file() {
+        return Err(format!("Config file {} does not exist", path.display()));
+    }
+    let value = read_candidate_value(&candidate)
+        .and_then(|value| deserialize(&candidate, value))?
+        .ok_or_else(|| format!("{} has no [tool.complexipy] section", path.display()))?;
+
+    Ok(ConfigSource {
+        path: candidate.path,
+        value,
+    })
+}
+
+fn deserialize<T: DeserializeOwned>(
+    candidate: &ConfigCandidate,
+    value: Option<toml::Value>,
+) -> Result<Option<T>, String> {
+    value
+        .map(|value| value.try_into::<T>())
+        .transpose()
+        .map_err(|error| format!("Invalid config in {}: {}", candidate.path.display(), error))
 }
 
 fn section_of(value: toml::Value) -> Option<toml::Value> {

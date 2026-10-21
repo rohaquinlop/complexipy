@@ -371,3 +371,39 @@ fn resolve_diff_flags_plain_passthrough() {
         (None, Some("dev".to_string()))
     );
 }
+
+#[test]
+fn an_option_like_ref_never_reaches_git_show_as_an_option() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("mod.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    let target = dir.path().join("written");
+    let git_ref = format!("--output={}", target.display());
+
+    let entries = compute_diff(
+        &[file_complexity("mod.py", "mod.py", &[("simple", 0)])],
+        &git_ref,
+        dir.path().to_str().unwrap(),
+    );
+
+    assert!(!dir.path().join("written:mod.py").exists());
+    assert!(!target.exists());
+    assert_eq!(entries[0].status(), DiffStatus::New);
+}
+
+#[test]
+fn an_option_like_ref_never_reaches_git_diff_as_an_option() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("mod.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    let victim = dir.path().join("victim.txt");
+    fs::write(&victim, "keep me").unwrap();
+    let git_ref = format!("--output={}", victim.display());
+
+    let entries = compute_staged_diff(&git_ref, dir.path().to_str().unwrap());
+
+    assert_eq!(entries, Some(Vec::new()));
+    assert_eq!(fs::read_to_string(&victim).unwrap(), "keep me");
+}

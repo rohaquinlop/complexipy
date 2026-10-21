@@ -324,6 +324,23 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 1. `.complexipy.toml`
 1. `pyproject.toml` (bajo `[tool.complexipy]`)
 
+complexipy lee el primero de estos archivos que se analiza y tiene valores
+válidos, y nunca combina archivos. Cuando un archivo de mayor prioridad oculta
+a otro de menor prioridad que también tiene ajustes, una advertencia nombra el
+archivo que no se aplica.
+
+`--isolated` ignora todos los archivos de configuración, y `--config <ruta>`
+lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el archivo
+se llama `pyproject.toml`, y el archivo completo en otro caso. Usa cualquiera
+de los dos en CI para fijar el gate, de modo que un cambio en la configuración
+del repositorio no pueda alterarlo.
+
+Los valores leídos de un archivo de configuración se validan antes de usarse:
+`paths`, `output` y `cache-dir` deben quedar dentro del directorio desde el
+que se ejecuta complexipy, incluidos los enlaces simbólicos, y una `branch` de
+diff no puede empezar con `-`. Pasa una ruta fuera del proyecto en la línea de
+comandos.
+
 ### Configuraciones de Ejemplo
 
 === "complexipy.toml"
@@ -418,7 +435,12 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
 - `staged` habilita la comparación staged por defecto, como pasar
   `--staged` en cada llamada.
 - Los flags de CLI siempre tienen prioridad sobre los valores de la sección.
-- `branch = ""` deshabilita el diff para el repositorio actual (opt-out).
+- `branch = ""` deshabilita el diff para el repositorio actual (opt-out),
+  y con él el valor `staged` de la sección.
+- Una sección `[diff]` cambia lo que verifica el código de salida, así que
+  cada ejecución en la que se aplica imprime una advertencia en stderr que
+  nombra el archivo. Pasa `--diff`, `--isolated` o `--config <ruta>` para
+  fijar el gate en CI.
 - Orden de resolución: flag de CLI, luego la sección `diff`.
 - Si la `branch` configurada no existe en el clon local (por ejemplo un
   clon recién hecho o shallow), cada función se reporta como `NEW` y la
@@ -498,6 +520,8 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
+| `--isolated` | Ignora todos los archivos de configuración. No se puede combinar con `--config` | `false` |
+| `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
 
 Las banderas booleanas aceptan un valor explícito solo en la forma
 adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
@@ -757,6 +781,11 @@ complexipy . --snapshot-create --max-complexity-allowed 15
 ```
 
 Esto crea `complexipy-snapshot.json` en tu directorio de trabajo, registrando todas las funciones que actualmente superan el umbral.
+
+Crea la línea base desde la línea de comandos. `snapshot-create = true` en un
+archivo de configuración vuelve a registrar la línea base en cada ejecución,
+así que toda violación actual pasa; esa ejecución imprime una advertencia en
+stderr que nombra el archivo.
 
 ### Cómo Funcionan las snapshots
 

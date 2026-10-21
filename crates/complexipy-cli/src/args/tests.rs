@@ -128,3 +128,17 @@ fn plain_equals_form_parses() {
     assert_eq!(cli.plain, Some(false));
     assert_eq!(cli.paths, vec!["src"]);
 }
+
+#[test]
+fn isolated_and_config_pin_the_config_source() {
+    let isolated = parse(&["complexipy", "--isolated", "src"]);
+    let named = parse(&["complexipy", "src", "--config", "ci.toml"]);
+
+    assert_eq!(isolated.isolated, Some(true));
+    assert_eq!(isolated.paths, vec!["src"]);
+    assert_eq!(named.config, Some("ci.toml".to_string()));
+    assert!(
+        CliArgs::try_parse_from(["complexipy", "src", "--isolated", "--config", "ci.toml"])
+            .is_err()
+    );
+}

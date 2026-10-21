@@ -325,6 +325,20 @@ complexipy loads configuration in this order (highest to lowest priority):
 1. `.complexipy.toml`
 1. `pyproject.toml` (under `[tool.complexipy]`)
 
+complexipy reads the first of these files that parses and has valid values,
+and never merges files. When a higher file shadows a lower one that also
+holds settings, a warning names the file that is not applied.
+
+`--isolated` ignores every configuration file, and `--config <path>` reads
+only the named file: its `[tool.complexipy]` section when the file is named
+`pyproject.toml`, and the whole file otherwise. Use either one in CI to pin
+the gate, so a change to the repository's configuration cannot change it.
+
+Values read from a configuration file are checked before use: `paths`,
+`output`, and `cache-dir` must stay inside the directory complexipy runs
+from, symlinks included, and a diff `branch` cannot start with `-`. Pass a
+path outside the project on the command line instead.
+
 ### Example Configurations
 
 === "complexipy.toml"
@@ -416,7 +430,11 @@ section to the same configuration file:
 - `staged` enables staged comparison by default, like passing `--staged`
   on every call.
 - CLI flags always take precedence over the section values.
-- `branch = ""` disables the diff for the current repository (opt-out).
+- `branch = ""` disables the diff for the current repository (opt-out),
+  and the section's `staged` value with it.
+- A `[diff]` section changes what the exit code checks, so every run it
+  applies to prints a warning on stderr that names the file. Pass `--diff`,
+  `--isolated`, or `--config <path>` to pin the gate in CI.
 - Resolution order: CLI flag, then the `diff` section.
 - If the configured `branch` does not exist in the local clone (for
   example a fresh or shallow clone), every function reports as `NEW` and
@@ -496,6 +514,8 @@ equals the threshold passes, as it does on the command line.
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
+| `--isolated` | Ignore every configuration file. Cannot be combined with `--config` | `false` |
+| `--config <path>` | Read the configuration from this file only, instead of the invocation directory's files | - |
 
 Boolean flags take an explicit value only in the attached form
 `--flag=<true|false>`. A bare flag means `true`, and the following
@@ -754,6 +774,10 @@ complexipy . --snapshot-create --max-complexity-allowed 15
 ```
 
 This creates `complexipy-snapshot.json` in your working directory, recording all functions that currently exceed the threshold.
+
+Create the baseline from the command line. `snapshot-create = true` in a
+configuration file re-records the baseline on every run, so every current
+violation passes; such a run prints a warning on stderr that names the file.
 
 ### How Snapshots Work
 

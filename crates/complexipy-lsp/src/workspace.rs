@@ -5,7 +5,6 @@ use complexipy_core::{
     ExcludeMatcher, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
 };
 use lsp_types::Uri;
-use serde::Deserialize;
 
 use crate::documents::uri_to_path;
 
@@ -27,19 +26,12 @@ impl Folder {
     }
 
     pub fn load(root: String) -> (Self, Vec<String>) {
-        let (source, mut warnings) = read_complexipy_config(&root);
+        let (source, mut warnings) = read_complexipy_config::<LspConfig>(&root);
         let Some(source) = source else {
             return (Self::new(root, LspConfig::default()), warnings);
         };
         let path = source.path.display().to_string();
-
-        let config = match LspConfig::deserialize(source.value) {
-            Ok(config) => config,
-            Err(error) => {
-                warnings.push(format!("invalid config in {}: {}", path, error));
-                return (Self::new(root, LspConfig::default()), warnings);
-            }
-        };
+        let config = source.value;
 
         let (rules, unknown) = config.resolve_rules();
         for rule_id in &unknown {

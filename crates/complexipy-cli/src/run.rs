@@ -4,8 +4,8 @@ use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
-    diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
+    ignored_summary_output, no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
@@ -14,7 +14,7 @@ use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
 use crate::utils::snapshot::evaluate_snapshot;
-use crate::utils::toml::get_complexipy_toml_config;
+use crate::utils::toml::load_run_config;
 use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
@@ -22,9 +22,18 @@ use complexipy_core::runner::run_analysis_shared;
 use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
-    let toml_config = get_complexipy_toml_config(invocation_path);
+    let source = match load_run_config(&cli, invocation_path) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("{}", error);
+            return ExitCode::FAILURE;
+        }
+    };
+    let config_path = source
+        .as_ref()
+        .map(|source| source.path.display().to_string());
 
-    let config = match resolve_config(toml_config, cli) {
+    let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
             eprintln!("{}", error);
@@ -33,6 +42,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
+    if let Some(config_path) = &config_path {
+        for change in &config.gate_changes_from_config {
+            eprintln!(
+                "{} {}",
+                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
+                config_gate_change_warning(config_path, change)
+            );
+        }
+    }
     if !settings.banner.is_empty() {
         println!("{}", settings.banner);
     }

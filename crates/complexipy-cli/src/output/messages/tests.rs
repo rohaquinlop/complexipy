@@ -1,7 +1,8 @@
 use crate::output::messages::{
-    diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output, unknown_rule_warning,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
+    ignored_summary_output, removable_ignores_output, unknown_rule_warning,
 };
+use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
 
@@ -102,4 +103,21 @@ fn diff_flags_warning_text() {
         diff_flags_warning(),
         "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
     );
+}
+
+#[test]
+fn config_gate_change_warning_names_the_file_and_the_pin() {
+    let warning = config_gate_change_warning(
+        "/repo/complexipy.toml",
+        &ConfigGateChange::DiffRef("HEAD".to_string()),
+    );
+
+    assert!(warning.starts_with("/repo/complexipy.toml sets [diff] branch = \"HEAD\""));
+    assert!(warning.contains("--isolated"));
+    for change in [
+        ConfigGateChange::StagedDiff,
+        ConfigGateChange::SnapshotCreate,
+    ] {
+        assert!(config_gate_change_warning("cfg.toml", &change).starts_with("cfg.toml sets "));
+    }
 }
