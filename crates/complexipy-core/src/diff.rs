@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -45,27 +46,70 @@ impl DiffEntry {
     }
 }
 
+/// Why the diff could not read a file at the ref. Every function of such a
+/// file reports as new.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnresolvedReason {
+    /// No git repository holds the file.
+    NotInRepository,
+    /// The ref names no commit in the repository at `repository`.
+    UnknownRef { repository: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnresolvedFile {
+    pub file_path: String,
+    pub reason: UnresolvedReason,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiffReport {
+    pub entries: Vec<DiffEntry>,
+    pub unresolved: Vec<UnresolvedFile>,
+}
+
 pub fn compute_diff(
     current_files: &[FileComplexity],
     git_ref: &str,
     invocation_path: &str,
 ) -> Vec<DiffEntry> {
-    let mut entries = Vec::new();
+    compute_diff_report(current_files, git_ref, invocation_path).entries
+}
+
+/// Compares each file with its content at `git_ref`, read from the
+/// repository that holds the file, so the working directory does not
+/// change the result. A file the diff cannot read at the ref is listed in
+/// `unresolved`, and its functions report as new.
+pub fn compute_diff_report(
+    current_files: &[FileComplexity],
+    git_ref: &str,
+    invocation_path: &str,
+) -> DiffReport {
+    let mut report = DiffReport::default();
+    let mut repositories = Repositories::new(git_ref);
 
     for file in current_files {
-        let path_from_root = resolve_git_path(&file.path, git_ref, invocation_path);
         let current_map: HashMap<String, u64> = file
             .functions
             .iter()
             .map(|function| (function.name.clone(), function.complexity))
             .collect();
 
-        let Some(old_content) = file_content_at_ref(git_ref, &path_from_root, invocation_path)
-        else {
+        let old_content = match repositories.locate(invocation_path, &file.path) {
+            Ok((root, path_from_root)) => file_content_at_ref(git_ref, &path_from_root, &root),
+            Err(reason) => {
+                report.unresolved.push(UnresolvedFile {
+                    file_path: file.path.clone(),
+                    reason,
+                });
+                None
+            }
+        };
+        let Some(old_content) = old_content else {
             let mut names: Vec<&String> = current_map.keys().collect();
             names.sort();
             for name in names {
-                entries.push(DiffEntry {
+                report.entries.push(DiffEntry {
                     file_path: file.path.clone(),
                     func_name: name.clone(),
                     old_complexity: None,
@@ -85,7 +129,7 @@ pub fn compute_diff(
         all_names.dedup();
 
         for name in all_names {
-            entries.push(DiffEntry {
+            report.entries.push(DiffEntry {
                 file_path: file.path.clone(),
                 func_name: name.clone(),
                 old_complexity: old_map.get(&name).copied(),
@@ -94,16 +138,17 @@ pub fn compute_diff(
         }
     }
 
-    entries
+    report
 }
 
 pub fn compute_staged_diff(git_ref: &str, invocation_path: &str) -> Option<Vec<DiffEntry>> {
-    let root = git_root(invocation_path)?;
+    let root = git_root(Path::new(invocation_path))?;
+    let root = Path::new(&root);
 
     let mut entries = Vec::new();
-    for path_from_root in staged_python_files(git_ref, &root) {
-        let old_content = file_content_at_ref(git_ref, &path_from_root, &root);
-        let new_content = file_content_at_index(&path_from_root, &root);
+    for path_from_root in staged_python_files(git_ref, root) {
+        let old_content = file_content_at_ref(git_ref, &path_from_root, root);
+        let new_content = file_content_at_index(&path_from_root, root);
 
         let old_map = analyse_content_to_map(old_content.as_deref());
         let new_map = analyse_content_to_map(new_content.as_deref());
@@ -155,7 +200,7 @@ pub fn resolve_diff_flags(
     (diff, diff_only)
 }
 
-fn git_root(cwd: &str) -> Option<String> {
+fn git_root(cwd: &Path) -> Option<String> {
     let (success, output) = run_git(cwd, &["rev-parse", "--show-toplevel"], GIT_ROOT_TIMEOUT)?;
     let root = output.trim();
     if success && !root.is_empty() {
@@ -165,19 +210,93 @@ fn git_root(cwd: &str) -> Option<String> {
     }
 }
 
-fn file_content_at_ref(git_ref: &str, path_from_root: &str, cwd: &str) -> Option<String> {
+fn names_commit(git_ref: &str, cwd: &Path) -> bool {
+    let revision = format!("{}^{{commit}}", git_ref);
+    run_git(
+        cwd,
+        &["rev-parse", "--verify", "--quiet", &revision],
+        GIT_ROOT_TIMEOUT,
+    )
+    .is_some_and(|(success, _)| success)
+}
+
+/// The repository of each analyzed file, found from the file's own
+/// directory and cached per directory, with whether the ref names a commit
+/// there.
+struct Repositories<'a> {
+    git_ref: &'a str,
+    roots: HashMap<PathBuf, Option<PathBuf>>,
+    has_ref: HashMap<PathBuf, bool>,
+}
+
+impl<'a> Repositories<'a> {
+    fn new(git_ref: &'a str) -> Self {
+        Self {
+            git_ref,
+            roots: HashMap::new(),
+            has_ref: HashMap::new(),
+        }
+    }
+
+    /// The root of the repository that holds `file_path`, and the file's
+    /// path from that root. A relative `file_path` is taken from
+    /// `invocation_path`.
+    fn locate(
+        &mut self,
+        invocation_path: &str,
+        file_path: &str,
+    ) -> Result<(PathBuf, String), UnresolvedReason> {
+        let joined = Path::new(invocation_path).join(file_path);
+        let (Some(directory), Some(name)) = (joined.parent(), joined.file_name()) else {
+            return Err(UnresolvedReason::NotInRepository);
+        };
+        let Ok(directory) = directory.canonicalize() else {
+            return Err(UnresolvedReason::NotInRepository);
+        };
+        let root = self
+            .roots
+            .entry(directory.clone())
+            .or_insert_with(|| {
+                git_root(&directory).and_then(|root| Path::new(&root).canonicalize().ok())
+            })
+            .clone();
+        let Some(root) = root else {
+            return Err(UnresolvedReason::NotInRepository);
+        };
+        let git_ref = self.git_ref;
+        let has_ref = *self
+            .has_ref
+            .entry(root.clone())
+            .or_insert_with(|| names_commit(git_ref, &root));
+        if !has_ref {
+            return Err(UnresolvedReason::UnknownRef {
+                repository: root.display().to_string(),
+            });
+        }
+        let path_from_root = directory
+            .join(name)
+            .strip_prefix(&root)
+            .ok()
+            .and_then(Path::to_str)
+            .map(|path| path.replace('\\', "/"))
+            .ok_or(UnresolvedReason::NotInRepository)?;
+        Ok((root, path_from_root))
+    }
+}
+
+fn file_content_at_ref(git_ref: &str, path_from_root: &str, cwd: &Path) -> Option<String> {
     let argument = format!("{}:{}", git_ref, path_from_root);
     let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
     if success { Some(output) } else { None }
 }
 
-fn file_content_at_index(path_from_root: &str, cwd: &str) -> Option<String> {
+fn file_content_at_index(path_from_root: &str, cwd: &Path) -> Option<String> {
     let argument = format!(":{}", path_from_root);
     let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
     if success { Some(output) } else { None }
 }
 
-fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
+fn staged_python_files(git_ref: &str, cwd: &Path) -> Vec<String> {
     let (success, output) = run_git(
         cwd,
         &[
@@ -203,42 +322,6 @@ fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
         .collect()
 }
 
-fn git_tracked_paths(cwd: &str) -> Vec<String> {
-    let (success, output) =
-        run_git(cwd, &["ls-files", "--full-name"], GIT_TIMEOUT).unwrap_or((false, String::new()));
-    if success {
-        output.lines().map(str::to_string).collect()
-    } else {
-        Vec::new()
-    }
-}
-
-fn resolve_git_path(file_path: &str, git_ref: &str, invocation_path: &str) -> String {
-    let normalized = file_path.replace('\\', "/");
-    let parts: Vec<&str> = normalized.split('/').collect();
-
-    for i in 0..parts.len() {
-        let candidate = parts[i..].join("/");
-        if file_content_at_ref(git_ref, &candidate, invocation_path).is_some() {
-            return candidate;
-        }
-    }
-
-    let basename = parts.last().copied().unwrap_or("");
-    let tracked_paths = git_tracked_paths(invocation_path);
-    let matches: Vec<&String> = tracked_paths
-        .iter()
-        .filter(|tracked| {
-            tracked.as_str() == basename || tracked.ends_with(&format!("/{}", basename))
-        })
-        .collect();
-    if matches.len() == 1 {
-        matches[0].clone()
-    } else {
-        normalized
-    }
-}
-
 fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>> {
     let content = content?;
     let parsed = ruff_python_parser::parse_module(content).ok()?;
@@ -256,7 +339,7 @@ fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>>
     )
 }
 
-fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
+fn run_git(cwd: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
     let mut child = Command::new("git")
         .args(args)
         .current_dir(cwd)

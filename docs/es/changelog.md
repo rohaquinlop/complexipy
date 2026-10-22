@@ -6,6 +6,15 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Corregido
+
+- `--diff` y `--diff-only` leen cada archivo del repositorio que lo contiene,
+  así que una ejecución desde fuera del repositorio compara contra la
+  referencia en lugar de reportar cada función como `NEW`. Un archivo fuera
+  de todo repositorio, o una referencia que no nombra ningún commit en el
+  repositorio del archivo, sigue reportando sus funciones como `NEW`, y la
+  ejecución ahora imprime una advertencia que nombra la causa.
+
 ## [8.1.0] - 2026-10-18
 
 ### Añadido

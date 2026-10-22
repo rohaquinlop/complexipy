@@ -1,9 +1,10 @@
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output, unknown_rule_warning,
+    removable_ignores_output, unknown_rule_warning, unresolved_diff_warnings,
 };
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
+use complexipy_core::diff::{UnresolvedFile, UnresolvedReason};
 
 fn evaluation(should_run: bool, messages: Vec<String>) -> SnapshotEvaluation {
     SnapshotEvaluation {
@@ -102,4 +103,48 @@ fn diff_flags_warning_text() {
         diff_flags_warning(),
         "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
     );
+}
+
+fn unresolved(file_path: &str, reason: UnresolvedReason) -> UnresolvedFile {
+    UnresolvedFile {
+        file_path: file_path.to_string(),
+        reason,
+    }
+}
+
+#[test]
+fn unresolved_diff_warnings_name_each_cause_once() {
+    let unknown_ref = || UnresolvedReason::UnknownRef {
+        repository: "/repo".to_string(),
+    };
+    let files = vec![
+        unresolved("/tmp/a.py", UnresolvedReason::NotInRepository),
+        unresolved("x.py", unknown_ref()),
+        unresolved("/tmp/b.py", UnresolvedReason::NotInRepository),
+        unresolved("y.py", unknown_ref()),
+        unresolved("/tmp/c.py", UnresolvedReason::NotInRepository),
+    ];
+
+    assert_eq!(
+        unresolved_diff_warnings(&files, "v2"),
+        vec![
+            "/tmp/a.py and 2 other file(s) are not inside a git repository, so all their \
+             functions report as NEW."
+                .to_string(),
+            "\"v2\" does not name a commit in /repo, so all functions in its 2 analyzed \
+             file(s) report as NEW."
+                .to_string(),
+        ]
+    );
+}
+
+#[test]
+fn unresolved_diff_warnings_name_a_single_file() {
+    let files = vec![unresolved("a.py", UnresolvedReason::NotInRepository)];
+
+    assert_eq!(
+        unresolved_diff_warnings(&files, "main"),
+        vec!["a.py is not inside a git repository, so all its functions report as NEW."]
+    );
+    assert!(unresolved_diff_warnings(&[], "main").is_empty());
 }

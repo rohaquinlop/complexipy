@@ -192,7 +192,13 @@ complexipy . --diff main --staged
 
 Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. Staged deletions produce `REMOVED` entries and staged additions `NEW` entries. Use `--diff-only` with `--staged` for a visual-only view.
 
-This requires `git` and a repository-backed path.
+This requires `git` and a repository-backed path. `--diff` and
+`--diff-only` read each file from the repository that holds it, so a run
+from outside the repository compares against the same history as a run
+from inside it. `--staged` uses the repository of the working directory.
+When a file sits outside any repository, or the reference names no commit
+in the file's repository, every function of that file reports as `NEW` and
+the run prints a warning that names the cause.
 
 Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file - see [Diff Configuration](#diff-configuration).
@@ -419,8 +425,9 @@ section to the same configuration file:
 - `branch = ""` disables the diff for the current repository (opt-out).
 - Resolution order: CLI flag, then the `diff` section.
 - If the configured `branch` does not exist in the local clone (for
-  example a fresh or shallow clone), every function reports as `NEW` and
-  the enforcement still applies. Fetch the branch or pass `--diff <ref>`
+  example a fresh or shallow clone), every function reports as `NEW`, the
+  enforcement still applies, and the run prints a warning that names the
+  reference and the repository. Fetch the branch or pass `--diff <ref>`
   with an existing reference instead.
 
 ### Language Server Settings
@@ -599,7 +606,9 @@ for func in result.functions:
 (commit, tag, or branch) and returns `DiffEntry` objects - one per function
 that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
-*max_complexity*).
+*max_complexity*). Each file is read from the git repository that holds it;
+`invocation_path`, the working directory by default, anchors relative file
+paths.
 
 ```python
 from complexipy import (

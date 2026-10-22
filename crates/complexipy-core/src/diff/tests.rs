@@ -5,8 +5,10 @@ use std::process::Command;
 use tempfile::tempdir;
 
 use crate::classes::FileComplexity;
-use crate::diff::{DiffEntry, DiffStatus};
-use crate::diff::{compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags};
+use crate::diff::{DiffEntry, DiffStatus, UnresolvedFile, UnresolvedReason};
+use crate::diff::{
+    compute_diff, compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
+};
 
 const SIMPLE: &str = "def simple(x):\n    return x + 1\n";
 
@@ -222,23 +224,116 @@ fn compute_diff_unparseable_old_content_skips_file() {
 }
 
 #[test]
-fn resolve_git_path_strips_leading_components() {
+fn compute_diff_reads_each_file_at_its_repository_path() {
     let dir = tempdir().expect("tempdir should work");
     init_repo(dir.path());
     let src = dir.path().join("src");
-    fs::create_dir(&src).expect("should create");
+    fs::create_dir_all(src.join("pkg")).expect("should create");
     fs::write(src.join("example.py"), SIMPLE).expect("should write");
+    fs::write(src.join("pkg/inner.py"), WITH_IF).expect("should write");
+    fs::write(dir.path().join("inner.py"), SIMPLE).expect("should write");
     commit_all(dir.path(), "initial");
 
-    let current = vec![file_complexity(
-        "proj/src/example.py",
-        "example.py",
-        &[("simple", 2)],
-    )];
-    let entries = compute_diff(&current, "HEAD", dir.path().to_str().unwrap());
+    let current = vec![
+        file_complexity("example.py", "example.py", &[("simple", 2)]),
+        file_complexity("pkg/inner.py", "inner.py", &[("with_if", 1)]),
+        file_complexity("added.py", "added.py", &[("simple", 0)]),
+    ];
+    let entries = compute_diff(&current, "HEAD", src.to_str().unwrap());
 
-    assert_eq!(entries.len(), 1);
+    assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].old_complexity, Some(0));
+    assert_eq!(entries[1].func_name, "with_if");
+    assert_eq!(entries[1].status(), DiffStatus::Unchanged);
+    assert_eq!(entries[2].status(), DiffStatus::New);
+}
+
+#[test]
+fn compute_diff_reads_the_repository_of_the_file_from_outside_it() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    init_repo(dir.path());
+    fs::create_dir(dir.path().join("pkg")).expect("should create");
+    fs::write(dir.path().join("pkg/a.py"), WITH_IF).expect("should write");
+    commit_all(dir.path(), "initial");
+    let absolute = dir.path().join("pkg/a.py");
+
+    let current = vec![file_complexity(
+        absolute.to_str().unwrap(),
+        "a.py",
+        &[("with_if", 3), ("added", 0)],
+    )];
+    let report = compute_diff_report(&current, "HEAD", outside.path().to_str().unwrap());
+
+    assert!(report.unresolved.is_empty());
+    let statuses: Vec<(&str, DiffStatus)> = report
+        .entries
+        .iter()
+        .map(|entry| (entry.func_name.as_str(), entry.status()))
+        .collect();
+    assert_eq!(
+        statuses,
+        vec![
+            ("added", DiffStatus::New),
+            ("with_if", DiffStatus::Regressed)
+        ]
+    );
+}
+
+#[test]
+fn compute_diff_reports_a_file_outside_any_repository_as_unresolved() {
+    let dir = tempdir().expect("tempdir should work");
+    fs::write(dir.path().join("loose.py"), SIMPLE).expect("should write");
+
+    let current = vec![file_complexity("loose.py", "loose.py", &[("simple", 0)])];
+    let report = compute_diff_report(&current, "HEAD", dir.path().to_str().unwrap());
+
+    assert_eq!(
+        report.unresolved,
+        vec![UnresolvedFile {
+            file_path: "loose.py".to_string(),
+            reason: UnresolvedReason::NotInRepository,
+        }]
+    );
+    assert_eq!(report.entries.len(), 1);
+    assert_eq!(report.entries[0].status(), DiffStatus::New);
+}
+
+#[test]
+fn compute_diff_reports_a_ref_missing_from_the_repository_as_unresolved() {
+    let dir = tempdir().expect("tempdir should work");
+    init_repo(dir.path());
+    fs::write(dir.path().join("a.py"), SIMPLE).expect("should write");
+    fs::write(dir.path().join("b.py"), SIMPLE).expect("should write");
+    commit_all(dir.path(), "initial");
+
+    let current = vec![
+        file_complexity("a.py", "a.py", &[("simple", 0)]),
+        file_complexity("b.py", "b.py", &[("simple", 0)]),
+    ];
+    let report = compute_diff_report(&current, "NONEXISTENT_REF", dir.path().to_str().unwrap());
+
+    let repository = dir.path().canonicalize().unwrap().display().to_string();
+    let reasons: Vec<&UnresolvedReason> = report
+        .unresolved
+        .iter()
+        .map(|unresolved| &unresolved.reason)
+        .collect();
+    assert_eq!(
+        reasons,
+        vec![
+            &UnresolvedReason::UnknownRef {
+                repository: repository.clone()
+            },
+            &UnresolvedReason::UnknownRef { repository }
+        ]
+    );
+    assert!(
+        report
+            .entries
+            .iter()
+            .all(|entry| entry.status() == DiffStatus::New)
+    );
 }
 
 #[test]

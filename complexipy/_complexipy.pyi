@@ -601,14 +601,16 @@ def compute_diff(
     Compare the current complexity results against *git_ref*.
 
     For each file in *current_files*, retrieves the file's content at
-    *git_ref* using ``git show`` and re-analyses it. Functions that
-    appear only in one version are marked NEW / REMOVED.
+    *git_ref* from the git repository that holds the file and re-analyses
+    it. Functions that appear only in one version are marked NEW /
+    REMOVED. Every function of a file outside any repository, or in a
+    repository where *git_ref* names no commit, is marked NEW.
 
     Args:
         current_files: Complexity results of the current analysis.
         git_ref: Git reference to compare against (branch, tag, or commit).
-        invocation_path: Working directory for git commands; defaults to
-            the current working directory.
+        invocation_path: Directory that relative file paths are taken
+            from; defaults to the current working directory.
 
     Returns:
         List of DiffEntry objects, one per function that changed or is

@@ -2,6 +2,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
+use complexipy_core::diff::{UnresolvedFile, UnresolvedReason};
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
 
 pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: &str) -> String {
@@ -64,6 +65,55 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
 
 pub fn diff_flags_warning() -> String {
     "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
+}
+
+/// One warning for the files outside any git repository, and one per
+/// repository where `git_ref` names no commit. The functions of those files
+/// report as NEW.
+pub fn unresolved_diff_warnings(unresolved: &[UnresolvedFile], git_ref: &str) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    let outside: Vec<&str> = unresolved
+        .iter()
+        .filter(|file| file.reason == UnresolvedReason::NotInRepository)
+        .map(|file| file.file_path.as_str())
+        .collect();
+    match outside.as_slice() {
+        [] => {}
+        [path] => warnings.push(format!(
+            "{} is not inside a git repository, so all its functions report as NEW.",
+            path
+        )),
+        [path, rest @ ..] => warnings.push(format!(
+            "{} and {} other file(s) are not inside a git repository, so all their \
+             functions report as NEW.",
+            path,
+            rest.len()
+        )),
+    }
+
+    let mut repositories: Vec<(&str, usize)> = Vec::new();
+    for file in unresolved {
+        let UnresolvedReason::UnknownRef { repository } = &file.reason else {
+            continue;
+        };
+        match repositories
+            .iter_mut()
+            .find(|(seen, _)| *seen == repository.as_str())
+        {
+            Some((_, count)) => *count += 1,
+            None => repositories.push((repository, 1)),
+        }
+    }
+    for (repository, count) in repositories {
+        warnings.push(format!(
+            "{:?} does not name a commit in {}, so all functions in its {} analyzed \
+             file(s) report as NEW.",
+            git_ref, repository, count
+        ));
+    }
+
+    warnings
 }
 
 #[cfg(test)]
