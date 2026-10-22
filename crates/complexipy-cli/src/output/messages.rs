@@ -63,8 +63,13 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
     lines.join("\n")
 }
 
-pub fn diff_flags_warning() -> String {
-    "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
+/// The warning for a run given both `--diff` and `--diff-only`, which keeps
+/// only `--diff-only`.
+pub fn diff_flags_warning(diff: Option<&str>, diff_only: Option<&str>) -> Option<String> {
+    (diff.is_some() && diff_only.is_some()).then(|| {
+        "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
+            .to_string()
+    })
 }
 
 /// One warning for the files outside any git repository, and one per

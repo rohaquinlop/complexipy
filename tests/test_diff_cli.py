@@ -84,6 +84,27 @@ def test_the_gate_from_outside_the_repository_passes_an_unchanged_function(
     assert exit_code == 0
 
 
+def test_diff_only_alone_prints_no_flag_warning(
+    repo: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    commit(repo, PLAIN)
+
+    run_cli([str(repo / "pkg"), "--diff-only", "v1"], str(repo))
+
+    assert "both set" not in capfd.readouterr().out
+
+
+def test_both_diff_flags_print_the_flag_warning(
+    repo: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    commit(repo, PLAIN)
+
+    run_cli([str(repo / "pkg"), "--diff", "v1", "--diff-only", "v1"], str(repo))
+
+    out = strip_ansi(capfd.readouterr().out)
+    assert "Warning: --diff and --diff-only both set." in out
+
+
 def test_a_ref_missing_from_the_repository_is_named_in_a_warning(
     repo: Path, capfd: pytest.CaptureFixture[str]
 ) -> None:

@@ -98,11 +98,14 @@ fn removable_ignores_block() {
 }
 
 #[test]
-fn diff_flags_warning_text() {
+fn diff_flags_warning_needs_both_flags() {
     assert_eq!(
-        diff_flags_warning(),
-        "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
+        diff_flags_warning(Some("main"), Some("dev")).as_deref(),
+        Some("--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).")
     );
+    assert_eq!(diff_flags_warning(None, Some("dev")), None);
+    assert_eq!(diff_flags_warning(Some("main"), None), None);
+    assert_eq!(diff_flags_warning(None, None), None);
 }
 
 fn unresolved(file_path: &str, reason: UnresolvedReason) -> UnresolvedFile {

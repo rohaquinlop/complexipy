@@ -14,6 +14,8 @@ GitHub con todos los detalles.
   de todo repositorio, o una referencia que no nombra ningún commit en el
   repositorio del archivo, sigue reportando sus funciones como `NEW`, y la
   ejecución ahora imprime una advertencia que nombra la causa.
+- `--diff-only` por sí solo ya no advierte que `--diff` y `--diff-only` están
+  ambos activos.
 
 ## [8.1.0] - 2026-10-18
 

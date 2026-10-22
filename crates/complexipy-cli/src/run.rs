@@ -38,15 +38,18 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         println!("{}", settings.banner);
     }
 
-    let (diff, diff_only) =
-        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
-    if !config.quiet && diff_only.is_some() && diff.is_none() {
+    if !config.quiet
+        && let Some(warning) =
+            diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref())
+    {
         println!(
             "{} {}",
             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-            diff_flags_warning()
+            warning
         );
     }
+    let (diff, diff_only) =
+        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
 
     let known_rules = registered_rule_ids();
     let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);

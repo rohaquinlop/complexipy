@@ -12,6 +12,8 @@ release section links to its GitHub release notes for the full details.
   of reporting every function as `NEW`. A file outside any repository, or a
   ref that names no commit in the file's repository, still reports its
   functions as `NEW`, and the run now prints a warning that names the cause.
+- `--diff-only` alone no longer warns that `--diff` and `--diff-only` are
+  both set.
 
 ## [8.1.0] - 2026-10-18
 
