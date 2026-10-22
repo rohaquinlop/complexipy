@@ -16,6 +16,12 @@ GitHub con todos los detalles.
   ejecución ahora imprime una advertencia que nombra la causa.
 - `--diff-only` por sí solo ya no advierte que `--diff` y `--diff-only` están
   ambos activos.
+- La guarda de bucle `C002` niega su condición como lo espera un linter:
+  `x in y` pasa a `x not in y`, `a is b` pasa a `a is not b`, y un nombre o
+  una llamada recibe un `not` sin paréntesis, así que `--fix` ya no escribe
+  violaciones `E713`/`E714`. Los paréntesis se conservan alrededor de `and`,
+  `or`, otras comparaciones, expresiones condicionales, lambdas y
+  asignaciones walrus.
 
 ## [8.1.0] - 2026-10-18
 

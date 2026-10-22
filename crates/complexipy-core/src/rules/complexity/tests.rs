@@ -7,8 +7,8 @@ use super::{
     collect_free_names, collect_loop_if_chain, combine_conditions_chain, contains_multiline_string,
     enclosing_header_indices, extract_condition_from_line, fallback_boolean_count,
     generate_collapsible_if_suggestion_chain, generate_loop_guard_suggestion,
-    generate_predicate_suggestion, has_else_branch, needs_parens_for_and, render_statement_context,
-    strip_top_level_not,
+    generate_predicate_suggestion, has_else_branch, needs_parens_for_and, negate_condition,
+    render_statement_context,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::utils::LineIndex;
@@ -499,7 +499,7 @@ fn loop_guard_suggestion_is_faithful_for_a_pure_chain() {
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    if not (b):\n        continue\n    pass"
+        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    pass"
     );
 }
 
@@ -512,7 +512,7 @@ fn loop_guard_suggestion_keeps_leading_statements() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    total += x\n    if not (a):\n        continue\n    pass"
+        "for x in y:\n    total += x\n    if not a:\n        continue\n    pass"
     );
 }
 
@@ -543,19 +543,99 @@ fn loop_guard_suggestion_strips_a_redundant_not() {
 }
 
 #[test]
-fn strip_top_level_not_refuses_mixed_operators() {
-    assert_eq!(strip_top_level_not("not a"), Some("a".to_string()));
+fn negate_condition_inverts_membership_and_identity() {
+    assert_eq!(negate_condition("x in y"), "x not in y");
+    assert_eq!(negate_condition("x not in y"), "x in y");
+    assert_eq!(negate_condition("a is b"), "a is not b");
+    assert_eq!(negate_condition("a is not None"), "a is None");
+    assert_eq!(negate_condition("(x in y)"), "x not in y");
+    assert_eq!(negate_condition("(a or b) in c"), "(a or b) not in c");
+    assert_eq!(negate_condition("x  not   in y"), "x in y");
     assert_eq!(
-        strip_top_level_not("not a == b"),
-        Some("a == b".to_string())
+        negate_condition("key in {k: v for k, v in pairs if v is not None}"),
+        "key not in {k: v for k, v in pairs if v is not None}"
+    );
+    assert_eq!(negate_condition("f'{a in b}' in c"), "f'{a in b}' not in c");
+}
+
+#[test]
+fn negate_condition_prefixes_calls_and_names_without_parens() {
+    assert_eq!(
+        negate_condition("isinstance(part, ToolCallPart)"),
+        "not isinstance(part, ToolCallPart)"
     );
     assert_eq!(
-        strip_top_level_not("not (a and b)"),
-        Some("(a and b)".to_string())
+        negate_condition("_is_tool_result_part(part)"),
+        "not _is_tool_result_part(part)"
     );
-    assert_eq!(strip_top_level_not("not a or b"), None);
-    assert_eq!(strip_top_level_not("not a and b"), None);
-    assert_eq!(strip_top_level_not("a not in b"), None);
+    assert_eq!(negate_condition("(f(x))"), "not f(x)");
+    assert_eq!(negate_condition("item.active"), "not item.active");
+    assert_eq!(negate_condition("a"), "not a");
+    assert_eq!(negate_condition("x[0]"), "not x[0]");
+    assert_eq!(negate_condition("a + b"), "not a + b");
+    assert_eq!(negate_condition("(a, b)"), "not (a, b)");
+}
+
+#[test]
+fn negate_condition_keeps_parens_where_the_reading_needs_them() {
+    assert_eq!(negate_condition("a and b"), "not (a and b)");
+    assert_eq!(negate_condition("a or b"), "not (a or b)");
+    assert_eq!(negate_condition("(a or b)"), "not (a or b)");
+    assert_eq!(negate_condition("x := f()"), "not (x := f())");
+    assert_eq!(negate_condition("(x := f())"), "not (x := f())");
+    assert_eq!(negate_condition("(a) and (b)"), "not ((a) and (b))");
+    assert_eq!(negate_condition("(a) < (b)"), "not ((a) < (b))");
+    assert_eq!(negate_condition("a < b < c"), "not (a < b < c)");
+    assert_eq!(negate_condition("a in b in c"), "not (a in b in c)");
+    assert_eq!(negate_condition("a == b"), "not (a == b)");
+    assert_eq!(negate_condition("x > 0"), "not (x > 0)");
+    assert_eq!(negate_condition("a if b else c"), "not (a if b else c)");
+    assert_eq!(negate_condition("lambda: 0"), "not (lambda: 0)");
+    assert_eq!(negate_condition("(yield x)"), "not (yield x)");
+    assert_eq!(negate_condition("not a or b"), "not (not a or b)");
+    assert_eq!(negate_condition("not a and b"), "not (not a and b)");
+}
+
+#[test]
+fn negate_condition_drops_a_leading_not() {
+    assert_eq!(negate_condition("not a"), "a");
+    assert_eq!(negate_condition("not a == b"), "a == b");
+    assert_eq!(negate_condition("not (a and b)"), "a and b");
+    assert_eq!(negate_condition("not (x := f())"), "(x := f())");
+    assert_eq!(negate_condition("not(x)"), "x");
+    assert_eq!(negate_condition("not not a"), "not a");
+    assert_eq!(negate_condition("not (a, b)"), "(a, b)");
+    assert_eq!(negate_condition("not (a if b else c)"), "(a if b else c)");
+    assert_eq!(negate_condition("not (lambda: 0)"), "(lambda: 0)");
+    assert_eq!(negate_condition("not (yield x)"), "(yield x)");
+}
+
+#[test]
+fn negate_condition_keeps_the_parenthesized_prefix_for_text_that_does_not_parse() {
+    assert_eq!(negate_condition("a and"), "not (a and)");
+}
+
+#[test]
+fn loop_guard_suggestion_inverts_membership_and_identity() {
+    let source = "for x in y:\n    if x in seen:\n        if x is not None:\n            pass\n";
+    let region = loop_region(
+        vec![ComplexityRegion {
+            kind: RegionKind::If,
+            line_start: 2,
+            line_end: 4,
+            nesting: 1,
+            children: vec![if_stmt(3, 4, 2)],
+            ..Default::default()
+        }],
+        4,
+    );
+
+    let suggestion =
+        generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
+    assert_eq!(
+        suggestion.replacement,
+        "for x in y:\n    if x not in seen:\n        continue\n    if x is None:\n        continue\n    pass"
+    );
 }
 
 #[test]
@@ -644,7 +724,7 @@ fn loop_guard_suggestion_keeps_trailing_statements_at_loop_indent() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    pass\n    total += 1"
+        "for x in y:\n    if not a:\n        continue\n    pass\n    total += 1"
     );
 }
 
@@ -667,7 +747,7 @@ fn loop_guard_suggestion_keeps_statements_between_chain_members() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    total += x\n    if not (b):\n        continue\n    pass"
+        "for x in y:\n    if not a:\n        continue\n    total += x\n    if not b:\n        continue\n    pass"
     );
 }
 
@@ -697,7 +777,7 @@ fn loop_guard_suggestion_shifts_between_statements_at_each_level() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    if not (b):\n        continue\n    stmt\n    if not (c):\n        continue\n    pass"
+        "for x in y:\n    if not a:\n        continue\n    if not b:\n        continue\n    stmt\n    if not c:\n        continue\n    pass"
     );
 }
 
@@ -720,7 +800,7 @@ fn loop_guard_suggestion_keeps_an_else_on_the_last_chain_member() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    if b:\n        pass\n    else:\n        pass"
+        "for x in y:\n    if not a:\n        continue\n    if b:\n        pass\n    else:\n        pass"
     );
 }
 
@@ -736,7 +816,7 @@ fn loop_guard_suggestion_preserves_a_multiline_header() {
     assert!(suggestion.spliceable);
     assert_eq!(
         suggestion.replacement,
-        "for x in (\n    items):\n    if not (a):\n        continue\n    pass"
+        "for x in (\n    items):\n    if not a:\n        continue\n    pass"
     );
 }
 
@@ -796,6 +876,6 @@ fn loop_guard_suggestion_keeps_unextractable_members_in_the_survivor() {
         generate_loop_guard_suggestion(&region, source, &LineIndex::new(source)).unwrap();
     assert_eq!(
         suggestion.replacement,
-        "for x in y:\n    if not (a):\n        continue\n    if (b and\n            c):\n        pass"
+        "for x in y:\n    if not a:\n        continue\n    if (b and\n            c):\n        pass"
     );
 }

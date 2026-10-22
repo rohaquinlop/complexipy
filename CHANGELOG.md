@@ -14,6 +14,11 @@ release section links to its GitHub release notes for the full details.
   functions as `NEW`, and the run now prints a warning that names the cause.
 - `--diff-only` alone no longer warns that `--diff` and `--diff-only` are
   both set.
+- The `C002` loop guard negates its condition the way a linter expects:
+  `x in y` becomes `x not in y`, `a is b` becomes `a is not b`, and a name or
+  a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`
+  violations. Parentheses stay around `and`, `or`, other comparisons,
+  conditional expressions, lambdas, and walrus assignments.
 
 ## [8.1.0] - 2026-10-18
 
