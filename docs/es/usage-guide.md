@@ -189,7 +189,22 @@ complexipy . --diff main --staged
 
 Igual que `--diff`, `--staged` aplica el umbral contra el contenido staged y falla cuando un cambio staged empuja una función por encima de `--max-complexity-allowed`. Las eliminaciones staged producen entradas `REMOVED` y las adiciones staged entradas `NEW`. Usa `--diff-only` con `--staged` para una vista solo visual.
 
-Esto requiere `git` y una ruta dentro de un repositorio.
+Esto requiere `git` y una ruta dentro de un repositorio. `--diff` y
+`--diff-only` leen cada archivo del repositorio que lo contiene, así que
+una ejecución desde fuera del repositorio compara contra el mismo historial
+que una ejecución desde dentro. Un submódulo, es decir, un repositorio que
+el repositorio que lo rodea rastrea como gitlink en su índice, se lee en el
+commit que el repositorio exterior fija para él en la referencia, y un
+anidamiento más profundo sigue cada fijación a su vez. Cuando la ejecución
+empieza dentro del submódulo, se lee en la propia referencia. Un
+repositorio dentro de otro que el exterior no rastrea se lee en la
+referencia, como cualquier otro repositorio. `--staged` usa el repositorio
+del directorio de trabajo. Cuando un archivo está fuera de todo
+repositorio, la referencia no nombra ningún commit en el repositorio del
+archivo, o el repositorio exterior no fija ningún commit para el submódulo
+en la referencia, o fija uno que el submódulo no tiene, cada función de ese
+archivo se reporta como `NEW` y la ejecución imprime una advertencia que
+nombra la causa.
 
 En lugar de repetir la referencia en cada llamada, declara la política de
 comparación una sola vez en un archivo de configuración - ver
@@ -421,8 +436,9 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
 - `branch = ""` deshabilita el diff para el repositorio actual (opt-out).
 - Orden de resolución: flag de CLI, luego la sección `diff`.
 - Si la `branch` configurada no existe en el clon local (por ejemplo un
-  clon recién hecho o shallow), cada función se reporta como `NEW` y la
-  aplicación del umbral sigue activa. Haz fetch de la rama o pasa
+  clon recién hecho o shallow), cada función se reporta como `NEW`, la
+  aplicación del umbral sigue activa y la ejecución imprime una advertencia
+  que nombra la referencia y el repositorio. Haz fetch de la rama o pasa
   `--diff <ref>` con una referencia existente.
 
 ### Configuración del Servidor de Lenguaje
@@ -602,7 +618,11 @@ result = code_complexity(code, no_ignore=True)
 referencia de git (commit, etiqueta o rama) y devuelve objetos `DiffEntry` -
 uno por función que cambió, apareció o desapareció. `has_regressions` informa
 si alguna entrada supera un umbral de complejidad (una función REGRESSED o NEW
-por encima de *max_complexity*).
+por encima de *max_complexity*). Cada archivo se lee del repositorio de git
+que lo contiene, y un submódulo en el commit que fija su repositorio
+exterior, igual que con `--diff`. `invocation_path`, por defecto
+el directorio de trabajo, ancla las rutas de archivo relativas y hace el
+papel del directorio donde empieza una ejecución de la CLI.
 
 ```python
 from complexipy import (

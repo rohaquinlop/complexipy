@@ -6,6 +6,7 @@ use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
     no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    unresolved_diff_warnings,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
@@ -16,7 +17,7 @@ use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::get_complexipy_toml_config;
 use complexipy_core::diff::{
-    compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
+    compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::run_analysis_shared;
 use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
@@ -37,15 +38,18 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         println!("{}", settings.banner);
     }
 
-    let (diff, diff_only) =
-        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
-    if !config.quiet && diff_only.is_some() && diff.is_none() {
+    if !config.quiet
+        && let Some(warning) =
+            diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref())
+    {
         println!(
             "{} {}",
             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-            diff_flags_warning()
+            warning
         );
     }
+    let (diff, diff_only) =
+        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
 
     let known_rules = registered_rule_ids();
     let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
@@ -237,11 +241,18 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 }
             }
         } else if !files_complexities.is_empty() {
-            let entries = compute_diff(&files_complexities, &diff_ref, invocation_path);
+            let report = compute_diff_report(&files_complexities, &diff_ref, invocation_path);
             if !config.quiet {
-                println!("{}", format_diff_for(&entries, &diff_ref));
+                println!("{}", format_diff_for(&report.entries, &diff_ref));
+                for warning in unresolved_diff_warnings(&report.unresolved, &diff_ref) {
+                    println!(
+                        "{} {}",
+                        "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
+                        warning
+                    );
+                }
             }
-            Some(entries)
+            Some(report.entries)
         } else {
             None
         }

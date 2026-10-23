@@ -6,6 +6,27 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Corregido
+
+- `--diff` y `--diff-only` leen cada archivo del repositorio que lo contiene,
+  así que una ejecución desde fuera del repositorio compara contra la
+  referencia en lugar de reportar cada función como `NEW`. Un submódulo, un
+  repositorio que el repositorio que lo rodea rastrea como gitlink, se lee
+  en el commit que el repositorio exterior fija para él en la referencia,
+  salvo que la ejecución empiece dentro de él. Un archivo fuera de todo
+  repositorio, una referencia que no nombra ningún commit en el repositorio
+  del archivo, o un submódulo sin un commit fijado que tenga, sigue
+  reportando sus funciones como `NEW`, y la ejecución ahora imprime una
+  advertencia que nombra la causa.
+- `--diff-only` por sí solo ya no advierte que `--diff` y `--diff-only` están
+  ambos activos.
+- La guarda de bucle `C002` niega su condición como lo espera un linter:
+  `x in y` pasa a `x not in y`, `a is b` pasa a `a is not b`, y un nombre o
+  una llamada recibe un `not` sin paréntesis, así que `--fix` ya no escribe
+  violaciones `E713`/`E714`. Los paréntesis se conservan alrededor de `and`,
+  `or`, otras comparaciones, expresiones condicionales, lambdas y
+  asignaciones walrus.
+
 ## [8.1.0] - 2026-10-18
 
 ### Añadido

@@ -174,6 +174,63 @@ def test_fix_applies_c007_to_the_file(tmp_path) -> None:
     assert all(p.rule_id != "C007" for p in func.refactor_plans)
 
 
+GUARDED_LOOPS = textwrap.dedent(
+    """\
+    def members(parts, seen):
+        found = []
+        for part in parts:
+            if part in seen:
+                if part.ready:
+                    found.append(part)
+                else:
+                    found.append(None)
+        return found
+
+
+    def identities(parts, marker):
+        found = []
+        for part in parts:
+            if part is not marker:
+                if part.ready:
+                    found.append(part)
+                else:
+                    found.append(None)
+        return found
+
+
+    def calls(parts):
+        found = []
+        for part in parts:
+            if isinstance(part, int):
+                if part > 0:
+                    found.append(part)
+                else:
+                    found.append(None)
+        return found
+    """
+)
+
+
+def test_fix_writes_loop_guards_a_linter_accepts(tmp_path) -> None:
+    target = tmp_path / "guards.py"
+    target.write_text(GUARDED_LOOPS)
+
+    exit_code = run_cli(
+        ["--fix", "--select=C002", *FIX_EVERY_FUNCTION, str(target)],
+        str(tmp_path),
+    )
+
+    assert exit_code == 0
+    fixed = target.read_text()
+    ast.parse(fixed)
+    assert "        if part not in seen:\n            continue\n" in fixed
+    assert "        if part is marker:\n            continue\n" in fixed
+    assert (
+        "        if not isinstance(part, int):\n            continue\n" in fixed
+    )
+    assert "not (" not in fixed
+
+
 def test_two_fixes_in_one_file_apply_together(tmp_path) -> None:
     target = tmp_path / "two.py"
     target.write_text(TWO_FIXABLE)

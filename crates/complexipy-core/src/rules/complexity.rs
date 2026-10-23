@@ -2,8 +2,10 @@ use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::utils::{LineIndex, count_bool_ops};
+use ruff_python_ast::OperatorPrecedence;
+use ruff_python_ast::token::{TokenKind, Tokens};
 use ruff_python_ast::visitor::{Visitor, walk_expr};
-use ruff_python_ast::{CmpOp, Expr};
+use ruff_python_ast::{CmpOp, Expr, UnaryOp};
 use ruff_python_parser::parse_expression;
 use std::sync::OnceLock;
 
@@ -110,7 +112,7 @@ impl RefactorRule for LoopGuardsRule {
         let suggestion = generate_loop_guard_suggestion(region, source, index);
         let help = if suggestion.is_none() {
             Some(
-                "Add `if not (<condition>): continue` guards at the top of the loop body \
+                "Add `if <negated condition>: continue` guards at the top of the loop body \
                  for each nested if condition, then dedent the remaining logic by one \
                  level per guard."
                     .to_string(),
@@ -725,10 +727,7 @@ fn generate_loop_guard_suggestion(
     result.extend(lines[1..chain_start].iter().map(|line| (*line).to_string()));
 
     for (i, (member, guard)) in guards.iter().enumerate() {
-        let guard_text = match strip_top_level_not(guard) {
-            Some(rest) => rest,
-            None => format!("not ({guard})"),
-        };
+        let guard_text = negate_condition(guard);
         result.push(format!(
             "{}if {}:",
             " ".repeat(loop_body_indent),
@@ -1583,21 +1582,138 @@ fn needs_parens_for_and(condition: &str) -> bool {
     masked.contains(" or ") || masked.contains(" if ") || masked.contains(":=")
 }
 
-/// Returns the remainder of `condition` when it is a single top-level
-/// `not <expr>` whose `<expr>` holds no top-level `and`/`or`/conditional/
-/// walrus. The guard can then render as `if <expr>:` instead of the redundant
-/// `if not (not <expr>):`. Returns `None` for anything less certain.
-fn strip_top_level_not(condition: &str) -> Option<String> {
-    let masked = mask_nested(condition);
-    let rest_masked = masked.strip_prefix("not ")?;
-    if rest_masked.contains(" and ")
-        || rest_masked.contains(" or ")
-        || rest_masked.contains(" if ")
-        || rest_masked.contains(":=")
-    {
-        return None;
+/// The condition that holds exactly when `condition` does not, written as
+/// the header of a guard: `not x` becomes `x`, `in` and `is` become
+/// `not in` and `is not` and back, and anything else gets a `not` prefix.
+/// The prefix parenthesizes a comparison and any operator that binds more
+/// loosely than one. A condition that does not parse keeps the
+/// parenthesized prefix.
+fn negate_condition(condition: &str) -> String {
+    let core = without_grouping_parens(condition.trim());
+    let Ok(parsed) = parse_expression(core) else {
+        return format!("not ({core})");
+    };
+    match parsed.expr() {
+        Expr::UnaryOp(unary) if unary.op == UnaryOp::Not => {
+            let start = usize::from(unary.range.start()) + "not".len();
+            let operand = without_grouping_parens(core[start..].trim_start());
+            match parse_expression(operand) {
+                Ok(parsed) if stands_bare_in_header(parsed.expr()) => operand.to_string(),
+                Ok(parsed) => parenthesized(operand, parsed.tokens()),
+                Err(_) => format!("({operand})"),
+            }
+        }
+        Expr::Compare(compare) if compare.ops.len() == 1 => {
+            invert_comparison(core, compare.ops[0], parsed.tokens())
+                .unwrap_or_else(|| format!("not {}", parenthesized(core, parsed.tokens())))
+        }
+        expr if OperatorPrecedence::from_expr(expr)
+            > OperatorPrecedence::ComparisonsMembershipIdentity =>
+        {
+            format!("not {core}")
+        }
+        _ => format!("not {}", parenthesized(core, parsed.tokens())),
     }
-    Some(condition[4..].to_string())
+}
+
+/// `text` in parentheses, reusing the ones that already wrap all of it, such
+/// as the ones a walrus needs.
+fn parenthesized(text: &str, tokens: &Tokens) -> String {
+    let mut depth: i32 = 0;
+    for token in tokens.iter() {
+        let (kind, range) = token.as_tuple();
+        match kind {
+            TokenKind::Lpar => depth += 1,
+            TokenKind::Rpar => {
+                depth -= 1;
+                if depth == 0 {
+                    if usize::from(range.end()) == text.len() {
+                        return text.to_string();
+                    }
+                    break;
+                }
+            }
+            _ if depth == 0 => break,
+            _ => {}
+        }
+    }
+    format!("({text})")
+}
+
+/// `text` without the parentheses that only group the whole expression.
+/// The parentheses of a tuple stay.
+fn without_grouping_parens(mut text: &str) -> &str {
+    while let Some(inner) = text
+        .strip_prefix('(')
+        .and_then(|rest| rest.strip_suffix(')'))
+        .map(str::trim)
+    {
+        match parse_expression(inner) {
+            Ok(parsed) if !matches!(parsed.expr(), Expr::Tuple(tuple) if !tuple.parenthesized) => {
+                text = inner;
+            }
+            _ => break,
+        }
+    }
+    text
+}
+
+/// True when `expr` can be the whole condition of an `if` header without
+/// parentheses, and reads unambiguously there.
+fn stands_bare_in_header(expr: &Expr) -> bool {
+    match expr {
+        Expr::Tuple(tuple) => tuple.parenthesized,
+        _ => OperatorPrecedence::from_expr(expr) >= OperatorPrecedence::Or,
+    }
+}
+
+/// `core` with its single `in`, `not in`, `is`, or `is not` operator
+/// replaced by the opposite one, which Python defines as its exact
+/// negation. `None` for any other operator, which has no exact opposite.
+fn invert_comparison(core: &str, operator: CmpOp, tokens: &Tokens) -> Option<String> {
+    let (inverse, inverse_text) = match operator {
+        CmpOp::In => (CmpOp::NotIn, "not in"),
+        CmpOp::NotIn => (CmpOp::In, "in"),
+        CmpOp::Is => (CmpOp::IsNot, "is not"),
+        CmpOp::IsNot => (CmpOp::Is, "is"),
+        _ => return None,
+    };
+
+    let mut depth: i32 = 0;
+    let mut keywords = Vec::new();
+    for token in tokens.iter() {
+        let (kind, range) = token.as_tuple();
+        match kind {
+            TokenKind::Lpar
+            | TokenKind::Lsqb
+            | TokenKind::Lbrace
+            | TokenKind::FStringStart
+            | TokenKind::TStringStart => depth += 1,
+            TokenKind::Rpar
+            | TokenKind::Rsqb
+            | TokenKind::Rbrace
+            | TokenKind::FStringEnd
+            | TokenKind::TStringEnd => depth -= 1,
+            TokenKind::In | TokenKind::Is | TokenKind::Not if depth == 0 => {
+                keywords.push((usize::from(range.start()), usize::from(range.end())));
+            }
+            _ => {}
+        }
+    }
+
+    let (start, _) = *keywords.first()?;
+    let (_, end) = *keywords.last()?;
+    let inverted = format!(
+        "{} {} {}",
+        core[..start].trim_end(),
+        inverse_text,
+        core[end..].trim_start()
+    );
+    let parsed = parse_expression(&inverted).ok()?;
+    match parsed.expr() {
+        Expr::Compare(compare) if compare.ops.as_ref() == [inverse] => Some(inverted),
+        _ => None,
+    }
 }
 
 fn combine_conditions_chain(conditions: &[String]) -> String {

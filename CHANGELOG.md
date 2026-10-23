@@ -5,6 +5,25 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Fixed
+
+- `--diff` and `--diff-only` read each file from the repository that holds
+  it, so a run from outside the repository compares against the ref instead
+  of reporting every function as `NEW`. A submodule, a repository that the
+  repository around it tracks as a gitlink, is read at the commit the outer
+  repository pins for it at the ref, unless the run starts inside it. A
+  file outside any repository, a ref that names no commit in the file's
+  repository, or a submodule without a pinned commit it has, still reports
+  its functions as `NEW`, and the run now prints a warning that names the
+  cause.
+- `--diff-only` alone no longer warns that `--diff` and `--diff-only` are
+  both set.
+- The `C002` loop guard negates its condition the way a linter expects:
+  `x in y` becomes `x not in y`, `a is b` becomes `a is not b`, and a name or
+  a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`
+  violations. Parentheses stay around `and`, `or`, other comparisons,
+  conditional expressions, lambdas, and walrus assignments.
+
 ## [8.1.0] - 2026-10-18
 
 ### Added
