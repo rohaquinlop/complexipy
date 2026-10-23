@@ -195,16 +195,17 @@ Like `--diff`, `--staged` enforces the threshold against the staged content and 
 This requires `git` and a repository-backed path. `--diff` and
 `--diff-only` read each file from the repository that holds it, so a run
 from outside the repository compares against the same history as a run
-from inside it. A repository inside another repository, such as a
-submodule, is read at the commit that the outer repository pins for it at
-the reference, and deeper nesting follows each pin in turn. When the run
-starts inside the nested repository, that repository is read at the
-reference itself. `--staged` uses the repository of the working directory.
-When a file sits outside any repository, the reference names no commit in
-the file's repository, or the outer repository pins no commit for the
-nested one, or pins a commit the nested one does not have, every function
-of that file reports as `NEW` and the run prints a warning that names the
-cause.
+from inside it. A submodule, meaning a repository that the repository
+around it tracks as a gitlink in its index, is read at the commit that the
+outer repository pins for it at the reference, and deeper nesting follows
+each pin in turn. When the run starts inside the submodule, it is read at
+the reference itself. A repository inside another that the outer one does
+not track is read at the reference, like any other repository. `--staged`
+uses the repository of the working directory. When a file sits outside any
+repository, the reference names no commit in the file's repository, or the
+outer repository pins no commit for the submodule at the reference, or
+pins a commit the submodule does not have, every function of that file
+reports as `NEW` and the run prints a warning that names the cause.
 
 Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file - see [Diff Configuration](#diff-configuration).
@@ -613,7 +614,7 @@ for func in result.functions:
 that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
 *max_complexity*). Each file is read from the git repository that holds it,
-and a nested repository at the commit its outer repository pins, as with
+and a submodule at the commit its outer repository pins, as with
 `--diff`. `invocation_path`, the working directory by default, anchors
 relative file paths and plays the role of the directory a CLI run starts in.
 

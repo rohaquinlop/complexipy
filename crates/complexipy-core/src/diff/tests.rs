@@ -421,14 +421,30 @@ fn compute_diff_follows_pins_through_each_level_of_nesting() {
     );
 }
 
-#[test]
-fn compute_diff_reports_a_nested_repository_the_outer_one_does_not_pin_as_new() {
+fn outer_without_sub() -> tempfile::TempDir {
     let outer = tempdir().expect("tempdir should work");
     init_repo(outer.path());
     fs::write(outer.path().join("README.md"), "placeholder").expect("should write");
     commit_all(outer.path(), "initial");
+    repository_with(&outer.path().join("sub"), BRANCHED);
+    outer
+}
+
+#[test]
+fn compute_diff_reads_an_untracked_nested_repository_at_its_own_ref() {
+    let outer = outer_without_sub();
+
+    assert_eq!(
+        diff_of_a_py(&outer.path().join("sub"), outer.path()),
+        (vec![DiffStatus::Unchanged], vec![])
+    );
+}
+
+#[test]
+fn compute_diff_reports_a_submodule_the_change_adds_as_new() {
+    let outer = outer_without_sub();
     let sub = outer.path().join("sub");
-    repository_with(&sub, BRANCHED);
+    git(outer.path(), &["add", "sub"]);
 
     assert_eq!(
         diff_of_a_py(&sub, outer.path()),

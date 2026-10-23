@@ -54,11 +54,11 @@ pub enum UnresolvedReason {
     NotInRepository,
     /// The ref names no commit in the repository at `repository`.
     UnknownRef { repository: String },
-    /// The repository at `repository` sits inside another repository, which
-    /// pins no commit for it at the ref.
+    /// The repository around the one at `repository` tracks it as a
+    /// gitlink but pins no commit for it at the ref.
     NotPinned { repository: String },
     /// The repository at `repository` does not have `commit`, which the
-    /// repository around it pins for it at the ref.
+    /// repository that tracks it as a gitlink pins for it at the ref.
     PinnedCommitMissing { repository: String, commit: String },
 }
 
@@ -83,10 +83,11 @@ pub fn compute_diff(
 }
 
 /// Compares each file with its content at `git_ref`, read from the
-/// repository that holds the file. A repository inside another repository
-/// is read at the commit that the outer repository pins for it at its own
-/// compared commit, unless it holds `invocation_path`. A file the diff
-/// cannot read is listed in `unresolved`, and its functions report as new.
+/// repository that holds the file. A repository that the repository around
+/// it tracks as a gitlink is read at the commit that gitlink pins at the
+/// outer repository's compared commit, unless it holds `invocation_path`.
+/// A file the diff cannot read is listed in `unresolved`, and its functions
+/// report as new.
 pub fn compute_diff_report(
     current_files: &[FileComplexity],
     git_ref: &str,
@@ -242,15 +243,34 @@ fn pinned_commit(commit: &str, path: &str, cwd: &Path) -> Option<String> {
     if !success {
         return None;
     }
+    let fields = gitlink_fields(&output, path)?;
+    fields.get(2).map(|pinned| pinned.to_string())
+}
+
+/// Whether the index of the repository at `cwd` tracks `path` as a gitlink.
+fn tracks_gitlink(path: &str, cwd: &Path) -> bool {
+    run_git(
+        cwd,
+        &[
+            "--literal-pathspecs",
+            "ls-files",
+            "--stage",
+            "-z",
+            "--",
+            path,
+        ],
+        GIT_ROOT_TIMEOUT,
+    )
+    .is_some_and(|(success, output)| success && gitlink_fields(&output, path).is_some())
+}
+
+/// The fields before the tab of the gitlink entry at `path` in the `-z`
+/// output of `ls-tree` or `ls-files --stage`.
+fn gitlink_fields<'a>(output: &'a str, path: &str) -> Option<Vec<&'a str>> {
     output.split('\0').find_map(|entry| {
         let (fields, entry_path) = entry.split_once('\t')?;
-        let mut fields = fields.split(' ');
-        let (Some("160000"), Some("commit"), Some(pinned)) =
-            (fields.next(), fields.next(), fields.next())
-        else {
-            return None;
-        };
-        (entry_path == path).then(|| pinned.to_string())
+        let fields: Vec<&str> = fields.split(' ').collect();
+        (entry_path == path && fields.first() == Some(&"160000")).then_some(fields)
     })
 }
 
@@ -319,21 +339,20 @@ impl<'a> Repositories<'a> {
         commit
     }
 
-    /// A repository that holds the invocation directory, or that sits
-    /// inside no other repository, is compared at the ref. Any other
-    /// repository is compared at the commit that the repository around it
-    /// pins for it at that repository's compared commit.
+    /// A repository that the repository around it tracks as a gitlink is
+    /// compared at the commit that gitlink pins at the outer repository's
+    /// compared commit, unless it holds the invocation directory. Any other
+    /// repository is compared at the ref.
     fn resolve_commit(&mut self, root: &Path) -> Result<String, UnresolvedReason> {
         let repository = root.display().to_string();
-        let Some(outer) = self.outer_root(root) else {
+        let Some((outer, path)) = self.tracking_outer(root) else {
             return commit_id(self.git_ref, root)
                 .ok_or(UnresolvedReason::UnknownRef { repository });
         };
         let pinned = self
             .commit_of(&outer)
             .ok()
-            .zip(path_from(&outer, root))
-            .and_then(|(outer_commit, path)| pinned_commit(&outer_commit, &path, &outer));
+            .and_then(|outer_commit| pinned_commit(&outer_commit, &path, &outer));
         let Some(pinned) = pinned else {
             return Err(UnresolvedReason::NotPinned { repository });
         };
@@ -343,9 +362,10 @@ impl<'a> Repositories<'a> {
         })
     }
 
-    /// The root of the repository around `root`, or `None` when no
-    /// repository is around it or `root` holds the invocation directory.
-    fn outer_root(&mut self, root: &Path) -> Option<PathBuf> {
+    /// The root of the repository around `root` and the path of `root` in
+    /// it, when that repository tracks `root` as a gitlink and `root` does
+    /// not hold the invocation directory.
+    fn tracking_outer(&mut self, root: &Path) -> Option<(PathBuf, String)> {
         if self
             .invocation_directory
             .as_deref()
@@ -355,7 +375,11 @@ impl<'a> Repositories<'a> {
         }
         let parent = root.parent()?;
         let outer = self.root_of(parent)?;
-        parent.starts_with(&outer).then_some(outer)
+        if !parent.starts_with(&outer) {
+            return None;
+        }
+        let path = path_from(&outer, root)?;
+        tracks_gitlink(&path, &outer).then_some((outer, path))
     }
 }
 
