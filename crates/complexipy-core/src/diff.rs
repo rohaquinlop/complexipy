@@ -54,6 +54,12 @@ pub enum UnresolvedReason {
     NotInRepository,
     /// The ref names no commit in the repository at `repository`.
     UnknownRef { repository: String },
+    /// The repository at `repository` sits inside another repository, which
+    /// pins no commit for it at the ref.
+    NotPinned { repository: String },
+    /// The repository at `repository` does not have `commit`, which the
+    /// repository around it pins for it at the ref.
+    PinnedCommitMissing { repository: String, commit: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,16 +83,17 @@ pub fn compute_diff(
 }
 
 /// Compares each file with its content at `git_ref`, read from the
-/// repository that holds the file, so the working directory does not
-/// change the result. A file the diff cannot read at the ref is listed in
-/// `unresolved`, and its functions report as new.
+/// repository that holds the file. A repository inside another repository
+/// is read at the commit that the outer repository pins for it at its own
+/// compared commit, unless it holds `invocation_path`. A file the diff
+/// cannot read is listed in `unresolved`, and its functions report as new.
 pub fn compute_diff_report(
     current_files: &[FileComplexity],
     git_ref: &str,
     invocation_path: &str,
 ) -> DiffReport {
     let mut report = DiffReport::default();
-    let mut repositories = Repositories::new(git_ref);
+    let mut repositories = Repositories::new(git_ref, invocation_path);
 
     for file in current_files {
         let current_map: HashMap<String, u64> = file
@@ -95,8 +102,10 @@ pub fn compute_diff_report(
             .map(|function| (function.name.clone(), function.complexity))
             .collect();
 
-        let old_content = match repositories.locate(invocation_path, &file.path) {
-            Ok((root, path_from_root)) => file_content_at_ref(git_ref, &path_from_root, &root),
+        let old_content = match repositories.locate(&file.path) {
+            Ok((root, commit, path_from_root)) => {
+                file_content_at_ref(&commit, &path_from_root, &root)
+            }
             Err(reason) => {
                 report.unresolved.push(UnresolvedFile {
                     file_path: file.path.clone(),
@@ -210,43 +219,73 @@ fn git_root(cwd: &Path) -> Option<String> {
     }
 }
 
-fn names_commit(git_ref: &str, cwd: &Path) -> bool {
-    let revision = format!("{}^{{commit}}", git_ref);
-    run_git(
+/// The id of the commit that `revision` names in the repository at `cwd`.
+fn commit_id(revision: &str, cwd: &Path) -> Option<String> {
+    let revision = format!("{}^{{commit}}", revision);
+    let (success, output) = run_git(
         cwd,
         &["rev-parse", "--verify", "--quiet", &revision],
         GIT_ROOT_TIMEOUT,
-    )
-    .is_some_and(|(success, _)| success)
+    )?;
+    let commit = output.trim();
+    (success && !commit.is_empty()).then(|| commit.to_string())
+}
+
+/// The commit that the gitlink at `path` in `commit` pins, read from the
+/// repository at `cwd`.
+fn pinned_commit(commit: &str, path: &str, cwd: &Path) -> Option<String> {
+    let (success, output) = run_git(
+        cwd,
+        &["ls-tree", "-z", commit, "--", path],
+        GIT_ROOT_TIMEOUT,
+    )?;
+    if !success {
+        return None;
+    }
+    output.split('\0').find_map(|entry| {
+        let (fields, entry_path) = entry.split_once('\t')?;
+        let mut fields = fields.split(' ');
+        let (Some("160000"), Some("commit"), Some(pinned)) =
+            (fields.next(), fields.next(), fields.next())
+        else {
+            return None;
+        };
+        (entry_path == path).then(|| pinned.to_string())
+    })
+}
+
+/// `path` from `root`, with forward slashes.
+fn path_from(root: &Path, path: &Path) -> Option<String> {
+    Some(path.strip_prefix(root).ok()?.to_str()?.replace('\\', "/"))
 }
 
 /// The repository of each analyzed file, found from the file's own
-/// directory and cached per directory, with whether the ref names a commit
-/// there.
+/// directory and cached per directory, and the commit each repository is
+/// compared at, cached per repository.
 struct Repositories<'a> {
     git_ref: &'a str,
+    invocation_path: &'a str,
+    invocation_directory: Option<PathBuf>,
     roots: HashMap<PathBuf, Option<PathBuf>>,
-    has_ref: HashMap<PathBuf, bool>,
+    commits: HashMap<PathBuf, Result<String, UnresolvedReason>>,
 }
 
 impl<'a> Repositories<'a> {
-    fn new(git_ref: &'a str) -> Self {
+    fn new(git_ref: &'a str, invocation_path: &'a str) -> Self {
         Self {
             git_ref,
+            invocation_path,
+            invocation_directory: Path::new(invocation_path).canonicalize().ok(),
             roots: HashMap::new(),
-            has_ref: HashMap::new(),
+            commits: HashMap::new(),
         }
     }
 
-    /// The root of the repository that holds `file_path`, and the file's
-    /// path from that root. A relative `file_path` is taken from
-    /// `invocation_path`.
-    fn locate(
-        &mut self,
-        invocation_path: &str,
-        file_path: &str,
-    ) -> Result<(PathBuf, String), UnresolvedReason> {
-        let joined = Path::new(invocation_path).join(file_path);
+    /// The root of the repository that holds `file_path`, the commit to
+    /// read the file at, and the file's path from that root. A relative
+    /// `file_path` is taken from the invocation path.
+    fn locate(&mut self, file_path: &str) -> Result<(PathBuf, String, String), UnresolvedReason> {
+        let joined = Path::new(self.invocation_path).join(file_path);
         let (Some(directory), Some(name)) = (joined.parent(), joined.file_name()) else {
             return Err(UnresolvedReason::NotInRepository);
         };
@@ -254,33 +293,69 @@ impl<'a> Repositories<'a> {
             return Err(UnresolvedReason::NotInRepository);
         };
         let root = self
-            .roots
-            .entry(directory.clone())
-            .or_insert_with(|| {
-                git_root(&directory).and_then(|root| Path::new(&root).canonicalize().ok())
-            })
-            .clone();
-        let Some(root) = root else {
-            return Err(UnresolvedReason::NotInRepository);
-        };
-        let git_ref = self.git_ref;
-        let has_ref = *self
-            .has_ref
-            .entry(root.clone())
-            .or_insert_with(|| names_commit(git_ref, &root));
-        if !has_ref {
-            return Err(UnresolvedReason::UnknownRef {
-                repository: root.display().to_string(),
-            });
-        }
-        let path_from_root = directory
-            .join(name)
-            .strip_prefix(&root)
-            .ok()
-            .and_then(Path::to_str)
-            .map(|path| path.replace('\\', "/"))
+            .root_of(&directory)
             .ok_or(UnresolvedReason::NotInRepository)?;
-        Ok((root, path_from_root))
+        let commit = self.commit_of(&root)?;
+        let path_from_root =
+            path_from(&root, &directory.join(name)).ok_or(UnresolvedReason::NotInRepository)?;
+        Ok((root, commit, path_from_root))
+    }
+
+    fn root_of(&mut self, directory: &Path) -> Option<PathBuf> {
+        self.roots
+            .entry(directory.to_path_buf())
+            .or_insert_with(|| {
+                git_root(directory).and_then(|root| Path::new(&root).canonicalize().ok())
+            })
+            .clone()
+    }
+
+    fn commit_of(&mut self, root: &Path) -> Result<String, UnresolvedReason> {
+        if let Some(commit) = self.commits.get(root) {
+            return commit.clone();
+        }
+        let commit = self.resolve_commit(root);
+        self.commits.insert(root.to_path_buf(), commit.clone());
+        commit
+    }
+
+    /// A repository that holds the invocation directory, or that sits
+    /// inside no other repository, is compared at the ref. Any other
+    /// repository is compared at the commit that the repository around it
+    /// pins for it at that repository's compared commit.
+    fn resolve_commit(&mut self, root: &Path) -> Result<String, UnresolvedReason> {
+        let repository = root.display().to_string();
+        let Some(outer) = self.outer_root(root) else {
+            return commit_id(self.git_ref, root)
+                .ok_or(UnresolvedReason::UnknownRef { repository });
+        };
+        let pinned = self
+            .commit_of(&outer)
+            .ok()
+            .zip(path_from(&outer, root))
+            .and_then(|(outer_commit, path)| pinned_commit(&outer_commit, &path, &outer));
+        let Some(pinned) = pinned else {
+            return Err(UnresolvedReason::NotPinned { repository });
+        };
+        commit_id(&pinned, root).ok_or(UnresolvedReason::PinnedCommitMissing {
+            repository,
+            commit: pinned,
+        })
+    }
+
+    /// The root of the repository around `root`, or `None` when no
+    /// repository is around it or `root` holds the invocation directory.
+    fn outer_root(&mut self, root: &Path) -> Option<PathBuf> {
+        if self
+            .invocation_directory
+            .as_deref()
+            .is_some_and(|directory| directory.starts_with(root))
+        {
+            return None;
+        }
+        let parent = root.parent()?;
+        let outer = self.root_of(parent)?;
+        parent.starts_with(&outer).then_some(outer)
     }
 }
 

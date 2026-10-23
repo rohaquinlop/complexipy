@@ -151,3 +151,34 @@ fn unresolved_diff_warnings_name_a_single_file() {
     );
     assert!(unresolved_diff_warnings(&[], "main").is_empty());
 }
+
+#[test]
+fn unresolved_diff_warnings_name_a_nested_repository_without_a_usable_pin() {
+    let files = vec![
+        unresolved(
+            "sub/a.py",
+            UnresolvedReason::NotPinned {
+                repository: "/repo/sub".to_string(),
+            },
+        ),
+        unresolved(
+            "lib/b.py",
+            UnresolvedReason::PinnedCommitMissing {
+                repository: "/repo/lib".to_string(),
+                commit: "abc123".to_string(),
+            },
+        ),
+    ];
+
+    assert_eq!(
+        unresolved_diff_warnings(&files, "main"),
+        vec![
+            "/repo/sub sits inside another repository but is not pinned there at \"main\", \
+             so all functions in its 1 analyzed file(s) report as NEW."
+                .to_string(),
+            "/repo/lib is pinned at \"main\" to commit abc123, which it does not have, so \
+             all functions in its 1 analyzed file(s) report as NEW."
+                .to_string(),
+        ]
+    );
+}

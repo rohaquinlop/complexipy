@@ -39,13 +39,17 @@ def commit(root: Path, source: str) -> None:
     git(root, "tag", "v1")
 
 
+def init(root: Path) -> None:
+    git(root, "init", "-q")
+    git(root, "config", "user.email", "test@example.com")
+    git(root, "config", "user.name", "Test")
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     (root / "pkg").mkdir(parents=True)
-    git(root, "init", "-q")
-    git(root, "config", "user.email", "test@example.com")
-    git(root, "config", "user.name", "Test")
+    init(root)
     return root
 
 
@@ -82,6 +86,33 @@ def test_the_gate_from_outside_the_repository_passes_an_unchanged_function(
     )
 
     assert exit_code == 0
+
+
+def test_the_gate_sees_a_nested_repository_the_change_adds_as_new(
+    repo: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    commit(repo, PLAIN)
+    nested = repo / "vendored"
+    nested.mkdir()
+    init(nested)
+    (nested / "lib.py").write_text(NESTED)
+    git(nested, "add", "-A")
+    git(nested, "commit", "-q", "-m", "base")
+    git(nested, "tag", "v1")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "add vendored")
+
+    exit_code = run_cli(
+        [str(repo), "--diff", "v1", "--max-complexity-allowed", "2"],
+        str(repo),
+    )
+
+    out = strip_ansi(capfd.readouterr().out)
+    assert exit_code == 1
+    assert (
+        'vendored sits inside another repository but is not pinned there at "v1"'
+        in out
+    )
 
 
 def test_diff_only_alone_prints_no_flag_warning(

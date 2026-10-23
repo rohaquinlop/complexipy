@@ -336,6 +336,144 @@ fn compute_diff_reports_a_ref_missing_from_the_repository_as_unresolved() {
     );
 }
 
+const FLAT: &str = "def f(x):\n    return x\n";
+
+const BRANCHED: &str = "def f(x):\n    if x:\n        return 1\n    return 0\n";
+
+fn repository_with(dir: &Path, source: &str) {
+    fs::create_dir_all(dir).expect("should create");
+    init_repo(dir);
+    fs::write(dir.join("a.py"), source).expect("should write");
+    commit_all(dir, "commit");
+}
+
+/// An outer repository that pins `sub` at a commit where `f` has
+/// complexity 0, while `sub` itself has moved on to complexity 1.
+fn outer_pinning_an_older_sub() -> tempfile::TempDir {
+    let outer = tempdir().expect("tempdir should work");
+    let sub = outer.path().join("sub");
+    repository_with(&sub, FLAT);
+    init_repo(outer.path());
+    commit_all(outer.path(), "pin sub");
+    fs::write(sub.join("a.py"), BRANCHED).expect("should write");
+    commit_all(&sub, "branch");
+    outer
+}
+
+/// The status of `f`, now of complexity 1, in `repository/a.py` against
+/// `HEAD`, and why the file could not be read, if it could not.
+fn diff_of_a_py(repository: &Path, invocation: &Path) -> (Vec<DiffStatus>, Vec<UnresolvedReason>) {
+    let path = repository.join("a.py");
+    let current = vec![file_complexity(path.to_str().unwrap(), "a.py", &[("f", 1)])];
+    let report = compute_diff_report(&current, "HEAD", invocation.to_str().unwrap());
+    (
+        report.entries.iter().map(DiffEntry::status).collect(),
+        report
+            .unresolved
+            .into_iter()
+            .map(|file| file.reason)
+            .collect(),
+    )
+}
+
+fn canonical(path: &Path) -> String {
+    path.canonicalize().unwrap().display().to_string()
+}
+
+#[test]
+fn compute_diff_reads_a_nested_repository_at_the_commit_the_outer_one_pins() {
+    let outer = outer_pinning_an_older_sub();
+
+    assert_eq!(
+        diff_of_a_py(&outer.path().join("sub"), outer.path()),
+        (vec![DiffStatus::Regressed], vec![])
+    );
+}
+
+#[test]
+fn compute_diff_reads_a_nested_repository_at_its_own_ref_when_invoked_inside_it() {
+    let outer = outer_pinning_an_older_sub();
+    let sub = outer.path().join("sub");
+
+    assert_eq!(
+        diff_of_a_py(&sub, &sub),
+        (vec![DiffStatus::Unchanged], vec![])
+    );
+}
+
+#[test]
+fn compute_diff_follows_pins_through_each_level_of_nesting() {
+    let outer = tempdir().expect("tempdir should work");
+    let middle = outer.path().join("middle");
+    let inner = middle.join("inner");
+    repository_with(&inner, FLAT);
+    init_repo(&middle);
+    commit_all(&middle, "pin inner");
+    init_repo(outer.path());
+    commit_all(outer.path(), "pin middle");
+    fs::write(inner.join("a.py"), BRANCHED).expect("should write");
+    commit_all(&inner, "branch");
+    commit_all(&middle, "advance inner");
+
+    assert_eq!(
+        diff_of_a_py(&inner, outer.path()),
+        (vec![DiffStatus::Regressed], vec![])
+    );
+}
+
+#[test]
+fn compute_diff_reports_a_nested_repository_the_outer_one_does_not_pin_as_new() {
+    let outer = tempdir().expect("tempdir should work");
+    init_repo(outer.path());
+    fs::write(outer.path().join("README.md"), "placeholder").expect("should write");
+    commit_all(outer.path(), "initial");
+    let sub = outer.path().join("sub");
+    repository_with(&sub, BRANCHED);
+
+    assert_eq!(
+        diff_of_a_py(&sub, outer.path()),
+        (
+            vec![DiffStatus::New],
+            vec![UnresolvedReason::NotPinned {
+                repository: canonical(&sub)
+            }]
+        )
+    );
+}
+
+#[test]
+fn compute_diff_reports_a_pinned_commit_the_nested_repository_lacks_as_new() {
+    let outer = tempdir().expect("tempdir should work");
+    let sub = outer.path().join("sub");
+    repository_with(&sub, BRANCHED);
+    init_repo(outer.path());
+    let missing = "1".repeat(40);
+    git(
+        outer.path(),
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("160000,{},sub", missing),
+        ],
+    );
+    git(
+        outer.path(),
+        &["commit", "-q", "-m", "pin a missing commit"],
+    );
+
+    assert_eq!(
+        diff_of_a_py(&sub, outer.path()),
+        (
+            vec![DiffStatus::New],
+            vec![UnresolvedReason::PinnedCommitMissing {
+                repository: canonical(&sub),
+                commit: missing,
+            }]
+        )
+    );
+}
+
 #[test]
 fn compute_staged_diff_returns_none_outside_repo() {
     let dir = tempdir().expect("tempdir should work");

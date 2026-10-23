@@ -73,8 +73,8 @@ pub fn diff_flags_warning(diff: Option<&str>, diff_only: Option<&str>) -> Option
 }
 
 /// One warning for the files outside any git repository, and one per
-/// repository where `git_ref` names no commit. The functions of those files
-/// report as NEW.
+/// repository that the diff could not read at `git_ref`. The functions of
+/// those files report as NEW.
 pub fn unresolved_diff_warnings(unresolved: &[UnresolvedFile], git_ref: &str) -> Vec<String> {
     let mut warnings = Vec::new();
 
@@ -97,24 +97,34 @@ pub fn unresolved_diff_warnings(unresolved: &[UnresolvedFile], git_ref: &str) ->
         )),
     }
 
-    let mut repositories: Vec<(&str, usize)> = Vec::new();
+    let mut causes: Vec<(&UnresolvedReason, usize)> = Vec::new();
     for file in unresolved {
-        let UnresolvedReason::UnknownRef { repository } = &file.reason else {
+        if file.reason == UnresolvedReason::NotInRepository {
             continue;
-        };
-        match repositories
-            .iter_mut()
-            .find(|(seen, _)| *seen == repository.as_str())
-        {
+        }
+        match causes.iter_mut().find(|(seen, _)| **seen == file.reason) {
             Some((_, count)) => *count += 1,
-            None => repositories.push((repository, 1)),
+            None => causes.push((&file.reason, 1)),
         }
     }
-    for (repository, count) in repositories {
+    for (reason, count) in causes {
+        let cause = match reason {
+            UnresolvedReason::NotInRepository => continue,
+            UnresolvedReason::UnknownRef { repository } => {
+                format!("{:?} does not name a commit in {}", git_ref, repository)
+            }
+            UnresolvedReason::NotPinned { repository } => format!(
+                "{} sits inside another repository but is not pinned there at {:?}",
+                repository, git_ref
+            ),
+            UnresolvedReason::PinnedCommitMissing { repository, commit } => format!(
+                "{} is pinned at {:?} to commit {}, which it does not have",
+                repository, git_ref, commit
+            ),
+        };
         warnings.push(format!(
-            "{:?} does not name a commit in {}, so all functions in its {} analyzed \
-             file(s) report as NEW.",
-            git_ref, repository, count
+            "{}, so all functions in its {} analyzed file(s) report as NEW.",
+            cause, count
         ));
     }
 
