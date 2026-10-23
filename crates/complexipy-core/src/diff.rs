@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -50,13 +50,15 @@ pub fn compute_diff(
     git_ref: &str,
     invocation_path: &str,
 ) -> Vec<DiffEntry> {
+    let regular_files = regular_files_at_ref(git_ref, invocation_path);
     let mut entries = Vec::new();
 
     for file in current_files {
         let path_from_root = resolve_git_path(&file.path, git_ref, invocation_path);
         let current_map = keyed_complexities(&file.functions);
 
-        let Some(old_content) = file_content_at_ref(git_ref, &path_from_root, invocation_path)
+        let Some(old_content) =
+            regular_file_content_at_ref(git_ref, &path_from_root, invocation_path, &regular_files)
         else {
             let mut names: Vec<&String> = current_map.keys().collect();
             names.sort();
@@ -95,10 +97,12 @@ pub fn compute_diff(
 
 pub fn compute_staged_diff(git_ref: &str, invocation_path: &str) -> Option<Vec<DiffEntry>> {
     let root = git_root(invocation_path)?;
+    let regular_files = regular_files_at_ref(git_ref, &root);
 
     let mut entries = Vec::new();
     for path_from_root in staged_python_files(git_ref, &root) {
-        let old_content = file_content_at_ref(git_ref, &path_from_root, &root);
+        let old_content =
+            regular_file_content_at_ref(git_ref, &path_from_root, &root, &regular_files);
         let new_content = file_content_at_index(&path_from_root, &root);
 
         let old_map = analyse_content_to_map(old_content.as_deref());
@@ -167,6 +171,40 @@ fn file_content_at_ref(git_ref: &str, path_from_root: &str, cwd: &str) -> Option
     if success { Some(output) } else { None }
 }
 
+fn regular_file_content_at_ref(
+    git_ref: &str,
+    path_from_root: &str,
+    cwd: &str,
+    regular_files: &HashSet<String>,
+) -> Option<String> {
+    if !regular_files.contains(path_from_root) {
+        return None;
+    }
+    file_content_at_ref(git_ref, path_from_root, cwd)
+}
+
+/// The paths from the repository root that are regular files at `git_ref`,
+/// mode 100644 or 100755, leaving out symbolic links and submodules.
+fn regular_files_at_ref(git_ref: &str, cwd: &str) -> HashSet<String> {
+    let args = [
+        "ls-tree",
+        "-r",
+        "-z",
+        "--full-tree",
+        "--end-of-options",
+        git_ref,
+    ];
+    let Some((true, output)) = run_git_bytes(cwd, &args, GIT_TIMEOUT) else {
+        return HashSet::new();
+    };
+    output
+        .split(|byte| *byte == 0)
+        .filter_map(|entry| std::str::from_utf8(entry).ok()?.split_once('\t'))
+        .filter(|(meta, _)| matches!(meta.split(' ').next(), Some("100644" | "100755")))
+        .map(|(_, path)| path.to_string())
+        .collect()
+}
+
 fn file_content_at_index(path_from_root: &str, cwd: &str) -> Option<String> {
     let argument = format!(":{}", path_from_root);
     let (success, output) = run_git(cwd, &["show", "--end-of-options", &argument], GIT_TIMEOUT)?;
@@ -181,7 +219,7 @@ fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
             "--name-only",
             "--cached",
             "--no-renames",
-            "--diff-filter=ACMRD",
+            "--diff-filter=ACMRDT",
             "--end-of-options",
             git_ref,
             "--",
@@ -279,6 +317,11 @@ fn keyed_complexities(functions: &[FunctionComplexity]) -> HashMap<String, u64> 
 }
 
 fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
+    let (success, output) = run_git_bytes(cwd, args, timeout)?;
+    Some((success, String::from_utf8(output).ok()?))
+}
+
+fn run_git_bytes(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, Vec<u8>)> {
     let mut child = Command::new("git")
         .args(args)
         .current_dir(cwd)
@@ -313,7 +356,6 @@ fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)
     };
 
     let output = stdout_handle.join().ok()?;
-    let output = String::from_utf8(output).ok()?;
     Some((status.success(), output))
 }
 

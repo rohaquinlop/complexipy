@@ -451,3 +451,44 @@ fn function_keys_number_repeated_names_in_source_order() {
 
     assert_eq!(function_keys(&functions), vec!["f#2", "g", "f"]);
 }
+
+#[cfg(unix)]
+const NESTED: &str = "def nested(a, b, c):\n    if a:\n        if b:\n            if c:\n                return 1\n    return 0\n";
+
+#[cfg(unix)]
+fn link_at_head_now_a_regular_file(dir: &Path) {
+    init_repo(dir);
+    std::os::unix::fs::symlink(NESTED, dir.join("x.py")).unwrap();
+    commit_all(dir, "link");
+    fs::remove_file(dir.join("x.py")).unwrap();
+    fs::write(dir.join("x.py"), NESTED).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_at_the_ref_is_never_read_as_python() {
+    let dir = tempdir().unwrap();
+    link_at_head_now_a_regular_file(dir.path());
+
+    let entries = compute_diff(
+        &[file_complexity("x.py", "x.py", &[("nested", 6)])],
+        "HEAD",
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(entries, vec![entry("x.py", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_staged_link_made_a_regular_file_is_compared_as_added() {
+    let dir = tempdir().unwrap();
+    link_at_head_now_a_regular_file(dir.path());
+    git(dir.path(), &["add", "x.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    assert_eq!(entries, vec![entry("x.py", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}

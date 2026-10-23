@@ -6,6 +6,15 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Corregido
+
+- `--diff` y `--staged` leen una ruta en la referencia solo cuando allí era
+  un archivo regular. Una ruta que era un enlace simbólico en la referencia y
+  ahora es un archivo regular se compara como añadida en lugar de contra el
+  texto de destino del enlace, así que sus funciones por encima del umbral
+  hacen fallar el control. `--staged` además compara un cambio staged entre
+  un enlace simbólico y un archivo regular, que antes omitía.
+
 ## [8.1.0] - 2026-10-18
 
 ### Añadido

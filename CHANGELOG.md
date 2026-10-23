@@ -5,6 +5,14 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Fixed
+
+- `--diff` and `--staged` read a path at the ref only when it was a regular
+  file there. A path that was a symbolic link at the ref and is now a regular
+  file compares as added instead of against the link's target text, so its
+  functions above the threshold fail the gate. `--staged` also compares a
+  staged change between a symbolic link and a regular file, which it skipped.
+
 ## [8.1.0] - 2026-10-18
 
 ### Added

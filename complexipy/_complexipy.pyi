@@ -600,9 +600,11 @@ def compute_diff(
     """
     Compare the current complexity results against *git_ref*.
 
-    For each file in *current_files*, retrieves the file's content at
-    *git_ref* using ``git show`` and re-analyses it. Functions that
-    appear only in one version are marked NEW / REMOVED.
+    For each file in *current_files* that is a regular file at
+    *git_ref*, retrieves its content there using ``git show`` and
+    re-analyses it. A file that is not, such as a symbolic link at
+    *git_ref*, has no old version. Functions that appear only in one
+    version are marked NEW / REMOVED.
 
     Args:
         current_files: Complexity results of the current analysis.
