@@ -955,7 +955,12 @@ impl Server {
     fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
         let diagnostics = self.failure_diagnostics(uri, &failure);
 
-        eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), failure.message);
+        eprintln!(
+            "{}: {}: {}",
+            SERVER_NAME,
+            escape_controls(uri.as_str()),
+            escape_controls(&failure.message)
+        );
         self.failures.insert(Documents::key(uri), failure);
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
     }
