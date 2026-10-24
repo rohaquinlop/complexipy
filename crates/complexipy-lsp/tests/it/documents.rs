@@ -16,7 +16,7 @@ fn keeps_text_and_version() {
     documents.change(&target, "second".to_string(), 2);
 
     let document = documents.get(&target).unwrap();
-    assert_eq!(document.text, "second");
+    assert_eq!(&*document.text, "second");
     assert_eq!(document.version, 2);
 }
 

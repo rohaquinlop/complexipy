@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use lsp_types::Uri;
 
@@ -8,7 +9,7 @@ pub const PYTHON_EXTENSION: &str = ".py";
 #[derive(Debug, Clone)]
 pub struct Document {
     pub uri: Uri,
-    pub text: String,
+    pub text: Arc<str>,
     pub version: i32,
     pub language_id: String,
 }
@@ -28,7 +29,7 @@ impl Documents {
             Self::key(&uri),
             Document {
                 uri,
-                text,
+                text: Arc::from(text),
                 version,
                 language_id,
             },
@@ -43,7 +44,7 @@ impl Documents {
 
     pub fn change(&mut self, uri: &Uri, text: String, version: i32) {
         if let Some(document) = self.open.get_mut(&Self::key(uri)) {
-            document.text = text;
+            document.text = Arc::from(text);
             document.version = version;
         }
     }

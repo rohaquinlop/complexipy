@@ -1,13 +1,30 @@
+use std::collections::HashSet;
+
 use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason};
 use complexipy_core::utils::split_lines;
 use owo_colors::OwoColorize;
 use unicode_width::UnicodeWidthChar;
 
-use crate::output::refactor::highlight_regions;
+use crate::output::refactor::highlight_lines_where;
 use crate::output::render::terminal_width;
 
 const REMOVED_BACKGROUND: (u8, u8, u8) = (58, 25, 29);
 const ADDED_BACKGROUND: (u8, u8, u8) = (21, 48, 34);
+
+enum Text {
+    Old(usize),
+    New(usize),
+}
+
+enum Row {
+    Header(String),
+    Code {
+        old: Option<usize>,
+        new: Option<usize>,
+        marker: char,
+        text: Text,
+    },
+}
 
 pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bool) -> String {
     if report.applied.is_empty() {
@@ -16,16 +33,23 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
 
     let old_lines = split_lines(source).count();
     let new_lines = split_lines(&report.patched).count();
-    let removed = spans_of(&report.applied);
-    let added = added_spans(&report.applied);
+    let rows = diff_rows(report, old_lines, colored);
     let (old_rendered, new_rendered) = if colored {
+        let removed = spans_of(&report.applied);
+        let added = added_spans(&report.applied);
+        let shown_old: HashSet<usize> = rows.iter().filter_map(old_text_index).collect();
+        let shown_new: HashSet<usize> = rows.iter().filter_map(new_text_index).collect();
         (
-            highlight_regions(source, &|index| {
-                in_ranges(&removed, index + 1).then_some(REMOVED_BACKGROUND)
-            }),
-            highlight_regions(&report.patched, &|index| {
-                in_ranges(&added, index + 1).then_some(ADDED_BACKGROUND)
-            }),
+            highlight_lines_where(
+                source,
+                &|index| in_ranges(&removed, index + 1).then_some(REMOVED_BACKGROUND),
+                &|index| shown_old.contains(&index),
+            ),
+            highlight_lines_where(
+                &report.patched,
+                &|index| in_ranges(&added, index + 1).then_some(ADDED_BACKGROUND),
+                &|index| shown_new.contains(&index),
+            ),
         )
     } else {
         (
@@ -35,12 +59,55 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
     };
 
     let width = old_lines.max(new_lines).to_string().len();
+    let code_cells = terminal_width().saturating_sub(width * 2 + 3);
     let display = path.trim_start_matches('/');
     let mut lines = vec![
         colored_line(&format!("--- a/{display}"), colored, Tone::Removed),
         colored_line(&format!("+++ b/{display}"), colored, Tone::Added),
     ];
+    for row in rows {
+        lines.push(match row {
+            Row::Header(header) => header,
+            Row::Code {
+                old,
+                new,
+                marker,
+                text,
+            } => {
+                let code = match text {
+                    Text::Old(line) => &old_rendered[line - 1],
+                    Text::New(line) => &new_rendered[line - 1],
+                };
+                diff_row(old, new, marker, code, width, code_cells, colored)
+            }
+        });
+    }
 
+    lines.join("\n")
+}
+
+fn old_text_index(row: &Row) -> Option<usize> {
+    match row {
+        Row::Code {
+            text: Text::Old(line),
+            ..
+        } => Some(line - 1),
+        _ => None,
+    }
+}
+
+fn new_text_index(row: &Row) -> Option<usize> {
+    match row {
+        Row::Code {
+            text: Text::New(line),
+            ..
+        } => Some(line - 1),
+        _ => None,
+    }
+}
+
+fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
+    let mut lines = Vec::new();
     let mut delta: i64 = 0;
     let mut emitted_to = 0usize;
     for (index, applied) in report.applied.iter().enumerate() {
@@ -60,64 +127,56 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
         let post_count = post_end.saturating_sub(old_end);
 
         let old_hunk_start = old_start - pre_count;
-        lines.push(hunk_header(
+        lines.push(Row::Header(hunk_header(
             old_hunk_start,
             pre_count + removed_count + post_count,
             (old_hunk_start as i64 + delta) as usize,
             pre_count + added_count + post_count,
             applied,
             colored,
-        ));
+        )));
 
         for line in pre_start..old_start {
-            lines.push(diff_row(
-                Some(line),
-                Some((line as i64 + delta) as usize),
-                ' ',
-                &old_rendered[line - 1],
-                width,
-                colored,
-            ));
+            lines.push(Row::Code {
+                old: Some(line),
+                new: Some((line as i64 + delta) as usize),
+                marker: ' ',
+                text: Text::Old(line),
+            });
         }
         for line in old_start..=old_end {
-            lines.push(diff_row(
-                Some(line),
-                None,
-                '-',
-                &old_rendered[line - 1],
-                width,
-                colored,
-            ));
+            lines.push(Row::Code {
+                old: Some(line),
+                new: None,
+                marker: '-',
+                text: Text::Old(line),
+            });
         }
         let new_start = old_start as i64 + delta;
         for offset in 0..added_count {
             let line = new_start as usize + offset;
-            lines.push(diff_row(
-                None,
-                Some(line),
-                '+',
-                &new_rendered[line - 1],
-                width,
-                colored,
-            ));
+            lines.push(Row::Code {
+                old: None,
+                new: Some(line),
+                marker: '+',
+                text: Text::New(line),
+            });
         }
         let delta_after = delta + added_count as i64 - removed_count as i64;
         for line in old_end + 1..=old_end + post_count {
-            lines.push(diff_row(
-                Some(line),
-                Some((line as i64 + delta_after) as usize),
-                ' ',
-                &old_rendered[line - 1],
-                width,
-                colored,
-            ));
+            lines.push(Row::Code {
+                old: Some(line),
+                new: Some((line as i64 + delta_after) as usize),
+                marker: ' ',
+                text: Text::Old(line),
+            });
         }
 
         delta = delta_after;
         emitted_to = old_end + post_count;
     }
 
-    lines.join("\n")
+    lines
 }
 
 fn spans_of(applied: &[AppliedFix]) -> Vec<(usize, usize)> {
@@ -171,6 +230,7 @@ fn diff_row(
     marker: char,
     code: &str,
     width: usize,
+    code_cells: usize,
     colored: bool,
 ) -> String {
     let old = old_number.map_or_else(String::new, |number| number.to_string());
@@ -179,7 +239,7 @@ fn diff_row(
     if colored {
         numbers = numbers.dimmed().to_string();
     }
-    let code = truncate_cells(code, terminal_width().saturating_sub(width * 2 + 3));
+    let code = truncate_cells(code, code_cells);
     let marker = if colored {
         match marker {
             '-' => "-".red().bold().to_string(),

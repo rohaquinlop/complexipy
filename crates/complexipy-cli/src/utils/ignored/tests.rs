@@ -4,7 +4,9 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 use crate::types::OutputFormat;
-use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
+use crate::utils::ignored::handle_report_ignored;
+use complexipy_core::AnalysisOptions;
+use complexipy_core::runner::{Analysis, LocationReports};
 
 const SIMPLE_MARKED: &str = "def simple(x):  # complexipy: ignore\n    return x + 1\n";
 
@@ -15,6 +17,43 @@ fn marked_file(dir: &std::path::Path, name: &str, content: &str) -> String {
     dir.join(name).to_string_lossy().into_owned()
 }
 
+fn analysis(file: String, dir: &std::path::Path, reports: LocationReports) -> Analysis {
+    Analysis::run(
+        &[file],
+        &[],
+        &AnalysisOptions::default(),
+        dir.to_str().unwrap(),
+        reports,
+    )
+}
+
+fn ignored(file: String, dir: &std::path::Path) -> Analysis {
+    analysis(
+        file,
+        dir,
+        LocationReports {
+            ignored: true,
+            removable_above: None,
+        },
+    )
+}
+
+fn removable(
+    file: String,
+    dir: &std::path::Path,
+    max: u64,
+) -> Vec<complexipy_core::classes::RemovableIgnore> {
+    analysis(
+        file,
+        dir,
+        LocationReports {
+            ignored: false,
+            removable_above: Some(max),
+        },
+    )
+    .removable_ignores()
+}
+
 #[test]
 fn report_disabled_returns_empty() {
     let dir = tempdir().expect("tempdir should work");
@@ -22,11 +61,9 @@ fn report_disabled_returns_empty() {
 
     let (locations, json_path) = handle_report_ignored(
         false,
-        &[file],
-        &[],
+        &ignored(file, dir.path()),
         &[OutputFormat::Json],
         None,
-        false,
         dir.path().to_str().unwrap(),
     )
     .expect("should succeed");
@@ -42,11 +79,9 @@ fn report_writes_ignored_json_next_to_output() {
 
     let (locations, json_path) = handle_report_ignored(
         true,
-        &[file],
-        &[],
+        &ignored(file, dir.path()),
         &[OutputFormat::Json],
         None,
-        false,
         dir.path().to_str().unwrap(),
     )
     .expect("should succeed");
@@ -76,11 +111,9 @@ fn report_without_json_format_writes_no_file() {
 
     let (locations, json_path) = handle_report_ignored(
         true,
-        &[file],
-        &[],
+        &ignored(file, dir.path()),
         &[OutputFormat::Csv],
         None,
-        false,
         dir.path().to_str().unwrap(),
     )
     .expect("should succeed");
@@ -97,11 +130,9 @@ fn report_without_comments_writes_no_file() {
 
     let (locations, json_path) = handle_report_ignored(
         true,
-        &[file],
-        &[],
+        &ignored(file, dir.path()),
         &[OutputFormat::Json],
         None,
-        false,
         dir.path().to_str().unwrap(),
     )
     .expect("should succeed");
@@ -115,7 +146,7 @@ fn removable_ignores_below_threshold() {
     let dir = tempdir().expect("tempdir should work");
     let file = marked_file(dir.path(), "a.py", SIMPLE_MARKED);
 
-    let removable = handle_removable_ignores(&[file], &[], 15, dir.path().to_str().unwrap());
+    let removable = removable(file, dir.path(), 15);
 
     assert_eq!(removable.len(), 1);
     assert_eq!(removable[0].function, "simple");
@@ -128,7 +159,7 @@ fn removable_ignores_above_threshold_excluded() {
     let dir = tempdir().expect("tempdir should work");
     let file = marked_file(dir.path(), "a.py", COMPLEX_MARKED);
 
-    let removable = handle_removable_ignores(&[file], &[], 2, dir.path().to_str().unwrap());
+    let removable = removable(file, dir.path(), 2);
 
     assert!(removable.is_empty());
 }

@@ -5,17 +5,189 @@ use crate::rules::{AnalysisOptions, RuleSet};
 use crate::syntax_tree::parse_module;
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
 use rayon::prelude::*;
+use ruff_python_ast::Suite;
 use std::collections::HashSet;
 use std::path::{self, PathBuf};
 
 use crate::cognitive_complexity::code_complexity_shared;
 
-struct ProcessOptions {
-    exclude: Vec<String>,
-    analysis: AnalysisOptions,
+type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
+
+/// The ignore-comment reports a run collects while it reads each file:
+/// every ignored location, as `--report-ignored` lists them, and the ignore
+/// comments whose function is at or under `removable_above` without them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LocationReports {
+    pub ignored: bool,
+    pub removable_above: Option<u64>,
 }
 
-type ComplexitiesAndFailedPaths = (Vec<FileComplexity>, Vec<String>);
+impl LocationReports {
+    fn any(&self) -> bool {
+        self.ignored || self.removable_above.is_some()
+    }
+}
+
+struct RunContext {
+    invocation: path::PathBuf,
+    analysis: AnalysisOptions,
+    reports: LocationReports,
+}
+
+/// One file the run read: a file found under a directory argument, or a
+/// file argument itself. `location` is the path its ignore comments are
+/// reported at, when the run collects them.
+struct SourceRecord {
+    path: String,
+    resolved: bool,
+    location: Option<String>,
+    display: Option<String>,
+    ignored: Vec<IgnoredLocation>,
+    removable: Vec<RemovableIgnore>,
+}
+
+/// A file that a path argument names, found before any file is read so
+/// that a file reached through several arguments is analyzed once. `key` is
+/// its resolved path with forward slashes.
+struct PendingSource {
+    key: String,
+    path: String,
+    resolved: bool,
+    location: Option<String>,
+}
+
+struct Discovery {
+    failure: Option<String>,
+    files: Vec<PendingSource>,
+}
+
+struct ArgumentRecord {
+    failure: Option<String>,
+    sources: Vec<(SourceRecord, Option<FileComplexity>)>,
+}
+
+/// The results of analyzing every path argument, with the ignore-comment
+/// reports gathered in the same pass over each file.
+pub struct Analysis {
+    pub files: Vec<FileComplexity>,
+    pub failed_paths: Vec<String>,
+    sources: Vec<SourceRecord>,
+    context: RunContext,
+}
+
+impl Analysis {
+    pub fn run(
+        paths: &[String],
+        exclude: &[String],
+        opts: &AnalysisOptions,
+        invocation_path: &str,
+        reports: LocationReports,
+    ) -> Self {
+        let context = RunContext {
+            invocation: canonical(path::Path::new(invocation_path)),
+            analysis: opts.clone(),
+            reports,
+        };
+        let mut discoveries: Vec<Discovery> = paths
+            .par_iter()
+            .map(|path| discover_argument(path, exclude, &context))
+            .collect();
+        let mut seen: HashSet<String> = HashSet::new();
+        for discovery in &mut discoveries {
+            discovery.files.retain(|file| seen.insert(file.key.clone()));
+        }
+        let arguments: Vec<ArgumentRecord> = discoveries
+            .into_par_iter()
+            .map(|discovery| ArgumentRecord {
+                failure: discovery.failure,
+                sources: discovery
+                    .files
+                    .into_par_iter()
+                    .map(|file| analyze_source(file.path, file.resolved, file.location, &context))
+                    .collect(),
+            })
+            .collect();
+
+        let mut files = Vec::new();
+        let mut failed_paths = Vec::new();
+        let mut sources = Vec::new();
+        for argument in arguments {
+            failed_paths.extend(argument.failure);
+            let mut complexities = Vec::new();
+            for (source, complexity) in argument.sources {
+                match complexity {
+                    Some(complexity) => complexities.push(complexity),
+                    None => failed_paths.push(source.path.clone()),
+                }
+                sources.push(source);
+            }
+            sort_files(&mut complexities);
+            files.append(&mut complexities);
+        }
+
+        Self {
+            files,
+            failed_paths,
+            sources,
+            context,
+        }
+    }
+
+    /// Analyzes again the files whose reported path is in `paths`, after
+    /// they were rewritten, and updates their results and ignore reports in
+    /// place. A file that no longer reads or parses leaves the results.
+    pub fn reanalyze(&mut self, paths: &HashSet<String>) {
+        let mut fresh: Vec<(String, Option<FileComplexity>)> = Vec::new();
+        for source in self.sources.iter_mut() {
+            let Some(display) = source.display.clone() else {
+                continue;
+            };
+            if !paths.contains(&display) {
+                continue;
+            }
+            let (record, complexity) = analyze_source(
+                source.path.clone(),
+                source.resolved,
+                source.location.clone(),
+                &self.context,
+            );
+            *source = record;
+            fresh.push((display, complexity));
+        }
+        for (display, complexity) in fresh {
+            match complexity {
+                Some(complexity) => {
+                    for file in self.files.iter_mut().filter(|file| file.path == display) {
+                        *file = complexity.clone();
+                    }
+                }
+                None => self.files.retain(|file| file.path != display),
+            }
+        }
+    }
+
+    /// Every ignored location, sorted by path and line.
+    pub fn ignored_locations(&self) -> Vec<IgnoredLocation> {
+        let mut locations: Vec<IgnoredLocation> = self
+            .sources
+            .iter()
+            .flat_map(|source| source.ignored.iter().cloned())
+            .collect();
+        locations.sort_by_key(Located::sort_key);
+        locations
+    }
+
+    /// Every removable ignore comment, sorted by path and line.
+    pub fn removable_ignores(&self) -> Vec<RemovableIgnore> {
+        let mut removable: Vec<RemovableIgnore> = self
+            .sources
+            .iter()
+            .flat_map(|source| source.removable.iter().cloned())
+            .collect();
+        removable.sort_by_key(Located::sort_key);
+        removable
+    }
+}
 
 pub fn run_analysis_shared(
     paths: &[String],
@@ -23,111 +195,238 @@ pub fn run_analysis_shared(
     opts: &AnalysisOptions,
     invocation_path: &str,
 ) -> Result<ComplexitiesAndFailedPaths, String> {
-    let mut successful = Vec::new();
-    let mut failed_paths = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
-    let inv_abs = canonical(invocation_path);
-    let opts = ProcessOptions {
-        exclude: exclude.to_vec(),
-        analysis: opts.clone(),
-    };
-
-    for path in paths {
-        let path_obj = path::Path::new(path);
-        if !path_obj.exists() {
-            failed_paths.push(path.to_string());
-            continue;
-        }
-
-        let (mut complexities, mut f_paths) = if path_obj.is_dir() {
-            evaluate_dir_shared(path, &opts, &inv_abs, &mut seen)
-        } else if !seen.insert(slashed(&canonical(path))) {
-            continue;
-        } else {
-            match analyze_file_shared(path, &opts, &inv_abs) {
-                Ok(file_complexity) => (vec![file_complexity], vec![]),
-                Err(_) => (vec![], vec![path.to_string()]),
-            }
-        };
-        complexities.iter_mut().for_each(|f| {
-            f.functions
-                .sort_by(|a, b| a.complexity.cmp(&b.complexity).then(a.name.cmp(&b.name)))
-        });
-        complexities.sort_by(|a, b| {
-            a.path
-                .cmp(&b.path)
-                .then(a.file_name.cmp(&b.file_name))
-                .then(a.complexity.cmp(&b.complexity))
-        });
-        successful.append(&mut complexities);
-        failed_paths.append(&mut f_paths);
-    }
-
-    Ok((successful, failed_paths))
+    let analysis = Analysis::run(
+        paths,
+        exclude,
+        opts,
+        invocation_path,
+        LocationReports::default(),
+    );
+    Ok((analysis.files, analysis.failed_paths))
 }
 
-fn canonical(path: &str) -> PathBuf {
-    path::Path::new(path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(path).to_path_buf())
+fn sort_files(complexities: &mut [FileComplexity]) {
+    complexities.sort_by(|a, b| {
+        a.path
+            .cmp(&b.path)
+            .then(a.file_name.cmp(&b.file_name))
+            .then(a.complexity.cmp(&b.complexity))
+    });
+}
+
+fn canonical(path: &path::Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn slashed(path: &path::Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-fn evaluate_dir_shared(
-    path: &str,
-    opts: &ProcessOptions,
-    invocation_path: &path::Path,
-    seen: &mut HashSet<String>,
-) -> ComplexitiesAndFailedPaths {
-    let mut files_paths_to_process =
-        match get_paths_to_process(path, opts.exclude.clone(), invocation_path) {
-            Ok(paths) => paths,
-            Err(e) => return (vec![], vec![format!("{}: {}", path, e)]),
+fn discover_argument(path: &str, exclude: &[String], context: &RunContext) -> Discovery {
+    let path_obj = path::Path::new(path);
+    if !path_obj.exists() {
+        return Discovery {
+            failure: Some(path.to_string()),
+            files: Vec::new(),
         };
-    files_paths_to_process.retain(|file_path| seen.insert(file_path.clone()));
-
-    let results: Vec<Result<FileComplexity, String>> = files_paths_to_process
-        .par_iter()
-        .map(|file_path| analyze_file_shared(file_path, opts, invocation_path))
-        .collect();
-
-    let mut complexities = Vec::new();
-    let mut failed_paths = Vec::new();
-    for (file_path, result) in files_paths_to_process.into_iter().zip(results) {
-        match result {
-            Ok(file_complexity) => complexities.push(file_complexity),
-            Err(_) => failed_paths.push(file_path),
-        }
     }
-    (complexities, failed_paths)
+
+    if !path_obj.is_dir() {
+        let location = (context.reports.any() && path_obj.is_file())
+            .then(|| file_location(path, &context.invocation));
+        return Discovery {
+            failure: None,
+            files: vec![PendingSource {
+                key: slashed(&canonical(path_obj)),
+                path: path.to_string(),
+                resolved: false,
+                location,
+            }],
+        };
+    }
+
+    let files_paths_to_process =
+        match get_paths_to_process(path, exclude.to_vec(), &context.invocation) {
+            Ok(paths) => paths,
+            Err(e) => {
+                return Discovery {
+                    failure: Some(format!("{}: {}", path, e)),
+                    files: Vec::new(),
+                };
+            }
+        };
+    let location_base = context
+        .reports
+        .any()
+        .then(|| directory_location_base(path_obj, &context.invocation));
+    Discovery {
+        failure: None,
+        files: files_paths_to_process
+            .into_iter()
+            .map(|file_path| PendingSource {
+                key: file_path.clone(),
+                location: location_base
+                    .as_deref()
+                    .map(|base| relative_to_base(&file_path, base).to_string()),
+                path: file_path,
+                resolved: true,
+            })
+            .collect(),
+    }
 }
 
-fn analyze_file_shared(
-    path: &str,
-    opts: &ProcessOptions,
-    invocation_path: &path::Path,
-) -> Result<FileComplexity, String> {
-    let inv_str = invocation_path.to_string_lossy().replace('\\', "/");
-    let file_abs = path::Path::new(path)
-        .canonicalize()
-        .unwrap_or_else(|_| path::Path::new(path).to_path_buf());
-    let rel = file_abs
-        .strip_prefix(invocation_path)
+fn analyze_source(
+    path: String,
+    resolved: bool,
+    location: Option<String>,
+    context: &RunContext,
+) -> (SourceRecord, Option<FileComplexity>) {
+    let mut record = SourceRecord {
+        path,
+        resolved,
+        location,
+        display: None,
+        ignored: Vec::new(),
+        removable: Vec::new(),
+    };
+    let Ok(code) = std::fs::read_to_string(&record.path) else {
+        return (record, None);
+    };
+    let parsed = parse_module(&code).ok();
+    let suite = parsed.as_ref().map(|parsed| parsed.suite());
+
+    if let Some(relative) = record.location.as_deref() {
+        let locations = collect_ignored_locations(&code);
+        if let (Some(max_complexity_allowed), Some(suite)) =
+            (context.reports.removable_above, suite)
+            && !locations.is_empty()
+        {
+            record.removable =
+                removable_ignores(&locations, suite, &code, relative, max_complexity_allowed);
+        }
+        if context.reports.ignored {
+            record.ignored = ignored_locations(locations, relative);
+        }
+    }
+
+    let complexity = suite.and_then(|suite| analyze_file(&record, suite, &code, context));
+    record.display = complexity
+        .as_ref()
+        .map(|complexity| complexity.path.clone());
+    (record, complexity)
+}
+
+fn analyze_file(
+    record: &SourceRecord,
+    suite: &Suite,
+    code: &str,
+    context: &RunContext,
+) -> Option<FileComplexity> {
+    let file_path = path::Path::new(&record.path);
+    let file_name = file_path.file_name().and_then(|n| n.to_str())?;
+    let file_abs = if record.resolved {
+        file_path.to_path_buf()
+    } else {
+        file_path
+            .canonicalize()
+            .unwrap_or_else(|_| file_path.to_path_buf())
+    };
+    let relative = file_abs
+        .strip_prefix(&context.invocation)
         .ok()
         .and_then(|p| p.to_str())
-        .unwrap_or(path);
-    let mut complexity = file_complexity_shared(path, &inv_str, &opts.analysis)?;
-    if let Some(file_name) = path::Path::new(rel)
+        .unwrap_or(&record.path);
+    let file_name = path::Path::new(relative)
         .file_name()
         .and_then(|name| name.to_str())
-    {
-        complexity.file_name = file_name.to_string();
+        .unwrap_or(file_name);
+    let (mut functions, complexity) =
+        function_level_cognitive_complexity_shared(suite, code, &context.analysis);
+    functions.sort_by(|a, b| a.complexity.cmp(&b.complexity).then(a.name.cmp(&b.name)));
+    Some(FileComplexity {
+        path: relative.to_string(),
+        file_name: file_name.to_string(),
+        complexity,
+        functions,
+    })
+}
+
+/// The base that the ignore comments under the directory `path_obj` are
+/// reported relative to: the invocation directory when the directory is
+/// inside it, like the analysis results, and the directory's parent
+/// otherwise.
+fn directory_location_base(path_obj: &path::Path, invocation: &path::Path) -> String {
+    let root = canonical(path_obj);
+    if root.starts_with(invocation) {
+        slashed(invocation)
+    } else {
+        slashed(root.parent().unwrap_or(path::Path::new(".")))
     }
-    complexity.path = rel.to_string();
-    Ok(complexity)
+}
+
+fn file_location_base(path_obj: &path::Path) -> &str {
+    path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".")
+}
+
+/// The path that the ignore comments of the file argument `path` are
+/// reported at: its resolved path relative to the invocation directory when
+/// the file is inside it, like the analysis results, and the path as given
+/// relative to its own directory otherwise.
+fn file_location(path: &str, invocation: &path::Path) -> String {
+    let path_obj = path::Path::new(path);
+    let file_abs = canonical(path_obj);
+    if file_abs.starts_with(invocation) {
+        relative_to_base(&slashed(&file_abs), &slashed(invocation)).to_string()
+    } else {
+        relative_to_base(path, file_location_base(path_obj)).to_string()
+    }
+}
+
+fn relative_to_base<'a>(file_path: &'a str, base_path: &str) -> &'a str {
+    path::Path::new(file_path)
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path)
+}
+
+fn ignored_locations(locations: Vec<(u64, String)>, relative_path: &str) -> Vec<IgnoredLocation> {
+    locations
+        .into_iter()
+        .map(|(line, comment)| IgnoredLocation {
+            path: relative_path.to_string(),
+            line,
+            comment,
+        })
+        .collect()
+}
+
+fn removable_ignores(
+    locations: &[(u64, String)],
+    suite: &Suite,
+    code: &str,
+    relative_path: &str,
+    max_complexity_allowed: u64,
+) -> Vec<RemovableIgnore> {
+    let (functions, _) = function_level_cognitive_complexity_shared(
+        suite,
+        code,
+        &AnalysisOptions {
+            no_ignore: true,
+            rules: RuleSet::default(),
+            ..Default::default()
+        },
+    );
+    filter_removable_ignores(locations, &functions, max_complexity_allowed)
+        .into_iter()
+        .map(|(line, comment, function, complexity)| RemovableIgnore {
+            path: relative_path.to_string(),
+            line,
+            comment,
+            function,
+            complexity,
+        })
+        .collect()
 }
 
 pub fn file_complexity_shared(
@@ -161,23 +460,13 @@ pub fn collect_file_ignored_locations(
     file_path: &str,
     base_path: &str,
 ) -> Result<Vec<IgnoredLocation>, String> {
-    let path = path::Path::new(file_path);
-    let relative_path = path
-        .strip_prefix(base_path)
-        .ok()
-        .and_then(|p| p.to_str())
-        .unwrap_or(file_path);
+    let relative_path = relative_to_base(file_path, base_path);
     let code = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
-    let locations = collect_ignored_locations(&code);
-    Ok(locations
-        .into_iter()
-        .map(|(line, comment)| IgnoredLocation {
-            path: relative_path.to_string(),
-            line,
-            comment,
-        })
-        .collect())
+    Ok(ignored_locations(
+        collect_ignored_locations(&code),
+        relative_path,
+    ))
 }
 
 pub fn collect_all_ignored_locations_shared(
@@ -237,14 +526,13 @@ where
     let mut all_locations = Vec::new();
     let mut failed_paths = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
-    let inv_abs = canonical(invocation_path);
-    let inv_str = slashed(&inv_abs);
+    let invocation = canonical(path::Path::new(invocation_path));
 
     for path_str in paths {
         let path_obj = path::Path::new(path_str);
 
         if path_obj.is_dir() {
-            let mut files = match get_paths_to_process(path_str, exclude.to_vec(), &inv_abs) {
+            let mut files = match get_paths_to_process(path_str, exclude.to_vec(), &invocation) {
                 Ok(paths) => paths,
                 Err(e) => {
                     failed_paths.push(format!("{}: {}", path_str, e));
@@ -252,12 +540,7 @@ where
                 }
             };
             files.retain(|file_path| seen.insert(file_path.clone()));
-            let root = canonical(path_str);
-            let base_dir = if root.starts_with(&inv_abs) {
-                inv_str.clone()
-            } else {
-                slashed(root.parent().unwrap_or(path::Path::new(".")))
-            };
+            let base_dir = directory_location_base(path_obj, &invocation);
             let results: Vec<Result<Vec<T>, String>> = files
                 .par_iter()
                 .map(|file_path| collect_file(file_path, &base_dir))
@@ -266,15 +549,14 @@ where
                 all_locations.extend(locs);
             }
         } else if path_obj.is_file() {
-            let file_abs = canonical(path_str);
+            let file_abs = canonical(path_obj);
             if !seen.insert(slashed(&file_abs)) {
                 continue;
             }
-            let collected = if file_abs.starts_with(&inv_abs) {
-                collect_file(&slashed(&file_abs), &inv_str)
+            let collected = if file_abs.starts_with(&invocation) {
+                collect_file(&slashed(&file_abs), &slashed(&invocation))
             } else {
-                let parent_dir = path_obj.parent().and_then(|p| p.to_str()).unwrap_or(".");
-                collect_file(path_str, parent_dir)
+                collect_file(path_str, file_location_base(path_obj))
             };
             if let Ok(locs) = collected {
                 all_locations.extend(locs)
@@ -293,12 +575,7 @@ fn collect_removable_ignores_from_file(
     base_path: &str,
     max_complexity_allowed: u64,
 ) -> Result<Vec<RemovableIgnore>, String> {
-    let path = path::Path::new(file_path);
-    let relative_path = path
-        .strip_prefix(base_path)
-        .ok()
-        .and_then(|p| p.to_str())
-        .unwrap_or(file_path);
+    let relative_path = relative_to_base(file_path, base_path);
     let code = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
     let locations = collect_ignored_locations(&code);
@@ -306,24 +583,11 @@ fn collect_removable_ignores_from_file(
         return Ok(vec![]);
     }
     let parsed = parse_module(&code).map_err(|e| format!("Failed to parse code: {}", e))?;
-    let (functions, _) = function_level_cognitive_complexity_shared(
+    Ok(removable_ignores(
+        &locations,
         parsed.suite(),
         &code,
-        &AnalysisOptions {
-            no_ignore: true,
-            rules: RuleSet::default(),
-            ..Default::default()
-        },
-    );
-    let removable = filter_removable_ignores(&locations, &functions, max_complexity_allowed);
-    Ok(removable
-        .into_iter()
-        .map(|(line, comment, function, complexity)| RemovableIgnore {
-            path: relative_path.to_string(),
-            line,
-            comment,
-            function,
-            complexity,
-        })
-        .collect())
+        relative_path,
+        max_complexity_allowed,
+    ))
 }

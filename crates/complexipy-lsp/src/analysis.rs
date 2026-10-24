@@ -81,8 +81,8 @@ pub struct DocumentAnalysis {
 }
 
 impl DocumentAnalysis {
-    pub fn new(version: i32, functions: Vec<FunctionComplexity>, source: &str) -> Self {
-        let lines: Vec<&str> = split_lines(source).collect();
+    pub fn new(version: i32, functions: Vec<FunctionComplexity>, source: Arc<str>) -> Self {
+        let lines: Vec<&str> = split_lines(&source).collect();
         let declaration_lines = functions
             .iter()
             .map(|function| {
@@ -95,11 +95,31 @@ impl DocumentAnalysis {
         Self {
             version,
             functions,
-            bounds: LineBounds::new(source),
+            bounds: LineBounds::new(&source),
             declaration_lines,
-            source: Arc::from(source),
+            source,
             plans: HashMap::new(),
         }
+    }
+
+    pub fn source(&self) -> Arc<str> {
+        Arc::clone(&self.source)
+    }
+
+    /// Returns the first line of the function under `position` when its
+    /// plans are not built yet, so a hover there needs them first.
+    pub fn plans_needed(&self, position: Position) -> Option<u64> {
+        let line = u64::from(position.line) + 1;
+        let function = self
+            .functions
+            .iter()
+            .find(|function| line >= function.line_start && line <= function.line_end)?;
+
+        (!self.plans.contains_key(&function.line_start)).then_some(function.line_start)
+    }
+
+    pub fn insert_plans(&mut self, line_start: u64, plans: Vec<RefactorPlan>) {
+        self.plans.entry(line_start).or_insert(plans);
     }
 
     pub fn empty(version: i32) -> Self {
@@ -185,13 +205,9 @@ impl DocumentAnalysis {
     }
 
     pub fn plans(&mut self, line_start: u64, config: &LspConfig) -> &[RefactorPlan] {
-        self.plans.entry(line_start).or_insert_with(|| {
-            plans_for_function(&self.source, line_start, &analysis_options(config))
-                .ok()
-                .flatten()
-                .map(|(plans, _)| plans)
-                .unwrap_or_default()
-        })
+        self.plans
+            .entry(line_start)
+            .or_insert_with(|| plans_for(&self.source, line_start, config))
     }
 
     fn declaration_position(&self, index: usize) -> Position {
@@ -214,14 +230,24 @@ impl DocumentAnalysis {
 }
 
 pub fn analyze(
-    text: &str,
+    text: impl Into<Arc<str>>,
     version: i32,
     config: &LspConfig,
 ) -> Result<DocumentAnalysis, ParseFailure> {
-    match code_complexity_shared(text, &analysis_options(config)) {
+    let text = text.into();
+    match code_complexity_shared(&text, &analysis_options(config)) {
         Ok(result) => Ok(DocumentAnalysis::new(version, result.functions, text)),
-        Err(message) => Err(parse_failure(text, version, message)),
+        Err(message) => Err(parse_failure(&text, version, message)),
     }
+}
+
+/// Builds the refactor plans of the function that starts on `line_start`.
+pub fn plans_for(source: &str, line_start: u64, config: &LspConfig) -> Vec<RefactorPlan> {
+    plans_for_function(source, line_start, &analysis_options(config))
+        .ok()
+        .flatten()
+        .map(|(plans, _)| plans)
+        .unwrap_or_default()
 }
 
 fn parse_failure(text: &str, version: i32, fallback: String) -> ParseFailure {

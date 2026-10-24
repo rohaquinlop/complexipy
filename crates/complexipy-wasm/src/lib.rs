@@ -23,7 +23,6 @@ fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
     code_complexity_shared(
         code,
         &AnalysisOptions {
-            with_plans: true,
             rules: RuleSet::default(),
             ..Default::default()
         },

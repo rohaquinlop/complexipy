@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use tempfile::tempdir;
 
 use crate::utils::cache::{
-    build_cache_key, hash_targets, lexically_clean, remember_previous_functions,
+    CacheStore, build_cache_key, hash_targets, lexically_clean, remember_previous_functions,
 };
 use complexipy_core::classes::{FileComplexity, FunctionComplexity};
 
@@ -330,4 +330,54 @@ fn malformed_entries_are_skipped() {
             ),
         ]))
     );
+}
+
+#[test]
+fn an_unchanged_entry_leaves_the_store_untouched() {
+    let dir = tempdir().expect("tempdir should work");
+    let inv = dir.path().join("proj");
+    fs::create_dir(&inv).expect("should create");
+    let files = [file_complexity("src/a.py", "a.py", &[("f", 5)])];
+    let cache_file = inv.join(".complexipy_cache/v/cache/functions");
+
+    remember_previous_functions(inv.to_str().unwrap(), &["src".to_string()], &files, None);
+    let first = fs::read_to_string(&cache_file).expect("store should exist");
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let previous =
+        remember_previous_functions(inv.to_str().unwrap(), &["src".to_string()], &files, None);
+
+    assert!(previous.is_some());
+    assert_eq!(
+        fs::read_to_string(&cache_file).expect("store should exist"),
+        first
+    );
+
+    let changed = [file_complexity("src/a.py", "a.py", &[("f", 6)])];
+    remember_previous_functions(inv.to_str().unwrap(), &["src".to_string()], &changed, None);
+    let store = load_functions_file(&inv.join(".complexipy_cache"));
+    let entry = store["entries"]
+        .as_object()
+        .expect("object")
+        .values()
+        .next()
+        .expect("entry");
+    assert_eq!(entry["functions"][0]["complexity"], 6);
+}
+
+#[test]
+fn entries_over_the_byte_budget_are_dropped_oldest_first() {
+    let mut store = CacheStore::default();
+    for (index, key) in ["old", "mid", "new"].iter().enumerate() {
+        store.insert(
+            key,
+            &json!({ "targets": [], "functions": ["x".repeat(100)], "updated_at": index as f64 }),
+        );
+    }
+    let entry_bytes = store.entries["new"].get().len();
+
+    store.prune("old", entry_bytes * 2 - 1);
+
+    assert!(store.entries.contains_key("new"));
+    assert!(store.entries.contains_key("old"));
+    assert!(!store.entries.contains_key("mid"));
 }

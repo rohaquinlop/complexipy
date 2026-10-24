@@ -56,6 +56,7 @@ def file_complexity(
     file_path: str,
     check_script: bool = False,
     no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> FileComplexity:
     """Analyze the cognitive complexity of a single Python source file.
 
@@ -66,6 +67,8 @@ def file_complexity(
             module-level (script) code as a '<module>' entry.
         no_ignore: If True, disregard all '# complexipy: ignore' and
             '# noqa: complexipy' comments, analyzing every function.
+        with_plans: If False, skip building refactor plans and leave every
+            'refactor_plans' list empty.
 
     Returns:
         FileComplexity object containing complete analysis results for the
@@ -88,4 +91,5 @@ def file_complexity(
         base_path.as_posix(),
         check_script,
         no_ignore,
+        with_plans,
     )

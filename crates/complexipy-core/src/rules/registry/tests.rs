@@ -3,7 +3,10 @@
 //! so this stays a child module of the code it tests and can reach the private
 //! `RuleRegistry.rules` field through `super::` without widening its visibility.
 
-use super::{PlanContext, RuleRegistry, measure_reduction, select_non_overlapping, splice_plan};
+use super::{
+    FunctionSpan, PlanContext, RuleRegistry, measure_in_file, measure_in_function,
+    measure_reduction, select_non_overlapping, splice_plan,
+};
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
@@ -374,6 +377,8 @@ fn spliceable_plan_reports_the_measured_reduction() {
             function_complexity: complexity,
             is_module: true,
             active: &RuleSet::default(),
+            function: None,
+            newline: "\n",
         },
     );
 
@@ -387,6 +392,7 @@ fn spliceable_plan_reports_the_measured_reduction() {
         plan.suggestion.as_ref().unwrap(),
         &source,
         &LineIndex::new(&source),
+        "\n",
     )
     .unwrap();
     let measured_after = module_complexity(&spliced);
@@ -412,14 +418,138 @@ fn unparseable_splice_measures_to_none() {
         spliceable: true,
     });
 
+    let index = LineIndex::new(source);
     let measured = measure_reduction(
         &plan,
         plan.suggestion.as_ref().unwrap(),
-        source,
-        &LineIndex::new(source),
-        true,
+        &context(source, &index, None),
     );
     assert!(measured.is_none());
+}
+
+fn context<'a>(
+    source: &'a str,
+    index: &'a LineIndex,
+    function: Option<FunctionSpan>,
+) -> PlanContext<'a> {
+    static NO_NAMES: std::sync::OnceLock<std::collections::HashSet<String>> =
+        std::sync::OnceLock::new();
+    static ALL_RULES: std::sync::OnceLock<RuleSet> = std::sync::OnceLock::new();
+
+    PlanContext {
+        source,
+        index,
+        def_names: NO_NAMES.get_or_init(Default::default),
+        function_complexity: 0,
+        is_module: function.is_none(),
+        active: ALL_RULES.get_or_init(RuleSet::default),
+        function,
+        newline: "\n",
+    }
+}
+
+fn function_plan(line_start: u64, line_end: u64, current: u64, replacement: &str) -> RefactorPlan {
+    let mut plan = plan("C007", line_start, line_end, 3);
+    plan.current_complexity = current;
+    plan.suggestion = Some(CodeSuggestion {
+        replacement: replacement.to_string(),
+        applicability: Applicability::MachineApplicable,
+        description: String::new(),
+        spliceable: true,
+    });
+    plan
+}
+
+const FUNCTION_AND_METHOD: &str = "\
+def first(a, b):
+    if a:
+        if b:
+            return 1
+    return 0
+
+
+class Box:
+    def second(self, a, b):
+        for x in a:
+            if x:
+                if b:
+                    return x
+        return 0
+
+    def third(self):
+        return 1
+";
+
+/// Measuring on the function's own text must give the number a measurement
+/// of the whole spliced file gives, for a function and for a method.
+#[test]
+fn a_function_is_measured_like_the_whole_file() {
+    let index = LineIndex::new(FUNCTION_AND_METHOD);
+    let cases = [
+        (
+            function_plan(2, 4, 4, "    if a and b:\n        return 1\n"),
+            FunctionSpan {
+                line_start: 1,
+                line_end: 5,
+                is_method: false,
+            },
+        ),
+        (
+            function_plan(
+                11,
+                13,
+                7,
+                "            if x and b:\n                return x\n",
+            ),
+            FunctionSpan {
+                line_start: 9,
+                line_end: 14,
+                is_method: true,
+            },
+        ),
+    ];
+
+    for (plan, span) in cases {
+        let suggestion = plan.suggestion.as_ref().unwrap();
+        let in_function = measure_in_function(
+            &plan,
+            suggestion,
+            &context(FUNCTION_AND_METHOD, &index, Some(span)),
+            span,
+        );
+        let in_file = measure_in_file(
+            &plan,
+            suggestion,
+            &PlanContext {
+                is_module: false,
+                ..context(FUNCTION_AND_METHOD, &index, Some(span))
+            },
+        );
+
+        assert!(in_function.is_some());
+        assert_eq!(in_function, in_file);
+    }
+}
+
+/// A replacement that moves code out of the method leaves more than the
+/// one function in the measured text, so the whole file decides.
+#[test]
+fn a_splice_that_leaves_the_function_is_measured_on_the_whole_file() {
+    let index = LineIndex::new(FUNCTION_AND_METHOD);
+    let span = FunctionSpan {
+        line_start: 9,
+        line_end: 14,
+        is_method: true,
+    };
+    let plan = function_plan(14, 14, 7, "x = 0\n");
+    let suggestion = plan.suggestion.as_ref().unwrap();
+    let ctx = context(FUNCTION_AND_METHOD, &index, Some(span));
+
+    assert_eq!(measure_in_function(&plan, suggestion, &ctx, span), None);
+    assert_eq!(
+        measure_reduction(&plan, suggestion, &ctx),
+        measure_in_file(&plan, suggestion, &ctx)
+    );
 }
 
 /// A suggestion whose splice changes nothing measures 0 - the value the
@@ -439,12 +569,16 @@ fn no_op_splice_measures_zero() {
         spliceable: true,
     });
 
+    let index = LineIndex::new(source);
+    let span = FunctionSpan {
+        line_start: 1,
+        line_end: 2,
+        is_method: false,
+    };
     let measured = measure_reduction(
         &plan,
         plan.suggestion.as_ref().unwrap(),
-        source,
-        &LineIndex::new(source),
-        false,
+        &context(source, &index, Some(span)),
     );
     assert_eq!(measured, Some(0));
 }
@@ -469,6 +603,8 @@ fn inactive_rules_never_produce_plans() {
                         function_complexity: 10,
                         is_module: true,
                         active,
+                        function: None,
+                        newline: "\n",
                     },
                 )
                 .0
@@ -507,6 +643,8 @@ fn inactive_rule_never_shadows_an_active_rule() {
                     function_complexity: 10,
                     is_module: true,
                     active,
+                    function: None,
+                    newline: "\n",
                 },
             )
             .0

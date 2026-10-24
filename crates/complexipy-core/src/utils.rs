@@ -536,6 +536,18 @@ fn is_rule_id(code: &str) -> bool {
         && bytes.all(|byte| byte.is_ascii_digit())
 }
 
+/// Returns whether the code could hold an ignore directive. Both directive
+/// patterns contain this text under the same case-insensitive match, so a
+/// file without it holds no directive, and the per-function lookups can be
+/// skipped.
+pub fn may_contain_marker(code: &str) -> bool {
+    static MARKER_TEXT: OnceLock<Regex> = OnceLock::new();
+
+    MARKER_TEXT
+        .get_or_init(|| Regex::new(r"(?i)complexipy").unwrap())
+        .is_match(code)
+}
+
 /// Find an ignore directive near a `def` or decorator line.
 ///
 /// Returns `Some(..)` when a marker is found that would trigger suppression,
@@ -604,6 +616,9 @@ pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<IgnoreDirecti
 /// or `@decorator` lines). A marker with a rule list is not a whole-function
 /// suppression and is never reported here.
 pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
+    if !may_contain_marker(code) {
+        return Vec::new();
+    }
     let index = LineIndex::new(code);
     let mut results = Vec::new();
     let mut line_start = 0;

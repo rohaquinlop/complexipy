@@ -94,7 +94,7 @@ fn applicability_icons_and_names() {
 
 #[test]
 fn single_plan_output_structure() {
-    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), "", true));
+    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), None, true));
 
     assert!(output.contains("[1] C001 Extract method"));
     assert!(output.contains("--> src/a.py:2:4"));
@@ -115,7 +115,7 @@ fn unmeasured_reduction_uses_qualifier() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, "", true));
+    let output = strip_ansi(&output_refactor_plans(&r, None, true));
 
     assert!(output.contains("Estimated reduction"));
     assert!(output.contains("-~2"));
@@ -126,7 +126,7 @@ fn no_plans_returns_empty() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![];
 
-    assert_eq!(output_refactor_plans(&r, "", true), "");
+    assert_eq!(output_refactor_plans(&r, None, true), "");
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn help_rendered_when_no_suggestion() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, "", true));
+    let output = strip_ansi(&output_refactor_plans(&r, None, true));
 
     assert!(output.contains("Help:"));
     assert!(output.contains("See the docs"));
@@ -184,7 +184,7 @@ fn caret_span_counts_columns_in_characters() {
 
 #[test]
 fn snippets_carry_no_color_when_color_is_off() {
-    let output = output_refactor_plans(&row_with_plans(), "", false);
+    let output = output_refactor_plans(&row_with_plans(), None, false);
 
     assert!(output.contains("return x"));
     assert!(!output.contains("\u{1b}[38;2"));

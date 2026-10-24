@@ -1,17 +1,92 @@
 mod shared_deps {
     pub use crate::classes::{FunctionComplexity, LineComplexity};
     pub use crate::refactor_plans::{
-        ComplexityRegion, ComplexityResult, RegionKind, build_refactor_plans,
+        ComplexityRegion, ComplexityResult, FunctionSpan, PlanContext, RegionKind,
+        build_refactor_plans,
     };
     pub use crate::rules::{AnalysisOptions, RuleSet};
     pub use crate::syntax_tree::{Node, PreOrder, parse_module};
-    pub use crate::utils::{LineIndex, count_bool_ops, find_noqa_comment, is_decorator};
+    pub use crate::utils::{
+        LineIndex, count_bool_ops, find_noqa_comment, is_decorator, may_contain_marker,
+    };
     pub use ruff_python_ast::{self as ast, Stmt};
 }
 
 use crate::classes::CodeComplexity;
 
 use shared_deps::*;
+use std::cell::OnceCell;
+use std::collections::HashSet;
+
+/// What the analysis of one file shares across its functions. The plan
+/// inputs are built on first use, so a run that builds no plan never pays
+/// for them, and the ignore-comment lookups are skipped for a file that
+/// cannot hold a directive.
+struct FileContext<'a> {
+    code: &'a str,
+    index: LineIndex,
+    opts: &'a AnalysisOptions,
+    may_hold_directive: bool,
+    def_names: OnceCell<HashSet<String>>,
+    newline: OnceCell<&'static str>,
+}
+
+impl<'a> FileContext<'a> {
+    fn new(code: &'a str, opts: &'a AnalysisOptions) -> Self {
+        Self {
+            code,
+            index: LineIndex::new(code),
+            opts,
+            may_hold_directive: !opts.no_ignore && may_contain_marker(code),
+            def_names: OnceCell::new(),
+            newline: OnceCell::new(),
+        }
+    }
+
+    fn is_ignored(&self, f: &ast::StmtFunctionDef) -> bool {
+        self.may_hold_directive
+            && find_noqa_comment(usize::from(f.range.start()), self.code)
+                .is_some_and(|directive| directive.rules.is_none())
+    }
+
+    fn active_rules_for(&self, f: &ast::StmtFunctionDef) -> std::borrow::Cow<'a, RuleSet> {
+        if !self.may_hold_directive {
+            return std::borrow::Cow::Borrowed(&self.opts.rules);
+        }
+        match find_noqa_comment(usize::from(f.range.start()), self.code)
+            .and_then(|directive| directive.rules)
+        {
+            Some(rules) => std::borrow::Cow::Owned(self.opts.rules.without(&rules)),
+            None => std::borrow::Cow::Borrowed(&self.opts.rules),
+        }
+    }
+
+    fn plans(
+        &self,
+        complexity: u64,
+        regions: &[ComplexityRegion],
+        function: Option<FunctionSpan>,
+        active: &RuleSet,
+    ) -> (Vec<crate::classes::RefactorPlan>, u64) {
+        build_refactor_plans(
+            regions,
+            &PlanContext {
+                source: self.code,
+                index: &self.index,
+                def_names: self
+                    .def_names
+                    .get_or_init(|| crate::utils::collect_def_names(self.code)),
+                function_complexity: complexity,
+                is_module: function.is_none(),
+                active,
+                function,
+                newline: self
+                    .newline
+                    .get_or_init(|| crate::fix::line_ending_of(self.code)),
+            },
+        )
+    }
+}
 
 pub struct SyntaxError {
     pub message: String,
@@ -51,8 +126,7 @@ pub fn function_level_cognitive_complexity_shared(
     code: &str,
     opts: &AnalysisOptions,
 ) -> (Vec<FunctionComplexity>, u64) {
-    let index = LineIndex::new(code);
-    let def_names = crate::utils::collect_def_names(code);
+    let file = FileContext::new(code, opts);
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
     let mut module_complexity: u64 = 0;
@@ -63,15 +137,13 @@ pub fn function_level_cognitive_complexity_shared(
         match named_functions(node) {
             Some(defs) => {
                 for (node, f, name) in defs {
-                    if !is_ignored(f, code, opts.no_ignore) {
-                        functions.push(analyze_function(
-                            node, f, name, code, &index, &def_names, opts,
-                        ));
+                    if !file.is_ignored(f) {
+                        functions.push(analyze_function(node, f, name, &file));
                     }
                 }
             }
             None => {
-                let result = statement_cognitive_complexity_shared(node, 0, code, &index);
+                let result = statement_cognitive_complexity_shared(node, 0, code, &file.index);
                 if opts.check_script {
                     module_complexity += result.complexity;
                     module_line_complexities.extend(result.line_complexities);
@@ -85,19 +157,12 @@ pub fn function_level_cognitive_complexity_shared(
 
     if opts.check_script {
         let total_lines = crate::utils::split_lines(code).count() as u64;
-        let (refactor_plans, additional_refactor_plans) = if opts.with_plans {
-            build_refactor_plans(
-                module_complexity,
-                &module_regions,
-                code,
-                &index,
-                &def_names,
-                true,
-                &opts.rules,
-            )
-        } else {
-            (Vec::new(), 0)
-        };
+        let (refactor_plans, additional_refactor_plans) =
+            if opts.builds_plans_for(module_complexity) {
+                file.plans(module_complexity, &module_regions, None, &opts.rules)
+            } else {
+                (Vec::new(), 0)
+            };
         functions.push(FunctionComplexity {
             name: "<module>".to_string(),
             complexity: module_complexity,
@@ -124,25 +189,25 @@ pub fn plans_for_function(
     opts: &AnalysisOptions,
 ) -> Result<Option<(Vec<crate::classes::RefactorPlan>, u64)>, String> {
     let parsed = parse_module(code).map_err(|e| format!("Failed to parse code: {}", e))?;
-    let index = LineIndex::new(code);
     let opts = AnalysisOptions {
         with_plans: true,
+        plans_above: None,
         ..opts.clone()
     };
+    let file = FileContext::new(code, &opts);
 
     let Some((node, f, name)) = parsed
         .suite()
         .iter()
         .filter_map(named_functions)
         .flatten()
-        .filter(|(_, f, _)| !is_ignored(f, code, opts.no_ignore))
-        .find(|(_, f, _)| index.line_of(usize::from(f.range.start())) == line_start)
+        .filter(|(_, f, _)| !file.is_ignored(f))
+        .find(|(_, f, _)| file.index.line_of(usize::from(f.range.start())) == line_start)
     else {
         return Ok(None);
     };
 
-    let def_names = crate::utils::collect_def_names(code);
-    let function = analyze_function(node, f, name, code, &index, &def_names, &opts);
+    let function = analyze_function(node, f, name, &file);
 
     Ok(Some((
         function.refactor_plans,
@@ -166,59 +231,42 @@ fn named_functions(node: &Stmt) -> Option<Vec<(&Stmt, &ast::StmtFunctionDef, Str
     }
 }
 
-fn is_ignored(f: &ast::StmtFunctionDef, code: &str, no_ignore: bool) -> bool {
-    !no_ignore
-        && find_noqa_comment(usize::from(f.range.start()), code)
-            .is_some_and(|directive| directive.rules.is_none())
-}
-
-fn active_rules_for<'a>(
-    opts: &'a AnalysisOptions,
-    byte_offset: usize,
-    code: &str,
-) -> std::borrow::Cow<'a, RuleSet> {
-    if opts.no_ignore {
-        return std::borrow::Cow::Borrowed(&opts.rules);
-    }
-    match find_noqa_comment(byte_offset, code).and_then(|directive| directive.rules) {
-        Some(rules) => std::borrow::Cow::Owned(opts.rules.without(&rules)),
-        None => std::borrow::Cow::Borrowed(&opts.rules),
-    }
-}
-
 fn analyze_function(
     node: &Stmt,
     f: &ast::StmtFunctionDef,
     name: String,
-    code: &str,
-    index: &LineIndex,
-    def_names: &std::collections::HashSet<String>,
-    opts: &AnalysisOptions,
+    file: &FileContext<'_>,
 ) -> FunctionComplexity {
-    let mut result = statement_cognitive_complexity_shared(node, 0, code, index);
+    let index = &file.index;
+    let mut result = statement_cognitive_complexity_shared(node, 0, file.code, index);
     if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), index) {
         result.complexity += 1;
         push_line(&mut result, line, 1);
     }
-    let rules = active_rules_for(opts, usize::from(f.range.start()), code);
-    let (refactor_plans, additional_refactor_plans) = if opts.with_plans {
-        build_refactor_plans(
-            result.complexity,
-            &result.regions,
-            code,
-            index,
-            def_names,
-            false,
-            rules.as_ref(),
-        )
-    } else {
-        (Vec::new(), 0)
-    };
+    let start = usize::from(f.range.start());
+    let line_start = index.line_of(start);
+    let line_end = index.line_of(usize::from(f.range.end()));
+    let (refactor_plans, additional_refactor_plans) =
+        if file.opts.builds_plans_for(result.complexity) {
+            let span = FunctionSpan {
+                line_start,
+                line_end,
+                is_method: index.column_of(start, file.code) > 1,
+            };
+            file.plans(
+                result.complexity,
+                &result.regions,
+                Some(span),
+                file.active_rules_for(f).as_ref(),
+            )
+        } else {
+            (Vec::new(), 0)
+        };
     FunctionComplexity {
         name,
         complexity: result.complexity,
-        line_start: index.line_of(usize::from(f.range.start())),
-        line_end: index.line_of(usize::from(f.range.end())),
+        line_start,
+        line_end,
         line_complexities: result.line_complexities,
         refactor_plans,
         additional_refactor_plans,

@@ -1,13 +1,14 @@
-use ignore::Walk;
+use ignore::{DirEntry, WalkBuilder, WalkState};
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::path::Path;
-use wax::walk::{Entry, FileIterator};
-use wax::{Any, Glob, Program, any};
+use std::sync::Mutex;
+use wax::query::When;
+use wax::{Any, BuildError, CandidatePath, Glob, Program, any};
 
 #[derive(Clone, Debug, Default)]
 pub struct ExcludeMatcher {
     programs: Vec<Any<'static>>,
+    combined: Option<Any<'static>>,
     invalid: Vec<String>,
 }
 
@@ -20,6 +21,9 @@ impl ExcludeMatcher {
                 None => matcher.invalid.push(pattern.clone()),
             }
         }
+        if !matcher.programs.is_empty() {
+            matcher.combined = any(matcher.programs.iter().cloned()).ok();
+        }
         matcher
     }
 
@@ -28,9 +32,7 @@ impl ExcludeMatcher {
     }
 
     pub fn overflows(&self) -> bool {
-        !self.programs.is_empty()
-            && self.invalid.is_empty()
-            && any(self.programs.iter().cloned()).is_err()
+        !self.programs.is_empty() && self.invalid.is_empty() && self.combined.is_none()
     }
 
     pub fn is_excluded(&self, path: &str, root: &str) -> bool {
@@ -43,9 +45,7 @@ impl ExcludeMatcher {
         let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
             .unwrap_or(normalized_path.as_str());
 
-        self.programs
-            .iter()
-            .any(|program| program.is_match(relative))
+        self.matches(relative)
     }
 
     /// Like `is_excluded`, for a `path` inside `root` only.
@@ -56,13 +56,18 @@ impl ExcludeMatcher {
 
         let normalized_path = path.replace('\\', "/");
         let normalized_root = root.replace('\\', "/");
-        relative_to(&normalized_path, normalized_root.trim_end_matches('/')).is_some_and(
-            |relative| {
-                self.programs
-                    .iter()
-                    .any(|program| program.is_match(relative))
-            },
-        )
+        relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+            .is_some_and(|relative| self.matches(relative))
+    }
+
+    fn matches(&self, relative: &str) -> bool {
+        match &self.combined {
+            Some(combined) => combined.is_match(relative),
+            None => self
+                .programs
+                .iter()
+                .any(|program| program.is_match(relative)),
+        }
     }
 }
 
@@ -105,6 +110,75 @@ pub fn exclude_list_overflows(patterns: &[String]) -> bool {
     ExcludeMatcher::new(patterns).overflows()
 }
 
+struct WalkExclusion<'t> {
+    any: Any<'t>,
+    exhaustive: Option<Any<'t>>,
+}
+
+impl<'t> WalkExclusion<'t> {
+    fn new(patterns: &'t [String]) -> Result<Option<Self>, BuildError> {
+        if patterns.is_empty() {
+            return Ok(None);
+        }
+        let any_pattern = any(patterns.iter().map(String::as_str))?;
+        let exhaustive = match any_pattern.is_exhaustive() {
+            When::Always => Some(any_pattern.clone()),
+            When::Never => None,
+            When::Sometimes => exhaustive_subset(patterns)?,
+        };
+        Ok(Some(Self {
+            any: any_pattern,
+            exhaustive,
+        }))
+    }
+}
+
+fn exhaustive_subset(patterns: &[String]) -> Result<Option<Any<'_>>, BuildError> {
+    let mut exhaustive = Vec::new();
+    for pattern in patterns {
+        let glob = Glob::new(pattern)?;
+        if glob.is_exhaustive().is_always() {
+            exhaustive.push(glob);
+        }
+    }
+    if exhaustive.is_empty() {
+        return Ok(None);
+    }
+    any(exhaustive).map(Some)
+}
+
+enum Visit {
+    Prune,
+    Skip,
+    Select,
+}
+
+fn visit(entry: &DirEntry, python_files: &Glob<'_>, exclusion: Option<&WalkExclusion>) -> Visit {
+    let path = entry.path();
+    let depth = entry.depth();
+    let ancestor = path.ancestors().nth(depth).unwrap_or(Path::new(""));
+    let relative = path.strip_prefix(ancestor).unwrap_or(path);
+
+    if let Some(exclusion) = exclusion {
+        if exclusion
+            .exhaustive
+            .as_ref()
+            .is_some_and(|program| program.is_match(CandidatePath::from(relative)))
+        {
+            return Visit::Prune;
+        }
+        if exclusion.any.is_match(CandidatePath::from(relative)) {
+            return Visit::Skip;
+        }
+    }
+
+    if depth > 0 && python_files.is_match(CandidatePath::from(relative)) {
+        Visit::Select
+    } else {
+        Visit::Skip
+    }
+}
+
 /// The patterns that match no path: paths are matched relative to a root,
 /// so they never start with `/`, `./`, `../`, or a drive, and a file path
 /// never ends with `/`.
@@ -133,8 +207,7 @@ pub fn get_paths_to_process(
     to_exclude_paths: Vec<String>,
     anchor: &Path,
 ) -> Result<Vec<String>, String> {
-    let mut files_paths: Vec<String> = Vec::new();
-    let glob = Glob::new("**/*.py").unwrap();
+    let python_files = Glob::new("**/*.py").unwrap();
 
     let normalized_root = root_path.replace('\\', "/");
     let normalized_excludes: Vec<String> = to_exclude_paths
@@ -142,51 +215,51 @@ pub fn get_paths_to_process(
         .map(|s| s.replace('\\', "/"))
         .collect();
 
-    let gitignore_walk = Walk::new(&normalized_root);
-    let non_ignored: HashSet<String> = gitignore_walk
-        .filter_map(|result| match result {
-            Ok(entry) => entry.path().to_str().map(|s| s.replace('\\', "/")),
-            Err(_) => None,
-        })
-        .collect();
-
-    let exclude_refs: Vec<&str> = normalized_excludes.iter().map(|s| s.as_str()).collect();
     let anchor_matcher = Path::new(root_path)
         .canonicalize()
         .is_ok_and(|root| root != anchor)
         .then(|| ExcludeMatcher::new(&normalized_excludes));
     let anchor = anchor.to_string_lossy().replace('\\', "/");
 
-    let non_excluded_entries = glob
-        .walk(&normalized_root)
-        .not(any(exclude_refs))
+    let exclusion = WalkExclusion::new(&normalized_excludes)
         .map_err(|e| format!("Failed to apply exclude patterns: {}", e))?;
 
-    for entry in non_excluded_entries
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .path()
-                .to_str()
-                .map(|s| non_ignored.contains(&s.replace('\\', "/")))
-                .unwrap_or(false)
+    let files_paths: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    WalkBuilder::new(&normalized_root).build_parallel().run(|| {
+        Box::new(|result| {
+            let Ok(entry) = result else {
+                return WalkState::Continue;
+            };
+            match visit(&entry, &python_files, exclusion.as_ref()) {
+                Visit::Prune => WalkState::Skip,
+                Visit::Skip => WalkState::Continue,
+                Visit::Select => {
+                    if entry.path().to_str().is_some() {
+                        let entry_path = entry.path();
+                        let file_abs = entry_path
+                            .canonicalize()
+                            .unwrap_or_else(|_| entry_path.to_path_buf());
+                        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
+                        let excluded_from_anchor = anchor_matcher.as_ref().is_some_and(|matcher| {
+                            matcher.is_excluded_inside(&file_abs_str, &anchor)
+                        });
+                        if !excluded_from_anchor {
+                            files_paths
+                                .lock()
+                                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                                .push(file_abs_str);
+                        }
+                    }
+                    WalkState::Continue
+                }
+            }
         })
-    {
-        let entry_path = entry.path();
-        let file_abs = match entry_path.canonicalize() {
-            Ok(p) => p,
-            Err(_) => entry_path.to_path_buf(),
-        };
-        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
-        if anchor_matcher
-            .as_ref()
-            .is_some_and(|matcher| matcher.is_excluded_inside(&file_abs_str, &anchor))
-        {
-            continue;
-        }
-        files_paths.push(file_abs_str);
-    }
+    });
 
+    let mut files_paths = files_paths
+        .into_inner()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    files_paths.sort();
     Ok(files_paths)
 }
 

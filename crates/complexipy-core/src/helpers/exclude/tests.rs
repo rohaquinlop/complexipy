@@ -304,3 +304,29 @@ fn patterns_that_can_never_match_are_reported() {
         patterns[..6].to_vec()
     );
 }
+
+#[test]
+fn the_walker_lists_every_file_once_in_sorted_order() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    let kept = get_paths_to_process(&root, Vec::new(), Path::new(&root)).unwrap();
+    let mut sorted = kept.clone();
+    sorted.sort();
+    sorted.dedup();
+
+    assert_eq!(kept, sorted);
+    assert_eq!(kept.len(), FILES.len());
+}
+
+#[test]
+fn an_exhaustive_pattern_excludes_the_whole_directory() {
+    let dir = tree();
+    fs::create_dir_all(dir.path().join("legacy/deep/deeper")).unwrap();
+    fs::write(dir.path().join("legacy/deep/deeper/x.py"), "x = 1\n").unwrap();
+    let root = canonical_root(&dir);
+    let kept =
+        get_paths_to_process(&root, vec!["legacy/**".to_string()], Path::new(&root)).unwrap();
+
+    assert!(kept.iter().all(|path| !path.contains("/legacy/")));
+    assert_eq!(kept.len(), 2);
+}

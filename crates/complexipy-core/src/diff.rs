@@ -1,6 +1,8 @@
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -8,6 +10,7 @@ use crate::classes::FileComplexity;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(15);
 const GIT_ROOT_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_BLOB_BYTES: u64 = 32 * 1024 * 1024;
 
 pub use complexipy_types::DiffStatus;
 
@@ -52,16 +55,24 @@ pub fn compute_diff(
 ) -> Vec<DiffEntry> {
     let mut entries = Vec::new();
 
-    for file in current_files {
-        let path_from_root = resolve_git_path(&file.path, git_ref, invocation_path);
+    let repository = Repository::locate(invocation_path);
+    let names: Vec<Option<String>> = current_files
+        .iter()
+        .map(|file| {
+            let path_from_root = repository.as_ref()?.path_of(&file.path)?;
+            Some(format!("{}:{}", git_ref, path_from_root))
+        })
+        .collect();
+    let old_functions = analyse_contents(read_objects(invocation_path, &names));
+
+    for (file, old_functions) in current_files.iter().zip(old_functions) {
         let current_map: HashMap<String, u64> = file
             .functions
             .iter()
             .map(|function| (function.name.clone(), function.complexity))
             .collect();
 
-        let Some(old_content) = file_content_at_ref(git_ref, &path_from_root, invocation_path)
-        else {
+        let Some(old_functions) = old_functions else {
             let mut names: Vec<&String> = current_map.keys().collect();
             names.sort();
             for name in names {
@@ -75,7 +86,7 @@ pub fn compute_diff(
             continue;
         };
 
-        let Some(old_map) = analyse_content_to_map(Some(&old_content)) else {
+        let Some(old_map) = old_functions else {
             continue;
         };
 
@@ -101,12 +112,20 @@ pub fn compute_staged_diff(git_ref: &str, invocation_path: &str) -> Option<Vec<D
     let root = git_root(invocation_path)?;
 
     let mut entries = Vec::new();
-    for path_from_root in staged_python_files(git_ref, &root) {
-        let old_content = file_content_at_ref(git_ref, &path_from_root, &root);
-        let new_content = file_content_at_index(&path_from_root, &root);
-
-        let old_map = analyse_content_to_map(old_content.as_deref());
-        let new_map = analyse_content_to_map(new_content.as_deref());
+    let paths = staged_python_files(git_ref, &root);
+    let requests: Vec<Option<String>> = paths
+        .iter()
+        .flat_map(|path_from_root| {
+            [
+                Some(format!("{}:{}", git_ref, path_from_root)),
+                Some(format!(":{}", path_from_root)),
+            ]
+        })
+        .collect();
+    let mut contents = analyse_contents(read_objects(&root, &requests)).into_iter();
+    for path_from_root in paths {
+        let old_map = contents.next().flatten().flatten();
+        let new_map = contents.next().flatten().flatten();
 
         if old_map.is_none() && new_map.is_none() {
             continue;
@@ -165,16 +184,139 @@ fn git_root(cwd: &str) -> Option<String> {
     }
 }
 
-fn file_content_at_ref(git_ref: &str, path_from_root: &str, cwd: &str) -> Option<String> {
-    let argument = format!("{}:{}", git_ref, path_from_root);
-    let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
-    if success { Some(output) } else { None }
+/// Where the analyzed files sit inside their repository, so that each file
+/// is looked up at the ref under its own repository path.
+struct Repository {
+    root: PathBuf,
+    invocation: PathBuf,
 }
 
-fn file_content_at_index(path_from_root: &str, cwd: &str) -> Option<String> {
-    let argument = format!(":{}", path_from_root);
-    let (success, output) = run_git(cwd, &["show", &argument], GIT_TIMEOUT)?;
-    if success { Some(output) } else { None }
+impl Repository {
+    fn locate(invocation_path: &str) -> Option<Self> {
+        let root = PathBuf::from(git_root(invocation_path)?);
+        let invocation = PathBuf::from(invocation_path);
+        Some(Self {
+            root: root.canonicalize().unwrap_or(root),
+            invocation: invocation.canonicalize().unwrap_or(invocation),
+        })
+    }
+
+    fn path_of(&self, file_path: &str) -> Option<String> {
+        let absolute = self.invocation.join(file_path);
+        let absolute = absolute.canonicalize().unwrap_or(absolute);
+        let relative = absolute.strip_prefix(&self.root).ok()?.to_str()?;
+        Some(relative.replace('\\', "/"))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum GitObject {
+    Missing,
+    Unreadable,
+    Text(String),
+}
+
+/// Reads every object that `names` lists through one `git cat-file --batch`
+/// process, in order. A `None` name is not requested and reads as missing.
+/// A blob reads as its text; a blob over `MAX_BLOB_BYTES` or not valid
+/// UTF-8, or an object that does not exist, reads as missing; any other
+/// object, such as a tree, reads as unreadable.
+fn read_objects(cwd: &str, names: &[Option<String>]) -> Vec<GitObject> {
+    let mut objects: Vec<GitObject> = names.iter().map(|_| GitObject::Missing).collect();
+    let requested: Vec<(usize, &str)> = names
+        .iter()
+        .enumerate()
+        .filter_map(|(index, name)| Some((index, name.as_deref()?)))
+        .filter(|(_, name)| !name.contains('\n'))
+        .collect();
+    if requested.is_empty() {
+        return objects;
+    }
+
+    let Ok(mut child) = Command::new("git")
+        .args(["cat-file", "--batch"])
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    else {
+        return objects;
+    };
+    let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return objects;
+    };
+
+    let input: String = requested
+        .iter()
+        .map(|(_, name)| format!("{}\n", name))
+        .collect();
+    let writer = thread::spawn(move || {
+        let _ = stdin.write_all(input.as_bytes());
+    });
+    let count = requested.len();
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        for _ in 0..count {
+            let Some(object) = read_object(&mut reader) else {
+                break;
+            };
+            if sender.send(object).is_err() {
+                break;
+            }
+        }
+    });
+
+    for (index, _) in requested {
+        match receiver.recv_timeout(GIT_TIMEOUT) {
+            Ok(object) => objects[index] = object,
+            Err(_) => {
+                let _ = child.kill();
+                break;
+            }
+        }
+    }
+    let _ = child.wait();
+    let _ = writer.join();
+    objects
+}
+
+/// Reads one `cat-file --batch` response. Returns `None` when the output
+/// ends or cannot be read.
+fn read_object(reader: &mut impl BufRead) -> Option<GitObject> {
+    let mut header = String::new();
+    if reader.read_line(&mut header).ok()? == 0 {
+        return None;
+    }
+    let mut fields = header.trim_end_matches('\n').rsplitn(3, ' ');
+    let Some(size) = fields.next().and_then(|size| size.parse::<u64>().ok()) else {
+        return Some(GitObject::Missing);
+    };
+    let kind = fields.next()?;
+
+    let object = if kind == "blob" && size <= MAX_BLOB_BYTES {
+        let mut content = Vec::with_capacity(usize::try_from(size).ok()?);
+        Read::take(&mut *reader, size)
+            .read_to_end(&mut content)
+            .ok()?;
+        match String::from_utf8(content) {
+            Ok(text) => GitObject::Text(text),
+            Err(_) => GitObject::Missing,
+        }
+    } else {
+        io::copy(&mut Read::take(&mut *reader, size), &mut io::sink()).ok()?;
+        if kind == "blob" {
+            GitObject::Missing
+        } else {
+            GitObject::Unreadable
+        }
+    };
+    let mut terminator = [0u8; 1];
+    reader.read_exact(&mut terminator).ok()?;
+    Some(object)
 }
 
 fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
@@ -203,44 +345,29 @@ fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
         .collect()
 }
 
-fn git_tracked_paths(cwd: &str) -> Vec<String> {
-    let (success, output) =
-        run_git(cwd, &["ls-files", "--full-name"], GIT_TIMEOUT).unwrap_or((false, String::new()));
-    if success {
-        output.lines().map(str::to_string).collect()
-    } else {
-        Vec::new()
+/// Scores each object: `None` when it is missing, `Some(None)` when it does
+/// not parse, and the complexity of each function otherwise.
+#[cfg(feature = "runner")]
+fn analyse_contents(objects: Vec<GitObject>) -> Vec<Option<Option<HashMap<String, u64>>>> {
+    use rayon::prelude::*;
+
+    objects.into_par_iter().map(analyse_object).collect()
+}
+
+#[cfg(not(feature = "runner"))]
+fn analyse_contents(objects: Vec<GitObject>) -> Vec<Option<Option<HashMap<String, u64>>>> {
+    objects.into_iter().map(analyse_object).collect()
+}
+
+fn analyse_object(object: GitObject) -> Option<Option<HashMap<String, u64>>> {
+    match object {
+        GitObject::Missing => None,
+        GitObject::Unreadable => Some(None),
+        GitObject::Text(content) => Some(analyse_content_to_map(&content)),
     }
 }
 
-fn resolve_git_path(file_path: &str, git_ref: &str, invocation_path: &str) -> String {
-    let normalized = file_path.replace('\\', "/");
-    let parts: Vec<&str> = normalized.split('/').collect();
-
-    for i in 0..parts.len() {
-        let candidate = parts[i..].join("/");
-        if file_content_at_ref(git_ref, &candidate, invocation_path).is_some() {
-            return candidate;
-        }
-    }
-
-    let basename = parts.last().copied().unwrap_or("");
-    let tracked_paths = git_tracked_paths(invocation_path);
-    let matches: Vec<&String> = tracked_paths
-        .iter()
-        .filter(|tracked| {
-            tracked.as_str() == basename || tracked.ends_with(&format!("/{}", basename))
-        })
-        .collect();
-    if matches.len() == 1 {
-        matches[0].clone()
-    } else {
-        normalized
-    }
-}
-
-fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>> {
-    let content = content?;
+fn analyse_content_to_map(content: &str) -> Option<HashMap<String, u64>> {
     let parsed = crate::syntax_tree::parse_module(content).ok()?;
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
         parsed.suite(),

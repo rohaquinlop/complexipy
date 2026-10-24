@@ -6,8 +6,8 @@ La API completa de Python que expone complexipy. Importa todo desde el paquete
 
 ```text
 # Funciones principales
-file_complexity(path: str, check_script: bool = False, no_ignore: bool = False) -> FileComplexity
-code_complexity(source: str, check_script: bool = False, no_ignore: bool = False) -> CodeComplexity
+file_complexity(path: str, check_script: bool = False, no_ignore: bool = False, with_plans: bool = True) -> FileComplexity
+code_complexity(source: str, check_script: bool = False, no_ignore: bool = False, with_plans: bool = True) -> CodeComplexity
 collect_all_ignored_locations(paths: List[str], exclude: List[str], invocation_path: str = ".") -> Tuple[List[IgnoredLocation], List[str]]
 collect_removable_ignored_locations(paths: List[str], exclude: List[str], max_complexity_allowed: int, invocation_path: str = ".") -> Tuple[List[RemovableIgnore], List[str]]
 compute_diff(current_files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
