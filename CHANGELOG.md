@@ -44,6 +44,8 @@ release section links to its GitHub release notes for the full details.
   file compares as added instead of against the link's target text, so its
   functions above the threshold fail the gate. `--staged` also compares a
   staged change between a symbolic link and a regular file, which it skipped.
+- `--staged` reads a staged file whose name starts like a stage number, such
+  as `0:a.py`, instead of reading the staged `a.py` in its place.
 
 ## [8.1.0] - 2026-10-18
 

@@ -53,6 +53,8 @@ GitHub con todos los detalles.
   texto de destino del enlace, así que sus funciones por encima del umbral
   hacen fallar el control. `--staged` además compara un cambio staged entre
   un enlace simbólico y un archivo regular, que antes omitía.
+- `--staged` lee un archivo staged cuyo nombre empieza como un número de
+  etapa, como `0:a.py`, en lugar de leer en su lugar el `a.py` staged.
 
 ## [8.1.0] - 2026-10-18
 

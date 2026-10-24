@@ -512,3 +512,38 @@ fn a_staged_link_made_a_regular_file_is_compared_as_added() {
     assert_eq!(entries, vec![entry("x.py", "nested", None, Some(6))]);
     assert!(has_regressions(&entries, 3));
 }
+
+#[cfg(unix)]
+#[test]
+fn a_path_ending_in_a_carriage_return_is_not_read_as_another_path() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("x.py"), NESTED).unwrap();
+    fs::write(dir.path().join("x.py\r"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("x.py\r"), NESTED).unwrap();
+
+    let entries = compute_diff(
+        &[file_complexity("x.py\r", "x.py\r", &[("nested", 6)])],
+        "HEAD",
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(entries, vec![entry("x.py\r", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}
+
+#[cfg(unix)]
+#[test]
+fn compute_staged_diff_reads_a_staged_name_that_starts_like_a_stage_number() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("new.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("0:new.py"), WITH_IF).unwrap();
+    git(dir.path(), &["add", "--", "0:new.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    assert_eq!(entries, vec![entry("0:new.py", "with_if", None, Some(1))]);
+}
