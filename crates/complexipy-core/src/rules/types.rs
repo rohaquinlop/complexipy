@@ -152,13 +152,23 @@ fn normalize_ids(ids: &[String]) -> Vec<String> {
 }
 
 /// The knobs that shape one analysis run: script mode, inline suppression,
-/// plan building, and the active rule set.
+/// plan building, and the active rule set. With `plans_above` set, plans are
+/// built only for functions whose complexity is strictly greater than it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AnalysisOptions {
     pub check_script: bool,
     pub no_ignore: bool,
     pub with_plans: bool,
+    pub plans_above: Option<u64>,
     pub rules: RuleSet,
+}
+
+impl AnalysisOptions {
+    /// Returns whether plans are built for a function of this complexity.
+    #[must_use]
+    pub fn builds_plans_for(&self, complexity: u64) -> bool {
+        self.with_plans && self.plans_above.is_none_or(|limit| complexity > limit)
+    }
 }
 
 pub trait RefactorRule: Sync + Send {

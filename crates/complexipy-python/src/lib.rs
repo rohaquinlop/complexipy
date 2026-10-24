@@ -1,5 +1,16 @@
 use pyo3::prelude::*;
 
+#[cfg(any(
+    target_os = "macos",
+    target_os = "windows",
+    all(
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )
+))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod py_diff {
     use pyo3::prelude::*;
 
@@ -82,74 +93,90 @@ mod _complexipy {
     use complexipy_core::{AnalysisOptions, RuleSet};
 
     #[pyfunction]
-    #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false))]
+    #[pyo3(signature = (file_path, base_path, check_script=false, no_ignore=false, with_plans=true))]
     fn file_complexity(
+        py: Python<'_>,
         file_path: &str,
         base_path: &str,
         check_script: bool,
         no_ignore: bool,
+        with_plans: bool,
     ) -> PyResult<FileComplexity> {
-        complexipy_core::runner::file_complexity_shared(
-            file_path,
-            base_path,
-            &AnalysisOptions {
-                check_script,
-                no_ignore,
-                with_plans: true,
-                rules: RuleSet::default(),
-            },
-        )
+        py.detach(|| {
+            complexipy_core::runner::file_complexity_shared(
+                file_path,
+                base_path,
+                &AnalysisOptions {
+                    check_script,
+                    no_ignore,
+                    with_plans,
+                    plans_above: None,
+                    rules: RuleSet::default(),
+                },
+            )
+        })
         .map_err(PyValueError::new_err)
     }
 
     #[pyfunction]
-    #[pyo3(signature = (code, check_script=false, no_ignore=false))]
+    #[pyo3(signature = (code, check_script=false, no_ignore=false, with_plans=true))]
     fn code_complexity(
+        py: Python<'_>,
         code: &str,
         check_script: bool,
         no_ignore: bool,
+        with_plans: bool,
     ) -> PyResult<CodeComplexity> {
-        complexipy_core::cognitive_complexity::code_complexity_shared(
-            code,
-            &AnalysisOptions {
-                check_script,
-                no_ignore,
-                with_plans: true,
-                rules: RuleSet::default(),
-            },
-        )
+        py.detach(|| {
+            complexipy_core::cognitive_complexity::code_complexity_shared(
+                code,
+                &AnalysisOptions {
+                    check_script,
+                    no_ignore,
+                    with_plans,
+                    plans_above: None,
+                    rules: RuleSet::default(),
+                },
+            )
+        })
         .map_err(PyValueError::new_err)
     }
 
     #[pyfunction]
     #[pyo3(signature = (paths, exclude, invocation_path="."))]
     fn collect_all_ignored_locations(
+        py: Python<'_>,
         paths: Vec<String>,
         exclude: Vec<String>,
         invocation_path: &str,
     ) -> PyResult<(Vec<IgnoredLocation>, Vec<String>)> {
-        complexipy_core::runner::collect_all_ignored_locations_shared(
-            &paths,
-            &exclude,
-            invocation_path,
-        )
+        py.detach(|| {
+            complexipy_core::runner::collect_all_ignored_locations_shared(
+                &paths,
+                &exclude,
+                invocation_path,
+            )
+        })
         .map_err(PyValueError::new_err)
     }
 
     #[pyfunction]
     #[pyo3(signature = (paths, exclude, max_complexity_allowed, invocation_path="."))]
     fn collect_removable_ignored_locations(
+        py: Python<'_>,
         paths: Vec<String>,
         exclude: Vec<String>,
         max_complexity_allowed: u64,
         invocation_path: &str,
     ) -> PyResult<(Vec<RemovableIgnore>, Vec<String>)> {
-        complexipy_core::runner::collect_removable_ignored_locations_shared(
-            &paths,
-            &exclude,
-            max_complexity_allowed,
-            invocation_path,
-        )
+        py.detach(|| {
+            complexipy_core::runner::collect_removable_ignored_locations_shared(
+                &paths,
+                &exclude,
+                max_complexity_allowed,
+                invocation_path,
+            )
+        })
         .map_err(PyValueError::new_err)
     }
 
@@ -181,18 +208,19 @@ mod _complexipy {
 
     #[pyfunction]
     fn compute_diff(
+        py: Python<'_>,
         current_files: Vec<FileComplexity>,
         git_ref: &str,
         invocation_path: Option<&str>,
     ) -> PyResult<Vec<DiffEntry>> {
-        Ok(complexipy_core::diff::compute_diff(
-            &current_files,
-            git_ref,
-            invocation_path.unwrap_or("."),
-        )
-        .into_iter()
-        .map(DiffEntry::from)
-        .collect())
+        let entries = py.detach(|| {
+            complexipy_core::diff::compute_diff(
+                &current_files,
+                git_ref,
+                invocation_path.unwrap_or("."),
+            )
+        });
+        Ok(entries.into_iter().map(DiffEntry::from).collect())
     }
 
     #[pyfunction]

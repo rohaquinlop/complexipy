@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
+use serde::Deserialize;
+use serde_json::value::RawValue;
 use serde_json::{Value, json};
 
 use complexipy_core::classes::FileComplexity;
@@ -13,6 +16,7 @@ const CACHE_DIR_NAME: &str = ".complexipy_cache";
 const CACHE_VALUES_DIR: &str = "v/cache";
 const FUNCTIONS_CACHE_KEY: &str = "functions";
 const MAX_CACHE_ENTRIES: usize = 64;
+const MAX_CACHE_BYTES: usize = 32 * 1024 * 1024;
 const CACHEDIR_TAG_CONTENT: &str = "Signature: 8a477f597d28d172789f06886806bc55
 # This file is a cache directory tag created by complexipy.
 # For information about cache directory tags, see:
@@ -26,29 +30,45 @@ complexity results so future runs can compare per-function complexity changes.
 **Do not** commit this to version control.
 ";
 
+/// Returns the per-function complexities the previous run on the same
+/// targets stored, and stores this run's. The store keeps every other
+/// entry as raw text, so a run parses and writes back in full only its own
+/// entry, and the store is rewritten only when that entry changed.
 pub fn remember_previous_functions(
     invocation_path: &str,
     targets: &[String],
     files_complexities: &[FileComplexity],
     cache_dir: Option<&str>,
 ) -> Option<HashMap<(String, String, String), u64>> {
-    let cache_key = build_cache_key(invocation_path, targets)?;
+    let normalized_targets = normalize_targets(invocation_path, targets);
+    let cache_key = cache_key_of(&normalized_targets)?;
 
     let cache_dir_path = resolve_cache_dir(invocation_path, cache_dir);
     let cache_file = cache_value_path(&cache_dir_path, FUNCTIONS_CACHE_KEY);
 
     ensure_cache_dir_and_supporting_files(&cache_dir_path)?;
 
-    let mut cache_store = load_cache_store(&cache_file);
-    let previous_map = load_previous_map_from_store(&cache_store, &cache_key);
+    let content = fs::read_to_string(&cache_file).unwrap_or_default();
+    let mut cache_store = CacheStore::parse(&content).unwrap_or_default();
+    let previous_entry = cache_store.entry(&cache_key);
+    let previous_map = previous_entry.as_ref().and_then(load_previous_map);
 
-    cache_store["entries"][cache_key.as_str()] = json!({
-        "targets": normalize_targets(invocation_path, targets),
-        "functions": collect_functions(files_complexities),
-        "updated_at": now_seconds(),
+    let targets = json!(normalized_targets);
+    let functions = Value::Array(collect_functions(files_complexities));
+    let unchanged = previous_entry.as_ref().is_some_and(|entry| {
+        entry.get("targets") == Some(&targets) && entry.get("functions") == Some(&functions)
     });
-    prune_cache_store(&mut cache_store);
-    persist_cache(&cache_file, &cache_store);
+    if !unchanged {
+        let entry = json!({
+            "targets": targets,
+            "functions": functions,
+            "updated_at": now_seconds(),
+        });
+        if cache_store.insert(&cache_key, &entry) {
+            cache_store.prune(&cache_key, MAX_CACHE_BYTES);
+            persist_cache(&cache_file, &cache_store);
+        }
+    }
     previous_map
 }
 
@@ -59,8 +79,12 @@ fn resolve_cache_dir(invocation_path: &str, cache_dir: Option<&str>) -> PathBuf 
     }
 }
 
+#[cfg(test)]
 fn build_cache_key(invocation_path: &str, targets: &[String]) -> Option<String> {
-    let normalized_targets = normalize_targets(invocation_path, targets);
+    cache_key_of(&normalize_targets(invocation_path, targets))
+}
+
+fn cache_key_of(normalized_targets: &[String]) -> Option<String> {
     if normalized_targets.is_empty() {
         return None;
     }
@@ -161,28 +185,72 @@ fn cache_value_path(cache_dir: &Path, key: &str) -> PathBuf {
     cache_dir.join(CACHE_VALUES_DIR).join(key)
 }
 
-fn load_cache_store(cache_file: &Path) -> Value {
-    match load_cache(cache_file) {
-        Some(raw)
-            if raw
-                .get("entries")
-                .is_some_and(|entries| entries.is_object()) =>
-        {
-            raw
+/// The cache file: an object whose `entries` maps each cache key to one
+/// run's results. Entries and any other top-level field stay unparsed text,
+/// borrowed from the file's content.
+#[derive(Default)]
+struct CacheStore<'a> {
+    fields: BTreeMap<String, Cow<'a, RawValue>>,
+    entries: BTreeMap<String, Cow<'a, RawValue>>,
+}
+
+impl<'a> CacheStore<'a> {
+    fn parse(content: &'a str) -> Option<Self> {
+        let mut fields: BTreeMap<String, &'a RawValue> = serde_json::from_str(content).ok()?;
+        let entries: BTreeMap<String, &'a RawValue> =
+            serde_json::from_str(fields.remove("entries")?.get()).ok()?;
+        Some(Self {
+            fields: borrowed(fields),
+            entries: borrowed(entries),
+        })
+    }
+
+    fn entry(&self, cache_key: &str) -> Option<Value> {
+        serde_json::from_str(self.entries.get(cache_key)?.get()).ok()
+    }
+
+    fn insert(&mut self, cache_key: &str, entry: &Value) -> bool {
+        let Ok(raw) = serde_json::value::to_raw_value(entry) else {
+            return false;
+        };
+        self.entries.insert(cache_key.to_string(), Cow::Owned(raw));
+        true
+    }
+
+    /// Keeps the `MAX_CACHE_ENTRIES` most recently updated entries, then
+    /// drops the oldest of those until the entries fit in `max_bytes`.
+    /// The entry under `cache_key` is never dropped for its size.
+    fn prune(&mut self, cache_key: &str, max_bytes: usize) {
+        let bytes: usize = self.entries.values().map(|raw| raw.get().len()).sum();
+        if self.entries.len() <= MAX_CACHE_ENTRIES && bytes <= max_bytes {
+            return;
         }
-        _ => json!({ "entries": {} }),
+
+        let mut sorted: Vec<(f64, String, Cow<'a, RawValue>)> = std::mem::take(&mut self.entries)
+            .into_iter()
+            .map(|(key, raw)| (entry_updated_at(&raw), key, raw))
+            .collect();
+        sorted.sort_by(|left, right| {
+            right
+                .0
+                .partial_cmp(&left.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        sorted.truncate(MAX_CACHE_ENTRIES);
+        let mut kept_bytes = 0;
+        for (_, key, raw) in sorted {
+            kept_bytes += raw.get().len();
+            if key == cache_key || kept_bytes <= max_bytes {
+                self.entries.insert(key, raw);
+            }
+        }
     }
 }
 
-fn load_previous_map_from_store(
-    cache_store: &Value,
-    cache_key: &str,
-) -> Option<HashMap<(String, String, String), u64>> {
-    let entry = cache_store.get("entries")?.get(cache_key)?;
-    if !entry.is_object() {
-        return None;
-    }
-    load_previous_map(entry)
+fn borrowed<'a>(raw: BTreeMap<String, &'a RawValue>) -> BTreeMap<String, Cow<'a, RawValue>> {
+    raw.into_iter()
+        .map(|(key, value)| (key, Cow::Borrowed(value)))
+        .collect()
 }
 
 fn load_previous_map(raw: &Value) -> Option<HashMap<(String, String, String), u64>> {
@@ -230,15 +298,6 @@ fn load_previous_map(raw: &Value) -> Option<HashMap<(String, String, String), u6
     }
 }
 
-fn load_cache(cache_file: &Path) -> Option<Value> {
-    let content = fs::read_to_string(cache_file).ok()?;
-    let raw: Value = serde_json::from_str(&content).ok()?;
-    if !raw.is_object() {
-        return None;
-    }
-    Some(raw)
-}
-
 fn python_int(value: &Value) -> Option<u64> {
     match value {
         Value::Number(number) => {
@@ -276,35 +335,16 @@ fn build_function_key(
     ))
 }
 
-fn prune_cache_store(cache_store: &mut Value) {
-    let Some(entries) = cache_store
-        .get_mut("entries")
-        .and_then(|entries| entries.as_object_mut())
-    else {
-        return;
-    };
-    if entries.len() <= MAX_CACHE_ENTRIES {
-        return;
-    }
-
-    let taken = std::mem::take(entries);
-    let mut sorted_entries: Vec<(String, Value)> = taken.into_iter().collect();
-    sorted_entries.sort_by(|left, right| {
-        entry_updated_at(&right.1)
-            .partial_cmp(&entry_updated_at(&left.1))
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    sorted_entries.truncate(MAX_CACHE_ENTRIES);
-    for (key, value) in sorted_entries {
-        entries.insert(key, value);
-    }
+#[derive(Deserialize)]
+struct EntryStamp {
+    updated_at: Option<Value>,
 }
 
-fn entry_updated_at(entry: &Value) -> f64 {
-    if !entry.is_object() {
-        return 0.0;
-    }
-    let Some(updated_at) = entry.get("updated_at") else {
+fn entry_updated_at(entry: &RawValue) -> f64 {
+    let Ok(EntryStamp {
+        updated_at: Some(updated_at),
+    }) = serde_json::from_str(entry.get())
+    else {
         return 0.0;
     };
     if updated_at.is_boolean() {
@@ -319,14 +359,23 @@ fn entry_updated_at(entry: &Value) -> f64 {
     0.0
 }
 
-fn persist_cache(cache_file: &Path, payload: &Value) -> bool {
+fn persist_cache(cache_file: &Path, store: &CacheStore) -> bool {
     let Some(parent) = cache_file.parent() else {
         return false;
     };
     if fs::create_dir_all(parent).is_err() {
         return false;
     }
-    let Ok(serialized) = serde_json::to_string_pretty(payload) else {
+    let Ok(entries) = serde_json::value::to_raw_value(&store.entries) else {
+        return false;
+    };
+    let mut document: BTreeMap<&str, &RawValue> = store
+        .fields
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_ref()))
+        .collect();
+    document.insert("entries", &entries);
+    let Ok(serialized) = serde_json::to_string_pretty(&document) else {
         return false;
     };
     fs::write(cache_file, serialized).is_ok()
