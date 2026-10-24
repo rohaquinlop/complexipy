@@ -10,16 +10,16 @@ use crate::output::messages::{
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
-use crate::types::{ExitReport, RunConfig};
+use crate::types::{ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
-use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
+use crate::utils::ignored::handle_report_ignored;
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::get_complexipy_toml_config;
 use complexipy_core::diff::{
     compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
-use complexipy_core::runner::run_analysis_shared;
+use complexipy_core::runner::{Analysis, LocationReports};
 use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
@@ -71,19 +71,21 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }
     let analysis = analysis_options(&config, rules);
 
-    let (mut files_complexities, failed_paths) =
-        match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
-            Ok(result) => result,
-            Err(error) => {
-                eprintln!("{}", error);
-                return ExitCode::FAILURE;
-            }
-        };
+    let mut run = Analysis::run(
+        &config.paths,
+        &config.exclude,
+        &analysis,
+        invocation_path,
+        LocationReports {
+            ignored: config.report_ignored,
+            removable_above: (!config.quiet).then_some(config.max_complexity_allowed),
+        },
+    );
 
     let mut fix_console = String::new();
     if config.fix || config.dry_run {
         let pass = run_fix_pass(
-            &files_complexities,
+            &run.files,
             config.dry_run,
             invocation_path,
             settings.color_enabled,
@@ -91,13 +93,12 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             config.max_complexity_allowed,
         );
         fix_console = pass.console;
-        if pass.wrote {
-            match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
-                Ok((post_fix, _)) => files_complexities = post_fix,
-                Err(error) => eprintln!("{}", error),
-            }
+        if !pass.written.is_empty() {
+            run.reanalyze(&pass.written);
         }
     }
+    let files_complexities = std::mem::take(&mut run.files);
+    let failed_paths = std::mem::take(&mut run.failed_paths);
 
     let output_snapshot_path = format!("{}/complexipy-snapshot.json", invocation_path);
     let snap = match evaluate_snapshot(
@@ -160,11 +161,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(
         config.report_ignored,
-        &config.paths,
-        &config.exclude,
+        &run,
         &config.output_format,
         config.output.as_deref(),
-        config.no_ignore,
         invocation_path,
     ) {
         Ok(result) => result,
@@ -186,13 +185,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }
 
     if !config.quiet {
-        let removable = handle_removable_ignores(
-            &config.paths,
-            &config.exclude,
-            config.max_complexity_allowed,
-            invocation_path,
-        );
-        let removable_output = removable_ignores_output(&removable);
+        let removable_output = removable_ignores_output(&run.removable_ignores());
         if !removable_output.is_empty() {
             println!("{}", removable_output);
         }
@@ -294,8 +287,24 @@ fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {
         check_script: config.check_script,
         no_ignore: config.no_ignore,
         with_plans: config.suggest_refactors,
+        plans_above: (!reports_passing_plans(config)).then_some(config.max_complexity_allowed),
         rules,
     }
+}
+
+/// Returns whether some output of the run shows the plans of a function at
+/// or under the threshold: the console and JSON list passing functions
+/// unless `--failed` is set, and SARIF and GitLab report every plan. The fix
+/// pass reads only the plans of functions over the threshold.
+fn reports_passing_plans(config: &RunConfig) -> bool {
+    let shows_plans = config.suggest_refactors && !config.dry_run;
+    let lists_passing =
+        !config.failed && (!config.quiet || config.output_format.contains(&OutputFormat::Json));
+    let reports_every_plan = config
+        .output_format
+        .iter()
+        .any(|format| matches!(format, OutputFormat::Sarif | OutputFormat::Gitlab));
+    shows_plans && (lists_passing || reports_every_plan)
 }
 
 fn format_diff_for(entries: &[complexipy_core::diff::DiffEntry], git_ref: &str) -> String {

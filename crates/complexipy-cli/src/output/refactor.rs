@@ -10,13 +10,14 @@ use crate::types::FunctionRow;
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 
-pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> String {
+/// Renders the plans of one function. `source_lines` holds the lines of
+/// the function's file, read once per file by the caller.
+pub fn output_refactor_plans(function: &FunctionRow, source_lines: Option<&[String]>) -> String {
     if function.refactor_plans.is_empty() {
         return String::new();
     }
 
     let display_path = normalize_path(&function.path, &function.file_name);
-    let source_lines = read_source_lines(invocation_path, &function.path, &function.file_name);
 
     let mut sections = vec![format!(
         "\n      {}",
@@ -33,7 +34,7 @@ pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> S
             plan,
             index + 1,
             &display_path,
-            source_lines.as_deref(),
+            source_lines,
         ));
     }
 
@@ -56,7 +57,11 @@ pub fn output_refactor_plans(function: &FunctionRow, invocation_path: &str) -> S
     sections.join("\n")
 }
 
-fn read_source_lines(invocation_path: &str, path: &str, file_name: &str) -> Option<Vec<String>> {
+pub fn read_source_lines(
+    invocation_path: &str,
+    path: &str,
+    file_name: &str,
+) -> Option<Vec<String>> {
     let full_path = normalize_path(path, file_name);
     let full_path = if !invocation_path.is_empty() && !full_path.starts_with('/') {
         format!("{}/{}", invocation_path.trim_end_matches('/'), full_path)
@@ -311,9 +316,26 @@ fn output_code_snippet(code: &str, start_line: usize) -> String {
 }
 
 pub fn highlight_regions(code: &str, tint: &dyn Fn(usize) -> Option<(u8, u8, u8)>) -> Vec<String> {
+    highlight_lines_where(code, tint, &|_| true)
+}
+
+/// Highlights the lines that `shown` selects and leaves the others empty.
+/// A line's colors depend on the lines before it, so every line up to the
+/// last shown one is still parsed; none after it is.
+pub fn highlight_lines_where(
+    code: &str,
+    tint: &dyn Fn(usize) -> Option<(u8, u8, u8)>,
+    shown: &dyn Fn(usize) -> bool,
+) -> Vec<String> {
     if code.is_empty() {
         return Vec::new();
     }
+    let last_shown = code
+        .lines()
+        .enumerate()
+        .filter(|(index, _)| shown(*index))
+        .map(|(index, _)| index)
+        .last();
 
     static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
     static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
@@ -329,10 +351,16 @@ pub fn highlight_regions(code: &str, tint: &dyn Fn(usize) -> Option<(u8, u8, u8)
     code.lines()
         .enumerate()
         .map(|(index, line)| {
-            let background = tint(index);
+            if last_shown.is_none_or(|last| index > last) {
+                return String::new();
+            }
             let regions = highlight
                 .highlight_line(line, syntax_set)
                 .unwrap_or_default();
+            if !shown(index) {
+                return String::new();
+            }
+            let background = tint(index);
             regions
                 .into_iter()
                 .map(|(style, text)| paint(text, style.foreground, background))

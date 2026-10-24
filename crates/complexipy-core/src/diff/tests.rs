@@ -5,7 +5,9 @@ use std::process::Command;
 use tempfile::tempdir;
 
 use crate::classes::FileComplexity;
-use crate::diff::{DiffEntry, DiffStatus, UnresolvedFile, UnresolvedReason};
+use crate::diff::{
+    DiffEntry, DiffStatus, GitObject, UnresolvedFile, UnresolvedReason, read_object,
+};
 use crate::diff::{
     compute_diff, compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
@@ -221,6 +223,23 @@ fn compute_diff_unparseable_old_content_skips_file() {
     let entries = compute_diff(&current, "HEAD", dir.path().to_str().unwrap());
 
     assert!(entries.is_empty());
+}
+
+#[test]
+fn a_batch_response_reads_blobs_and_skips_other_objects() {
+    let output = b"1a2b blob 6\nx = 1\n\nHEAD:gone.py missing\n3c4d tree 3\nabc\n\
+HEAD:a name.py missing\n5e6f blob 2\n\xff\xfe\n";
+    let mut reader = std::io::Cursor::new(&output[..]);
+
+    assert_eq!(
+        read_object(&mut reader),
+        Some(GitObject::Text("x = 1\n".to_string()))
+    );
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Unreadable));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), None);
 }
 
 #[test]

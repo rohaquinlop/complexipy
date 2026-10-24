@@ -94,7 +94,7 @@ fn applicability_icons_and_names() {
 
 #[test]
 fn single_plan_output_structure() {
-    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), ""));
+    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), None));
 
     assert!(output.contains("[1] C001 Extract method"));
     assert!(output.contains("--> src/a.py:2:4"));
@@ -115,7 +115,7 @@ fn unmeasured_reduction_uses_qualifier() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, ""));
+    let output = strip_ansi(&output_refactor_plans(&r, None));
 
     assert!(output.contains("Estimated reduction"));
     assert!(output.contains("-~2"));
@@ -126,7 +126,7 @@ fn no_plans_returns_empty() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![];
 
-    assert_eq!(output_refactor_plans(&r, ""), "");
+    assert_eq!(output_refactor_plans(&r, None), "");
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn help_rendered_when_no_suggestion() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, ""));
+    let output = strip_ansi(&output_refactor_plans(&r, None));
 
     assert!(output.contains("Help:"));
     assert!(output.contains("See the docs"));

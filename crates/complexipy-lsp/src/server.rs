@@ -1,17 +1,20 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
 
-use complexipy_core::config::config_file_names;
-use crossbeam_channel::RecvTimeoutError;
+use complexipy_core::classes::RefactorPlan;
+use complexipy_core::config::{LspConfig, config_file_names};
+use crossbeam_channel::{Receiver, Sender, select};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
-    Diagnostic, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+    CancelParams, Diagnostic, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
     DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern,
-    HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType, OneOf,
-    PublishDiagnosticsParams, Registration, RegistrationParams, ServerCapabilities,
-    ShowMessageParams, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
-    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern, Hover,
+    HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType,
+    NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
+    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentSyncCapability,
+    TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
@@ -20,6 +23,7 @@ use crate::workspace::Workspace;
 
 pub const SERVER_NAME: &str = "complexipy-lsp";
 pub const DEBOUNCE: Duration = Duration::from_millis(200);
+const WORKER_STACK_SIZE: usize = 256 * 1024 * 1024;
 
 pub const DID_OPEN: &str = "textDocument/didOpen";
 pub const DID_CHANGE: &str = "textDocument/didChange";
@@ -27,6 +31,7 @@ pub const DID_CLOSE: &str = "textDocument/didClose";
 pub const DID_CHANGE_CONFIGURATION: &str = "workspace/didChangeConfiguration";
 pub const DID_CHANGE_WORKSPACE_FOLDERS: &str = "workspace/didChangeWorkspaceFolders";
 pub const DID_CHANGE_WATCHED_FILES: &str = "workspace/didChangeWatchedFiles";
+pub const CANCEL_REQUEST: &str = "$/cancelRequest";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
@@ -145,6 +150,134 @@ fn workspace_roots(params: &InitializeParams) -> (Vec<String>, String) {
     (roots, fallback_root)
 }
 
+/// Work the analysis thread runs, off the message loop.
+enum Job {
+    Analyze {
+        key: String,
+        uri: Uri,
+        text: Arc<str>,
+        version: i32,
+        generation: u64,
+        config: LspConfig,
+    },
+    Plans {
+        key: String,
+        version: i32,
+        line_start: u64,
+        source: Arc<str>,
+        generation: u64,
+        config: LspConfig,
+    },
+}
+
+enum Outcome {
+    Analyzed {
+        key: String,
+        uri: Uri,
+        version: i32,
+        generation: u64,
+        result: Result<DocumentAnalysis, ParseFailure>,
+    },
+    Planned {
+        key: String,
+        version: i32,
+        line_start: u64,
+        generation: u64,
+        plans: Vec<RefactorPlan>,
+    },
+}
+
+impl Job {
+    fn run(self) -> Outcome {
+        match self {
+            Job::Analyze {
+                key,
+                uri,
+                text,
+                version,
+                generation,
+                config,
+            } => Outcome::Analyzed {
+                key,
+                uri,
+                version,
+                generation,
+                result: analysis::analyze(text, version, &config),
+            },
+            Job::Plans {
+                key,
+                version,
+                line_start,
+                source,
+                generation,
+                config,
+            } => Outcome::Planned {
+                key,
+                version,
+                line_start,
+                generation,
+                plans: analysis::plans_for(&source, line_start, &config),
+            },
+        }
+    }
+}
+
+/// Starts the analysis thread, with a large stack where the platform can
+/// reserve one and the default stack otherwise.
+fn spawn_worker() -> (Sender<Job>, Receiver<Outcome>) {
+    let (jobs, queued) = crossbeam_channel::unbounded::<Job>();
+    let (done, outcomes) = crossbeam_channel::unbounded::<Outcome>();
+    let spawn = |stack_size: Option<usize>| {
+        let queued = queued.clone();
+        let done = done.clone();
+        let builder = thread::Builder::new().name(format!("{}-analysis", SERVER_NAME));
+        let builder = match stack_size {
+            Some(size) => builder.stack_size(size),
+            None => builder,
+        };
+        builder.spawn(move || {
+            for job in queued {
+                if done.send(job.run()).is_err() {
+                    break;
+                }
+            }
+        })
+    };
+    spawn(Some(WORKER_STACK_SIZE))
+        .or_else(|_| spawn(None))
+        .expect("failed to start the analysis thread");
+
+    (jobs, outcomes)
+}
+
+/// An analysis the worker runs for one version of a document: whether the
+/// result is published as diagnostics, and the requests waiting for it.
+struct PendingAnalysis {
+    generation: u64,
+    publish: bool,
+    waiting: Vec<RequestId>,
+}
+
+enum PendingRequest {
+    Hints { uri: Uri, range: Range },
+    Hover { uri: Uri, position: Position },
+}
+
+impl PendingRequest {
+    fn uri(&self) -> &Uri {
+        match self {
+            PendingRequest::Hints { uri, .. } | PendingRequest::Hover { uri, .. } => uri,
+        }
+    }
+}
+
+enum Event {
+    Message(Message),
+    Outcome(Outcome),
+    Due,
+    Disconnected,
+}
+
 struct Server {
     connection: Connection,
     workspace: Workspace,
@@ -153,13 +286,22 @@ struct Server {
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
     failures: HashMap<String, ParseFailure>,
-    dirty: BTreeSet<String>,
-    deadline: Option<Instant>,
+    deadlines: BTreeMap<String, Instant>,
     next_request_id: i32,
+    worker: Sender<Job>,
+    outcomes: Receiver<Outcome>,
+    generation: u64,
+    analyzing: HashMap<(String, i32), PendingAnalysis>,
+    planning: HashMap<(String, i32, u64), Vec<RequestId>>,
+    requests: HashMap<RequestId, PendingRequest>,
+    refresh_due: bool,
+    flushing: VecDeque<String>,
 }
 
 impl Server {
     fn new(connection: Connection, initialized: Initialized) -> Self {
+        let (worker, outcomes) = spawn_worker();
+
         Self {
             connection,
             workspace: initialized.workspace,
@@ -168,9 +310,16 @@ impl Server {
             documents: Documents::default(),
             analyses: HashMap::new(),
             failures: HashMap::new(),
-            dirty: BTreeSet::new(),
-            deadline: None,
+            deadlines: BTreeMap::new(),
             next_request_id: 1,
+            worker,
+            outcomes,
+            generation: 0,
+            analyzing: HashMap::new(),
+            planning: HashMap::new(),
+            requests: HashMap::new(),
+            refresh_due: false,
+            flushing: VecDeque::new(),
         }
     }
 
@@ -181,29 +330,36 @@ impl Server {
         self.report_warnings();
 
         loop {
-            match self.next_message() {
-                Ok(Some(Message::Request(request))) => {
+            match self.next_event() {
+                Event::Message(Message::Request(request)) => {
                     if request.method == SHUTDOWN {
                         return self.shutdown(request);
                     }
 
                     self.handle_request(request);
                 }
-                Ok(Some(Message::Notification(notification))) => {
+                Event::Message(Message::Notification(notification)) => {
                     if notification.method == EXIT {
                         return EXIT_CODE_FAILURE;
                     }
 
                     self.handle_notification(notification);
                 }
-                Ok(Some(Message::Response(_))) => {}
-                Ok(None) => self.flush_dirty(),
-                Err(()) => return EXIT_CODE_FAILURE,
+                Event::Message(Message::Response(_)) => {}
+                Event::Outcome(outcome) => self.accept(outcome),
+                Event::Due => self.flush_due(),
+                Event::Disconnected => return EXIT_CODE_FAILURE,
             }
         }
     }
 
-    fn shutdown(&self, request: Request) -> i32 {
+    fn shutdown(&mut self, request: Request) -> i32 {
+        while !self.requests.is_empty() {
+            let Ok(outcome) = self.outcomes.recv() else {
+                break;
+            };
+            self.accept(outcome);
+        }
         self.send(Response::new_ok(request.id, ()));
 
         self.await_exit()
@@ -221,18 +377,20 @@ impl Server {
         }
     }
 
-    fn next_message(&self) -> Result<Option<Message>, ()> {
-        match self.deadline {
-            Some(deadline) => {
-                let timeout = deadline.saturating_duration_since(Instant::now());
+    fn next_event(&self) -> Event {
+        let receiver = &self.connection.receiver;
+        let outcomes = &self.outcomes;
 
-                match self.connection.receiver.recv_timeout(timeout) {
-                    Ok(message) => Ok(Some(message)),
-                    Err(RecvTimeoutError::Timeout) => Ok(None),
-                    Err(RecvTimeoutError::Disconnected) => Err(()),
-                }
-            }
-            None => self.connection.receiver.recv().map(Some).map_err(|_| ()),
+        match self.deadlines.values().min() {
+            Some(deadline) => select! {
+                recv(receiver) -> message => message.map_or(Event::Disconnected, Event::Message),
+                recv(outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Outcome),
+                default(deadline.saturating_duration_since(Instant::now())) => Event::Due,
+            },
+            None => select! {
+                recv(receiver) -> message => message.map_or(Event::Disconnected, Event::Message),
+                recv(outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Outcome),
+            },
         }
     }
 
@@ -241,14 +399,26 @@ impl Server {
             INLAY_HINT => {
                 let id = request.id.clone();
                 match request.extract::<InlayHintParams>(INLAY_HINT) {
-                    Ok((id, params)) => self.respond_inlay_hints(id, params),
+                    Ok((id, params)) => self.dispatch(
+                        id,
+                        PendingRequest::Hints {
+                            uri: params.text_document.uri,
+                            range: params.range,
+                        },
+                    ),
                     Err(_) => self.respond_invalid_params(id),
                 }
             }
             HOVER => {
                 let id = request.id.clone();
                 match request.extract::<HoverParams>(HOVER) {
-                    Ok((id, params)) => self.respond_hover(id, params),
+                    Ok((id, params)) => self.dispatch(
+                        id,
+                        PendingRequest::Hover {
+                            uri: params.text_document_position_params.text_document.uri,
+                            position: params.text_document_position_params.position,
+                        },
+                    ),
                     Err(_) => self.respond_invalid_params(id),
                 }
             }
@@ -302,6 +472,11 @@ impl Server {
                     self.change_folders(params);
                 }
             }
+            CANCEL_REQUEST => {
+                if let Ok(params) = notification.extract::<CancelParams>(CANCEL_REQUEST) {
+                    self.cancel(params);
+                }
+            }
             _ => {}
         }
     }
@@ -341,8 +516,23 @@ impl Server {
         self.documents.close(&uri);
         self.analyses.remove(&key);
         self.failures.remove(&key);
-        self.dirty.remove(&key);
+        self.deadlines.remove(&key);
         self.send_diagnostics(uri, Vec::new(), None);
+    }
+
+    fn cancel(&mut self, params: CancelParams) {
+        let id = match params.id {
+            NumberOrString::Number(number) => RequestId::from(number),
+            NumberOrString::String(text) => RequestId::from(text),
+        };
+
+        if self.requests.remove(&id).is_some() {
+            self.send(Response::new_err(
+                id,
+                ErrorCode::RequestCanceled as i32,
+                "request cancelled".to_string(),
+            ));
+        }
     }
 
     fn reload_config(&mut self) {
@@ -416,12 +606,27 @@ impl Server {
         }
     }
 
+    /// Drops every analysis and marks every document dirty. Work already
+    /// queued with the previous configuration is discarded when it returns,
+    /// and the requests waiting on it start over with the new one.
     fn reanalyze_all(&mut self) {
         self.analyses.clear();
         self.failures.clear();
+        self.generation += 1;
+
+        let mut waiting: Vec<RequestId> = std::mem::take(&mut self.analyzing)
+            .into_values()
+            .flat_map(|pending| pending.waiting)
+            .collect();
+        waiting.extend(self.planning.drain().flat_map(|(_, ids)| ids));
 
         for key in self.documents.keys() {
             self.mark_dirty_key(key);
+        }
+        for id in waiting {
+            if let Some(request) = self.requests.remove(&id) {
+                self.dispatch(id, request);
+            }
         }
     }
 
@@ -430,16 +635,39 @@ impl Server {
     }
 
     fn mark_dirty_key(&mut self, key: String) {
-        self.dirty.insert(key);
-        self.deadline = Some(Instant::now() + DEBOUNCE);
+        self.deadlines.insert(key, Instant::now() + DEBOUNCE);
     }
 
-    fn flush_dirty(&mut self) {
-        self.deadline = None;
-        let dirty = std::mem::take(&mut self.dirty);
-        let mut published = false;
+    /// Refreshes every document whose quiet period has passed. Each document
+    /// keeps its own deadline, so edits to one never delay another.
+    fn flush_due(&mut self) {
+        let now = Instant::now();
+        let due: Vec<String> = self
+            .deadlines
+            .iter()
+            .filter(|(_, deadline)| **deadline <= now)
+            .map(|(key, _)| key.clone())
+            .collect();
 
-        for key in dirty {
+        for key in due {
+            self.deadlines.remove(&key);
+            if !self.flushing.contains(&key) {
+                self.flushing.push_back(key);
+            }
+        }
+
+        self.pump_flush();
+        self.request_refresh_when_idle();
+    }
+
+    /// Refreshes the documents a flush is waiting on, keeping at most one of
+    /// their analyses queued, so a request queues its own analysis right
+    /// behind the one that is running instead of behind the whole flush.
+    fn pump_flush(&mut self) {
+        while !self.analyzing.values().any(|pending| pending.publish) {
+            let Some(key) = self.flushing.pop_front() else {
+                return;
+            };
             let Some(uri) = self
                 .documents
                 .get_keyed(&key)
@@ -448,20 +676,19 @@ impl Server {
                 continue;
             };
 
-            published |= self.refresh(&uri);
-        }
-
-        if published && self.refresh_support {
-            self.request_hint_refresh();
+            self.refresh_due |= self.refresh(&uri);
         }
     }
 
+    /// Publishes the analysis of the document's current version. Returns
+    /// whether it published now; when the analysis still has to run, it is
+    /// queued and published once it returns.
     fn refresh(&mut self, uri: &Uri) -> bool {
         let key = Documents::key(uri);
         let Some((text, version)) = self
             .documents
             .get(uri)
-            .map(|document| (document.text.clone(), document.version))
+            .map(|document| (Arc::clone(&document.text), document.version))
         else {
             return false;
         };
@@ -474,67 +701,244 @@ impl Server {
             return false;
         }
 
-        if let Some(analysis) = self.analyses.get(&key).cloned()
-            && !analysis::is_stale(analysis.version, Some(version))
+        if self
+            .analyses
+            .get(&key)
+            .is_some_and(|analysis| !analysis::is_stale(analysis.version, Some(version)))
         {
-            return self.publish(uri, analysis);
+            return self.publish_stored(uri);
         }
 
-        match self.compute(&text, version, uri) {
-            Ok(analysis) => self.publish(uri, analysis),
-            Err(failure) => {
-                self.handle_failure(uri, version, failure);
+        if self.skips(uri) {
+            return self.publish(uri, DocumentAnalysis::empty(version));
+        }
 
-                false
+        self.analyze(uri, key, text, version, true, None);
+
+        false
+    }
+
+    fn skips(&self, uri: &Uri) -> bool {
+        !self.documents.is_python(uri) || self.is_excluded(uri)
+    }
+
+    fn analyze(
+        &mut self,
+        uri: &Uri,
+        key: String,
+        text: Arc<str>,
+        version: i32,
+        publish: bool,
+        waiting: Option<RequestId>,
+    ) {
+        let slot = (key, version);
+        if let Some(pending) = self.analyzing.get_mut(&slot) {
+            pending.publish |= publish;
+            pending.waiting.extend(waiting);
+            return;
+        }
+
+        let config = self.workspace.for_uri(uri).config.clone();
+        let (key, version) = slot.clone();
+        self.analyzing.insert(
+            slot,
+            PendingAnalysis {
+                generation: self.generation,
+                publish,
+                waiting: waiting.into_iter().collect(),
+            },
+        );
+        let _ = self.worker.send(Job::Analyze {
+            key,
+            uri: uri.clone(),
+            text,
+            version,
+            generation: self.generation,
+            config,
+        });
+    }
+
+    fn accept(&mut self, outcome: Outcome) {
+        match outcome {
+            Outcome::Analyzed {
+                key,
+                uri,
+                version,
+                generation,
+                result,
+            } => self.accept_analysis(key, uri, version, generation, result),
+            Outcome::Planned {
+                key,
+                version,
+                line_start,
+                generation,
+                plans,
+            } => self.accept_plans(key, version, line_start, generation, plans),
+        }
+        self.pump_flush();
+        self.request_refresh_when_idle();
+    }
+
+    fn accept_analysis(
+        &mut self,
+        key: String,
+        uri: Uri,
+        version: i32,
+        generation: u64,
+        result: Result<DocumentAnalysis, ParseFailure>,
+    ) {
+        let slot = (key, version);
+        if self
+            .analyzing
+            .get(&slot)
+            .is_none_or(|pending| pending.generation != generation)
+        {
+            return;
+        }
+        let Some(pending) = self.analyzing.remove(&slot) else {
+            return;
+        };
+        let (key, version) = slot;
+
+        if self.documents.version(&uri) == Some(version) {
+            match result {
+                Ok(analysis) => {
+                    self.failures.remove(&key);
+                    self.analyses.insert(key, analysis);
+                    if pending.publish {
+                        self.refresh_due |= self.publish_stored(&uri);
+                    }
+                }
+                Err(failure) => self.handle_failure(&uri, version, failure),
+            }
+        }
+
+        for id in pending.waiting {
+            if let Some(request) = self.requests.remove(&id) {
+                self.dispatch(id, request);
             }
         }
     }
 
-    fn compute(
-        &self,
-        text: &str,
+    fn accept_plans(
+        &mut self,
+        key: String,
         version: i32,
-        uri: &Uri,
-    ) -> Result<DocumentAnalysis, ParseFailure> {
-        if !self.documents.is_python(uri) || self.is_excluded(uri) {
-            return Ok(DocumentAnalysis::empty(version));
+        line_start: u64,
+        generation: u64,
+        plans: Vec<RefactorPlan>,
+    ) {
+        let waiting = self
+            .planning
+            .remove(&(key.clone(), version, line_start))
+            .unwrap_or_default();
+        if generation == self.generation
+            && let Some(analysis) = self.analyses.get_mut(&key)
+            && analysis.version == version
+        {
+            analysis.insert_plans(line_start, plans);
         }
 
-        analysis::analyze(text, version, &self.workspace.for_uri(uri).config)
+        for id in waiting {
+            if let Some(request) = self.requests.remove(&id) {
+                self.dispatch(id, request);
+            }
+        }
     }
 
-    fn current_analysis(&mut self, uri: &Uri) -> Option<DocumentAnalysis> {
-        let key = Documents::key(uri);
-        let (text, version) = self
+    /// Answers a request from the analysis of the document's current
+    /// version, or from the last one that parsed when the current version
+    /// does not. When that analysis, or the plans a hover shows, still has
+    /// to run, the request waits for it and is dispatched again then.
+    fn dispatch(&mut self, id: RequestId, request: PendingRequest) {
+        let uri = request.uri().clone();
+        let key = Documents::key(&uri);
+        let Some((text, version)) = self
             .documents
-            .get(uri)
-            .map(|document| (document.text.clone(), document.version))?;
+            .get(&uri)
+            .map(|document| (Arc::clone(&document.text), document.version))
+        else {
+            self.answer(id, request, &key);
+            return;
+        };
 
-        if self
+        let failed = self
             .failures
             .get(&key)
-            .is_some_and(|failure| failure.version == version)
-        {
-            return self.analyses.get(&key).cloned();
+            .is_some_and(|failure| failure.version == version);
+        let fresh = self
+            .analyses
+            .get(&key)
+            .is_some_and(|analysis| !analysis::is_stale(analysis.version, Some(version)));
+        if failed || fresh {
+            self.answer(id, request, &key);
+            return;
         }
 
-        if let Some(analysis) = self.analyses.get(&key).cloned()
-            && !analysis::is_stale(analysis.version, Some(version))
-        {
-            return Some(analysis);
+        if self.skips(&uri) {
+            self.failures.remove(&key);
+            self.analyses
+                .insert(key.clone(), DocumentAnalysis::empty(version));
+            self.answer(id, request, &key);
+            return;
         }
 
-        match self.compute(&text, version, uri) {
-            Ok(analysis) => {
-                self.failures.remove(&key);
-                self.analyses.insert(key, analysis.clone());
+        self.requests.insert(id.clone(), request);
+        self.analyze(&uri, key, text, version, false, Some(id));
+    }
 
-                Some(analysis)
+    fn answer(&mut self, id: RequestId, request: PendingRequest, key: &str) {
+        match request {
+            PendingRequest::Hints { uri, range } => {
+                let hints = match self.analyses.get(key) {
+                    Some(analysis) => {
+                        analysis.hints(&self.workspace.for_uri(&uri).config, Some(range))
+                    }
+                    None => Vec::new(),
+                };
+
+                self.send(Response::new_ok(id, hints));
             }
-            Err(failure) => {
-                self.handle_failure(uri, version, failure);
+            PendingRequest::Hover { uri, position } => {
+                let Some(analysis) = self.analyses.get(key) else {
+                    self.send(Response::new_ok(id, None::<Hover>));
+                    return;
+                };
 
-                self.analyses.get(&Documents::key(uri)).cloned()
+                if let Some(line_start) = analysis.plans_needed(position) {
+                    let slot = (key.to_string(), analysis.version, line_start);
+                    let source = analysis.source();
+                    let waiting = self.planning.entry(slot.clone()).or_default();
+                    let queued = !waiting.is_empty();
+                    waiting.push(id.clone());
+                    self.requests.insert(
+                        id,
+                        PendingRequest::Hover {
+                            uri: uri.clone(),
+                            position,
+                        },
+                    );
+                    if !queued {
+                        let (key, version, line_start) = slot;
+                        let _ = self.worker.send(Job::Plans {
+                            key,
+                            version,
+                            line_start,
+                            source,
+                            generation: self.generation,
+                            config: self.workspace.for_uri(&uri).config.clone(),
+                        });
+                    }
+                    return;
+                }
+
+                let config = &self.workspace.for_uri(&uri).config;
+                let hover = self
+                    .analyses
+                    .get_mut(key)
+                    .and_then(|analysis| analysis.hover(config, position));
+
+                self.send(Response::new_ok(id, hover));
             }
         }
     }
@@ -568,12 +972,20 @@ impl Server {
             return false;
         }
 
+        self.analyses.insert(Documents::key(uri), analysis);
+        self.publish_stored(uri)
+    }
+
+    fn publish_stored(&mut self, uri: &Uri) -> bool {
+        let key = Documents::key(uri);
+        let Some(analysis) = self.analyses.get(&key) else {
+            return false;
+        };
         let version = analysis.version;
         let diagnostics = analysis.diagnostics(&self.workspace.for_uri(uri).config);
 
-        self.failures.remove(&Documents::key(uri));
+        self.failures.remove(&key);
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
-        self.analyses.insert(Documents::key(uri), analysis);
 
         true
     }
@@ -591,6 +1003,22 @@ impl Server {
         ));
     }
 
+    /// Asks the client to refresh inlay hints once the diagnostics a flush
+    /// started have all been published.
+    fn request_refresh_when_idle(&mut self) {
+        if !self.refresh_due
+            || !self.flushing.is_empty()
+            || self.analyzing.values().any(|pending| pending.publish)
+        {
+            return;
+        }
+
+        self.refresh_due = false;
+        if self.refresh_support {
+            self.request_hint_refresh();
+        }
+    }
+
     fn request_hint_refresh(&mut self) {
         let id = self.next_request_id();
 
@@ -602,34 +1030,6 @@ impl Server {
         self.next_request_id += 1;
 
         id
-    }
-
-    fn respond_inlay_hints(&mut self, id: RequestId, params: InlayHintParams) {
-        let uri = params.text_document.uri;
-        let hints = match self.current_analysis(&uri) {
-            Some(analysis) => {
-                analysis.hints(&self.workspace.for_uri(&uri).config, Some(params.range))
-            }
-            None => Vec::new(),
-        };
-
-        self.send(Response::new_ok(id, hints));
-    }
-
-    fn respond_hover(&mut self, id: RequestId, params: HoverParams) {
-        let position = params.text_document_position_params.position;
-        let uri = params.text_document_position_params.text_document.uri;
-        let hover = match self.current_analysis(&uri) {
-            Some(_) => {
-                let config = &self.workspace.for_uri(&uri).config;
-                self.analyses
-                    .get_mut(&Documents::key(&uri))
-                    .and_then(|analysis| analysis.hover(config, position))
-            }
-            None => None,
-        };
-
-        self.send(Response::new_ok(id, hover));
     }
 
     fn respond_invalid_params(&self, id: RequestId) {

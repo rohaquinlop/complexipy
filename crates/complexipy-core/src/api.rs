@@ -16,6 +16,7 @@ pub fn code_complexity(
             check_script,
             no_ignore,
             with_plans: true,
+            plans_above: None,
             rules: RuleSet::default(),
         },
     )
@@ -46,6 +47,7 @@ pub fn file_complexity(
             check_script,
             no_ignore,
             with_plans: true,
+            plans_above: None,
             rules: RuleSet::default(),
         },
     )
