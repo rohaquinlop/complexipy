@@ -355,6 +355,27 @@ fn a_default_cache_dir_symlinked_out_of_the_project_is_never_written() {
 
 #[cfg(unix)]
 #[test]
+fn a_directory_inside_the_default_cache_dir_symlinked_out_of_the_project_is_never_written() {
+    let dir = tempdir().expect("tempdir should work");
+    let inv = dir.path().join("proj");
+    let elsewhere = dir.path().join("victim");
+    fs::create_dir_all(inv.join(".complexipy_cache")).expect("should create");
+    fs::create_dir(&elsewhere).expect("should create");
+    std::os::unix::fs::symlink(&elsewhere, inv.join(".complexipy_cache/v")).expect("should link");
+
+    let result = remember_previous_functions(
+        inv.to_str().unwrap(),
+        &["src".to_string()],
+        &[file_complexity("src/a.py", "a.py", &[("f", 5)])],
+        None,
+    );
+
+    assert_eq!(result, None);
+    assert_eq!(fs::read_dir(&elsewhere).expect("should list").count(), 0);
+}
+
+#[cfg(unix)]
+#[test]
 fn a_cache_file_that_is_a_device_is_not_read() {
     let dir = tempdir().expect("tempdir should work");
     let inv = dir.path().join("proj");

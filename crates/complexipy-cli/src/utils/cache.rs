@@ -43,12 +43,11 @@ pub fn remember_previous_functions(
 ) -> Option<HashMap<(String, String, String), u64>> {
     let normalized_targets = normalize_targets(invocation_path, targets);
     let cache_key = cache_key_of(&normalized_targets)?;
-    if cache_dir.is_none() && !is_within(Path::new(invocation_path), Path::new(CACHE_DIR_NAME)) {
-        return None;
-    }
-
     let cache_dir_path = resolve_cache_dir(invocation_path, cache_dir);
     let cache_file = cache_value_path(&cache_dir_path, FUNCTIONS_CACHE_KEY);
+    if cache_dir.is_none() && !is_within(Path::new(invocation_path), &cache_file) {
+        return None;
+    }
 
     ensure_cache_dir_and_supporting_files(&cache_dir_path)?;
 
