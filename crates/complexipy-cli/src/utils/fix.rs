@@ -25,7 +25,7 @@ struct FixTarget {
 
 pub struct FixPassResult {
     pub console: String,
-    pub wrote: bool,
+    pub written: HashSet<String>,
 }
 
 fn plans_over_threshold(
@@ -90,8 +90,12 @@ pub fn run_fix_pass(
         });
     }
 
+    let fix_options = AnalysisOptions {
+        plans_above: Some(max_complexity_allowed),
+        ..options.clone()
+    };
     let mut parts: Vec<String> = Vec::new();
-    let mut wrote = false;
+    let mut written = HashSet::new();
     let mut applied_any = false;
     for pass in 0..MAX_FIX_PASSES {
         let mut changed = false;
@@ -136,7 +140,7 @@ pub fn run_fix_pass(
                     target.plans.clear();
                     continue;
                 }
-                wrote = true;
+                written.insert(target.display.clone());
             }
             applied_any = true;
             changed = true;
@@ -172,7 +176,7 @@ pub fn run_fix_pass(
         }
         for target in targets.iter_mut() {
             if target.changed {
-                target.plans = analyze_plans(&target.text, options, max_complexity_allowed);
+                target.plans = analyze_plans(&target.text, &fix_options, max_complexity_allowed);
                 target.changed = false;
             }
         }
@@ -184,7 +188,7 @@ pub fn run_fix_pass(
 
     FixPassResult {
         console: parts.join("\n"),
-        wrote,
+        written,
     }
 }
 

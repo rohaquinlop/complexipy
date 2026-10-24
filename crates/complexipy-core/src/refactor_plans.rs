@@ -1,7 +1,8 @@
 pub use crate::classes::{LineComplexity, RefactorPlan};
 
-use crate::rules::{RuleSet, default_registry, registry::PlanContext};
-use crate::utils::LineIndex;
+pub use crate::rules::registry::{FunctionSpan, PlanContext};
+
+use crate::rules::default_registry;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum RegionKind {
@@ -37,23 +38,8 @@ pub struct ComplexityResult {
 }
 
 pub fn build_refactor_plans(
-    function_complexity: u64,
     regions: &[ComplexityRegion],
-    source: &str,
-    index: &LineIndex,
-    def_names: &std::collections::HashSet<String>,
-    is_module: bool,
-    active: &RuleSet,
+    ctx: &PlanContext<'_>,
 ) -> (Vec<RefactorPlan>, u64) {
-    default_registry().analyze(
-        regions,
-        &PlanContext {
-            source,
-            index,
-            def_names,
-            function_complexity,
-            is_module,
-            active,
-        },
-    )
+    default_registry().analyze(regions, ctx)
 }

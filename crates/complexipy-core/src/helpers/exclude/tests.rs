@@ -49,7 +49,9 @@ fn canonical_root(dir: &TempDir) -> String {
 }
 
 fn agreement(root: &str, patterns: &[String]) {
-    let mut kept = get_paths_to_process(root, patterns.to_vec()).unwrap().files;
+    let mut kept = get_paths_to_process(root, patterns.to_vec(), false)
+        .unwrap()
+        .files;
     kept.sort();
 
     for file in FILES {
@@ -130,7 +132,7 @@ fn a_pattern_is_reported_when_the_walker_refuses_it() {
     for pattern in VALIDITY_CORPUS {
         let patterns = vec![pattern.to_string()];
         let reported = invalid_exclude_patterns(&patterns);
-        let refused = get_paths_to_process(&root, patterns).is_err();
+        let refused = get_paths_to_process(&root, patterns, false).is_err();
 
         assert_eq!(
             reported.is_empty(),
@@ -214,7 +216,7 @@ fn discovery_skips_links_that_leave_the_root_and_entries_that_are_not_files() {
     symlink(dir.path().join("mix.py"), dir.path().join("alias.py")).unwrap();
     let root = canonical_root(&dir);
 
-    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+    let discovery = get_paths_to_process(&root, Vec::new(), false).unwrap();
     let mut skipped: Vec<(String, SkipReason)> = discovery
         .skipped
         .into_iter()
@@ -250,7 +252,7 @@ fn files_hidden_by_ignore_rules_are_reported_as_skipped() {
     .unwrap();
     let root = canonical_root(&dir);
 
-    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+    let discovery = get_paths_to_process(&root, Vec::new(), true).unwrap();
     let mut hidden: Vec<String> = discovery
         .skipped
         .iter()
@@ -277,7 +279,7 @@ fn a_file_name_that_is_not_utf8_is_selected_and_fails_its_read() {
     .unwrap();
     let root = canonical_root(&dir);
 
-    let discovery = get_paths_to_process(&root, Vec::new()).unwrap();
+    let discovery = get_paths_to_process(&root, Vec::new(), false).unwrap();
 
     assert_eq!(discovery.files.len(), 4);
     let lossy = discovery
@@ -304,4 +306,33 @@ fn a_sibling_directory_is_not_inside_the_root() {
         &root,
         &["legacy/**".to_string()]
     ));
+}
+
+#[test]
+fn the_walker_lists_every_file_once_in_sorted_order() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    let kept = get_paths_to_process(&root, Vec::new(), false)
+        .unwrap()
+        .files;
+    let mut sorted = kept.clone();
+    sorted.sort();
+    sorted.dedup();
+
+    assert_eq!(kept, sorted);
+    assert_eq!(kept.len(), FILES.len());
+}
+
+#[test]
+fn an_exhaustive_pattern_excludes_the_whole_directory() {
+    let dir = tree();
+    fs::create_dir_all(dir.path().join("legacy/deep/deeper")).unwrap();
+    fs::write(dir.path().join("legacy/deep/deeper/x.py"), "x = 1\n").unwrap();
+    let root = canonical_root(&dir);
+    let kept = get_paths_to_process(&root, vec!["legacy/**".to_string()], false)
+        .unwrap()
+        .files;
+
+    assert!(kept.iter().all(|path| !path.contains("/legacy/")));
+    assert_eq!(kept.len(), 2);
 }

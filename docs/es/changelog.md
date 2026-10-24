@@ -6,6 +6,45 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Añadido
+
+- `file_complexity()` y `code_complexity()` aceptan `with_plans`, `True` por
+  defecto. Pasa `with_plans=False` para no construir los planes de
+  refactorización cuando solo necesitas las puntuaciones.
+
+### Cambiado
+
+- Ejecuciones más rápidas. El descubrimiento de archivos recorre el árbol una
+  sola vez, en paralelo, y ya no lee los directorios ignorados por git; las
+  rutas que no se pueden analizar se listan en orden de ruta. El reporte por
+  defecto, `--report-ignored` y el reporte de comentarios de ignorado obsoletos
+  comparten una sola lectura de cada archivo. Los archivos pasados como
+  argumentos se analizan en paralelo, y `--fix` vuelve a analizar solo los
+  archivos que escribió. La caché de análisis guarda sin interpretar las
+  entradas de otros objetivos, reescribe su archivo solo cuando cambian los
+  resultados de esta ejecución y conserva como máximo 32 MiB de entradas. En
+  macOS, Windows y Linux de 64 bits, complexipy reserva memoria con mimalloc.
+- Los planes de refactorización se miden sobre su propia función en lugar del
+  archivo completo, así que `--suggest-refactors` crece linealmente con el
+  tamaño del archivo
+  ([#274](https://github.com/rohaquinlop/complexipy/issues/274)). `--failed`,
+  `--fix` y `--dry-run` construyen planes solo para las funciones por encima
+  del límite, salvo que una salida liste las demás. La demo web no construye
+  planes.
+- `--diff` y `--staged` leen cada archivo en la referencia mediante un único
+  proceso `git cat-file --batch`, y buscan cada archivo en su propia ruta del
+  repositorio. Un archivo que se movió desde la referencia se reporta como
+  nuevo, y una ejecución desde un subdirectorio encuentra el historial de cada
+  archivo.
+- El servidor de lenguaje analiza en su propio hilo, así que responde a las
+  solicitudes mientras analiza otros documentos. Cada documento tiene su
+  propio retardo de espera, y `$/cancelRequest` cancela una solicitud que aún
+  está esperando.
+- La API de Python libera el GIL mientras analiza y mientras se ejecuta
+  `compute_diff`. `functions`, `line_complexities` y `refactor_plans`
+  devuelven una lista nueva sobre objetos construidos una sola vez, en lugar
+  de copiar los datos en cada acceso.
+
 ### Corregido
 
 - `--diff` y `--staged` leen una ruta en la referencia solo cuando allí era

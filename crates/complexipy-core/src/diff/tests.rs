@@ -5,7 +5,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 use crate::classes::FileComplexity;
-use crate::diff::{DiffEntry, DiffStatus};
+use crate::diff::{DiffEntry, DiffStatus, GitObject, read_object};
 use crate::diff::{compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags};
 
 const SIMPLE: &str = "def simple(x):\n    return x + 1\n";
@@ -222,23 +222,43 @@ fn compute_diff_unparseable_old_content_skips_file() {
 }
 
 #[test]
-fn resolve_git_path_strips_leading_components() {
+fn a_batch_response_reads_blobs_and_skips_other_objects() {
+    let output = b"1a2b blob 6\nx = 1\n\nHEAD:gone.py missing\n3c4d tree 3\nabc\n\
+HEAD:a name.py missing\n5e6f blob 2\n\xff\xfe\n";
+    let mut reader = std::io::Cursor::new(&output[..]);
+
+    assert_eq!(
+        read_object(&mut reader),
+        Some(GitObject::Text("x = 1\n".to_string()))
+    );
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Unreadable));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), Some(GitObject::Missing));
+    assert_eq!(read_object(&mut reader), None);
+}
+
+#[test]
+fn compute_diff_reads_each_file_at_its_repository_path() {
     let dir = tempdir().expect("tempdir should work");
     init_repo(dir.path());
     let src = dir.path().join("src");
-    fs::create_dir(&src).expect("should create");
+    fs::create_dir_all(src.join("pkg")).expect("should create");
     fs::write(src.join("example.py"), SIMPLE).expect("should write");
+    fs::write(src.join("pkg/inner.py"), WITH_IF).expect("should write");
     commit_all(dir.path(), "initial");
 
-    let current = vec![file_complexity(
-        "proj/src/example.py",
-        "example.py",
-        &[("simple", 2)],
-    )];
-    let entries = compute_diff(&current, "HEAD", dir.path().to_str().unwrap());
+    let current = vec![
+        file_complexity("example.py", "example.py", &[("simple", 2)]),
+        file_complexity("pkg/inner.py", "inner.py", &[("with_if", 1)]),
+        file_complexity("added.py", "added.py", &[("simple", 0)]),
+    ];
+    let entries = compute_diff(&current, "HEAD", src.to_str().unwrap());
 
-    assert_eq!(entries.len(), 1);
+    assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].old_complexity, Some(0));
+    assert_eq!(entries[1].status(), DiffStatus::Unchanged);
+    assert_eq!(entries[2].status(), DiffStatus::New);
 }
 
 #[test]

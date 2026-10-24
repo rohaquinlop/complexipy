@@ -1,28 +1,22 @@
 use crate::types::OutputFormat;
 use crate::utils::paths::resolve_output_paths;
-use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
+use complexipy_core::classes::IgnoredLocation;
 use complexipy_core::fs_guard::write_atomic;
-use complexipy_core::runner::{
-    collect_all_ignored_locations_shared, collect_removable_ignored_locations_shared,
-};
+use complexipy_core::runner::Analysis;
 use complexipy_core::utils::ExportError;
 
 pub fn handle_report_ignored(
     report_ignored: bool,
-    paths: &[String],
-    exclude: &[String],
+    analysis: &Analysis,
     output_formats: &[OutputFormat],
     output: Option<&str>,
-    _no_ignore: bool,
     invocation_path: &str,
 ) -> Result<(Vec<IgnoredLocation>, Option<String>), ExportError> {
     if !report_ignored {
         return Ok((Vec::new(), None));
     }
 
-    let (ignored_locations, _) =
-        collect_all_ignored_locations_shared(paths, exclude, invocation_path)
-            .map_err(ExportError::Io)?;
+    let ignored_locations = analysis.ignored_locations();
 
     let ignored_json_path = if output_formats.contains(&OutputFormat::Json)
         && !ignored_locations.is_empty()
@@ -66,22 +60,6 @@ pub fn handle_report_ignored(
     };
 
     Ok((ignored_locations, ignored_json_path))
-}
-
-pub fn handle_removable_ignores(
-    paths: &[String],
-    exclude: &[String],
-    max_complexity_allowed: u64,
-    invocation_path: &str,
-) -> Vec<RemovableIgnore> {
-    collect_removable_ignored_locations_shared(
-        paths,
-        exclude,
-        max_complexity_allowed,
-        invocation_path,
-    )
-    .map(|(removable_ignores, _)| removable_ignores)
-    .unwrap_or_default()
 }
 
 #[cfg(test)]

@@ -635,6 +635,14 @@ for func in result.functions:
     print(f"{func.name}: {func.complexity}")
 ```
 
+Both functions build refactor plans by default. Pass `with_plans=False` when
+you only need the scores: `refactor_plans` stays empty and the analysis skips
+the plan work.
+
+```python
+result = file_complexity("src/main.py", with_plans=False)
+```
+
 ### Comparing Against a Git Reference
 
 `compute_diff` compares current complexity results against a git reference

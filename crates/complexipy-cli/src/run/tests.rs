@@ -485,3 +485,73 @@ fn refactor_flags_build_plans() {
     assert!(builds_plans(&[".", "--fix"]));
     assert!(builds_plans(&[".", "--dry-run"]));
 }
+
+fn plans_above(args: &[&str]) -> Option<u64> {
+    let config = resolve_config(None, parse(args), ".").expect("config should resolve");
+
+    analysis_options(&config, RuleSet::default()).plans_above
+}
+
+#[test]
+fn runs_that_show_only_failing_plans_skip_passing_functions() {
+    let limit = Some(10);
+
+    assert_eq!(
+        plans_above(&[".", "--max-complexity-allowed", "10", "--dry-run"]),
+        limit
+    );
+    assert_eq!(
+        plans_above(&[
+            ".",
+            "--max-complexity-allowed",
+            "10",
+            "--suggest-refactors",
+            "--failed"
+        ]),
+        limit
+    );
+    assert_eq!(
+        plans_above(&[".", "--max-complexity-allowed", "10", "--fix", "--quiet"]),
+        limit
+    );
+    assert_eq!(
+        plans_above(&[
+            ".",
+            "--max-complexity-allowed",
+            "10",
+            "--suggest-refactors",
+            "--failed",
+            "--output-format",
+            "json",
+        ]),
+        limit
+    );
+}
+
+#[test]
+fn runs_that_show_passing_plans_build_every_plan() {
+    assert_eq!(plans_above(&[".", "--suggest-refactors"]), None);
+    assert_eq!(plans_above(&[".", "--fix"]), None);
+    assert_eq!(
+        plans_above(&[
+            ".",
+            "--suggest-refactors",
+            "--quiet",
+            "--output-format",
+            "json"
+        ]),
+        None
+    );
+    for format in ["sarif", "gitlab"] {
+        assert_eq!(
+            plans_above(&[
+                ".",
+                "--suggest-refactors",
+                "--failed",
+                "--output-format",
+                format
+            ]),
+            None
+        );
+    }
+}

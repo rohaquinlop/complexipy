@@ -5,6 +5,38 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Added
+
+- `file_complexity()` and `code_complexity()` take `with_plans`, `True` by
+  default. Pass `with_plans=False` to skip building refactor plans when only
+  the scores are needed.
+
+### Changed
+
+- Faster runs. File discovery walks the tree once, in parallel, and no longer
+  reads gitignored directories; paths that fail to analyze are listed in path
+  order. The default report, `--report-ignored`, and the stale ignore comment
+  report share one read of each file. File arguments are analyzed in parallel,
+  and `--fix` analyzes again only the files it wrote. The analysis cache keeps
+  the entries of other targets unparsed, rewrites its file only when this
+  run's results changed, and holds at most 32 MiB of entries. On macOS,
+  Windows, and 64-bit Linux, complexipy allocates with mimalloc.
+- Refactor plans are measured on their own function instead of the whole
+  file, so `--suggest-refactors` grows linearly with the file size
+  ([#274](https://github.com/rohaquinlop/complexipy/issues/274)). `--failed`,
+  `--fix`, and `--dry-run` build plans only for functions over the limit,
+  unless an output lists the others. The web demo builds no plans.
+- `--diff` and `--staged` read every file at the ref through one
+  `git cat-file --batch` process, and look each file up at its own repository
+  path. A file that moved since the ref is reported as new, and a run from a
+  subdirectory finds the history of each file.
+- The language server analyzes on its own thread, so requests are answered
+  while other documents are analyzed. Each document has its own debounce, and
+  `$/cancelRequest` cancels a request that is still waiting.
+- The Python API releases the GIL while it analyzes and while `compute_diff`
+  runs. `functions`, `line_complexities`, and `refactor_plans` return a new
+  list over objects built once, instead of copying the data on every access.
+
 ### Fixed
 
 - `--diff` and `--staged` read a path at the ref only when it was a regular

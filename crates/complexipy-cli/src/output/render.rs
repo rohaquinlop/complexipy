@@ -1,10 +1,11 @@
+use std::cell::OnceCell;
 use std::collections::HashMap;
 
 use owo_colors::{OwoColorize, Stream, Style};
 use std::io::IsTerminal;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-use crate::output::refactor::output_refactor_plans;
+use crate::output::refactor::{output_refactor_plans, read_source_lines};
 use crate::output::rows::{build_output_rows, truncate_top_n};
 use crate::types::{FileEntry, FunctionRow, Sort};
 use complexipy_core::classes::FileComplexity;
@@ -223,6 +224,7 @@ pub fn output_file_entries(
                 .if_supports_color(Stream::Stdout, |text| text.bold())
                 .to_string(),
         ];
+        let source_lines = OnceCell::new();
         for function in &entry.functions {
             let status_text = format_status_text(function.passed);
             let complexity_text = colorize_complexity(function.complexity, max_complexity);
@@ -234,8 +236,11 @@ pub fn output_file_entries(
                 delta_text,
                 status_text
             ));
-            if suggest_refactors {
-                let plans = output_refactor_plans(function, invocation_path);
+            if suggest_refactors && !function.refactor_plans.is_empty() {
+                let source_lines = source_lines.get_or_init(|| {
+                    read_source_lines(invocation_path, &function.path, &function.file_name)
+                });
+                let plans = output_refactor_plans(function, source_lines.as_deref());
                 if !plans.is_empty() {
                     lines.push(plans);
                 }
