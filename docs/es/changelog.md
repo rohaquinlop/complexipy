@@ -11,6 +11,12 @@ GitHub con todos los detalles.
 - `file_complexity()` y `code_complexity()` aceptan `with_plans`, `True` por
   defecto. Pasa `with_plans=False` para no construir los planes de
   refactorización cuando solo necesitas las puntuaciones.
+- `--isolated` ignora todos los archivos de configuración, y `--config <ruta>`
+  lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el
+  archivo se llama `pyproject.toml`, y el archivo completo en otro caso. Las
+  dos banderas no se pueden combinar. Pasa cualquiera de las dos en CI para
+  fijar el control, de modo que un cambio en la configuración del repositorio
+  no pueda alterarlo.
 
 ### Cambiado
 
@@ -44,6 +50,111 @@ GitHub con todos los detalles.
   `compute_diff`. `functions`, `line_complexities` y `refactor_plans`
   devuelven una lista nueva sobre objetos construidos una sola vez, en lugar
   de copiar los datos en cada acceso.
+- Una ejecución de `complexipy` sin argumentos cuyo archivo de configuración
+  no define `paths`, o lo define como una lista vacía, se detiene con el error
+  de rutas faltantes en lugar de no analizar nada y pasar. Define `paths` en
+  el archivo o indica las rutas en la línea de comandos.
+- `paths`, `output` y `cache-dir` leídos de un archivo de configuración deben
+  quedar dentro del directorio desde el que se ejecuta complexipy, incluidos
+  los enlaces simbólicos, o la ejecución se detiene con un error que nombra la
+  clave. Los mismos valores en la línea de comandos no tienen esta
+  restricción, así que pasa allí una ruta fuera del proyecto. Una referencia
+  de diff que empieza con `-`, venga de `--diff`, de `--diff-only` o de la
+  `branch` de `[diff]`, también detiene la ejecución.
+- complexipy lee el primer archivo de configuración que se analiza y tiene
+  valores válidos, y nunca combina archivos. El servidor de lenguaje ahora
+  pasa al siguiente archivo cuando uno tiene un valor inválido, como hace la
+  CLI. Cuando un archivo de mayor prioridad oculta a otro de menor prioridad
+  que también tiene ajustes, cada ejecución imprime una advertencia que nombra
+  el archivo que no se aplica, así que un proyecto con `complexipy.toml` y una
+  sección `[tool.complexipy]` en `pyproject.toml` la ve hasta que deja sus
+  ajustes en un solo archivo. Un archivo de configuración que no es un archivo
+  regular, que pesa más de 4 MiB o que es un enlace simbólico que sale de su
+  directorio se omite con una advertencia. Un error de configuración nombra
+  el archivo y la línea y la columna, o la clave, en lugar de citar el
+  archivo.
+- Un archivo de configuración que define una `branch` en `[diff]`,
+  `staged = true` en `[diff]` o `snapshot-create = true` imprime una
+  advertencia en stderr en cada ejecución en la que se aplica el ajuste,
+  incluso bajo `--quiet`. La advertencia nombra el archivo y explica cómo
+  cambia el código de salida. Fija el control en CI con la bandera
+  correspondiente, `--isolated` o `--config <ruta>`, y crea el snapshot con
+  `--snapshot-create` en la línea de comandos en lugar de en el archivo.
+- Cada función que define un módulo se puntúa por separado: un `def` bajo un
+  `if`, `try`, `with`, `for`, `while` o `match` a nivel de módulo, y un método
+  de una clase anidada, que se llama `Outer::Inner::method`. Estas funciones
+  aparecen en todas las salidas y el control las verifica, así que una
+  ejecución que pasaba puede fallar por una de ellas, y el total de un archivo
+  puede cambiar. Una función definida dentro de otra función sigue contando
+  para la función exterior.
+- Una marca de ignorado cuenta solo dentro de un comentario: en la línea del
+  `def`, en una línea de su firma o de sus decoradores, o en su propia línea
+  justo encima. El mismo texto en una cadena, un docstring o un argumento de
+  decorador, o en un comentario al final de la línea de código anterior, ya
+  no suprime la función. Las palabras de la marca deben ser completas y estar
+  separadas solo por espacios o tabuladores, así que `# complexipy: ignored`
+  no es una marca. Mueve una marca así a un comentario en la línea del `def`.
+- Un archivo fuente con una declaración de codificación PEP 263 se lee en esa
+  codificación: UTF-8 y Latin-1 siempre, y una codificación compatible con
+  ASCII como `cp1252` cuando el archivo es ASCII puro, así que un archivo
+  Latin-1 con bytes no ASCII, que antes fallaba, ahora se analiza. Un archivo
+  que declara otra codificación, como `utf-7`, o que declara una codificación
+  compatible con ASCII y contiene bytes no ASCII, se reporta como fallido, y
+  `file_complexity()` lanza `ValueError` para él.
+- Las funciones de un mismo archivo que comparten nombre, como el getter y el
+  setter de una propiedad, reciben entradas separadas en el snapshot, en
+  `--diff` y en `compute_diff()`: la primera en orden de código fuente
+  conserva el nombre, y las siguientes usan las claves `name#2`, `name#3`. Un
+  snapshot escrito antes de este cambio puede fallar en un archivo así;
+  ejecuta `--snapshot-create` una vez para reescribirlo.
+- El descubrimiento de archivos selecciona un enlace simbólico `*.py` solo
+  cuando apunta a un archivo regular dentro del directorio analizado. Un
+  enlace que sale de él, un enlace roto, un dispositivo, un FIFO, un
+  directorio llamado `*.py` y un directorio que no se puede leer se omiten,
+  con una advertencia en stderr salvo con `--quiet`. Un archivo cuyo nombre no
+  es UTF-8 válido se reporta como fallido en lugar de omitirse sin aviso. Una
+  ejecución que no selecciona ningún archivo imprime una advertencia incluso
+  bajo `--quiet`, y `--report-ignored` también lista los archivos `*.py` que
+  omiten las reglas de `.gitignore`, `.ignore` y rutas ocultas.
+- Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de
+  leerse, y `file_complexity()` lanza `ValueError` para él y para una ruta que
+  no es un archivo regular, como un dispositivo. Un snapshot que no es un
+  archivo regular de como máximo 64 MiB dentro de su propio directorio detiene
+  la ejecución con un error, y un archivo de caché así se ignora. La caché por
+  defecto no se usa cuando `.complexipy_cache` apunta fuera del directorio
+  desde el que se ejecuta complexipy.
+- `--fix` reescribe solo archivos regulares dentro del directorio desde el que
+  se ejecuta complexipy. Omite un enlace simbólico, un archivo fuera de ese
+  directorio y un archivo que cambió en disco después de que complexipy lo
+  leyera, y lo indica en stderr. Escribe un archivo nuevo junto al original y
+  lo renombra en su lugar, conservando los bits de permisos y el grupo, pero
+  no setuid, setgid, los atributos extendidos ni las ACL. Los archivos de
+  resultados, el snapshot y la caché se escriben de la misma forma, así que un
+  enlace simbólico en una ruta de salida se reemplaza por un archivo regular
+  en lugar de escribirse a través de él. `--fix --dry-run` no escribe nada, ni
+  siquiera la caché o el snapshot.
+- El texto que viene de los archivos analizados o de la configuración, como
+  una ruta, un nombre de función, una línea de código o un valor de
+  configuración, se imprime con sus caracteres de control y de formato
+  bidireccional escapados: un carácter de escape se muestra como `\u{1b}` y un
+  salto de línea como `\u{a}`. Los tabuladores se imprimen tal cual. Esto
+  cubre el reporte, `--plain`, el diff de `--fix`, las advertencias y el log
+  del servidor de lenguaje.
+- La salida CSV escribe con un `'` inicial una celda que empieza con `=`,
+  `+`, `-`, `@`, un tabulador o un retorno de carro, así que una hoja de
+  cálculo la muestra como texto.
+- Cuando la configuración tiene un problema, como un id de regla desconocido
+  o un archivo de configuración oculto por otro, el servidor de lenguaje
+  muestra en el editor una sola advertencia fija que remite al log de salida
+  de complexipy, y escribe los detalles solo en ese log.
+- La extensión de VS Code funciona en Modo Restringido en lugar de quedar
+  deshabilitada allí. En Modo Restringido ignora un `complexipy.server.path`
+  de la configuración del espacio de trabajo y ejecuta la ruta de tu
+  configuración de usuario, o `complexipy` desde el `PATH`, y confiar en el
+  espacio de trabajo reinicia el servidor con el valor del espacio de trabajo.
+  Un `complexipy.server.path` relativo se resuelve contra la primera carpeta
+  del espacio de trabajo, donde ahora arranca el servidor, y las entradas
+  relativas del `PATH` se omiten.
 
 ### Corregido
 
@@ -55,6 +166,14 @@ GitHub con todos los detalles.
   un enlace simbólico y un archivo regular, que antes omitía.
 - `--staged` lee un archivo staged cuyo nombre empieza como un número de
   etapa, como `0:a.py`, en lugar de leer en su lugar el `a.py` staged.
+- `branch = ""` en la sección `[diff]` desactiva el diff, y con él el valor
+  `staged` de la sección, como dice la documentación, así que la ejecución
+  verifica cada función contra el umbral. Antes comparaba contra el índice,
+  así que el código de salida solo verificaba las funciones que cambiaban.
+- `--diff` y `compute_diff()` no leen ninguna versión anterior de una ruta
+  cuyo nombre contiene un carácter de control, así que sus funciones se
+  reportan como NEW. Un nombre que terminaba en un retorno de carro leía la
+  versión anterior del mismo nombre sin él.
 
 ## [8.1.0] - 2026-10-18
 
