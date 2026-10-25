@@ -477,6 +477,23 @@ fn compute_diff_reports_a_submodule_the_change_adds_as_new() {
 }
 
 #[test]
+fn compute_diff_reads_a_linked_worktree_from_outside_it() {
+    let dir = tempdir().expect("tempdir should work");
+    let primary = dir.path().join("primary");
+    let linked = dir.path().join("linked");
+    repository_with(&primary, BRANCHED);
+    git(
+        &primary,
+        &["worktree", "add", "-q", linked.to_str().unwrap()],
+    );
+
+    assert_eq!(
+        diff_of_a_py(&linked, dir.path()),
+        (vec![DiffStatus::Unchanged], vec![])
+    );
+}
+
+#[test]
 fn compute_diff_reports_a_pinned_commit_the_nested_repository_lacks_as_new() {
     let outer = tempdir().expect("tempdir should work");
     let sub = outer.path().join("sub");

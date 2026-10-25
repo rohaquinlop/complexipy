@@ -299,8 +299,8 @@ fn path_from(root: &Path, path: &Path) -> Option<String> {
     Some(path.strip_prefix(root).ok()?.to_str()?.replace('\\', "/"))
 }
 
-/// The repository of each analyzed file, found from the file's own
-/// directory and cached per directory, and the commit each repository is
+/// The repository of each analyzed file, asked of git once for each
+/// directory that holds a `.git` entry, and the commit each repository is
 /// compared at, cached per repository.
 struct Repositories<'a> {
     git_ref: &'a str,
@@ -341,11 +341,17 @@ impl<'a> Repositories<'a> {
         Ok((root, commit, path_from_root))
     }
 
+    /// The root of the repository that holds `directory`, found from the
+    /// nearest directory at or above it that holds a `.git` directory or
+    /// file.
     fn root_of(&mut self, directory: &Path) -> Option<PathBuf> {
+        let nearest = directory
+            .ancestors()
+            .find(|ancestor| ancestor.join(".git").exists())?;
         self.roots
-            .entry(directory.to_path_buf())
+            .entry(nearest.to_path_buf())
             .or_insert_with(|| {
-                git_root(directory).and_then(|root| Path::new(&root).canonicalize().ok())
+                git_root(nearest).and_then(|root| Path::new(&root).canonicalize().ok())
             })
             .clone()
     }
