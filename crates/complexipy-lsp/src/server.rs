@@ -13,9 +13,11 @@ use lsp_types::{
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern, Hover,
     HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType,
     NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
-    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentIdentifier,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
+    WorkspaceServerCapabilities,
 };
+use serde::Deserialize;
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
 use crate::documents::{Documents, uri_to_path};
@@ -34,6 +36,7 @@ pub const DID_CHANGE_WATCHED_FILES: &str = "workspace/didChangeWatchedFiles";
 pub const CANCEL_REQUEST: &str = "$/cancelRequest";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
+pub const LINE_COMPLEXITIES: &str = "complexipy/lineComplexities";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
 pub const REGISTER_CAPABILITY: &str = "client/registerCapability";
@@ -267,15 +270,24 @@ struct PendingAnalysis {
     waiting: Vec<RequestId>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LineComplexitiesParams {
+    text_document: TextDocumentIdentifier,
+}
+
 enum PendingRequest {
     Hints { uri: Uri, range: Range },
     Hover { uri: Uri, position: Position },
+    LineComplexities { uri: Uri },
 }
 
 impl PendingRequest {
     fn uri(&self) -> &Uri {
         match self {
-            PendingRequest::Hints { uri, .. } | PendingRequest::Hover { uri, .. } => uri,
+            PendingRequest::Hints { uri, .. }
+            | PendingRequest::Hover { uri, .. }
+            | PendingRequest::LineComplexities { uri } => uri,
         }
     }
 }
@@ -431,6 +443,18 @@ impl Server {
                         PendingRequest::Hover {
                             uri: params.text_document_position_params.text_document.uri,
                             position: params.text_document_position_params.position,
+                        },
+                    ),
+                    Err(_) => self.respond_invalid_params(id),
+                }
+            }
+            LINE_COMPLEXITIES => {
+                let id = request.id.clone();
+                match request.extract::<LineComplexitiesParams>(LINE_COMPLEXITIES) {
+                    Ok((id, params)) => self.dispatch(
+                        id,
+                        PendingRequest::LineComplexities {
+                            uri: params.text_document.uri,
                         },
                     ),
                     Err(_) => self.respond_invalid_params(id),
@@ -913,13 +937,24 @@ impl Server {
 
                 self.send(Response::new_ok(id, hints));
             }
+            PendingRequest::LineComplexities { uri } => {
+                let config = &self.workspace.for_uri(&uri).config;
+                let result = match self.analyses.get(key) {
+                    Some(analysis) => analysis.line_complexities(config),
+                    None => DocumentAnalysis::empty(0).line_complexities(config),
+                };
+
+                self.send(Response::new_ok(id, result));
+            }
             PendingRequest::Hover { uri, position } => {
                 let Some(analysis) = self.analyses.get(key) else {
                     self.send(Response::new_ok(id, None::<Hover>));
                     return;
                 };
 
-                if let Some(line_start) = analysis.plans_needed(position) {
+                if let Some(line_start) =
+                    analysis.plans_needed(&self.workspace.for_uri(&uri).config, position)
+                {
                     let slot = (key.to_string(), analysis.version, line_start);
                     let source = analysis.source();
                     let waiting = self.planning.entry(slot.clone()).or_default();

@@ -10,9 +10,21 @@ release section links to its GitHub release notes for the full details.
 - `file_complexity()` and `code_complexity()` take `with_plans`, `True` by
   default. Pass `with_plans=False` to skip building refactor plans when only
   the scores are needed.
+- The language server answers `complexipy/lineComplexities` with the total of
+  every function and the increment of every line, whatever the hint settings
+  say. The VS Code extension draws its colored badges from it
+  ([#292](https://github.com/rohaquinlop/complexipy/discussions/292)).
+- `[lsp] diagnostic-range` and `[lsp] hover` choose what the warning
+  underlines and where hover answers.
 
 ### Changed
 
+- The language server is quieter by default. The warning underlines the
+  function name instead of the whole function, and hover answers only on the
+  `def` lines, so it no longer covers the editor's own hover inside the body
+  ([#290](https://github.com/rohaquinlop/complexipy/discussions/290)). Set
+  `diagnostic-range = "function"` or `hover = "function"` under `[lsp]` for the
+  previous behaviour.
 - Faster runs. File discovery walks the tree once, in parallel, and no longer
   reads gitignored directories; paths that fail to analyze are listed in path
   order. The default report, `--report-ignored`, and the stale ignore comment

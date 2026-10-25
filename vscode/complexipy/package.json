@@ -2,7 +2,7 @@
   "name": "complexipy",
   "displayName": "complexipy",
   "description": "Cognitive complexity for Python as you type: inlay hints, hover details, and warnings from the complexipy language server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "icon": "img/complexipy.png",
   "publisher": "rohaquinlop",
   "repository": {
@@ -31,6 +31,31 @@
           "default": "",
           "scope": "machine-overridable",
           "markdownDescription": "Path to the `complexipy` executable. The extension runs `<path> lsp`. Leave empty to use `complexipy` from the `PATH`."
+        },
+        "complexipy.display": {
+          "type": "string",
+          "enum": [
+            "inlayHints",
+            "decorations"
+          ],
+          "enumDescriptions": [
+            "Show the language server's inlay hints, as set in `[tool.complexipy.lsp]`.",
+            "Show colored badges: `ƒ N` after every function and `+N` after every line that adds complexity."
+          ],
+          "default": "inlayHints",
+          "markdownDescription": "How complexity appears in the editor. `decorations` colors each badge green, yellow, or red."
+        },
+        "complexipy.decorations.lineWarningAt": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "markdownDescription": "A line badge turns yellow when the line adds at least this much complexity. Applies when `complexipy.display` is `decorations`."
+        },
+        "complexipy.decorations.lineErrorAt": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "markdownDescription": "A line badge turns red when the line adds at least this much complexity. Applies when `complexipy.display` is `decorations`."
         }
       }
     }

@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.4.0] - Unreleased
+
+### Added
+
+- `complexipy.display` setting. Set it to `decorations` to see colored badges again: `ƒ N` after every function and `+N` after every line that adds complexity, in green, yellow, or red (#292). Requires complexipy 8.2.0 or later.
+- `complexipy.decorations.lineWarningAt` and `complexipy.decorations.lineErrorAt` settings for the line badge colors.
+
+### Changed
+
+- With complexipy 8.2.0, the warning underlines the function name, and hover appears only on the `def` lines (#290). Set `diagnostic-range` or `hover` under `[tool.complexipy.lsp]` to change them.
+
 ## [0.3.0] - 2026-10-18
 
 ### Breaking Changes
