@@ -8,8 +8,9 @@ La API completa de Python que expone complexipy. Importa todo desde el paquete
 # Funciones principales
 file_complexity(path: str, check_script: bool = False, no_ignore: bool = False, with_plans: bool = True) -> FileComplexity
 code_complexity(source: str, check_script: bool = False, no_ignore: bool = False, with_plans: bool = True) -> CodeComplexity
-collect_all_ignored_locations(paths: List[str], exclude: List[str] = [], invocation_path: str = "") -> Tuple[List[IgnoredLocation], List[str]]
-compute_diff(files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
+collect_all_ignored_locations(paths: List[str], exclude: List[str], invocation_path: str = ".") -> Tuple[List[IgnoredLocation], List[str]]
+collect_removable_ignored_locations(paths: List[str], exclude: List[str], max_complexity_allowed: int, invocation_path: str = ".") -> Tuple[List[RemovableIgnore], List[str]]
+compute_diff(current_files: List[FileComplexity], git_ref: str, invocation_path: Optional[str] = None) -> List[DiffEntry]
 has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool
 
 # Tipos de retorno
@@ -72,8 +73,11 @@ DiffEntry:
   ├─ func_name: str
   ├─ old_complexity: Optional[int]
   ├─ new_complexity: Optional[int]
-  ├─ status: DiffStatus (property)
-  └─ delta: Optional[int] (property)
+  └─ status: DiffStatus (property)
 
 DiffStatus: REGRESSED | IMPROVED | UNCHANGED | NEW | REMOVED
 ```
+
+## Errores
+
+`file_complexity` lanza `ValueError` cuando el archivo no se puede leer o decodificar como UTF-8, o no se puede analizar sintácticamente. `code_complexity` lanza `ValueError` cuando el código no se puede analizar sintácticamente. Un error interno en cualquier función de análisis también aparece como `ValueError`, así que un solo `except ValueError` omite un archivo que no se puede analizar.

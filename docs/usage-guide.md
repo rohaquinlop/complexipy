@@ -114,7 +114,8 @@ complexipy . --exclude "src/legacy/old_code.py"
 
 !!! note "How exclusion works"
 
-    - Exclusions are glob patterns evaluated relative to each provided root path
+    - Exclusions are glob patterns evaluated relative to each provided root path, and relative to the directory the command runs in, where the configuration file lives
+    - A pattern that starts with `/`, `./`, or `../`, or ends with `/`, never matches; complexipy warns about it
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
     - Gitignore rules are still respected during file discovery, and so are `.ignore` files and hidden files and directories. `--report-ignored` lists every `*.py` file these rules skip, and a run that selects no file at all prints a warning on stderr, even under `--quiet`
@@ -535,7 +536,7 @@ equals the threshold passes, as it does on the command line.
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](#complexity-diff)) | `false` |
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | List every file:line where an ignore comment suppresses a function. Prints even under `--quiet` | `false` |
+| `--report-ignored` | List every file:line where an ignore comment suppresses a function. `--quiet` hides the list | `false` |
 | `--isolated` | Ignore every configuration file. Cannot be combined with `--config` | `false` |
 | `--config <path>` | Read the configuration from this file only, instead of the invocation directory's files | - |
 
@@ -680,14 +681,15 @@ if has_regressions(entries, 15):
 
 `DiffEntry` exposes `file_path`, `func_name`, `old_complexity`, and
 `new_complexity` (either may be `None` for NEW / REMOVED functions), plus the
-`status` and `delta` properties. `status` is a `DiffStatus` member - a
+`status` property. `status` is a `DiffStatus` member - a
 `str`-based enum, so it compares equal to its string value (e.g.
 `DiffStatus.REGRESSED == "REGRESSED"`).
 
 ```python
 for e in entries:
     if e.status != DiffStatus.UNCHANGED:
-        print(f"{e.file_path}::{e.func_name}: {e.status} {e.delta}")
+        print(f"{e.file_path}::{e.func_name}: {e.status} "
+              f"{e.old_complexity} -> {e.new_complexity}")
 ```
 
 ### Practical API Usage
@@ -860,7 +862,7 @@ Use this when:
 ```json
 [
     {
-        "path": "src",
+        "path": "src/legacy.py",
         "file_name": "legacy.py",
         "functions": [
             {
@@ -989,7 +991,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-The output format is `path:line  # comment-text`. When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. The report prints even under `--quiet`.
+Each location prints as `path:line  # comment-text`, followed by the count. When `--output-format json` is also active, ignored locations are exported to `complexipy-ignored.json`. `--quiet` hides the list, and the JSON export is still written.
 
 Both flags are also available in the Python API via `no_ignore=True`:
 
@@ -1007,7 +1009,7 @@ from complexipy import collect_all_ignored_locations
 
 locations, failed = collect_all_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
 )
 for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
@@ -1040,7 +1042,7 @@ from complexipy import collect_removable_ignored_locations
 
 removable, failed = collect_removable_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
     max_complexity_allowed=15,
 )
 for rem in removable:

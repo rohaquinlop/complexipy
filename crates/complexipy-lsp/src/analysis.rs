@@ -7,6 +7,7 @@ use complexipy_core::cognitive_complexity::{
     code_complexity_shared, plans_for_function, syntax_error,
 };
 use complexipy_core::config::{DiagnosticRange, HoverScope, InlayHints, LspConfig};
+use complexipy_core::utils::{LineIndex, split_lines};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, Hover, HoverContents, InlayHint, InlayHintKind, InlayHintLabel,
     MarkupContent, MarkupKind, NumberOrString, Position, Range,
@@ -29,8 +30,7 @@ pub struct LineBounds {
 impl LineBounds {
     pub fn new(text: &str) -> Self {
         Self {
-            lengths: text
-                .lines()
+            lengths: split_lines(text)
                 .map(|line| line.encode_utf16().count() as u32)
                 .collect(),
         }
@@ -112,7 +112,7 @@ pub struct DocumentAnalysis {
 
 impl DocumentAnalysis {
     pub fn new(version: i32, functions: Vec<FunctionComplexity>, source: Arc<str>) -> Self {
-        let lines: Vec<&str> = source.lines().collect();
+        let lines: Vec<&str> = split_lines(&source).collect();
         let declarations = functions
             .iter()
             .map(|function| {
@@ -292,7 +292,7 @@ impl DocumentAnalysis {
             DiagnosticRange::Function => function_range(&self.bounds, function),
             DiagnosticRange::Name => {
                 let start = self.declarations[index].start;
-                let content = self.source.lines().nth(start.saturating_sub(1) as usize);
+                let content = split_lines(&self.source).nth(start.saturating_sub(1) as usize);
 
                 name_range(content.unwrap_or(""), start)
                     .unwrap_or_else(|| self.declaration_range(index))
@@ -377,11 +377,12 @@ fn position_at(text: &str, offset: usize) -> Position {
     while !text.is_char_boundary(offset) {
         offset -= 1;
     }
-    let before = &text[..offset];
-    let line_start = before.rfind('\n').map_or(0, |index| index + 1);
+    let index = LineIndex::new(text);
+    let line = index.line_of(offset);
+    let line_start = index.byte_of_line(line).unwrap_or(0);
 
     Position::new(
-        before.matches('\n').count() as u32,
+        line.saturating_sub(1) as u32,
         text[line_start..offset].encode_utf16().count() as u32,
     )
 }
@@ -568,6 +569,17 @@ fn function_range(bounds: &LineBounds, function: &FunctionComplexity) -> Range {
     )
 }
 
+fn escape_markdown(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        if character.is_ascii_punctuation() {
+            escaped.push('\\');
+        }
+        escaped.push(character);
+    }
+    escaped
+}
+
 fn hover_value(
     function: &FunctionComplexity,
     top_plan: Option<&RefactorPlan>,
@@ -575,7 +587,8 @@ fn hover_value(
 ) -> String {
     let mut value = format!(
         "**{}**: cognitive complexity {}",
-        function.name, function.complexity
+        escape_markdown(&function.name),
+        function.complexity
     );
 
     if is_over_threshold(function.complexity, config) {

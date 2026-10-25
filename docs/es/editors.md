@@ -213,7 +213,7 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | Clave | Predeterminado | Descripción |
 | -- | -- | -- |
 | `max-complexity-allowed` | `15` | Se reportan las funciones estrictamente por encima de este valor. Una función en el límite pasa. |
-| `exclude` | `[]` | Patrones glob, emparejados de forma relativa a la carpeta del espacio de trabajo que contiene el archivo de configuración. Los archivos excluidos no producen hints ni diagnósticos. |
+| `exclude` | `[]` | Patrones glob, emparejados de forma relativa a la carpeta del espacio de trabajo que contiene el archivo de configuración y a cada una de sus entradas de `paths`. Los archivos excluidos no producen hints ni diagnósticos. |
 | `no-ignore` | `false` | Analiza las funciones aunque un comentario de ignorado en línea las suprima. |
 | `lsp.inlay-hints` | `"threshold"` | Cuándo mostrar el hint por función: `"threshold"`, `"always"` o `"never"`. |
 | `lsp.per-line-hints` | `false` | Muestra además un hint `+N` en cada línea con un incremento de complejidad distinto de cero. |
@@ -296,7 +296,15 @@ función anidada se muestra su función padre.
 ### Ignorados y exclusiones
 
 - Los globs de `exclude` se emparejan de forma relativa a la carpeta del
-  espacio de trabajo que contiene el archivo de configuración. Los archivos excluidos no producen hints ni diagnósticos.
+  espacio de trabajo que contiene el archivo de configuración, y de forma
+  relativa a cada entrada de `paths` de ese archivo, igual que una ejecución
+  de la CLI en esa carpeta. Los archivos excluidos no producen hints ni
+  diagnósticos.
+- Una carpeta anidada del espacio de trabajo sin archivo de configuración
+  propio usa la configuración de la carpeta contenedora más cercana que
+  tenga uno.
+- Un patrón que nunca puede coincidir, como `./vendor/**` o `vendor/`, se
+  reporta como advertencia.
 - Un glob mal formado se reporta una vez por carga de configuración y se
   omite. El resto de patrones de la lista siguen aplicándose. Cada problema de
   configuración (un glob mal formado, una lista demasiado grande, un id de regla

@@ -168,6 +168,77 @@ GitHub con todos los detalles.
   Un `complexipy.server.path` relativo se resuelve contra la primera carpeta
   del espacio de trabajo, donde ahora arranca el servidor, y las entradas
   relativas del `PATH` se omiten.
+- Los operadores booleanos suman uno por cada secuencia de operadores
+  iguales, como especifica el artículo de complejidad cognitiva. Un grupo
+  booleano anidado dentro de otro se comparaba con cada hermano de su padre,
+  así que una expresión que mezcla operadores entre grupos puntuaba de más:
+  `(a or b) and (c and d)` ahora puntúa 2 en lugar de 4, y
+  `not a and (b or c)` puntúa 2 en lugar de 3. En un corpus de 1915
+  funciones cambiaron 4 puntuaciones, cada una 1 menos.
+- Las huellas (fingerprints) de GitLab Code Quality ya no incluyen el número
+  de línea de la función, así que una línea añadida encima de una función
+  conserva la huella de cada hallazgo debajo de ella. Una huella ahora se
+  calcula a partir de la comprobación, la ruta, el nombre de la función y la
+  posición del hallazgo entre los hallazgos que comparten esos datos. Todas
+  las huellas existentes cambian una vez con esta versión, así que la primera
+  comparación con un reporte de una versión anterior muestra cada hallazgo
+  como nuevo y cada hallazgo anterior como corregido.
+- Los reportes SARIF codifican `artifactLocation.uri` con porcentajes, así
+  que una ruta con espacios, comillas, caracteres no ASCII, `#`, `?` o `%`
+  apunta al archivo correcto. `$schema` nombra el esquema SARIF 2.1.0
+  publicado por OASIS en lugar de una URL que devolvía 404. Cada resultado
+  lleva `partialFingerprints`, que no cambian cuando se añaden líneas encima
+  del hallazgo, así que las subidas mediante una API de code scanning no
+  duplican alertas.
+- `--quiet --ignore-complexity` termina con código 0, igual que
+  `--ignore-complexity` solo; antes terminaba con 1 cuando una función
+  superaba el límite. Cuando stdout se cierra antes de tiempo, como en
+  `complexipy . | head`, la salida se detiene y la ejecución conserva su
+  código de salida, en lugar de producir un panic y terminar con el código
+  101 desde el binario o 1 desde el script de consola. El servidor de
+  lenguaje responde a un mensaje que no es JSON ni JSON-RPC válido con una
+  respuesta de error y sigue funcionando, en lugar de terminar con 1.
+- Un patrón de `exclude` se compara con la ruta relativa a cada argumento de
+  ruta, como antes, y también con la ruta relativa al directorio de trabajo,
+  así que la CLI y el servidor de lenguaje excluyen los mismos archivos. Con
+  `paths = ["src", "legacy"]` y `exclude = ["legacy/**"]`, antes excluían
+  archivos opuestos. Una ejecución de la CLI cuyo argumento de ruta difiere
+  del directorio de trabajo puede excluir más archivos que antes, y nunca
+  menos. El servidor también compara cada patrón con la ruta relativa a cada
+  entrada de `paths`, resuelve `..` en las rutas de los documentos antes de
+  comparar, y da a una carpeta anidada del espacio de trabajo sin archivo de
+  configuración propio la configuración de la carpeta contenedora más
+  cercana que tenga uno. Un patrón que empieza por `/`, `./` o `../`, o que
+  termina en `/`, nunca coincide, y la CLI y el servidor ahora avisan de
+  ello. Un archivo nombrado en la línea de comandos se sigue analizando
+  aunque un patrón coincida con él, como en ruff. Una opción
+  `--force-exclude` que también excluya esos archivos se sigue en
+  [#293](https://github.com/rohaquinlop/complexipy/issues/293).
+- C002 ofrece un reemplazo de guardas de bucle solo cuando la cadena de `if`
+  anidados es la última sentencia del cuerpo del bucle y cada `if` es la
+  última sentencia de su padre. Cuando hay sentencias después de la cadena,
+  el plan lleva texto de ayuda en su lugar, porque una guarda `continue` las
+  omitiría: antes `--fix` escribía esa guarda, que podía convertir en un
+  bucle infinito un bucle `while` cuyo contador seguía a la cadena. C007
+  mueve un único comentario de las líneas `if` fusionadas, como
+  `# type: ignore`, a la línea fusionada, y da texto de ayuda cuando esas
+  líneas llevan dos o más comentarios o cuando el `if` interior tiene su
+  cuerpo en la línea de cabecera.
+- `--report-ignored`, `complexipy-ignored.json` y el reporte de comentarios
+  de ignorado obsoletos muestran un archivo dentro del directorio de trabajo
+  en la misma ruta que los resultados. Antes mostraban las rutas relativas al
+  padre de cada directorio analizado, o al propio directorio de un archivo
+  pasado como argumento, así que `complexipy .` anteponía a cada ruta el
+  nombre del directorio de trabajo. El `file_name` de cada resultado ahora
+  coincide con su `path`, también para un archivo alcanzado mediante un
+  enlace simbólico.
+- Un error interno en la API de Python lanza `ValueError` desde las
+  funciones de análisis, de diff y de recopilación de ignorados, y
+  `RuntimeError` desde `run_cli` y `run_lsp`, en lugar de
+  `pyo3_runtime.PanicException`, que deriva de `BaseException`.
+  `except Exception` ahora lo captura, así que un archivo que provoca un
+  error interno ya no interrumpe un lote. Los stubs y la documentación ahora
+  nombran los errores que lanza cada función.
 
 ### Corregido
 
@@ -187,6 +258,69 @@ GitHub con todos los detalles.
   cuyo nombre contiene un carácter de control, así que sus funciones se
   reportan como NEW. Un nombre que terminaba en un retorno de carro leía la
   versión anterior del mismo nombre sin él.
+- Un CR (`\r`) aislado y CRLF ahora terminan una línea en todas partes, como
+  en el tokenizador y en LSP 3.17. Un archivo con finales de línea CR ya no
+  produce un panic al construir los planes de refactorización ni al dibujar
+  los acentos circunflejos bajo una sugerencia, ya no reporta todas las
+  funciones en la línea 1, ya no deja que un comentario de ignorado suprima
+  el archivo entero y ya no tarda un tiempo cuadrático ni genera una salida
+  cuadrática. `--fix` conserva los finales de línea CR de un archivo, y la
+  columna de los acentos circunflejos bajo una sugerencia cuenta caracteres,
+  no bytes.
+- Una expresión encadenada larga, como `a + a + ... + a`, `a.b.b...`,
+  `f()()...` o `a[0][0]...`, ya no desborda la pila, lo que abortaba la CLI
+  y el servidor de lenguaje y hacía fallar el intérprete de Python. Una
+  cadena de 300.000 términos ahora se analiza en la CLI, la API de Python, el
+  servidor de lenguaje y la demo web.
+- Puntuar una expresión booleana larga que mezcla operadores, y construir
+  los planes de refactorización de una cadena de `if` profunda, ya no tarda
+  un tiempo cuadrático.
+- `--fix` conserva lo que hace el código reescrito. Un `else` escrito como
+  `else :`, o uno después de una condición que contiene una serie de
+  comillas, ya no se pasa por alto. `a or(b)` y `not a or(b)` se parentizan e
+  invierten correctamente. Cada línea conserva su propia sangría, así que un
+  archivo que mezcla tabulaciones y espacios sigue siendo válido, y un
+  archivo sangrado con tabulaciones recibe reemplazos sangrados con
+  tabulaciones. Un `if` interior con su cuerpo en la línea de cabecera ya no
+  pierde ese cuerpo, C002 ya no reescribe una cadena dentro de una función
+  anidada, y un `#` dentro de una cadena de texto ya no oculta una cadena
+  multilínea posterior a la comprobación que rechaza la reescritura.
+- Un archivo alcanzado mediante varios argumentos de ruta, como
+  `complexipy . src src/a.py`, o mediante un enlace simbólico a su lado, se
+  analiza, se reporta y se corrige una sola vez.
+- `--report-ignored` lista cada ubicación suprimida como
+  `path:line  # comment`, seguida del recuento, como describen su texto de
+  ayuda y la documentación. Antes imprimía solo el recuento.
+- Los fragmentos de las sugerencias respetan `--color no`, `NO_COLOR` y la
+  salida por tubería, y un comentario en un fragmento ya no colorea todas
+  las líneas que le siguen. El color se decide en cada ejecución, así que un
+  proceso de Python que llama a `run_cli` varias veces sigue la terminal y
+  `NO_COLOR` de cada ejecución.
+- Una referencia de `--diff` más ancha que la terminal ya no produce un
+  panic al dibujar el banner.
+- `compute_diff(current, "origin/main")` funciona como está documentado:
+  `invocation_path` vale `None` por defecto. Ctrl-C detiene el script de
+  consola de inmediato en lugar de al terminar la ejecución. Un proceso
+  creado con fork después de una llamada en paralelo ya no se bloquea en su
+  siguiente llamada en paralelo. Los stubs y la documentación eliminan el
+  inexistente `DiffEntry.delta`, corrigen un ejemplo de `exclude` que no
+  coincidía con nada y muestran el formato real de una entrada de snapshot.
+- El servidor de lenguaje lee cada trama a medida que llega, hasta 256 MiB,
+  así que un `Content-Length` enorme ya no hace que reserve ese tamaño ni que
+  aborte, y una trama rota se reporta en stderr antes de que el servidor se
+  detenga. Una solicitud después de `shutdown`, o una cuyo id no es ni un
+  entero ni una cadena, recibe un error `InvalidRequest` en lugar de no
+  recibir respuesta. Tras un handshake fallido, el servidor termina en lugar
+  de esperar a que se cierre stdin. `file://localhost/...` se resuelve a la
+  ruta local, y una URI con un host remoto se resuelve a una ruta UNC en
+  Windows y a ninguna ruta en otros sistemas, así que el servidor lee la
+  configuración correcta. El hover muestra un nombre de función como
+  `Box::__init__` literalmente en lugar de interpretarlo como Markdown.
+- La extensión de VS Code detiene un servidor que no arranca en 30 segundos
+  y muestra un error, así que un reinicio posterior ya no queda bloqueado.
+  Mantiene un solo canal de salida en lugar de añadir uno por reinicio.
+- La demo web carga un analizador nuevo después de que un análisis falle, en
+  lugar de fallar en cada análisis posterior hasta recargar la página.
 
 ## [8.1.0] - 2026-10-18
 

@@ -203,7 +203,7 @@ at the root of each workspace folder:
 | Key | Default | Description |
 | -- | -- | -- |
 | `max-complexity-allowed` | `15` | Functions strictly above this value are reported. A function at the limit passes. |
-| `exclude` | `[]` | Glob patterns, matched relative to the workspace folder that holds the configuration file. Excluded files produce no hints and no diagnostics. |
+| `exclude` | `[]` | Glob patterns, matched relative to the workspace folder that holds the configuration file and to each of its `paths` entries. Excluded files produce no hints and no diagnostics. |
 | `no-ignore` | `false` | Analyze functions even when an inline ignore comment suppresses them. |
 | `lsp.inlay-hints` | `"threshold"` | When to show the per-function hint: `"threshold"`, `"always"`, or `"never"`. |
 | `lsp.per-line-hints` | `false` | Also show a `+N` hint on every line with a non-zero complexity increment. |
@@ -282,7 +282,13 @@ parent.
 ### Ignores and exclusions
 
 - `exclude` globs are matched relative to the workspace folder that holds the
-  configuration file. Excluded files produce no hints and no diagnostics.
+  configuration file, and relative to each `paths` entry of that file, the
+  same way a CLI run in that folder matches them. Excluded files produce no
+  hints and no diagnostics.
+- A nested workspace folder without a configuration file of its own uses the
+  configuration of the nearest enclosing folder that has one.
+- A pattern that can never match, such as `./vendor/**` or `vendor/`, is
+  reported as a warning.
 - A malformed glob is reported once per configuration load and skipped.
   Each configuration problem (a malformed glob, an oversized list, an unknown
   rule id in `select` or `ignore`, a selection that leaves no rule active, or

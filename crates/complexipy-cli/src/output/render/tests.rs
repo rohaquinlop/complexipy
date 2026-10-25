@@ -145,6 +145,7 @@ fn summary_no_files_message() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert!(has_success);
@@ -183,6 +184,7 @@ fn summary_failed_only_empty_message() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert_eq!(
@@ -205,6 +207,7 @@ fn summary_plain_mode_skips_messages() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert_eq!(output, "");
@@ -246,6 +249,14 @@ fn rule_matches_rich_layout_at_width() {
     assert_eq!(right, 37);
     assert_eq!(output.chars().count(), 98);
     assert_eq!(UnicodeWidthStr::width(output.as_str()), 100);
+}
+
+#[test]
+fn rule_fits_a_title_wider_than_the_terminal() {
+    let title = format!("Complexity diff (vs {})", "x".repeat(120));
+    let output = strip_ansi(&rule_at(&title, 80));
+
+    assert_eq!(UnicodeWidthStr::width(output.as_str()), 80);
 }
 
 #[test]

@@ -58,6 +58,14 @@ function statusText(count) {
 	return count === 0 ? '$(check) complexipy' : `$(warning) ${count} over threshold`;
 }
 
+function withinTimeout(promise, milliseconds) {
+	let timer;
+	const expired = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error(`no answer within ${milliseconds / 1000} seconds`)), milliseconds);
+	});
+	return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
+
 function functionBand(complexity, maxComplexityAllowed) {
 	if (complexity > maxComplexityAllowed) {
 		return 'red';
@@ -88,6 +96,7 @@ module.exports = {
 	findExecutable,
 	countOverThreshold,
 	statusText,
+	withinTimeout,
 	functionBand,
 	lineBand,
 	badges

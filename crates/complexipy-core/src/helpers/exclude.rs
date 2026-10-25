@@ -47,6 +47,22 @@ impl ExcludeMatcher {
         let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
             .unwrap_or(normalized_path.as_str());
 
+        self.matches(relative)
+    }
+
+    /// Like `is_excluded`, for a `path` inside `root` only.
+    pub fn is_excluded_inside(&self, path: &str, root: &str) -> bool {
+        if self.programs.is_empty() {
+            return false;
+        }
+
+        let normalized_path = path.replace('\\', "/");
+        let normalized_root = root.replace('\\', "/");
+        relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+            .is_some_and(|relative| self.matches(relative))
+    }
+
+    fn matches(&self, relative: &str) -> bool {
         match &self.combined {
             Some(combined) => combined.is_match(relative),
             None => self
@@ -165,6 +181,26 @@ fn visit(entry: &DirEntry, python_files: &Glob<'_>, exclusion: Option<&WalkExclu
     }
 }
 
+/// The patterns that match no path: paths are matched relative to a root,
+/// so they never start with `/`, `./`, `../`, or a drive, and a file path
+/// never ends with `/`.
+pub fn unmatchable_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    patterns
+        .iter()
+        .filter(|pattern| {
+            let pattern = normalized_pattern(pattern);
+            let bytes = pattern.as_bytes();
+            let drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+            pattern.starts_with('/')
+                || pattern.starts_with("./")
+                || pattern.starts_with("../")
+                || pattern.ends_with('/')
+                || drive
+        })
+        .cloned()
+        .collect()
+}
+
 #[derive(Debug, Default)]
 pub struct Discovery {
     pub files: Vec<String>,
@@ -178,18 +214,21 @@ struct Walked {
     visited: HashSet<PathBuf>,
 }
 
-/// Selects the `*.py` files under `root_path` in one parallel walk that
-/// honors `.gitignore`, `.ignore`, and hidden paths, and prunes every
-/// directory an exhaustive pattern covers. A selected file is a regular
-/// file inside the root; a symlink to a file elsewhere, a dangling link, a
-/// directory named `*.py`, and a directory the walk cannot read are skipped
-/// and reported, never read. With `list_hidden`, a second walk without the
-/// ignore rules reports every file they hide. A file whose name is not
-/// UTF-8 is selected under a lossy name, so its read fails and the run
-/// reports it.
+/// Selects the `*.py` files under `root_path` that no pattern excludes, in
+/// one parallel walk that honors `.gitignore`, `.ignore`, and hidden paths,
+/// and prunes every directory an exhaustive pattern covers. A pattern
+/// matches a path relative to `root_path`, and also relative to `anchor`,
+/// the directory of the configuration, for files inside it. A selected file
+/// is a regular file inside the root; a symlink to a file elsewhere, a
+/// dangling link, a directory named `*.py`, and a directory the walk cannot
+/// read are skipped and reported, never read. With `list_hidden`, a second
+/// walk without the ignore rules reports every file they hide. A file whose
+/// name is not UTF-8 is selected under a lossy name, so its read fails and
+/// the run reports it.
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,
+    anchor: &Path,
     list_hidden: bool,
 ) -> Result<Discovery, String> {
     let python_files = Glob::new("**/*.py").unwrap();
@@ -202,6 +241,15 @@ pub fn get_paths_to_process(
         .iter()
         .map(|s| s.replace('\\', "/"))
         .collect();
+
+    let anchor_matcher =
+        (canonical_root != anchor).then(|| ExcludeMatcher::new(&normalized_excludes));
+    let anchor = slashed(anchor);
+    let excluded_from_anchor = |file_abs: &str| {
+        anchor_matcher
+            .as_ref()
+            .is_some_and(|matcher| matcher.is_excluded_inside(file_abs, &anchor))
+    };
 
     let exclusion = WalkExclusion::new(&normalized_excludes)
         .map_err(|e| format!("Failed to apply exclude patterns: {}", e))?;
@@ -230,8 +278,9 @@ pub fn get_paths_to_process(
                     if list_hidden {
                         walked.visited.insert(entry_path.to_path_buf());
                     }
-                    match selected {
-                        Ok(file_abs) => walked.files.push(slashed(&file_abs)),
+                    match selected.map(|file_abs| slashed(&file_abs)) {
+                        Ok(file_abs) if excluded_from_anchor(&file_abs) => {}
+                        Ok(file_abs) => walked.files.push(file_abs),
                         Err(reason) => walked.skipped.push(skipped(entry_path, reason)),
                     }
                     WalkState::Continue
@@ -261,8 +310,13 @@ pub fn get_paths_to_process(
                         Visit::Prune => WalkState::Skip,
                         Visit::Skip => WalkState::Continue,
                         Visit::Select => {
-                            if !walked.visited.contains(entry.path()) {
-                                lock(&hidden).push(skipped(entry.path(), SkipReason::IgnoreRule));
+                            let path = entry.path();
+                            if !walked.visited.contains(path)
+                                && !path
+                                    .canonicalize()
+                                    .is_ok_and(|file_abs| excluded_from_anchor(&slashed(&file_abs)))
+                            {
+                                lock(&hidden).push(skipped(path, SkipReason::IgnoreRule));
                             }
                             WalkState::Continue
                         }

@@ -389,6 +389,7 @@ dependencies = [
  "complexipy-types",
  "mimalloc",
  "pyo3",
+ "rayon",
 ]
 
 [[package]]

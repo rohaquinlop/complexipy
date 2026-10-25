@@ -482,6 +482,19 @@ class TestPaperConformance:
     def test_bare_expression_boolean_sequence(self):
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
 
+    def test_each_boolean_sequence_counts_once(self):
+        # One per run of like operators: the outer `and` run plus one per
+        # parenthesized `or`; an `and` group inside the `and` run joins it.
+        def returning(expression: str) -> str:
+            return f"def f(a, b, c, d):\n    return {expression}\n"
+
+        assert self._c(returning("(a or b) and (c and d)")) == 2
+        assert self._c(returning("(a or b) and c and (c or d)")) == 3
+        assert self._c(returning("a and not (b or c) and (c or d)")) == 3
+        assert self._c(returning("not (a and (b or c))")) == 2
+        repeated = " and ".join(["(a or b) and (c and d)"] * 100)
+        assert self._c(returning(repeated)) == 101
+
     def test_loop_else_is_not_nested(self):
         code = "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n"
         assert self._c(code) == 2

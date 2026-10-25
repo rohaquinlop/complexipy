@@ -6,6 +6,7 @@ pub mod render;
 pub mod rows;
 
 use std::collections::HashMap;
+use std::io::Write;
 
 use crate::output::render::{SummaryOptions, output_summary};
 use crate::output::rows::has_success_functions;
@@ -17,6 +18,26 @@ use crate::utils::sarif::store_sarif;
 use complexipy_core::classes::FileComplexity;
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::{ExportError, output_csv_shared, output_json_shared};
+
+/// Writes one line to stdout. A closed stdout, such as a pipe whose reader
+/// exited, ends the output instead of the run. Test builds print through
+/// the harness so that it captures the line.
+pub fn emit(arguments: std::fmt::Arguments) {
+    if cfg!(test) {
+        println!("{arguments}");
+    } else {
+        let _ = writeln!(std::io::stdout().lock(), "{arguments}");
+    }
+}
+
+/// Writes one line to stderr, ignoring a closed stderr like `emit`.
+pub fn emit_error(arguments: std::fmt::Arguments) {
+    if cfg!(test) {
+        eprintln!("{arguments}");
+    } else {
+        let _ = writeln!(std::io::stderr().lock(), "{arguments}");
+    }
+}
 
 pub struct DisplayOptions<'a> {
     pub files_complexities: &'a [FileComplexity],
@@ -33,6 +54,7 @@ pub struct DisplayOptions<'a> {
     pub write_cache: bool,
     pub top: Option<u64>,
     pub suggest_refactors: bool,
+    pub color: bool,
 }
 
 pub fn handle_display(options: DisplayOptions) -> (bool, String) {
@@ -51,6 +73,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         write_cache,
         top,
         suggest_refactors,
+        color,
     } = options;
 
     let previous_functions = if write_cache && !files_complexities.is_empty() {
@@ -65,7 +88,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
             max_complexity_allowed,
             active_snapshot_map,
         );
-        return (has_success, String::new());
+        return (has_success || ignore_complexity, String::new());
     }
 
     let effective_sort = if top.is_some() { Sort::Desc } else { sort };
@@ -81,6 +104,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         top,
         suggest_refactors,
         invocation_path,
+        color,
     });
     (has_success, output)
 }

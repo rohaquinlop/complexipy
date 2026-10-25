@@ -1,5 +1,6 @@
 let editor;
 let complexityModule;
+let moduleGeneration = 0;
 let analysisTimeout;
 let activeWidgets = [];
 
@@ -46,14 +47,24 @@ document.addEventListener('DOMContentLoaded', () => {
     initWasmModule();
 });
 
-async function initWasmModule() {
+async function loadAnalyzer() {
+    moduleGeneration += 1;
+    const analyzer = await import(`./wasm/complexipy_wasm.js?generation=${moduleGeneration}`);
+    await analyzer.default();
+    return analyzer;
+}
+
+async function initWasmModule(analyzeWhenReady = true) {
     const statusElement = document.getElementById('analysis-status');
     try {
-        statusElement.textContent = 'Loading Analyzer...';
-        complexityModule = await import('./wasm/complexipy_wasm.js');
-        await complexityModule.default();
-        statusElement.textContent = 'Ready';
-        analyzeCode();
+        if (analyzeWhenReady) {
+            statusElement.textContent = 'Loading Analyzer...';
+        }
+        complexityModule = await loadAnalyzer();
+        if (analyzeWhenReady) {
+            statusElement.textContent = 'Ready';
+            analyzeCode();
+        }
     } catch (error) {
         console.error('Failed to load WebAssembly module:', error);
         statusElement.textContent = 'Error loading analyzer';
@@ -84,6 +95,10 @@ function analyzeCode() {
     } catch (error) {
         console.error('Analysis error:', error);
         statusElement.textContent = 'Analysis Failed';
+        if (error instanceof WebAssembly.RuntimeError || error instanceof RangeError) {
+            complexityModule = undefined;
+            initWasmModule(false);
+        }
     }
 }
 

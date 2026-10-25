@@ -2,7 +2,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
-use complexipy_core::classes::RemovableIgnore;
+use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
 use complexipy_core::runner::{SkipReason, SkippedPath};
 use complexipy_core::sanitize::escape_controls;
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
@@ -33,16 +33,19 @@ pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: 
     }
 }
 
-pub fn ignored_summary_output(location_count: usize, no_ignore: bool) -> String {
-    let mut output = if location_count == 0 {
-        "No ignore comments found.".to_string()
-    } else {
-        format!("Found {} suppressed location(s).", location_count)
-    };
-    if location_count > 0 && no_ignore {
-        output.push_str("\n(all markers ignored due to --no-ignore)");
+pub fn ignored_summary_output(locations: &[IgnoredLocation], no_ignore: bool) -> String {
+    if locations.is_empty() {
+        return "No ignore comments found.".to_string();
     }
-    output
+    let mut lines: Vec<String> = locations
+        .iter()
+        .map(|location| format!("{}:{}  {}", location.path, location.line, location.comment))
+        .collect();
+    lines.push(format!("Found {} suppressed location(s).", locations.len()));
+    if no_ignore {
+        lines.push("(all markers ignored due to --no-ignore)".to_string());
+    }
+    lines.join("\n")
 }
 
 pub fn ignored_saved_output(path: &str) -> String {
@@ -67,6 +70,15 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
         ));
     }
     lines.join("\n")
+}
+
+pub fn unmatchable_exclude_warning(pattern: &str) -> String {
+    format!(
+        "Exclude pattern {:?} can never match: paths are matched relative to the \
+         analyzed path without a leading `/` or `./`, and never end with `/`. Use a \
+         pattern such as `legacy/**`.",
+        pattern
+    )
 }
 
 pub fn diff_flags_warning() -> String {

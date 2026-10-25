@@ -1,6 +1,5 @@
 use regex::Regex;
-use ruff_python_ast::token::TokenKind;
-use ruff_python_ast::{self as ast, PySourceType, Stmt};
+use ruff_python_ast::{self as ast, Stmt};
 use std::sync::OnceLock;
 
 mod export_deps {
@@ -202,31 +201,42 @@ pub fn load_snapshot_file_shared(
         .map_err(|e| ExportError::Serialize(format!("Failed to parse snapshot JSON: {}", e)))
 }
 
+/// Byte offsets of line starts. A line ends at `\r\n`, `\r`, or `\n`, the
+/// terminators the Python tokenizer and LSP 3.17 recognize.
 pub struct LineIndex {
-    newlines: Vec<usize>,
+    line_starts: Vec<usize>,
 }
 
 impl LineIndex {
     pub fn new(code: &str) -> Self {
-        Self {
-            newlines: code
-                .bytes()
-                .enumerate()
-                .filter(|(_, b)| *b == b'\n')
-                .map(|(i, _)| i)
-                .collect(),
+        let bytes = code.as_bytes();
+        let mut line_starts = Vec::new();
+        let mut offset = 0;
+        while offset < bytes.len() {
+            match bytes[offset] {
+                b'\n' => line_starts.push(offset + 1),
+                b'\r' => {
+                    if bytes.get(offset + 1) == Some(&b'\n') {
+                        offset += 1;
+                    }
+                    line_starts.push(offset + 1);
+                }
+                _ => {}
+            }
+            offset += 1;
         }
+        Self { line_starts }
     }
 
     pub fn line_of(&self, byte: usize) -> u64 {
-        (self.newlines.partition_point(|&offset| offset < byte) + 1) as u64
+        (self.line_starts.partition_point(|&start| start <= byte) + 1) as u64
     }
 
     pub fn column_of(&self, byte: usize, code: &str) -> u64 {
-        let idx = self.newlines.partition_point(|&offset| offset < byte);
+        let idx = self.line_starts.partition_point(|&start| start <= byte);
         let line_start = match idx {
             0 => 0,
-            _ => self.newlines[idx - 1] + 1,
+            _ => self.line_starts[idx - 1],
         };
         (code[line_start..byte].chars().count() + 1) as u64
     }
@@ -235,9 +245,47 @@ impl LineIndex {
         match line {
             0 => None,
             1 => Some(0),
-            _ => self.newlines.get((line - 2) as usize).map(|&i| i + 1),
+            _ => self.line_starts.get((line - 2) as usize).copied(),
         }
     }
+
+    /// The text of `line` without its terminator, or `None` past the end.
+    pub fn line_text<'a>(&self, code: &'a str, line: u64) -> Option<&'a str> {
+        let start = self.byte_of_line(line)?;
+        let end = self
+            .byte_of_line(line + 1)
+            .map_or(code.len(), |next| next - terminator_len_before(code, next));
+        code.get(start..end)
+    }
+}
+
+fn terminator_len_before(code: &str, line_start: usize) -> usize {
+    if code[..line_start].ends_with("\r\n") {
+        2
+    } else {
+        1
+    }
+}
+
+/// Splits `text` into lines like `str::lines`, also breaking on a lone `\r`.
+pub fn split_lines(text: &str) -> impl Iterator<Item = &str> {
+    let mut rest = text;
+    std::iter::from_fn(move || {
+        if rest.is_empty() {
+            return None;
+        }
+        let Some(end) = rest.find(['\r', '\n']) else {
+            return Some(std::mem::take(&mut rest));
+        };
+        let line = &rest[..end];
+        let terminator = if rest[end..].starts_with("\r\n") {
+            2
+        } else {
+            1
+        };
+        rest = &rest[end + terminator..];
+        Some(line)
+    })
 }
 
 pub fn is_decorator(statement: &Stmt) -> bool {
@@ -255,13 +303,10 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
 
     match expr {
         ast::Expr::BoolOp(b) => {
-            complexity += 1;
-            for value in b.values.iter() {
-                complexity += count_different_childs_type(value, expr);
-            }
+            complexity += operator_sequences(b, None);
         }
         ast::Expr::UnaryOp(u) => {
-            complexity += count_different_childs_type(&u.operand, expr);
+            complexity += nested_operator_sequences(&u.operand, None);
         }
         ast::Expr::Compare(c) => {
             complexity += count_bool_ops(&c.left, nesting_level);
@@ -347,47 +392,36 @@ fn count_comprehension(
     complexity
 }
 
-fn count_different_childs_type(expr: &ast::Expr, prev_pr: &ast::Expr) -> u64 {
-    let mut complexity: u64 = 0;
+/// Counts the sequences of like boolean operators in `bool_op`. The node
+/// starts a new sequence unless `enclosing` is the operator of the boolean
+/// operation directly around it; `None` means a unary operator or nothing
+/// encloses it.
+fn operator_sequences(bool_op: &ast::ExprBoolOp, enclosing: Option<ast::BoolOp>) -> u64 {
+    let starts_sequence = u64::from(enclosing != Some(bool_op.op));
+    starts_sequence
+        + bool_op
+            .values
+            .iter()
+            .map(|value| nested_operator_sequences(value, Some(bool_op.op)))
+            .sum::<u64>()
+}
 
+fn nested_operator_sequences(expr: &ast::Expr, enclosing: Option<ast::BoolOp>) -> u64 {
     match expr {
-        ast::Expr::BoolOp(b) => match prev_pr {
-            ast::Expr::BoolOp(p) => {
-                if b.op != p.op {
-                    complexity += 1;
-                }
-                for value in p.values.iter() {
-                    complexity += count_different_childs_type(value, expr);
-                }
-            }
-            ast::Expr::UnaryOp(p) => {
-                complexity = 1 + count_different_childs_type(&p.operand, expr);
-            }
-            _ => {}
-        },
-        ast::Expr::UnaryOp(..) => match prev_pr {
-            ast::Expr::BoolOp(p) => {
-                for value in p.values.iter() {
-                    complexity += count_different_childs_type(value, expr);
-                }
-            }
-            ast::Expr::UnaryOp(p) => {
-                complexity = count_different_childs_type(&p.operand, expr);
-            }
-            _ => {}
-        },
-        _ => {}
+        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing),
+        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None),
+        _ => 0,
     }
-
-    complexity
 }
 
 fn line_start_of(code: &str, offset: usize) -> usize {
-    code[..offset].rfind('\n').map_or(0, |i| i + 1)
+    code[..offset].rfind(['\r', '\n']).map_or(0, |i| i + 1)
 }
 
 fn line_end_of(code: &str, offset: usize) -> usize {
-    code[offset..].find('\n').map_or(code.len(), |i| offset + i)
+    code[offset..]
+        .find(['\r', '\n'])
+        .map_or(code.len(), |i| offset + i)
 }
 
 fn line_at(code: &str, line_start: usize) -> &str {
@@ -396,11 +430,29 @@ fn line_at(code: &str, line_start: usize) -> &str {
 
 fn next_line_start(code: &str, line_start: usize) -> Option<usize> {
     let end = line_end_of(code, line_start);
-    (end < code.len()).then_some(end + 1)
+    if end == code.len() {
+        return None;
+    }
+    let terminator = if code[end..].starts_with("\r\n") {
+        2
+    } else {
+        1
+    };
+    Some(end + terminator)
+}
+
+fn previous_line_start(code: &str, line_start: usize) -> Option<usize> {
+    if line_start == 0 {
+        return None;
+    }
+    Some(line_start_of(
+        code,
+        line_start - terminator_len_before(code, line_start),
+    ))
 }
 
 pub fn collect_def_names(code: &str) -> std::collections::HashSet<String> {
-    code.lines()
+    split_lines(code)
         .filter_map(|line| {
             let trimmed = line.trim_start();
             let rest = trimmed
@@ -464,18 +516,7 @@ impl CommentRanges {
         if !ignore_re().is_match(code) && !noqa_re().is_match(code) {
             return Self::default();
         }
-        let parsed = ruff_python_parser::parse_unchecked_source(code, PySourceType::Python);
-        Self(
-            parsed
-                .tokens()
-                .iter()
-                .filter(|token| token.kind() == TokenKind::Comment)
-                .map(|token| {
-                    let (_, range) = token.as_tuple();
-                    (usize::from(range.start()), usize::from(range.end()))
-                })
-                .collect(),
-        )
+        Self(crate::syntax_tree::comment_ranges(code))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -581,11 +622,10 @@ pub fn find_noqa_comment(
         return Some(marker);
     }
 
-    if line_start > 0 {
-        let prev_start = line_start_of(code, line_start - 1);
-        if let Some(marker) = comments.own_line_marker(code, prev_start) {
-            return Some(marker);
-        }
+    if let Some(prev_start) = previous_line_start(code, line_start)
+        && let Some(marker) = comments.own_line_marker(code, prev_start)
+    {
+        return Some(marker);
     }
 
     if current_line.trim_start().starts_with("def ") {
@@ -602,11 +642,10 @@ pub fn find_noqa_comment(
                 if let Some(marker) = signature_has_marker(pos) {
                     return Some(marker);
                 }
-                if pos > 0 {
-                    let prev_start = line_start_of(code, pos - 1);
-                    if let Some(directive) = comments.marker_on_line(code, prev_start) {
-                        return Some(directive);
-                    }
+                if let Some(prev_start) = previous_line_start(code, pos)
+                    && let Some(directive) = comments.marker_on_line(code, prev_start)
+                {
+                    return Some(directive);
                 }
                 break;
             }

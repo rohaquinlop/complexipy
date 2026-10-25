@@ -79,13 +79,54 @@ pub fn is_python_path(path: &str) -> bool {
         .ends_with(PYTHON_EXTENSION)
 }
 
+/// The local path of a `file` URI. An empty or `localhost` authority names
+/// the local machine; another host names a UNC share on Windows and has no
+/// local path elsewhere.
 pub fn uri_to_path(uri: &Uri) -> Option<String> {
     let raw = uri.as_str();
     let rest = raw.strip_prefix("file://")?;
-    let path = rest.split(['?', '#']).next().unwrap_or(rest);
+    let rest = rest.split(['?', '#']).next().unwrap_or(rest);
+    let (authority, path) = rest
+        .find('/')
+        .map_or((rest, ""), |slash| rest.split_at(slash));
     let decoded = percent_decode(path);
 
-    Some(trim_drive_prefix(decoded))
+    if authority.is_empty() || authority.eq_ignore_ascii_case("localhost") {
+        Some(lexically_normalized(&trim_drive_prefix(decoded)))
+    } else if cfg!(windows) {
+        Some(lexically_normalized(&format!(
+            "//{}{}",
+            percent_decode(authority),
+            decoded
+        )))
+    } else {
+        None
+    }
+}
+
+/// Removes `.` and empty segments and resolves `..` against the segment
+/// before it, without touching the file system.
+pub fn lexically_normalized(path: &str) -> String {
+    let (prefix, rest) = if let Some(rest) = path.strip_prefix("//") {
+        ("//", rest)
+    } else if let Some(rest) = path.strip_prefix('/') {
+        ("/", rest)
+    } else {
+        ("", path)
+    };
+    let mut segments: Vec<&str> = Vec::new();
+    for segment in rest.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if segments.last().is_some_and(|last| !last.ends_with(':')) {
+                    segments.pop();
+                }
+            }
+            other => segments.push(other),
+        }
+    }
+    format!("{}{}", prefix, segments.join("/"))
 }
 
 fn trim_drive_prefix(path: String) -> String {
