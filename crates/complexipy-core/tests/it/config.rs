@@ -2,8 +2,8 @@
 //! Tests for config file discovery and the [tool.complexipy.lsp] section.
 
 use complexipy_core::config::{
-    ConfigFileKind, ConfigSource, InlayHints, LspConfig, config_candidates, is_config_file_name,
-    read_complexipy_config,
+    ConfigFileKind, ConfigSource, DiagnosticRange, HoverScope, InlayHints, LspConfig,
+    config_candidates, is_config_file_name, read_complexipy_config,
 };
 
 use std::fs as fs_sync;
@@ -25,6 +25,8 @@ fn lsp_config_defaults_without_section() {
     assert_eq!(config.lsp.inlay_hints, InlayHints::Threshold);
     assert!(!config.lsp.per_line_hints);
     assert!(config.lsp.diagnostics);
+    assert_eq!(config.lsp.diagnostic_range, DiagnosticRange::Name);
+    assert_eq!(config.lsp.hover, HoverScope::Signature);
     assert!(!config.no_ignore);
 }
 
@@ -58,6 +60,8 @@ fn lsp_config_reads_kebab_case_keys() {
         inlay-hints = "always"
         per-line-hints = true
         diagnostics = false
+        diagnostic-range = "function"
+        hover = "never"
         "#,
     )
     .unwrap();
@@ -68,6 +72,8 @@ fn lsp_config_reads_kebab_case_keys() {
     assert_eq!(config.lsp.inlay_hints, InlayHints::Always);
     assert!(config.lsp.per_line_hints);
     assert!(!config.lsp.diagnostics);
+    assert_eq!(config.lsp.diagnostic_range, DiagnosticRange::Function);
+    assert_eq!(config.lsp.hover, HoverScope::Never);
 }
 
 #[test]
@@ -87,10 +93,13 @@ fn lsp_config_ignores_unknown_keys() {
 }
 
 #[test]
-fn lsp_config_rejects_unknown_inlay_hint_value() {
-    let result: Result<LspConfig, _> = toml::from_str("[lsp]\ninlay-hints = \"sometimes\"");
+fn lsp_config_rejects_unknown_enum_values() {
+    for key in ["inlay-hints", "diagnostic-range", "hover"] {
+        let source = format!("[lsp]\n{} = \"sometimes\"", key);
+        let result: Result<LspConfig, _> = toml::from_str(&source);
 
-    assert!(result.is_err());
+        assert!(result.is_err(), "{} accepted an unknown value", key);
+    }
 }
 
 #[test]

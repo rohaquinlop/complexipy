@@ -51,9 +51,37 @@ function statusText(count) {
 	return count === 0 ? '$(check) complexipy' : `$(warning) ${count} over threshold`;
 }
 
+function functionBand(complexity, maxComplexityAllowed) {
+	if (complexity > maxComplexityAllowed) {
+		return 'red';
+	}
+	return complexity * 2 > maxComplexityAllowed ? 'yellow' : 'green';
+}
+
+function lineBand(increment, warningAt, errorAt) {
+	if (increment >= errorAt) {
+		return 'red';
+	}
+	return increment >= warningAt ? 'yellow' : 'green';
+}
+
+function badges(result, warningAt, errorAt) {
+	return result.functions.flatMap(fn => [
+		{ line: fn.line, text: `ƒ ${fn.complexity}`, band: functionBand(fn.complexity, result.maxComplexityAllowed) },
+		...fn.lines.map(entry => ({
+			line: entry.line,
+			text: `+${entry.complexity}`,
+			band: lineBand(entry.complexity, warningAt, errorAt)
+		}))
+	]);
+}
+
 module.exports = {
 	serverCommand,
 	findExecutable,
 	countOverThreshold,
-	statusText
+	statusText,
+	functionBand,
+	lineBand,
+	badges
 };
