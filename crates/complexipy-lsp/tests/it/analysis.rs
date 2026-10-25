@@ -329,6 +329,7 @@ fn hover_reports_the_total_and_the_limit() {
 
     assert!(content.value.contains("**heavy**: cognitive complexity 3"));
     assert!(content.value.contains("Exceeds the allowed 2"));
+    assert!(content.value.contains("Top refactor"));
 }
 
 #[test]
@@ -336,18 +337,6 @@ fn hover_outside_a_function_is_empty() {
     let mut analysis = analyzed(SAMPLE, &config(2));
 
     assert!(analysis.hover(&config(2), Position::new(2, 0)).is_none());
-}
-
-#[test]
-fn hover_includes_the_top_refactor_plan() {
-    let mut analysis = analyzed(SAMPLE, &config(2));
-    let hover = analysis.hover(&config(2), Position::new(4, 0)).unwrap();
-
-    let HoverContents::Markup(content) = hover.contents else {
-        panic!("expected markup content");
-    };
-
-    assert!(content.value.contains("Top refactor"));
 }
 
 #[test]
