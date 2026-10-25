@@ -600,6 +600,7 @@ fn run_git(cwd: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String
     });
 
     let deadline = Instant::now() + timeout;
+    let mut pause = Duration::from_millis(1);
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -609,7 +610,8 @@ fn run_git(cwd: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String
                     let _ = child.wait();
                     return None;
                 }
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(pause);
+                pause = (pause * 2).min(Duration::from_millis(10));
             }
             Err(_) => return None,
         }
