@@ -36,6 +36,127 @@ release section links to its GitHub release notes for the full details.
 - The Python API releases the GIL while it analyzes and while `compute_diff`
   runs. `functions`, `line_complexities`, and `refactor_plans` return a new
   list over objects built once, instead of copying the data on every access.
+- Boolean operators add one per sequence of like operators, as the cognitive
+  complexity paper specifies. A boolean group nested in another one was
+  compared with every sibling of its parent, so an expression that mixes
+  operators across groups scored too high: `(a or b) and (c and d)` now scores
+  2 instead of 4, and `not a and (b or c)` scores 2 instead of 3. On a
+  1,915-function corpus, 4 scores changed, each down by 1.
+- GitLab Code Quality fingerprints no longer hash the function's line number,
+  so a line added above a function keeps the fingerprint of every finding
+  below it. A fingerprint now hashes the check, the path, the function name,
+  and the finding's rank among the findings that share them. Every existing
+  fingerprint changes once with this release, so the first comparison with a
+  report from an earlier release shows every finding as new and every earlier
+  one as fixed.
+- SARIF reports percent-encode `artifactLocation.uri`, so a path with spaces,
+  quotes, non-ASCII characters, `#`, `?`, or `%` points at the right file.
+  `$schema` names the published OASIS SARIF 2.1.0 schema instead of a URL
+  that returned 404. Each result carries `partialFingerprints`, which stay the
+  same when lines are added above the finding, so uploads through a code
+  scanning API do not duplicate alerts.
+- `--quiet --ignore-complexity` exits 0, like `--ignore-complexity` alone; it
+  exited 1 when a function was over the limit. When stdout closes early, as
+  in `complexipy . | head`, the output stops and the run keeps its exit code,
+  instead of panicking with exit code 101 from the binary or 1 from the
+  console script. The language server answers a message that is not valid
+  JSON or JSON-RPC with an error response and keeps running, instead of
+  exiting with 1.
+- An `exclude` pattern matches a path relative to each path argument, as
+  before, and also relative to the working directory, so the CLI and the
+  language server exclude the same files. With `paths = ["src", "legacy"]` and
+  `exclude = ["legacy/**"]`, they used to exclude opposite files. A CLI run
+  whose path argument differs from the working directory can exclude more
+  files than before, and never fewer. The server also matches each pattern
+  relative to each `paths` entry, resolves `..` in document paths before
+  matching, and gives a nested workspace folder without a configuration file
+  the configuration of the nearest enclosing folder that has one. A pattern
+  that starts with `/`, `./`, or `../`, or ends with `/`, never matches, and
+  the CLI and the server now warn about it. A file named on the command line
+  is still analyzed when a pattern matches it, as in ruff. A
+  `--force-exclude` flag that also excludes those files is tracked in
+  [#293](https://github.com/rohaquinlop/complexipy/issues/293).
+- C002 offers a loop guard replacement only when the nested `if` chain is the
+  last statement of the loop body and each `if` the last statement of its
+  parent. When statements follow the chain, the plan carries help text
+  instead, because a `continue` guard would skip them: `--fix` used to write
+  that guard, which could turn a `while` loop whose counter followed the
+  chain into an infinite loop. C007 moves a single comment on the merged `if`
+  lines, such as `# type: ignore`, to the merged line, and gives help text
+  when those lines carry two or more comments or the inner `if` has its body
+  on its header line.
+- `--report-ignored`, `complexipy-ignored.json`, and the stale ignore comment
+  report show a file inside the working directory at the same path as the
+  results. They used to show paths relative to the parent of each analyzed
+  directory, or to a file argument's own directory, so `complexipy .`
+  prefixed every path with the working directory's name. Each result's
+  `file_name` now matches its `path`, also for a file reached through a
+  symlink.
+- An internal error in the Python API raises `ValueError` from the analysis,
+  diff, and ignore collection functions, and `RuntimeError` from `run_cli`
+  and `run_lsp`, instead of `pyo3_runtime.PanicException`, which derives from
+  `BaseException`. `except Exception` now catches it, so one file that hits
+  an internal error no longer aborts a batch. The stubs and docs now name the
+  errors each function raises.
+
+### Fixed
+
+- A lone CR (`\r`) and CRLF now end a line everywhere, as they do for the
+  tokenizer and in LSP 3.17. A file with CR line endings no longer panics
+  while refactor plans are built or while the caret under a suggestion is
+  drawn, reports every function on line 1, lets one ignore comment suppress
+  the whole file, or takes quadratic time and output. `--fix` keeps a file's
+  CR line endings, and the column of the caret under a suggestion counts
+  characters, not bytes.
+- A long chained expression, such as `a + a + ... + a`, `a.b.b...`,
+  `f()()...`, or `a[0][0]...`, no longer overflows the stack, which aborted
+  the CLI and the language server and crashed the Python interpreter. A
+  300,000-term chain now analyzes in the CLI, the Python API, the language
+  server, and the web demo.
+- Scoring a long boolean expression that mixes operators, and building
+  refactor plans for a deep `if` chain, no longer take quadratic time.
+- `--fix` keeps what the rewritten code does. An `else` written as `else :`,
+  or one after a condition that holds a run of quotes, is no longer missed.
+  `a or(b)` and `not a or(b)` are parenthesized and inverted correctly. Each
+  line keeps its own indentation, so a file that mixes tabs and spaces stays
+  valid, and a tab-indented file gets tab-indented replacements. An inner
+  `if` with its body on its header line no longer loses that body, C002 no
+  longer rewrites a chain inside a nested function, and a `#` inside a string
+  no longer hides a later multi-line string from the check that refuses the
+  rewrite.
+- A file reached through several path arguments, such as
+  `complexipy . src src/a.py`, or through a symlink next to it, is analyzed,
+  reported, and fixed once.
+- `--report-ignored` lists each suppressed location as
+  `path:line  # comment`, followed by the count, as its help text and the
+  docs describe. It used to print only the count.
+- Suggestion snippets honor `--color no`, `NO_COLOR`, and piped output, and a
+  comment in a snippet no longer colors every line after it. Color is decided
+  on each run, so a Python host that calls `run_cli` several times follows
+  each run's terminal and `NO_COLOR`.
+- A `--diff` ref wider than the terminal no longer panics while the banner is
+  drawn.
+- `compute_diff(current, "origin/main")` works as documented:
+  `invocation_path` defaults to `None`. Ctrl-C stops the console script at
+  once instead of after the run finishes. A process forked after a parallel
+  call no longer hangs on its next parallel call. The stubs and docs drop the
+  nonexistent `DiffEntry.delta`, fix an `exclude` example that matched
+  nothing, and show the real snapshot entry format.
+- The language server reads each frame as it arrives, up to 256 MiB, so a
+  huge `Content-Length` no longer makes it allocate that size or abort, and a
+  broken frame is reported on stderr before the server stops. A request after
+  `shutdown`, or one whose id is neither an integer nor a string, gets an
+  `InvalidRequest` error instead of no answer. After a failed handshake the
+  server exits instead of waiting for stdin to close. `file://localhost/...`
+  resolves to the local path, and a URI with a remote host resolves to a UNC
+  path on Windows and to no path elsewhere, so the server reads the right
+  configuration. Hover shows a function name such as `Box::__init__`
+  literally instead of rendering it as Markdown.
+- The VS Code extension stops a server that does not start within 30 seconds
+  and shows an error, so a later restart is no longer blocked. It keeps one
+  output channel instead of adding one per restart.
+- The web demo loads a fresh analyzer after an analysis crashes, instead of
+  failing every later analysis until the page reloads.
 
 ## [8.1.0] - 2026-10-18
 
