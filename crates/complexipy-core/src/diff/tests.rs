@@ -477,6 +477,25 @@ fn compute_diff_reports_a_submodule_the_change_adds_as_new() {
 }
 
 #[test]
+fn compute_diff_reports_a_ref_the_outer_repository_lacks_against_the_outer_one() {
+    let outer = tempdir().expect("tempdir should work");
+    let sub = outer.path().join("sub");
+    repository_with(&sub, BRANCHED);
+    init_repo(outer.path());
+    git(outer.path(), &["add", "sub"]);
+
+    assert_eq!(
+        diff_of_a_py(&sub, outer.path()),
+        (
+            vec![DiffStatus::New],
+            vec![UnresolvedReason::UnknownRef {
+                repository: canonical(outer.path())
+            }]
+        )
+    );
+}
+
+#[test]
 fn compute_diff_reads_a_linked_worktree_from_outside_it() {
     let dir = tempdir().expect("tempdir should work");
     let primary = dir.path().join("primary");

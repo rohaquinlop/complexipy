@@ -367,19 +367,17 @@ impl<'a> Repositories<'a> {
 
     /// A repository that the repository around it tracks as a gitlink is
     /// compared at the commit that gitlink pins at the outer repository's
-    /// compared commit, unless it holds the invocation directory. Any other
-    /// repository is compared at the ref.
+    /// compared commit, unless it holds the invocation directory, and takes
+    /// the outer repository's reason when that one has no compared commit.
+    /// Any other repository is compared at the ref.
     fn resolve_commit(&mut self, root: &Path) -> Result<String, UnresolvedReason> {
         let repository = root.display().to_string();
         let Some((outer, path)) = self.tracking_outer(root) else {
             return commit_id(self.git_ref, root)
                 .ok_or(UnresolvedReason::UnknownRef { repository });
         };
-        let pinned = self
-            .commit_of(&outer)
-            .ok()
-            .and_then(|outer_commit| pinned_commit(&outer_commit, &path, &outer));
-        let Some(pinned) = pinned else {
+        let outer_commit = self.commit_of(&outer)?;
+        let Some(pinned) = pinned_commit(&outer_commit, &path, &outer) else {
             return Err(UnresolvedReason::NotPinned { repository });
         };
         commit_id(&pinned, root).ok_or(UnresolvedReason::PinnedCommitMissing {
