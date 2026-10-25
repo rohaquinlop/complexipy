@@ -45,6 +45,22 @@ impl ExcludeMatcher {
         let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
             .unwrap_or(normalized_path.as_str());
 
+        self.matches(relative)
+    }
+
+    /// Like `is_excluded`, for a `path` inside `root` only.
+    pub fn is_excluded_inside(&self, path: &str, root: &str) -> bool {
+        if self.programs.is_empty() {
+            return false;
+        }
+
+        let normalized_path = path.replace('\\', "/");
+        let normalized_root = root.replace('\\', "/");
+        relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+            .is_some_and(|relative| self.matches(relative))
+    }
+
+    fn matches(&self, relative: &str) -> bool {
         match &self.combined {
             Some(combined) => combined.is_match(relative),
             None => self
@@ -163,9 +179,33 @@ fn visit(entry: &DirEntry, python_files: &Glob<'_>, exclusion: Option<&WalkExclu
     }
 }
 
+/// The patterns that match no path: paths are matched relative to a root,
+/// so they never start with `/`, `./`, `../`, or a drive, and a file path
+/// never ends with `/`.
+pub fn unmatchable_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    patterns
+        .iter()
+        .filter(|pattern| {
+            let pattern = normalized_pattern(pattern);
+            let bytes = pattern.as_bytes();
+            let drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+            pattern.starts_with('/')
+                || pattern.starts_with("./")
+                || pattern.starts_with("../")
+                || pattern.ends_with('/')
+                || drive
+        })
+        .cloned()
+        .collect()
+}
+
+/// Lists the Python files under `root_path` that no pattern excludes. A
+/// pattern matches a path relative to `root_path`, and also relative to
+/// `anchor`, the directory of the configuration, for files inside it.
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,
+    anchor: &Path,
 ) -> Result<Vec<String>, String> {
     let python_files = Glob::new("**/*.py").unwrap();
 
@@ -174,6 +214,12 @@ pub fn get_paths_to_process(
         .iter()
         .map(|s| s.replace('\\', "/"))
         .collect();
+
+    let anchor_matcher = Path::new(root_path)
+        .canonicalize()
+        .is_ok_and(|root| root != anchor)
+        .then(|| ExcludeMatcher::new(&normalized_excludes));
+    let anchor = anchor.to_string_lossy().replace('\\', "/");
 
     let exclusion = WalkExclusion::new(&normalized_excludes)
         .map_err(|e| format!("Failed to apply exclude patterns: {}", e))?;
@@ -194,10 +240,15 @@ pub fn get_paths_to_process(
                             .canonicalize()
                             .unwrap_or_else(|_| entry_path.to_path_buf());
                         let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
-                        files_paths
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .push(file_abs_str);
+                        let excluded_from_anchor = anchor_matcher.as_ref().is_some_and(|matcher| {
+                            matcher.is_excluded_inside(&file_abs_str, &anchor)
+                        });
+                        if !excluded_from_anchor {
+                            files_paths
+                                .lock()
+                                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                                .push(file_abs_str);
+                        }
                     }
                     WalkState::Continue
                 }

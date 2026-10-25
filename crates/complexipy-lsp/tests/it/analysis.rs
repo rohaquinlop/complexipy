@@ -285,6 +285,39 @@ fn diagnostics_can_cover_the_whole_function() {
 }
 
 #[test]
+fn cr_line_breaks_place_diagnostics_on_the_same_lines() {
+    for newline in ["\r", "\r\n"] {
+        let source = SAMPLE.replace('\n', newline);
+        for (diagnostic_range, expected) in [
+            (
+                DiagnosticRange::Name,
+                Range::new(Position::new(4, 4), Position::new(4, 9)),
+            ),
+            (
+                DiagnosticRange::Function,
+                Range::new(Position::new(4, 0), Position::new(8, 12)),
+            ),
+        ] {
+            let config = scoped(HoverScope::Signature, diagnostic_range);
+            let analysis = analyzed(&source, &config);
+            let diagnostics = analysis.diagnostics(&config);
+
+            assert_eq!(diagnostics.len(), 1, "{newline:?}");
+            assert_eq!(diagnostics[0].range, expected, "{newline:?}");
+        }
+    }
+}
+
+#[test]
+fn hover_builds_plans_for_a_cr_source() {
+    let source = "def f(xs, a, b, c):\n    if c:\r        for x in xs:\r            if a:\r                if b:\r                    print(x)\n";
+    let config = scoped(HoverScope::Function, DiagnosticRange::Name);
+    let mut analysis = analyzed(source, &config);
+
+    assert!(analysis.hover(&config, Position::new(3, 0)).is_some());
+}
+
+#[test]
 fn a_function_at_the_limit_is_not_a_diagnostic() {
     let analysis = analyzed(SAMPLE, &config(3));
 
@@ -330,6 +363,19 @@ fn hover_reports_the_total_and_the_limit() {
     assert!(content.value.contains("**heavy**: cognitive complexity 3"));
     assert!(content.value.contains("Exceeds the allowed 2"));
     assert!(content.value.contains("Top refactor"));
+}
+
+#[test]
+fn hover_shows_the_function_name_literally() {
+    let source = "class Box:\n    def __init__(self, a, b):\n        if a:\n            if b:\n                return\n";
+    let mut analysis = analyzed(source, &config(2));
+    let hover = analysis.hover(&config(2), Position::new(1, 0)).unwrap();
+
+    let HoverContents::Markup(content) = hover.contents else {
+        panic!("expected markup content");
+    };
+
+    assert!(content.value.starts_with("**Box\\:\\:\\_\\_init\\_\\_**"));
 }
 
 #[test]

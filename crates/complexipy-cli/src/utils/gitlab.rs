@@ -2,10 +2,9 @@ use std::fs;
 
 use serde_json::{Value, json};
 
-use sha2::{Digest, Sha256};
-
+use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use crate::utils::paths::normalize_path;
-use complexipy_core::classes::{Applicability, FileComplexity, RefactorPlan};
+use complexipy_core::classes::{Applicability, FileComplexity, FunctionComplexity, RefactorPlan};
 use complexipy_core::utils::ExportError;
 
 const CHECK_NAME: &str = "complexipy/cognitive-complexity";
@@ -24,8 +23,13 @@ pub fn store_gitlab(
         let relative_path = normalized_path
             .strip_prefix("./")
             .unwrap_or(&normalized_path);
+        let ranks = function_ranks(file);
 
         for function in &file.functions {
+            let function_rank = ranks
+                .get(&(function.name.as_str(), function.line_start))
+                .copied()
+                .unwrap_or(0);
             if function.complexity > max_complexity {
                 report.push(json!({
                     "description": build_description(
@@ -34,11 +38,12 @@ pub fn store_gitlab(
                         max_complexity,
                     ),
                     "check_name": CHECK_NAME,
-                    "fingerprint": build_fingerprint(
+                    "fingerprint": finding_fingerprint(
                         "CC001",
                         relative_path,
                         &function.name,
-                        function.line_start,
+                        function_rank,
+                        0,
                     ),
                     "severity": DEFAULT_SEVERITY,
                     "location": {
@@ -50,7 +55,12 @@ pub fn store_gitlab(
 
             if suggest_refactors {
                 for plan in &function.refactor_plans {
-                    report.push(refactor_plan_issue(relative_path, &function.name, plan));
+                    report.push(refactor_plan_issue(
+                        relative_path,
+                        function,
+                        function_rank,
+                        plan,
+                    ));
                 }
             }
         }
@@ -88,12 +98,6 @@ fn build_description(function_name: &str, complexity: u64, max_complexity: u64) 
     )
 }
 
-fn build_fingerprint(check_id: &str, path: &str, function_name: &str, line_start: u64) -> String {
-    let payload = format!("{}:{}:{}:{}", check_id, path, function_name, line_start);
-    let digest = Sha256::digest(payload.as_bytes());
-    digest.iter().map(|byte| format!("{:02x}", byte)).collect()
-}
-
 fn refactor_plan_severity(applicability: &Applicability) -> &'static str {
     match applicability {
         Applicability::MachineApplicable => "minor",
@@ -102,15 +106,21 @@ fn refactor_plan_severity(applicability: &Applicability) -> &'static str {
     }
 }
 
-fn refactor_plan_issue(relative_path: &str, function_name: &str, plan: &RefactorPlan) -> Value {
+fn refactor_plan_issue(
+    relative_path: &str,
+    function: &FunctionComplexity,
+    function_rank: usize,
+    plan: &RefactorPlan,
+) -> Value {
     json!({
         "description": format!("[{}] {}: {}", plan.rule_id, plan.title, plan.explanation),
         "check_name": format!("complexipy/{}", plan.rule_id.to_lowercase()),
-        "fingerprint": build_fingerprint(
+        "fingerprint": finding_fingerprint(
             &plan.rule_id,
             relative_path,
-            function_name,
-            plan.line_start,
+            &function.name,
+            function_rank,
+            plan_rank(function, plan),
         ),
         "severity": refactor_plan_severity(&plan.applicability),
         "location": {

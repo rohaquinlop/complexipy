@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason};
+use complexipy_core::utils::split_lines;
 use owo_colors::OwoColorize;
 use unicode_width::UnicodeWidthChar;
 
@@ -30,8 +31,8 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
         return String::new();
     }
 
-    let old_lines = source.lines().count();
-    let new_lines = report.patched.lines().count();
+    let old_lines = split_lines(source).count();
+    let new_lines = split_lines(&report.patched).count();
     let rows = diff_rows(report, old_lines, colored);
     let (old_rendered, new_rendered) = if colored {
         let removed = spans_of(&report.applied);
@@ -52,8 +53,8 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
         )
     } else {
         (
-            source.lines().map(str::to_string).collect(),
-            report.patched.lines().map(str::to_string).collect(),
+            split_lines(source).map(str::to_string).collect(),
+            split_lines(&report.patched).map(str::to_string).collect(),
         )
     };
 

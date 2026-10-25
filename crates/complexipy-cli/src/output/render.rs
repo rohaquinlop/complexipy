@@ -39,22 +39,23 @@ pub fn handle_console_settings(
 }
 
 fn apply_color_mode(color: &crate::types::Color, plain: bool) -> bool {
-    let forced = match color {
-        _ if plain => Some(false),
-        crate::types::Color::No => Some(false),
-        crate::types::Color::Yes => Some(true),
-        crate::types::Color::Auto => None,
-    };
+    let enabled = color_enabled_for(color, plain, supports_color::Stream::Stdout);
+    owo_colors::set_override(enabled);
+    enabled
+}
 
-    match forced {
-        Some(enabled) => {
-            owo_colors::set_override(enabled);
-            enabled
-        }
-        None => {
-            owo_colors::unset_override();
-            supports_color::on_cached(supports_color::Stream::Stdout).is_some()
-        }
+/// Decides color for one stream on every run, so a long-lived host that
+/// runs several analyses sees each run's own terminal and `NO_COLOR`.
+pub fn color_enabled_for(
+    color: &crate::types::Color,
+    plain: bool,
+    stream: supports_color::Stream,
+) -> bool {
+    match color {
+        _ if plain => false,
+        crate::types::Color::No => false,
+        crate::types::Color::Yes => true,
+        crate::types::Color::Auto => supports_color::on(stream).is_some(),
     }
 }
 
@@ -77,9 +78,9 @@ fn rule_at(title: &str, width: usize) -> String {
     }
 
     let title_cells = UnicodeWidthStr::width(title);
-    let side_width = (width - title_cells) / 2;
+    let side_width = width.saturating_sub(title_cells) / 2;
     let left = side_width.saturating_sub(1);
-    let right_length = width - left - title_cells;
+    let right_length = width.saturating_sub(left + title_cells);
     let right = (side_width + 1).min(right_length);
 
     let plain = format!("{} {} {}", "─".repeat(left), title, "─".repeat(right));
@@ -144,6 +145,7 @@ pub struct SummaryOptions<'a> {
     pub top: Option<u64>,
     pub suggest_refactors: bool,
     pub invocation_path: &'a str,
+    pub color: bool,
 }
 
 pub fn output_summary(options: SummaryOptions) -> (bool, String) {
@@ -159,6 +161,7 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
         top,
         suggest_refactors,
         invocation_path,
+        color,
     } = options;
     let (mut file_entries, total_functions, all_pass) =
         build_output_rows(files, failed_only, sort, max_complexity, snapshot_map);
@@ -187,6 +190,7 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
             max_complexity,
             suggest_refactors,
             invocation_path,
+            color,
         )
     };
 
@@ -212,6 +216,7 @@ pub fn output_file_entries(
     max_complexity: u64,
     suggest_refactors: bool,
     invocation_path: &str,
+    color: bool,
 ) -> String {
     let mut sections = Vec::new();
 
@@ -235,7 +240,7 @@ pub fn output_file_entries(
                 let source_lines = source_lines.get_or_init(|| {
                     read_source_lines(invocation_path, &function.path, &function.file_name)
                 });
-                let plans = output_refactor_plans(function, source_lines.as_deref());
+                let plans = output_refactor_plans(function, source_lines.as_deref(), color);
                 if !plans.is_empty() {
                     lines.push(plans);
                 }

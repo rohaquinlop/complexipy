@@ -66,6 +66,20 @@ def test_the_round_trip_compares_against_a_git_ref(repo: Path) -> None:
     assert entry.status is complexipy.DiffStatus.IMPROVED
 
 
+def test_the_invocation_path_defaults_to_the_working_directory(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commit(repo, NESTED)
+    (repo / "sample.py").write_text(PLAIN)
+    monkeypatch.chdir(repo)
+
+    entries = complexipy.compute_diff([analyze(repo)], "HEAD")
+
+    assert [entry.status for entry in entries] == [
+        complexipy.DiffStatus.IMPROVED
+    ]
+
+
 def test_the_objects_passed_back_carry_enum_fields(repo: Path) -> None:
     commit(repo, NESTED)
     current = [analyze(repo)]

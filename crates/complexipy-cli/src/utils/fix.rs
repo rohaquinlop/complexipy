@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use complexipy_core::classes::{FileComplexity, FunctionComplexity, RefactorPlan};
 use complexipy_core::fix::{LineMap, apply_fixes, parses};
+use complexipy_core::utils::split_lines;
 use complexipy_core::{AnalysisOptions, cognitive_complexity::code_complexity_shared};
 
 use crate::output::fix::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
@@ -82,7 +83,7 @@ pub fn run_fix_pass(
             path,
             plans,
             changed: false,
-            line_map: LineMap::new(text.lines().count() as u64),
+            line_map: LineMap::new(split_lines(&text).count() as u64),
             reported_skips: HashSet::new(),
             text,
         });

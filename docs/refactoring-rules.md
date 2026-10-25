@@ -95,6 +95,8 @@ Use continue guards at the top of loops to reduce nesting.
 
 This rule triggers when a loop contains nested `if` statements that could be converted to early `continue` guards.
 
+A replacement is offered only when the nested `if` is the last statement of the loop body. When statements follow it, a guard would skip them, so the rule gives help text instead.
+
 #### Example
 
 **Before:**
@@ -381,6 +383,8 @@ Merge nested if statements into a single if with combined conditions.
 This rule triggers when an `if` statement's entire body is a single nested `if` with no `else` branch, for a chain of two or more such levels.
 
 The merge is skipped when any statement or comment sits between the outer and inner `if`, so the suggestion never drops code.
+
+A comment on one of the merged `if` lines, such as `# type: ignore`, moves to the merged line. When two or more of those lines carry a comment, or the inner `if` holds its body on the same line, the rule gives help text instead of a replacement.
 
 #### Example
 

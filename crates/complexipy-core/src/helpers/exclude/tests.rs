@@ -49,7 +49,7 @@ fn canonical_root(dir: &TempDir) -> String {
 }
 
 fn agreement(root: &str, patterns: &[String]) {
-    let mut kept = get_paths_to_process(root, patterns.to_vec()).unwrap();
+    let mut kept = get_paths_to_process(root, patterns.to_vec(), Path::new(root)).unwrap();
     kept.sort();
 
     for file in FILES {
@@ -130,7 +130,7 @@ fn a_pattern_is_reported_when_the_walker_refuses_it() {
     for pattern in VALIDITY_CORPUS {
         let patterns = vec![pattern.to_string()];
         let reported = invalid_exclude_patterns(&patterns);
-        let refused = get_paths_to_process(&root, patterns).is_err();
+        let refused = get_paths_to_process(&root, patterns, Path::new(&root)).is_err();
 
         assert_eq!(
             reported.is_empty(),
@@ -214,10 +214,102 @@ fn a_sibling_directory_is_not_inside_the_root() {
 }
 
 #[test]
+fn a_walk_below_the_anchor_also_matches_relative_to_the_anchor() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    fs::create_dir_all(dir.path().join("src/legacy")).unwrap();
+    fs::write(
+        dir.path().join("src/legacy/inner.py"),
+        "def inner():\n    return 1\n",
+    )
+    .unwrap();
+    let files = ["legacy/old.py", "src/new.py", "src/legacy/inner.py"];
+
+    for pattern in ["legacy/**", "src/legacy/**", "src/*.py", "**/legacy/**"] {
+        let patterns = vec![pattern.to_string()];
+        let mut kept = Vec::new();
+        for walked in ["legacy", "src"] {
+            kept.extend(
+                get_paths_to_process(
+                    &format!("{root}/{walked}"),
+                    patterns.clone(),
+                    Path::new(&root),
+                )
+                .unwrap(),
+            );
+        }
+
+        for file in files {
+            let path = format!("{root}/{file}");
+            let walked = format!("{root}/{}", file.split('/').next().unwrap());
+            let matcher = ExcludeMatcher::new(&patterns);
+            let expected =
+                !(matcher.is_excluded(&path, &walked) || matcher.is_excluded_inside(&path, &root));
+
+            assert_eq!(
+                kept.contains(&path),
+                expected,
+                "the walker and the matcher disagreed on {} for {:?}",
+                file,
+                pattern
+            );
+        }
+    }
+}
+
+#[test]
+fn a_configuration_listing_two_paths_excludes_by_its_own_directory() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    fs::create_dir_all(dir.path().join("src/legacy")).unwrap();
+    fs::write(
+        dir.path().join("src/legacy/inner.py"),
+        "def inner():\n    return 1\n",
+    )
+    .unwrap();
+    let patterns = vec!["legacy/**".to_string()];
+
+    let kept = get_paths_to_process(&format!("{root}/legacy"), patterns, Path::new(&root)).unwrap();
+
+    assert!(kept.is_empty());
+}
+
+#[test]
+fn a_path_outside_the_root_is_never_excluded_inside_it() {
+    let matcher = ExcludeMatcher::new(&["**".to_string()]);
+
+    assert!(!matcher.is_excluded_inside("/elsewhere/a.py", "/repo"));
+    assert!(matcher.is_excluded_inside("/repo/a.py", "/repo"));
+}
+
+#[test]
+fn patterns_that_can_never_match_are_reported() {
+    let patterns: Vec<String> = [
+        "legacy/",
+        "./legacy/**",
+        "/legacy/**",
+        "../repo/legacy/**",
+        "C:/repo/legacy/**",
+        ".\\legacy\\**",
+        "legacy/**",
+        "**/legacy",
+        ".hidden/**",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+
+    assert_eq!(
+        unmatchable_exclude_patterns(&patterns),
+        patterns[..6].to_vec()
+    );
+}
+
+#[test]
 fn the_walker_lists_every_file_once_in_sorted_order() {
     let dir = tree();
     let root = canonical_root(&dir);
-    let kept = get_paths_to_process(&root, Vec::new()).unwrap();
+    let kept = get_paths_to_process(&root, Vec::new(), Path::new(&root)).unwrap();
     let mut sorted = kept.clone();
     sorted.sort();
     sorted.dedup();
@@ -232,7 +324,8 @@ fn an_exhaustive_pattern_excludes_the_whole_directory() {
     fs::create_dir_all(dir.path().join("legacy/deep/deeper")).unwrap();
     fs::write(dir.path().join("legacy/deep/deeper/x.py"), "x = 1\n").unwrap();
     let root = canonical_root(&dir);
-    let kept = get_paths_to_process(&root, vec!["legacy/**".to_string()]).unwrap();
+    let kept =
+        get_paths_to_process(&root, vec!["legacy/**".to_string()], Path::new(&root)).unwrap();
 
     assert!(kept.iter().all(|path| !path.contains("/legacy/")));
     assert_eq!(kept.len(), 2);

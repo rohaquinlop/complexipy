@@ -115,7 +115,8 @@ complexipy . --exclude "src/legacy/old_code.py"
 
 !!! note "Cómo funciona la exclusión"
 
-    - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada
+    - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada, y de forma relativa al directorio donde se ejecuta el comando, donde está el archivo de configuración
+    - Un patrón que empieza con `/`, `./` o `../`, o termina en `/`, nunca coincide; complexipy avisa de ello
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
     - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos
@@ -497,7 +498,7 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
+| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. `--quiet` oculta la lista | `false` |
 
 Las banderas booleanas aceptan un valor explícito solo en la forma
 adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
@@ -641,14 +642,15 @@ if has_regressions(entries, 15):
 
 `DiffEntry` expone `file_path`, `func_name`, `old_complexity` y
 `new_complexity` (cualquiera puede ser `None` para funciones NEW / REMOVED),
-más las propiedades `status` y `delta`. `status` es un miembro de
+más la propiedad `status`. `status` es un miembro de
 `DiffStatus` - un enum basado en `str`, por lo que compara igual a su valor
 de cadena (p. ej. `DiffStatus.REGRESSED == "REGRESSED"`).
 
 ```python
 for e in entries:
     if e.status != DiffStatus.UNCHANGED:
-        print(f"{e.file_path}::{e.func_name}: {e.status} {e.delta}")
+        print(f"{e.file_path}::{e.func_name}: {e.status} "
+              f"{e.old_complexity} -> {e.new_complexity}")
 ```
 
 ### Uso Práctico de la API
@@ -817,7 +819,7 @@ complexipy . --snapshot-ignore
 ```json
 [
     {
-        "path": "src",
+        "path": "src/legacy.py",
         "file_name": "legacy.py",
         "functions": [
             {
@@ -941,7 +943,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-El formato de salida es `ruta:línea  # texto-del-comentario`. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. El informe se imprime incluso bajo `--quiet`.
+Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos.
 
 Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
 
@@ -959,7 +961,7 @@ from complexipy import collect_all_ignored_locations
 
 locations, failed = collect_all_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
 )
 for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
@@ -993,7 +995,7 @@ from complexipy import collect_removable_ignored_locations
 
 removable, failed = collect_removable_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
     max_complexity_allowed=15,
 )
 for rem in removable:

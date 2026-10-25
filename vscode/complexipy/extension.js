@@ -1,8 +1,9 @@
 const vscode = require('vscode');
 const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
-const { serverCommand, findExecutable, countOverThreshold, statusText, badges } = require('./lib');
+const { serverCommand, findExecutable, countOverThreshold, statusText, withinTimeout, badges } = require('./lib');
 
 const INSTALL_HINT = 'Install it with "uv tool install complexipy" or set complexipy.server.path.';
+const START_TIMEOUT_MS = 30000;
 const LINE_COMPLEXITIES = 'complexipy/lineComplexities';
 const METHOD_NOT_FOUND = -32601;
 const DECORATIONS_MIN_VERSION = '8.2.0';
@@ -30,6 +31,7 @@ const BAND_COLORS = {
 
 let client;
 let statusBarItem;
+let outputChannel;
 let serverFailed = false;
 let decorationsUnsupported = false;
 let pendingRestart = Promise.resolve();
@@ -51,6 +53,7 @@ function createClient(command, args) {
 			{ scheme: 'file', language: 'python' },
 			{ scheme: 'untitled', language: 'python' }
 		],
+		outputChannel,
 		middleware: {
 			provideInlayHints: (document, range, token, next) => (decorationsActive() ? [] : next(document, range, token))
 		}
@@ -68,10 +71,13 @@ async function startClient() {
 	} else {
 		client = createClient(executable, args);
 		try {
-			await client.start();
+			await withinTimeout(client.start(), START_TIMEOUT_MS);
 		} catch (err) {
 			serverFailed = true;
 			console.error('complexipy: language server failed to start:', err);
+			outputChannel.appendLine(`The language server failed to start: ${err.message}`);
+			vscode.window.showErrorMessage('complexipy: the language server did not start. See the complexipy output for details.');
+			await stopClient();
 		}
 	}
 	updateStatusBar();
@@ -207,6 +213,8 @@ function refreshDocumentSoon(document) {
 }
 
 async function activate(context) {
+	outputChannel = vscode.window.createOutputChannel('complexipy');
+	context.subscriptions.push(outputChannel);
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 	statusBarItem.command = 'workbench.actions.view.problems';
 	decorationTypes = createDecorationTypes();

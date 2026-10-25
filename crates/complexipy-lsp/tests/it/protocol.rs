@@ -352,6 +352,23 @@ impl Session {
 }
 
 #[test]
+fn requests_after_shutdown_get_an_invalid_request_error() {
+    let mut session = start();
+    session.initialize();
+
+    let shutdown = session.next_id();
+    session.publish(shutdown.clone(), SHUTDOWN, ());
+    session.result(shutdown);
+    let late = session.next_id();
+    session.publish(late.clone(), HOVER, ());
+    let error = session.response(late).unwrap_err();
+    session.send(Notification::new(EXIT.to_string(), ()));
+
+    assert_eq!(error.code, ErrorCode::InvalidRequest as i32);
+    assert_eq!(session.join(), EXIT_CODE_CLEAN);
+}
+
+#[test]
 fn advertises_full_sync_inlay_hints_and_hover() {
     let mut session = start();
     let result = session.initialize();

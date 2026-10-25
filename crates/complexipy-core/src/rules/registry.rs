@@ -3,10 +3,10 @@ use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::fix::{splice_plan, splice_window};
 use crate::refactor_plans::ComplexityRegion;
+use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
 use ruff_python_ast::Stmt;
-use ruff_python_parser::parse_module;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// The lines of the function being planned, and whether it is a method,
 /// whose indented text only parses inside a class body.
@@ -208,7 +208,8 @@ fn measure_in_function(
     } else {
         spliced
     };
-    let suite = parse_module(&snippet).ok()?.into_suite();
+    let parsed = parse_module(&snippet).ok()?;
+    let suite = parsed.suite();
     let only_the_function = match suite.as_slice() {
         [Stmt::FunctionDef(_)] => !function.is_method,
         [Stmt::ClassDef(class)] => {
@@ -220,7 +221,7 @@ fn measure_in_function(
         return None;
     }
     let (functions, _) = function_level_cognitive_complexity_shared(
-        &suite,
+        suite,
         &snippet,
         &AnalysisOptions {
             no_ignore: true,
@@ -246,7 +247,7 @@ fn measure_in_file(
     let spliced = splice_plan(plan, suggestion, ctx.source, ctx.index, ctx.newline)?;
     let parsed = parse_module(&spliced).ok()?;
     let (functions, _) = function_level_cognitive_complexity_shared(
-        &parsed.into_suite(),
+        parsed.suite(),
         &spliced,
         &AnalysisOptions {
             check_script: true,
@@ -268,9 +269,10 @@ fn measure_in_file(
     Some(plan.current_complexity.saturating_sub(new_complexity))
 }
 
-/// Sorts by spliceable/effectiveness/reduction/line, then keeps only
-/// non-overlapping plans (highest spliceable/effectiveness/reduction wins any
-/// overlap), capped at 5. A spliceable plan beats a help-only plan of higher
+/// Sorts by spliceable/effectiveness/reduction/line, then keeps each plan
+/// that overlaps no plan kept before it, so the highest
+/// spliceable/effectiveness/reduction wins any overlap, capped at 5. A
+/// spliceable plan beats a help-only plan of higher
 /// effectiveness: the tool stands behind a faithful, measured replacement
 /// more than behind prose. Split out from `RuleRegistry::analyze` so the
 /// selection logic can be unit tested directly against hand-built plans,
@@ -296,40 +298,16 @@ fn select_non_overlapping(
             .then_with(|| a.line_start.cmp(&b.line_start))
     });
 
+    let mut taken: BTreeMap<u64, u64> = BTreeMap::new();
     let mut selected: Vec<RefactorPlan> = Vec::new();
 
     for plan in plans {
-        let overlapping: Vec<usize> = selected
-            .iter()
-            .enumerate()
-            .filter(|(_, existing)| {
-                plan.line_start <= existing.line_end && plan.line_end >= existing.line_start
-            })
-            .map(|(idx, _)| idx)
-            .collect();
-
-        if overlapping.is_empty() {
-            selected.push(plan);
-            continue;
-        }
-
-        let eff_plan = effectiveness_of(&plan.rule_id);
-        let spliceable_plan = spliceable_of(&plan);
-        let beats_all_overlaps = overlapping.iter().all(|&idx| {
-            let existing = &selected[idx];
-            let eff_existing = effectiveness_of(&existing.rule_id);
-            let spliceable_existing = spliceable_of(existing);
-            spliceable_plan & !spliceable_existing
-                || (spliceable_plan == spliceable_existing
-                    && (eff_plan > eff_existing
-                        || (eff_plan == eff_existing
-                            && plan.estimated_reduction > existing.estimated_reduction)))
-        });
-
-        if beats_all_overlaps {
-            for &idx in overlapping.iter().rev() {
-                selected.remove(idx);
-            }
+        let overlaps = taken
+            .range(..=plan.line_end)
+            .next_back()
+            .is_some_and(|(_, &line_end)| line_end >= plan.line_start);
+        if !overlaps {
+            taken.insert(plan.line_start, plan.line_end);
             selected.push(plan);
         }
     }

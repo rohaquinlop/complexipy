@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { serverCommand, findExecutable, countOverThreshold, statusText, functionBand, lineBand, badges } = require('../lib');
+const { serverCommand, findExecutable, countOverThreshold, statusText, withinTimeout, functionBand, lineBand, badges } = require('../lib');
 
 test('serverCommand falls back to complexipy on PATH', () => {
 	for (const value of [undefined, null, '', '   ']) {
@@ -50,6 +50,15 @@ test('findExecutable resolves commands on PATH and absolute paths', t => {
 	assert.strictEqual(findExecutable(path.join(dir, 'missing'), {}, 'darwin'), undefined);
 	assert.strictEqual(findExecutable(plain, {}, 'darwin'), undefined);
 	assert.strictEqual(findExecutable(dir, {}, 'darwin'), undefined);
+});
+
+test('withinTimeout rejects a promise that never settles', async () => {
+	await assert.rejects(withinTimeout(new Promise(() => {}), 10), /no answer within/);
+});
+
+test('withinTimeout passes a settled promise through', async () => {
+	assert.strictEqual(await withinTimeout(Promise.resolve(7), 1000), 7);
+	await assert.rejects(withinTimeout(Promise.reject(new Error('failed')), 1000), /failed/);
 });
 
 test('functionBand is green up to half the limit, yellow up to it, red above it', () => {

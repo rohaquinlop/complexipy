@@ -23,6 +23,7 @@ complexipy-lsp = { path = "../complexipy-lsp" }
 complexipy-types = { path = "../complexipy-types", features = ["python"] }
 pyo3 = { workspace = true }
 clap = { workspace = true }
+rayon.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
 mimalloc = "0.1.49"

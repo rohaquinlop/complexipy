@@ -1,4 +1,5 @@
 use super::*;
+use complexipy_core::config::StringOrList;
 use tempfile::TempDir;
 
 const MISSING: &str = "/complexipy-missing-root";
@@ -178,4 +179,68 @@ fn the_workspace_hands_out_each_warning_once() {
 
     workspace.reload();
     assert_eq!(workspace.take_warnings().len(), 2);
+}
+
+fn folder_with(root: &str, paths: &[&str], exclude: &[&str]) -> Folder {
+    let list = |values: &[&str]| {
+        StringOrList::Many(values.iter().map(|value| value.to_string()).collect())
+    };
+    Folder::new(
+        root.to_string(),
+        LspConfig {
+            paths: list(paths),
+            exclude: list(exclude),
+            ..LspConfig::default()
+        },
+    )
+}
+
+#[test]
+fn excludes_match_relative_to_the_folder_and_to_each_configured_path() {
+    let folder = folder_with("/w", &["src", "legacy"], &["legacy/**"]);
+
+    assert!(folder.is_excluded("/w/legacy/b.py"));
+    assert!(folder.is_excluded("/w/src/legacy/a.py"));
+    assert!(!folder.is_excluded("/w/src/a.py"));
+}
+
+#[test]
+fn a_nested_folder_without_a_config_uses_the_nearest_configured_ancestor() {
+    let ancestor = folder_with("/w", &[], &["sub/gen/**"]);
+    let nested = Folder {
+        has_config: false,
+        ..Folder::new("/w/sub".to_string(), LspConfig::default())
+    };
+    let workspace = workspace(vec![ancestor, nested]);
+
+    let chosen = workspace.for_path("/w/sub/gen/g.py");
+
+    assert_eq!(chosen.root, "/w");
+    assert!(chosen.is_excluded("/w/sub/gen/g.py"));
+}
+
+#[test]
+fn a_document_path_with_dot_segments_resolves_before_matching() {
+    let workspace = workspace(vec![folder_with("/w", &[], &["vendor/**"])]);
+    let uri: Uri = "file:///w/app/../vendor/x.py".parse().unwrap();
+    let path = uri_to_path(&uri).unwrap();
+
+    assert_eq!(path, "/w/vendor/x.py");
+    assert!(workspace.for_path(&path).is_excluded(&path));
+}
+
+#[test]
+fn a_pattern_that_can_never_match_is_a_warning() {
+    let warnings = load_warnings("exclude = [\"./vendor/**\", \"legacy/**\"]\n");
+
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.contains("can never match") && warning.contains("./vendor/**"))
+    );
+    assert!(
+        !warnings
+            .iter()
+            .any(|warning| warning.contains("\"legacy/**\""))
+    );
 }

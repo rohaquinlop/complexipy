@@ -600,13 +600,65 @@ def test_trailing_comment_with_colon_does_not_corrupt_suggestion() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "collapsible_if")
     assert plan.rule_id == "C007"
 
-    if plan.suggestion is not None:
-        assert "gate" not in plan.suggestion.replacement
-        assert "#" not in plan.suggestion.replacement
-        assert "a and b" in plan.suggestion.replacement
-        ast.parse(textwrap.dedent(plan.suggestion.replacement))
-    else:
-        assert plan.help is not None
+    assert plan.suggestion is not None
+    merged = plan.suggestion.replacement.splitlines()[0]
+    assert merged == "    if a and b:  # gate: primary"
+    ast.parse(textwrap.dedent(plan.suggestion.replacement))
+
+
+def test_collapsible_if_keeps_the_one_header_comment() -> None:
+    code = (
+        "def f(a, b):\n"
+        "    if a:\n"
+        "        if b:  # type: ignore[union-attr]\n"
+        "            return 1\n"
+        "    return 0\n"
+    )
+    plan = next(
+        p for p in first_func(code).refactor_plans if p.kind == "collapsible_if"
+    )
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.replacement == (
+        "    if a and b:  # type: ignore[union-attr]\n        return 1"
+    )
+
+
+def test_collapsible_if_leaves_two_header_comments_to_the_user() -> None:
+    code = (
+        "def f(a, b):\n"
+        "    if a:  # noqa: E501\n"
+        "        if b:  # type: ignore\n"
+        "            return 1\n"
+        "    return 0\n"
+    )
+    plan = next(
+        p for p in first_func(code).refactor_plans if p.kind == "collapsible_if"
+    )
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+    assert "comments" in plan.help
+
+
+def test_collapsible_if_leaves_an_inline_body_to_the_user() -> None:
+    code = "def f(a, b):\n    if a:\n        if b: return 1\n    return 0\n"
+    plan = next(
+        p for p in first_func(code).refactor_plans if p.kind == "collapsible_if"
+    )
+
+    assert plan.suggestion is None
+    assert plan.help is not None
+
+
+def test_collapsible_if_keeps_tab_indentation() -> None:
+    code = "def f(a, b):\n\tif a:\n\t\tif b:\n\t\t\treturn 1\n\treturn 0\n"
+    plan = next(
+        p for p in first_func(code).refactor_plans if p.kind == "collapsible_if"
+    )
+
+    assert plan.suggestion is not None
+    assert plan.suggestion.replacement == "\tif a and b:\n\t\treturn 1"
 
 
 def test_multiline_condition_produces_no_suggestion_but_keeps_help() -> None:
@@ -701,12 +753,17 @@ def test_all_refactor_plan_suggestions_are_parseable_python() -> None:
                         f"{replacement}\n--------------------"
                     ) from exc
 
-                assert "#" not in replacement, (
-                    f"{fixture_path.name}: plan {plan.rule_id} ({plan.kind}) "
-                    f"leaked a comment into its replacement -- a generated "
-                    f"condition must never contain '#'\n--- replacement ---\n"
-                    f"{replacement}\n--------------------"
-                )
+                dedented = textwrap.dedent(replacement)
+                for node in ast.walk(ast.parse(dedented)):
+                    if isinstance(node, (ast.If, ast.While)):
+                        condition = ast.get_source_segment(dedented, node.test)
+                        assert condition is not None
+                        assert "#" not in condition, (
+                            f"{fixture_path.name}: plan {plan.rule_id} "
+                            f"({plan.kind}) leaked a comment into a generated "
+                            f"condition\n--- replacement ---\n"
+                            f"{replacement}\n--------------------"
+                        )
 
     assert checked > 0, "expected at least one fixture to produce a suggestion"
 
@@ -847,16 +904,15 @@ def test_loop_guard_leading_suggestion_is_faithful_and_measured() -> None:
     )
 
 
-def test_loop_guard_trailing_suggestion_is_faithful_and_measured() -> None:
+def test_loop_guard_leaves_a_trailing_statement_to_the_user() -> None:
+    """`total += 3` follows the chain; a guard would skip it, so no
+    replacement is offered."""
     func = first_func(load_source("loop_guard_trailing.py"))
     plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
 
-    assert plan.suggestion is not None
-    assert plan.suggestion.spliceable
-    assert plan.reduction_is_measured
-    assert plan.estimated_complexity_after == splice_and_measure(
-        load_source("loop_guard_trailing.py"), plan
-    )
+    assert plan.suggestion is None
+    assert plan.help is not None
+    assert "follow the nested block" in plan.help
 
 
 def test_loop_guard_multiline_header_suggestion_is_faithful_and_measured() -> (

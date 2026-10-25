@@ -1,13 +1,28 @@
 use std::process::ExitCode;
 
+macro_rules! emit {
+    ($($arguments:tt)*) => {
+        crate::output::emit(format_args!($($arguments)*))
+    };
+}
+
+macro_rules! emit_error {
+    ($($arguments:tt)*) => {
+        crate::output::emit_error(format_args!($($arguments)*))
+    };
+}
+
 use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
     no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    unmatchable_exclude_warning,
 };
-use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
+use crate::output::render::{
+    color_enabled_for, handle_console_settings, print_invalid_paths, rule,
+};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
 use crate::types::{ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
@@ -19,7 +34,9 @@ use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::{Analysis, LocationReports};
-use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
+use complexipy_core::{
+    AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let toml_config = get_complexipy_toml_config(invocation_path);
@@ -27,20 +44,20 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let config = match resolve_config(toml_config, cli) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
     if !settings.banner.is_empty() {
-        println!("{}", settings.banner);
+        emit!("{}", settings.banner);
     }
 
     let (diff, diff_only) =
         resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
     if !config.quiet && diff_only.is_some() && diff.is_none() {
-        println!(
+        emit!(
             "{} {}",
             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
             diff_flags_warning()
@@ -57,12 +74,19 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if !rules.has_active_rule(&known_rules) {
             warnings.push(no_active_rule_warning());
         }
+        warnings.extend(
+            unmatchable_exclude_patterns(&config.exclude)
+                .iter()
+                .map(|pattern| unmatchable_exclude_warning(pattern)),
+        );
+        let label =
+            if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
+                "Warning:".yellow().to_string()
+            } else {
+                "Warning:".to_string()
+            };
         for warning in warnings {
-            eprintln!(
-                "{} {}",
-                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                warning
-            );
+            emit_error!("{} {}", label, warning);
         }
     }
     let analysis = analysis_options(&config, rules);
@@ -106,7 +130,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(snap) => snap,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
@@ -123,11 +147,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
-                println!("{}", line);
+                emit!("{}", line);
             }
         }
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     }
@@ -146,13 +170,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         cache_dir: config.cache_dir.as_deref(),
         top: config.top,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
+        color: settings.color_enabled,
     });
     if !display_output.is_empty() {
-        println!("{}", display_output);
+        emit!("{}", display_output);
     }
 
     if !config.quiet && !fix_console.is_empty() {
-        println!("{}", fix_console);
+        emit!("{}", fix_console);
     }
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(
@@ -164,26 +189,26 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(result) => result,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", error);
             return ExitCode::FAILURE;
         }
     };
     if config.report_ignored {
         if !config.quiet {
-            println!(
+            emit!(
                 "{}",
-                ignored_summary_output(ignored_locations.len(), config.no_ignore)
+                ignored_summary_output(&ignored_locations, config.no_ignore)
             );
         }
         if let Some(path) = ignored_json_path {
-            println!("{}", ignored_saved_output(&path));
+            emit!("{}", ignored_saved_output(&path));
         }
     }
 
     if !config.quiet {
         let removable_output = removable_ignores_output(&run.removable_ignores());
         if !removable_output.is_empty() {
-            println!("{}", removable_output);
+            emit!("{}", removable_output);
         }
     }
 
@@ -196,14 +221,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     } else {
         let snapshot_output = handle_snapshot_console(&snap, &output_snapshot_path);
         if !snapshot_output.is_empty() {
-            println!("{}", snapshot_output);
+            emit!("{}", snapshot_output);
         }
         snap.watermark_success
     };
 
     let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths);
     if !invalid_paths_output.is_empty() {
-        println!("{}", invalid_paths_output);
+        emit!("{}", invalid_paths_output);
     }
 
     let diff_ref = diff.clone().or_else(|| diff_only.clone());
@@ -212,7 +237,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             match compute_staged_diff(&diff_ref, invocation_path) {
                 Some(entries) => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{}",
                             format_diff_for(&entries, &format!("{} (staged)", diff_ref))
                         );
@@ -221,7 +246,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 }
                 None => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{} --staged requires a git repository; skipping the staged diff.",
                             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
                         );
@@ -232,7 +257,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         } else if !files_complexities.is_empty() {
             let entries = compute_diff(&files_complexities, &diff_ref, invocation_path);
             if !config.quiet {
-                println!("{}", format_diff_for(&entries, &diff_ref));
+                emit!("{}", format_diff_for(&entries, &diff_ref));
             }
             Some(entries)
         } else {
@@ -251,9 +276,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
 
     if !config.quiet && !config.plain {
         if cfg!(windows) {
-            println!("{}", rule("Analysis completed!"));
+            emit!("{}", rule("Analysis completed!"));
         } else {
-            println!("{}", rule("🎉 Analysis completed! 🎉"));
+            emit!("{}", rule("🎉 Analysis completed! 🎉"));
         }
     }
 
