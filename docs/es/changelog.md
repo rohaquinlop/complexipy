@@ -11,6 +11,12 @@ GitHub con todos los detalles.
 - `file_complexity()` y `code_complexity()` aceptan `with_plans`, `True` por
   defecto. Pasa `with_plans=False` para no construir los planes de
   refactorización cuando solo necesitas las puntuaciones.
+- El servidor de lenguaje responde `complexipy/lineComplexities` con el total
+  de cada función y el incremento de cada línea, sin importar la configuración
+  de los hints. La extensión de VS Code dibuja con él sus insignias de colores
+  ([#292](https://github.com/rohaquinlop/complexipy/discussions/292)).
+- `[lsp] diagnostic-range` y `[lsp] hover` eligen qué subraya la advertencia y
+  dónde responde el hover.
 - `--isolated` ignora todos los archivos de configuración, y `--config <ruta>`
   lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el
   archivo se llama `pyproject.toml`, y el archivo completo en otro caso. Las
@@ -20,6 +26,13 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- El servidor de lenguaje es más discreto por defecto. La advertencia subraya
+  el nombre de la función en lugar de toda la función, y el hover responde
+  solo en las líneas `def`, así que ya no tapa el hover propio del editor
+  dentro del cuerpo
+  ([#290](https://github.com/rohaquinlop/complexipy/discussions/290)). Define
+  `diagnostic-range = "function"` o `hover = "function"` bajo `[lsp]` para
+  recuperar el comportamiento anterior.
 - Ejecuciones más rápidas. El descubrimiento de archivos recorre el árbol una
   sola vez, en paralelo, y ya no lee los directorios ignorados por git; las
   rutas que no se pueden analizar se listan en orden de ruta. El reporte por

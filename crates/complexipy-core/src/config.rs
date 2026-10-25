@@ -71,6 +71,25 @@ pub enum InlayHints {
     Never,
 }
 
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticRange {
+    #[default]
+    Name,
+    Function,
+}
+
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
+#[serde(rename_all = "snake_case")]
+pub enum HoverScope {
+    #[default]
+    Signature,
+    Function,
+    Never,
+}
+
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema, serde::Serialize))]
 #[cfg_attr(
@@ -106,6 +125,22 @@ pub struct LspSection {
         )
     )]
     pub diagnostics: bool,
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "What the warning underlines: `name` the function name only, `function` the whole function."
+        )
+    )]
+    pub diagnostic_range: DiagnosticRange,
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "Where hover answers: `signature` on the `def` lines only, `function` on any line of the function, `never` for no hover."
+        )
+    )]
+    pub hover: HoverScope,
 }
 
 impl Default for LspSection {
@@ -114,6 +149,8 @@ impl Default for LspSection {
             inlay_hints: InlayHints::default(),
             per_line_hints: false,
             diagnostics: true,
+            diagnostic_range: DiagnosticRange::default(),
+            hover: HoverScope::default(),
         }
     }
 }

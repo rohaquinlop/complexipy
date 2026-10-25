@@ -10,12 +10,12 @@ Inside the editor you get:
 
 - **Inlay hints** - the cognitive complexity of a function, shown at the end of
   its `def` line as `cognitive: 18`.
-- **Hover** - hovering anywhere inside a function shows its name, its
+- **Hover** - hovering the `def` lines of a function shows its name, its
   cognitive complexity, whether it exceeds the allowed threshold, and the title
   of the top refactoring suggestion when one exists.
 - **Diagnostics** - one warning per function above `max-complexity-allowed`,
-  with the message `cognitive complexity 18 exceeds the allowed 15` on a range
-  that covers the whole function.
+  with the message `cognitive complexity 18 exceeds the allowed 15` on the
+  function name.
 
 Results refresh as you type. The server uses full document sync and analyzes
 only the documents you have open, so there is no workspace-wide scan and no
@@ -100,6 +100,9 @@ Zed turns inlay hints off by default. `inlay_hints.enabled` turns them on for
 every language server, so type hints from servers such as `ty` or `basedpyright`
 appear next to the complexipy hint.
 
+The `lsp.hover` and `lsp.diagnostic-range` settings apply in Zed as well. The
+colored badges of the VS Code extension do not: Zed shows the inlay hints.
+
 The extension runs `complexipy lsp` from the `PATH`. To use another binary,
 set its path:
 
@@ -128,6 +131,27 @@ default, so no editor setting is needed.
 
 The extension also adds a status bar item with the number of functions over
 the threshold in the active file. Click it to open the Problems panel.
+
+To see colored badges instead of inlay hints, set `complexipy.display` to
+`decorations`. The extension then shows `ƒ N` after every function declaration
+and `+N` after every line that adds complexity, in green, yellow, or red:
+
+- A function is green up to half of `max-complexity-allowed`, yellow up to the
+  limit, and red above it.
+- A line is yellow from `complexipy.decorations.lineWarningAt` (default `3`)
+  and red from `complexipy.decorations.lineErrorAt` (default `5`).
+
+```json
+{
+  "complexipy.display": "decorations",
+  "complexipy.decorations.lineWarningAt": 3,
+  "complexipy.decorations.lineErrorAt": 5
+}
+```
+
+The badges show every function and every line that adds complexity, whatever
+`inlay-hints` and `per-line-hints` say. They need complexipy 8.2.0 or later.
+With an older server the extension shows a warning and keeps the inlay hints.
 
 The extension runs `complexipy lsp` from the `PATH`. To use another binary,
 set its path in `settings.json`:
@@ -158,6 +182,8 @@ at the root of each workspace folder:
     inlay-hints = "threshold"   # "always" | "threshold" | "never"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"   # "name" | "function"
+    hover = "signature"         # "signature" | "function" | "never"
     ```
 
 === "pyproject.toml"
@@ -170,6 +196,8 @@ at the root of each workspace folder:
     inlay-hints = "threshold"   # "always" | "threshold" | "never"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"   # "name" | "function"
+    hover = "signature"         # "signature" | "function" | "never"
     ```
 
 | Key | Default | Description |
@@ -180,6 +208,8 @@ at the root of each workspace folder:
 | `lsp.inlay-hints` | `"threshold"` | When to show the per-function hint: `"threshold"`, `"always"`, or `"never"`. |
 | `lsp.per-line-hints` | `false` | Also show a `+N` hint on every line with a non-zero complexity increment. |
 | `lsp.diagnostics` | `true` | Publish warnings for functions above `max-complexity-allowed`. |
+| `lsp.diagnostic-range` | `"name"` | What the warning underlines: `"name"` the function name, or `"function"` the whole function. |
+| `lsp.hover` | `"signature"` | Where hover answers: `"signature"` on the `def` lines, `"function"` on any line of the function, or `"never"`. |
 
 The server ignores every other key of the same file: `paths`, `quiet`,
 `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
@@ -220,12 +250,24 @@ Here the hint sits at the end of the `):` line.
 
 The server reports the same functions `complexipy <path>` reports: top-level
 functions, plus methods of classes. A function nested inside another one is
-folded into its parent, so there is no separate hint for it. Hovering inside a
-nested function therefore shows its parent.
+folded into its parent, so there is no separate hint for it. With
+`hover = "function"`, hovering inside a nested function therefore shows its
+parent.
+
+### Hover
+
+- `hover = "signature"` (the default) answers only on the declaration lines:
+  from the `def` line to the line that closes the signature. Hovering a call in
+  the body leaves the editor's own hover alone.
+- `hover = "function"` answers on any line of the function.
+- `hover = "never"` turns hover off.
 
 ### Diagnostics
 
 - `diagnostics = false` publishes no warnings at all.
+- `diagnostic-range = "name"` (the default) underlines only the function name
+  on its `def` line. `diagnostic-range = "function"` underlines the whole
+  function.
 - The reported threshold matches `complexipy <path>`: a function whose
   complexity **equals** `max-complexity-allowed` passes. Only strictly greater
   values are reported, as

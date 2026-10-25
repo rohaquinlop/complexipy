@@ -11,13 +11,13 @@ En el editor obtienes:
 
 - **Inlay hints** - la complejidad cognitiva de una función, mostrada al final
   de su línea `def` como `cognitive: 18`.
-- **Hover** - al pasar el cursor por cualquier punto dentro de una función se
+- **Hover** - al pasar el cursor por las líneas `def` de una función se
   muestra su nombre, su complejidad cognitiva, si supera el umbral permitido y
   el título de la principal sugerencia de refactorización cuando existe.
 - **Diagnósticos** - una advertencia por cada función que supere
   `max-complexity-allowed`, con el mensaje
-  `cognitive complexity 18 exceeds the allowed 15` en un rango que cubre toda
-  la función.
+  `cognitive complexity 18 exceeds the allowed 15` sobre el nombre de la
+  función.
 
 Los resultados se actualizan mientras escribes. El servidor usa sincronización
 completa del documento y analiza solo los documentos que tienes abiertos, así
@@ -103,6 +103,10 @@ Zed desactiva los inlay hints de forma predeterminada. `inlay_hints.enabled` los
 activa para todos los servidores de lenguaje, así que los hints de tipos de
 servidores como `ty` o `basedpyright` aparecen junto al hint de complexipy.
 
+Los ajustes `lsp.hover` y `lsp.diagnostic-range` también se aplican en Zed.
+Las insignias de colores de la extensión de VS Code no: Zed muestra los inlay
+hints.
+
 La extensión ejecuta `complexipy lsp` desde el `PATH`. Para usar otro binario,
 define su ruta:
 
@@ -134,6 +138,30 @@ La extensión también añade un elemento en la barra de estado con el número d
 funciones por encima del umbral en el archivo activo. Haz clic en él para abrir
 el panel Problems.
 
+Para ver insignias de colores en lugar de inlay hints, define
+`complexipy.display` como `decorations`. La extensión muestra entonces `ƒ N`
+después de cada declaración de función y `+N` después de cada línea que suma
+complejidad, en verde, amarillo o rojo:
+
+- Una función es verde hasta la mitad de `max-complexity-allowed`, amarilla
+  hasta el límite y roja por encima.
+- Una línea es amarilla desde `complexipy.decorations.lineWarningAt`
+  (predeterminado `3`) y roja desde `complexipy.decorations.lineErrorAt`
+  (predeterminado `5`).
+
+```json
+{
+  "complexipy.display": "decorations",
+  "complexipy.decorations.lineWarningAt": 3,
+  "complexipy.decorations.lineErrorAt": 5
+}
+```
+
+Las insignias muestran cada función y cada línea que suma complejidad, sin
+importar `inlay-hints` ni `per-line-hints`. Necesitan complexipy 8.2.0 o
+posterior. Con un servidor anterior, la extensión muestra una advertencia y
+mantiene los inlay hints.
+
 La extensión ejecuta `complexipy lsp` desde el `PATH`. Para usar otro binario,
 define su ruta en `settings.json`:
 
@@ -164,6 +192,8 @@ El servidor lee los mismos archivos de configuración que la CLI -
     inlay-hints = "threshold"   # "always" | "threshold" | "never"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"   # "name" | "function"
+    hover = "signature"         # "signature" | "function" | "never"
     ```
 
 === "pyproject.toml"
@@ -176,6 +206,8 @@ El servidor lee los mismos archivos de configuración que la CLI -
     inlay-hints = "threshold"   # "always" | "threshold" | "never"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"   # "name" | "function"
+    hover = "signature"         # "signature" | "function" | "never"
     ```
 
 | Clave | Predeterminado | Descripción |
@@ -186,6 +218,8 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | `lsp.inlay-hints` | `"threshold"` | Cuándo mostrar el hint por función: `"threshold"`, `"always"` o `"never"`. |
 | `lsp.per-line-hints` | `false` | Muestra además un hint `+N` en cada línea con un incremento de complejidad distinto de cero. |
 | `lsp.diagnostics` | `true` | Publica advertencias para las funciones por encima de `max-complexity-allowed`. |
+| `lsp.diagnostic-range` | `"name"` | Qué subraya la advertencia: `"name"` el nombre de la función, o `"function"` toda la función. |
+| `lsp.hover` | `"signature"` | Dónde responde el hover: `"signature"` en las líneas `def`, `"function"` en cualquier línea de la función, o `"never"`. |
 
 El servidor ignora el resto de claves del mismo archivo: `paths`, `quiet`,
 `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
@@ -229,12 +263,24 @@ En este ejemplo el hint queda al final de la línea `):`.
 El servidor reporta las mismas funciones que reporta `complexipy <path>`:
 funciones de nivel superior, más los métodos de las clases. Una función
 anidada dentro de otra se pliega en su función padre, así que no tiene un hint
-propio. Por eso, al pasar el cursor dentro de una función anidada se muestra su
-función padre.
+propio. Por eso, con `hover = "function"`, al pasar el cursor dentro de una
+función anidada se muestra su función padre.
+
+### Hover
+
+- `hover = "signature"` (el predeterminado) responde solo en las líneas de la
+  declaración: desde la línea `def` hasta la línea que cierra la firma. Al
+  pasar el cursor por una llamada en el cuerpo, el hover propio del editor no
+  se ve afectado.
+- `hover = "function"` responde en cualquier línea de la función.
+- `hover = "never"` desactiva el hover.
 
 ### Diagnósticos
 
 - `diagnostics = false` no publica ninguna advertencia.
+- `diagnostic-range = "name"` (el predeterminado) subraya solo el nombre de la
+  función en su línea `def`. `diagnostic-range = "function"` subraya toda la
+  función.
 - El umbral reportado coincide con `complexipy <path>`: una función cuya
   complejidad **es igual** a `max-complexity-allowed` pasa. Solo se reportan
   los valores estrictamente mayores, como
