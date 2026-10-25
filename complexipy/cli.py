@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import signal
 import sys
+import threading
 from pathlib import Path
 
 from complexipy._complexipy import run_cli, run_lsp
@@ -43,9 +44,12 @@ def lsp_shadow_warning() -> str | None:
 def main() -> None:
     """Run the Rust CLI, or the language server for ``complexipy lsp``.
 
-    Ctrl-C ends the process at once, also while the Rust call runs.
+    Called from the main thread, Ctrl-C ends the process at once, also
+    while the Rust call runs. Called from another thread, it leaves the
+    SIGINT handler alone, since only the main thread can set it.
     """
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
     arguments = sys.argv[1:]
 
     if arguments[:1] == [LSP_ARGUMENT]:

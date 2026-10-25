@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -198,3 +199,29 @@ def test_the_console_script_lets_ctrl_c_end_the_run(monkeypatch) -> None:
         signal.signal(signal.SIGINT, previous)
 
     assert seen["handler"] == signal.SIG_DFL
+
+
+def test_the_console_script_runs_from_a_thread(monkeypatch) -> None:
+    outcome = {}
+
+    def record_arguments(arguments: list[str]) -> int:
+        outcome["arguments"] = arguments
+        return 0
+
+    def run_main() -> None:
+        try:
+            cli.main()
+        except SystemExit as stop:
+            outcome["exit"] = stop.code
+        except BaseException as error:
+            outcome["error"] = error
+
+    monkeypatch.setattr(cli, "run_cli", record_arguments)
+    monkeypatch.setattr(sys, "argv", ["complexipy", "."])
+    previous = signal.getsignal(signal.SIGINT)
+    thread = threading.Thread(target=run_main)
+    thread.start()
+    thread.join()
+
+    assert outcome == {"arguments": ["."], "exit": 0}
+    assert signal.getsignal(signal.SIGINT) == previous
