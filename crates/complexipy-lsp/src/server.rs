@@ -53,7 +53,7 @@ pub fn serve(connection: Connection) -> i32 {
     let initialized = match handshake(&connection) {
         Ok(initialized) => initialized,
         Err(error) => {
-            eprintln!("{}: {}", SERVER_NAME, error);
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(&error.to_string()));
             return EXIT_CODE_FAILURE;
         }
     };
@@ -522,7 +522,7 @@ impl Server {
             eprintln!(
                 "{}: {}: ignoring an incremental change, complexipy declares full document sync",
                 SERVER_NAME,
-                uri.as_str()
+                escape_controls(uri.as_str())
             );
             return;
         }
