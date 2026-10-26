@@ -3,7 +3,7 @@
 All notable changes to complexipy are documented here, newest first. Each
 release section links to its GitHub release notes for the full details.
 
-## Unreleased
+## [8.2.0] - 2026-10-25
 
 ### Added
 
@@ -282,6 +282,21 @@ release section links to its GitHub release notes for the full details.
   output channel instead of adding one per restart.
 - The web demo loads a fresh analyzer after an analysis crashes, instead of
   failing every later analysis until the page reloads.
+
+### Security
+
+- complexipy now treats the content of the analyzed repository as untrusted.
+  This release fixes the issues described in
+  [GHSA-8p2q-4h62-q593](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-8p2q-4h62-q593),
+  [GHSA-9qgh-5xjp-8g3m](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-9qgh-5xjp-8g3m),
+  [GHSA-wg3w-cmfg-c94w](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wg3w-cmfg-c94w),
+  [GHSA-mh97-m2f8-q8vj](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-mh97-m2f8-q8vj),
+  and, for the VS Code extension 0.4.0,
+  [GHSA-wpx6-54p3-527q](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wpx6-54p3-527q).
+  Upgrading is recommended for every user.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/8.2.0)
+for the full details.
 
 ## [8.1.0] - 2026-10-18
 

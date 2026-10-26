@@ -4,7 +4,7 @@ Todos los cambios notables de complexipy se documentan aquí, de más reciente
 a más antiguo. Cada sección de versión enlaza a sus notas de versión de
 GitHub con todos los detalles.
 
-## Sin publicar
+## [8.2.0] - 2026-10-25
 
 ### Añadido
 
@@ -321,6 +321,21 @@ GitHub con todos los detalles.
   Mantiene un solo canal de salida en lugar de añadir uno por reinicio.
 - La demo web carga un analizador nuevo después de que un análisis falle, en
   lugar de fallar en cada análisis posterior hasta recargar la página.
+
+### Seguridad
+
+- complexipy ahora trata el contenido del repositorio analizado como no
+  confiable. Esta versión corrige los problemas descritos en
+  [GHSA-8p2q-4h62-q593](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-8p2q-4h62-q593),
+  [GHSA-9qgh-5xjp-8g3m](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-9qgh-5xjp-8g3m),
+  [GHSA-wg3w-cmfg-c94w](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wg3w-cmfg-c94w),
+  [GHSA-mh97-m2f8-q8vj](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-mh97-m2f8-q8vj)
+  y, para la extensión de VS Code 0.4.0,
+  [GHSA-wpx6-54p3-527q](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wpx6-54p3-527q).
+  Se recomienda actualizar a todos los usuarios.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.2.0)
+para todos los detalles.
 
 ## [8.1.0] - 2026-10-18
 
