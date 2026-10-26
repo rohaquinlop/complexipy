@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-10-25
 
 ### Added
 
@@ -12,6 +12,10 @@
 - With complexipy 8.2.0, the warning underlines the function name, and hover appears only on the `def` lines (#290). Set `diagnostic-range` or `hover` under `[tool.complexipy.lsp]` to change them.
 - In Restricted Mode, `complexipy.server.path` from workspace settings is ignored, and the extension runs the binary from your user settings or the `PATH`. Before, the extension was disabled in Restricted Mode.
 - A relative `complexipy.server.path` resolves against the first workspace folder, the directory the server starts in, and relative `PATH` entries are skipped.
+
+### Fixed
+
+- A server that does not start within 30 seconds is stopped and shows an error, so a later restart is no longer blocked. The extension keeps one output channel instead of adding one per restart.
 
 ## [0.3.0] - 2026-10-18
 
