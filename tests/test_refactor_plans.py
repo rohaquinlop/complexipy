@@ -6,6 +6,8 @@ import ast
 import textwrap
 from pathlib import Path
 
+import pytest
+
 import complexipy
 from complexipy import (
     Applicability,
@@ -372,7 +374,7 @@ def test_loop_guard_only_converts_outermost_if() -> None:
     )
     assert loop_guard_plan is not None
     assert loop_guard_plan.suggestion is not None
-    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
+    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
 
 
@@ -410,7 +412,7 @@ def test_loop_guard_preserves_inner_if_else() -> None:
     )
     assert loop_guard_plan is not None, "C002 should fire when C007 can't"
     assert loop_guard_plan.suggestion is not None
-    assert "if not (item.active):" in loop_guard_plan.suggestion.replacement
+    assert "if not item.active:" in loop_guard_plan.suggestion.replacement
     assert "continue" in loop_guard_plan.suggestion.replacement
     # The inner if/else should be preserved
     assert (
@@ -475,6 +477,50 @@ def test_loop_guard_strips_redundant_not() -> None:
 
     assert "if item.active:" in replacement
     assert "if not (not item.active):" not in replacement
+
+
+LOOP_GUARD = """\
+def process(items, seen, pools):
+    results = []
+    for item in items:
+        if {condition}:
+            if item.ready:
+                results.append(item)
+            else:
+                results.append(None)
+    return results
+"""
+
+
+@pytest.mark.parametrize(
+    ("condition", "guard"),
+    [
+        ("item in seen", "if item not in seen:"),
+        ("item not in seen", "if item in seen:"),
+        ("item is seen", "if item is not seen:"),
+        ("item is not None", "if item is None:"),
+        ("isinstance(item, int)", "if not isinstance(item, int):"),
+        ("(isinstance(item, int))", "if not isinstance(item, int):"),
+        ("item.active", "if not item.active:"),
+        ("item.a and item.b", "if not (item.a and item.b):"),
+        ("item.a or item.b", "if not (item.a or item.b):"),
+        ("(size := len(item))", "if not (size := len(item)):"),
+        ("0 < item < 10", "if not (0 < item < 10):"),
+        ("item in seen in pools", "if not (item in seen in pools):"),
+        ("item == seen", "if not (item == seen):"),
+        ("seen if item else pools", "if not (seen if item else pools):"),
+    ],
+)
+def test_loop_guard_negates_the_condition_cleanly(
+    condition: str, guard: str
+) -> None:
+    """C002 writes the negation a linter accepts, with parens only where needed."""
+    func = first_func(LOOP_GUARD.format(condition=condition))
+    plan = next(p for p in func.refactor_plans if p.kind == "loop_guards")
+    replacement = plan.suggestion.replacement
+
+    assert replacement.splitlines()[1] == f"        {guard}"
+    ast.parse(textwrap.dedent(replacement))
 
 
 def test_loop_guard_skips_multiline_string_between_members() -> None:

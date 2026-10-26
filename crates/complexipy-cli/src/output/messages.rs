@@ -3,6 +3,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
+use complexipy_core::diff::{UnresolvedFile, UnresolvedReason};
 use complexipy_core::runner::{SkipReason, SkippedPath};
 use complexipy_core::sanitize::escape_controls;
 pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
@@ -81,8 +82,72 @@ pub fn unmatchable_exclude_warning(pattern: &str) -> String {
     )
 }
 
-pub fn diff_flags_warning() -> String {
-    "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement).".to_string()
+/// The warning for a run given both `--diff` and `--diff-only`, which keeps
+/// only `--diff-only`.
+pub fn diff_flags_warning(diff: Option<&str>, diff_only: Option<&str>) -> Option<String> {
+    (diff.is_some() && diff_only.is_some()).then(|| {
+        "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
+            .to_string()
+    })
+}
+
+/// One warning for the files outside any git repository, and one per
+/// repository that the diff could not read at `git_ref`. The functions of
+/// those files report as NEW.
+pub fn unresolved_diff_warnings(unresolved: &[UnresolvedFile], git_ref: &str) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    let outside: Vec<&str> = unresolved
+        .iter()
+        .filter(|file| file.reason == UnresolvedReason::NotInRepository)
+        .map(|file| file.file_path.as_str())
+        .collect();
+    match outside.as_slice() {
+        [] => {}
+        [path] => warnings.push(format!(
+            "{} is not inside a git repository, so all its functions report as NEW.",
+            path
+        )),
+        [path, rest @ ..] => warnings.push(format!(
+            "{} and {} other file(s) are not inside a git repository, so all their \
+             functions report as NEW.",
+            path,
+            rest.len()
+        )),
+    }
+
+    let mut causes: Vec<(&UnresolvedReason, usize)> = Vec::new();
+    for file in unresolved {
+        if file.reason == UnresolvedReason::NotInRepository {
+            continue;
+        }
+        match causes.iter_mut().find(|(seen, _)| **seen == file.reason) {
+            Some((_, count)) => *count += 1,
+            None => causes.push((&file.reason, 1)),
+        }
+    }
+    for (reason, count) in causes {
+        let cause = match reason {
+            UnresolvedReason::NotInRepository => continue,
+            UnresolvedReason::UnknownRef { repository } => {
+                format!("{:?} does not name a commit in {}", git_ref, repository)
+            }
+            UnresolvedReason::NotPinned { repository } => format!(
+                "{} sits inside another repository but is not pinned there at {:?}",
+                repository, git_ref
+            ),
+            UnresolvedReason::PinnedCommitMissing { repository, commit } => format!(
+                "{} is pinned at {:?} to commit {}, which it does not have",
+                repository, git_ref, commit
+            ),
+        };
+        warnings.push(format!(
+            "{}, so all functions in its {} analyzed file(s) report as NEW.",
+            cause, count
+        ));
+    }
+
+    warnings
 }
 
 /// The warning for a skipped entry, or `None` for a file an ignore rule

@@ -118,13 +118,19 @@ def process_items(items):
 def process_items(items):
     total = 0
     for item in items:
-        if not (item.active):
+        if not item.active:
             continue
-        if not (item.ready):
+        if not item.ready:
             continue
         total += item.value
     return total
 ```
+
+Cada guarda niega su condición como lo espera un linter: `x in y` pasa a
+`x not in y`, `a is b` pasa a `a is not b`, un `not` inicial desaparece, y un
+nombre o una llamada recibe un `not` sin paréntesis. El `not` conserva los
+paréntesis alrededor de `and`, `or`, otras comparaciones, expresiones
+condicionales, lambdas y asignaciones walrus.
 
 #### Por qué esto ayuda
 

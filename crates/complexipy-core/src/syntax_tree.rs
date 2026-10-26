@@ -35,15 +35,21 @@ impl Drop for ParsedModule {
     }
 }
 
-/// A parsed expression that frees its tree without deep recursion.
+/// A parsed expression, with its tokens, that frees its tree without deep
+/// recursion.
 pub struct ParsedExpression {
     expr: Expr,
+    tokens: Tokens,
     chained: bool,
 }
 
 impl ParsedExpression {
     pub fn expr(&self) -> &Expr {
         &self.expr
+    }
+
+    pub fn tokens(&self) -> &Tokens {
+        &self.tokens
     }
 }
 
@@ -74,13 +80,15 @@ pub fn parse_module(code: &str) -> Result<ParsedModule, ParseError> {
 
 pub fn parse_expression(text: &str) -> Option<ParsedExpression> {
     let parsed = parse_unchecked(text, ParseOptions::from(Mode::Expression));
-    let chained = has_long_logical_line(parsed.tokens());
+    let tokens = parsed.tokens().clone();
+    let chained = has_long_logical_line(&tokens);
     let valid = parsed.has_valid_syntax();
 
     match parsed.into_syntax() {
         Mod::Expression(expression) => {
             let expression = ParsedExpression {
                 expr: *expression.body,
+                tokens,
                 chained,
             };
             valid.then_some(expression)

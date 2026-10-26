@@ -117,13 +117,18 @@ def process_items(items):
 def process_items(items):
     total = 0
     for item in items:
-        if not (item.active):
+        if not item.active:
             continue
-        if not (item.ready):
+        if not item.ready:
             continue
         total += item.value
     return total
 ```
+
+Each guard negates its condition the way a linter expects: `x in y` becomes
+`x not in y`, `a is b` becomes `a is not b`, a leading `not` is dropped, and
+a name or a call gets a bare `not`. The `not` keeps parentheses around `and`,
+`or`, other comparisons, conditional expressions, lambdas, and walrus assignments.
 
 #### Why this helps
 

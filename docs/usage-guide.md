@@ -195,7 +195,20 @@ complexipy . --diff main --staged
 
 Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. Staged deletions produce `REMOVED` entries and staged additions `NEW` entries. Use `--diff-only` with `--staged` for a visual-only view.
 
-This requires `git` and a repository-backed path.
+This requires `git` and a repository-backed path. `--diff` and
+`--diff-only` read each file from the repository that holds it, so a run
+from outside the repository compares against the same history as a run
+from inside it. A submodule, meaning a repository that the repository
+around it tracks as a gitlink in its index, is read at the commit that the
+outer repository pins for it at the reference, and deeper nesting follows
+each pin in turn. When the run starts inside the submodule, it is read at
+the reference itself. A repository inside another that the outer one does
+not track is read at the reference, like any other repository. `--staged`
+uses the repository of the working directory. When a file sits outside any
+repository, the reference names no commit in the file's repository, or the
+outer repository pins no commit for the submodule at the reference, or
+pins a commit the submodule does not have, every function of that file
+reports as `NEW` and the run prints a warning that names the cause.
 
 Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file - see [Diff Configuration](#diff-configuration).
@@ -460,8 +473,9 @@ section to the same configuration file:
   `--isolated`, or `--config <path>` to pin the gate in CI.
 - Resolution order: CLI flag, then the `diff` section.
 - If the configured `branch` does not exist in the local clone (for
-  example a fresh or shallow clone), every function reports as `NEW` and
-  the enforcement still applies. Fetch the branch or pass `--diff <ref>`
+  example a fresh or shallow clone), every function reports as `NEW`, the
+  enforcement still applies, and the run prints a warning that names the
+  reference and the repository. Fetch the branch or pass `--diff <ref>`
   with an existing reference instead.
 
 ### Language Server Settings
@@ -650,7 +664,10 @@ result = file_complexity("src/main.py", with_plans=False)
 (commit, tag, or branch) and returns `DiffEntry` objects - one per function
 that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
-*max_complexity*).
+*max_complexity*). Each file is read from the git repository that holds it,
+and a submodule at the commit its outer repository pins, as with
+`--diff`. `invocation_path`, the working directory by default, anchors
+relative file paths and plays the role of the directory a CLI run starts in.
 
 ```python
 from complexipy import (

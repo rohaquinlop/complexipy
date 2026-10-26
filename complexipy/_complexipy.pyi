@@ -619,17 +619,23 @@ def compute_diff(
     """
     Compare the current complexity results against *git_ref*.
 
-    For each file in *current_files* that is a regular file at
-    *git_ref*, retrieves its content there using ``git cat-file`` and
-    re-analyses it. A file that is not, such as a symbolic link at
-    *git_ref*, has no old version. Functions that appear only in one
-    version are marked NEW / REMOVED.
+    For each file in *current_files*, retrieves the file's content at
+    *git_ref* from the git repository that holds the file and re-analyses
+    it. A submodule, a repository that the repository around it tracks as
+    a gitlink, is read at the commit that the outer repository pins for
+    it, unless it holds *invocation_path*. A file that is not a regular
+    file at that commit, such as a symbolic link, has no old version.
+    Functions that appear only in one version are marked NEW / REMOVED.
+    Every function of a file outside any repository, in a repository where
+    *git_ref* names no commit, or in a submodule without a pinned commit it
+    has, is marked NEW.
 
     Args:
         current_files: Complexity results of the current analysis.
         git_ref: Git reference to compare against (branch, tag, or commit).
-        invocation_path: Working directory for git commands; defaults to
-            the current working directory.
+        invocation_path: Directory that relative file paths are taken
+            from, and whose repositories are read at *git_ref* even when
+            they are submodules; defaults to the current working directory.
 
     Returns:
         List of DiffEntry objects, one per function that changed or is
