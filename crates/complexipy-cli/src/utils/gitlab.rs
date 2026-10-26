@@ -2,20 +2,26 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
+use crate::types::DiffBaseline;
 use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, FileComplexity, FunctionComplexity, RefactorPlan};
+use complexipy_core::diff::function_keys;
 use complexipy_core::fs_guard::write_atomic;
 use complexipy_core::utils::ExportError;
 
 const CHECK_NAME: &str = "complexipy/cognitive-complexity";
 const DEFAULT_SEVERITY: &str = "minor";
 
+/// Writes the GitLab Code Quality report. When `baseline` comes from a diff
+/// that decides the exit code, a function that fails the run is `major` and
+/// one the run lets through is `info`.
 pub fn store_gitlab(
     output_path: &str,
     files: &[FileComplexity],
     max_complexity: u64,
     suggest_refactors: bool,
+    baseline: Option<&DiffBaseline>,
 ) -> Result<(), ExportError> {
     let mut report = Vec::new();
 
@@ -26,7 +32,7 @@ pub fn store_gitlab(
             .unwrap_or(&normalized_path);
         let ranks = function_ranks(file);
 
-        for function in &file.functions {
+        for (function, key) in file.functions.iter().zip(function_keys(&file.functions)) {
             let function_rank = ranks
                 .get(&(function.name.as_str(), function.line_start))
                 .copied()
@@ -46,7 +52,7 @@ pub fn store_gitlab(
                         function_rank,
                         0,
                     ),
-                    "severity": DEFAULT_SEVERITY,
+                    "severity": complexity_severity(baseline, &file.path, &key),
                     "location": {
                         "path": relative_path,
                         "lines": {"begin": function.line_start},
@@ -79,6 +85,14 @@ pub fn store_gitlab(
             output_path, e
         ))
     })
+}
+
+fn complexity_severity(baseline: Option<&DiffBaseline>, path: &str, key: &str) -> &'static str {
+    match baseline.and_then(|baseline| baseline.fails(path, key)) {
+        Some(true) => "major",
+        Some(false) => "info",
+        None => DEFAULT_SEVERITY,
+    }
 }
 
 fn build_description(function_name: &str, complexity: u64, max_complexity: u64) -> String {

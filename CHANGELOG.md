@@ -18,6 +18,54 @@ release section links to its GitHub release notes for the full details.
   cause.
 - `--diff-only` alone no longer warns that `--diff` and `--diff-only` are
   both set.
+- `--staged` compares only the staged files the run selects: the path
+  arguments, `paths`, and `exclude` apply as they do without it, so
+  `complexipy one.py --staged` no longer reports the other staged files. They
+  apply to the index, so a staged regular file is compared whatever the
+  working tree holds at its path. A staged deletion that discovery would have
+  selected still reports its functions as `REMOVED`: under a selected
+  directory, outside hidden paths, and not matched by `exclude`, `.gitignore`,
+  `.ignore`, or git's exclude file. Each file is named by the path the rest of
+  the run reports.
+- A rename or a move no longer fails `--diff` or `--staged` when the function's
+  body stays as it was. A file that git pairs as renamed compares with its old
+  path when the run covers that path, and as added when it moves in from outside
+  the selected paths; a file moved out of them reports nothing. A function above
+  the threshold that the change adds passes only when it replaces a `REMOVED`
+  function with the same body and at least its complexity, each removed function
+  replaced once, and the compared files (modified, renamed from a covered path,
+  deleted from a covered path, or added) do not hold more functions with that
+  body than they did at the ref, counting the functions that ignore comments
+  hide. Bodies count and pair only within the repository that holds each file.
+  Bodies compare structurally, without formatting, comments, the name, the
+  decorators, or the parameters, so a function or class rename, a move to
+  another file, and a method that becomes a function pass, and a function that
+  moves and changes fails. The diff table names, in a `Gate` column, the
+  `REMOVED` function each passing one replaces. `has_regressions` sees no
+  bodies, so it still fails a moved function above the threshold. A function
+  that an ignore comment now hides is not reported as `REMOVED`. A deleted
+  Python file that discovery would have selected reports its functions as
+  `REMOVED` in `--diff` too, and a deleted symbolic link reports nothing. The
+  snapshot gate does not pair functions: a moved or renamed function above the
+  threshold fails it until `--snapshot-create` records the function again, and a
+  snapshot rewrite drops the entries of files that no longer exist.
+- A run gated by `--diff` or `--staged` shows which functions fail it. A
+  REGRESSED or NEW function above the threshold is listed as `FAILED` and
+  marked `FAILS` in the diff table, which ends with a `Gate:` line that counts
+  them. A function above the threshold that the gate lets through is listed
+  as `ALLOWED` instead of `FAILED`, and `--failed` lists only the functions
+  that fail the run. A snapshot run lists the functions its snapshot lets
+  through as `ALLOWED` too, instead of `PASSED`.
+- `--diff` reports the functions of a file that does not parse at the
+  reference as `NEW`, as `--staged` does, instead of leaving the file out of
+  the comparison.
+- SARIF output is diff-aware. With a diff, every result carries the
+  `baselineState` of its function, `new`, `unchanged`, or `updated`, against
+  the reference, and when the diff decides the exit code a complexity
+  result's `level` is `error` for a function that fails the run, through the
+  gate or the snapshot, and `note` for one the run lets through. The GitLab
+  Code Quality report rates the same functions `major` and `info`.
+  Fingerprints are unchanged.
 - The `C002` loop guard negates its condition the way a linter expects:
   `x in y` becomes `x not in y`, `a is b` becomes `a is not b`, and a name or
   a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`

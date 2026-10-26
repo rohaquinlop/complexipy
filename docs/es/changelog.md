@@ -20,6 +20,59 @@ GitHub con todos los detalles.
   advertencia que nombra la causa.
 - `--diff-only` por sí solo ya no advierte que `--diff` y `--diff-only` están
   ambos activos.
+- `--staged` compara solo los archivos staged que la ejecución selecciona: los
+  argumentos de ruta, `paths` y `exclude` se aplican igual que sin la bandera,
+  así que `complexipy one.py --staged` ya no reporta los demás archivos
+  staged. Se aplican al índice, así que un archivo regular staged se compara
+  tenga lo que tenga el árbol de trabajo en su ruta. Una eliminación staged
+  que el descubrimiento habría seleccionado sigue reportando sus funciones
+  como `REMOVED`: bajo un directorio seleccionado, fuera de rutas ocultas y
+  sin coincidir con `exclude`, `.gitignore`, `.ignore` ni el archivo de
+  exclusión de git. Cada archivo se nombra con la ruta que usa el resto de la
+  ejecución.
+- Un renombrado o un movimiento ya no hace fallar `--diff` ni `--staged` cuando
+  el cuerpo de la función queda como estaba. Un archivo que git empareja como
+  renombrado se compara con su ruta anterior cuando la ejecución cubre esa ruta,
+  y como añadido cuando llega desde fuera de las rutas seleccionadas; un archivo
+  movido fuera de ellas no reporta nada. Una función por encima del umbral que
+  el cambio añade pasa solo cuando reemplaza a una función `REMOVED` con el
+  mismo cuerpo y al menos su complejidad, cada función eliminada reemplazada una
+  sola vez, y los archivos comparados (modificados, renombrados desde una ruta
+  cubierta, eliminados de una ruta cubierta o añadidos) no contienen más
+  funciones con ese cuerpo que en la referencia, contando las funciones que
+  ocultan los comentarios de ignorado. Los cuerpos se cuentan y se emparejan
+  solo dentro del repositorio que contiene cada archivo. Los cuerpos se comparan
+  por estructura, sin el formato, los comentarios, el nombre, los decoradores ni
+  los parámetros, así que un renombrado de función o de clase, un movimiento a
+  otro archivo y un método que pasa a ser función pasan, y una función que se
+  mueve y cambia falla. La tabla del diff nombra, en una columna `Gate`, la
+  función `REMOVED` a la que reemplaza cada una que pasa. `has_regressions` no
+  ve los cuerpos, así que sigue haciendo fallar una función movida por encima
+  del umbral. Una función que ahora oculta un comentario de ignorado no se
+  reporta como `REMOVED`. Un archivo de Python eliminado que el descubrimiento
+  habría seleccionado reporta sus funciones como `REMOVED` también en `--diff`,
+  y un enlace simbólico eliminado no reporta nada. El control del snapshot no
+  empareja funciones: una función movida o renombrada por encima del umbral lo
+  hace fallar hasta que `--snapshot-create` la vuelve a registrar, y al
+  reescribir el snapshot se eliminan las entradas de archivos que ya no existen.
+- Una ejecución controlada por `--diff` o `--staged` muestra qué funciones la
+  hacen fallar. Una función REGRESSED o NEW por encima del umbral aparece como
+  `FAILED` y se marca `FAILS` en la tabla del diff, que termina con una línea
+  `Gate:` que las cuenta. Una función por encima del umbral que el control
+  deja pasar aparece como `ALLOWED` en lugar de `FAILED`, y `--failed` lista
+  solo las funciones que hacen fallar la ejecución. Una ejecución con snapshot
+  también lista como `ALLOWED` las funciones que su snapshot deja pasar, en
+  lugar de `PASSED`.
+- `--diff` reporta como `NEW` las funciones de un archivo que no se puede
+  analizar en la referencia, igual que `--staged`, en lugar de dejar el
+  archivo fuera de la comparación.
+- La salida SARIF tiene en cuenta el diff. Con un diff, cada resultado lleva
+  el `baselineState` de su función, `new`, `unchanged` o `updated`, respecto
+  a la referencia, y cuando el diff decide el código de salida el `level` de
+  un resultado de complejidad es `error` para una función que hace fallar la
+  ejecución, por el control o por el snapshot, y `note` para una que la
+  ejecución deja pasar. El reporte de GitLab Code Quality califica esas
+  mismas funciones como `major` e `info`. Las huellas no cambian.
 - La guarda de bucle `C002` niega su condición como lo espera un linter:
   `x in y` pasa a `x not in y`, `a is b` pasa a `a is not b`, y un nombre o
   una llamada recibe un `not` sin paréntesis, así que `--fix` ya no escribe

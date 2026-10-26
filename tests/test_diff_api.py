@@ -101,3 +101,27 @@ def test_a_ratchet_failure_is_reported(repo: Path) -> None:
     assert entries[0].new_complexity == 3
     assert complexipy.has_regressions(entries, 2)
     assert not complexipy.has_regressions(entries, 3)
+
+
+def test_a_moved_file_is_not_followed_to_a_path_it_was_not_given(
+    repo: Path,
+) -> None:
+    commit(repo, NESTED)
+    git(repo, "mv", "sample.py", "moved.py")
+    moved = complexipy.file_complexity(str(repo / "moved.py"))
+
+    entries = complexipy.compute_diff([moved], "HEAD", str(repo))
+
+    assert [(entry.old_complexity, entry.status) for entry in entries] == [
+        (None, complexipy.DiffStatus.NEW)
+    ]
+
+
+def test_has_regressions_pairs_no_moved_function() -> None:
+    moved = [
+        complexipy.DiffEntry("b.py", "Model::request", None, 20),
+        complexipy.DiffEntry("a.py", "Model::request", 20, None),
+    ]
+
+    assert complexipy.has_regressions(moved, 15)
+    assert not complexipy.has_regressions(moved, 20)

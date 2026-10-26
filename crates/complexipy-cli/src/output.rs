@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use crate::output::render::{SummaryOptions, output_summary};
-use crate::output::rows::has_success_functions;
-use crate::types::{OutputFormat, Sort};
+use crate::output::rows::{DiffFailures, has_success_functions};
+use crate::types::{DiffBaseline, OutputFormat, Sort};
 use crate::utils::cache::remember_previous_functions;
 use crate::utils::gitlab::store_gitlab;
 use crate::utils::paths::resolve_output_paths;
@@ -47,6 +47,7 @@ pub struct DisplayOptions<'a> {
     pub ignore_complexity: bool,
     pub max_complexity_allowed: u64,
     pub active_snapshot_map: Option<&'a HashMap<(String, String, String), u64>>,
+    pub diff_failures: Option<&'a DiffFailures>,
     pub quiet: bool,
     pub plain: bool,
     pub invocation_path: &'a str,
@@ -66,6 +67,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         ignore_complexity,
         max_complexity_allowed,
         active_snapshot_map,
+        diff_failures,
         quiet,
         plain,
         invocation_path,
@@ -87,6 +89,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
             files_complexities,
             max_complexity_allowed,
             active_snapshot_map,
+            diff_failures,
         );
         return (has_success || ignore_complexity, String::new());
     }
@@ -100,6 +103,7 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         max_complexity: max_complexity_allowed,
         previous_functions: previous_functions.as_ref(),
         snapshot_map: active_snapshot_map,
+        diff_failures,
         plain,
         top,
         suggest_refactors,
@@ -118,6 +122,7 @@ pub struct StorageOptions<'a> {
     pub max_complexity: u64,
     pub invocation_path: &'a str,
     pub suggest_refactors: bool,
+    pub diff_baseline: Option<&'a DiffBaseline>,
 }
 
 pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, ExportError> {
@@ -130,6 +135,7 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
         max_complexity,
         invocation_path,
         suggest_refactors,
+        diff_baseline,
     } = options;
 
     let output_paths = resolve_output_paths(
@@ -161,12 +167,14 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
                 files_complexities,
                 max_complexity,
                 suggest_refactors,
+                diff_baseline,
             )?,
             OutputFormat::Sarif => store_sarif(
                 &output_path,
                 files_complexities,
                 max_complexity,
                 suggest_refactors,
+                diff_baseline,
             )?,
         }
         saved_lines.push(format!(

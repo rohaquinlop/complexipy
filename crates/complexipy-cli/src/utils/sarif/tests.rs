@@ -3,6 +3,7 @@ use std::fs;
 use serde_json::Value;
 use tempfile::tempdir;
 
+use crate::types::DiffBaseline;
 use crate::utils::sarif::store_sarif;
 use complexipy_core::classes::{
     Applicability, CodeSuggestion, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
@@ -67,6 +68,7 @@ fn write_and_load(
         files,
         max_complexity,
         suggest_refactors,
+        None,
     )
     .expect("should write");
     let content = fs::read_to_string(output).expect("should read");
@@ -264,6 +266,7 @@ fn sarif_write_failure_is_io_error() {
         )],
         15,
         false,
+        None,
     );
 
     assert!(result.is_err());
@@ -326,5 +329,173 @@ fn sarif_points_at_a_published_schema_and_fingerprints_each_result() {
     assert_eq!(
         fingerprint,
         &after["runs"][0]["results"][0]["partialFingerprints"]["complexipyFindingHash/v1"]
+    );
+}
+
+fn baseline(enforced: bool) -> DiffBaseline {
+    let key = |name: &str| ("src/a.py".to_string(), name.to_string());
+    DiffBaseline {
+        complexities: [
+            (key("fresh"), None),
+            (key("kept"), Some(30)),
+            (key("worse"), Some(18)),
+            (key("better"), Some(40)),
+        ]
+        .into_iter()
+        .collect(),
+        failing: enforced.then(|| [key("fresh"), key("worse")].into_iter().collect()),
+    }
+}
+
+fn gated_files() -> Vec<FileComplexity> {
+    vec![file_complexity(
+        "src/a.py",
+        "a.py",
+        vec![
+            function_complexity("fresh", 20),
+            function_complexity("kept", 30),
+            function_complexity("worse", 25),
+            function_complexity("better", 35),
+            function_complexity("untouched", 16),
+        ],
+    )]
+}
+
+fn store_with(output: &std::path::Path, baseline: &DiffBaseline) -> Value {
+    store_sarif(
+        output.to_str().unwrap(),
+        &gated_files(),
+        15,
+        false,
+        Some(baseline),
+    )
+    .expect("should write");
+    serde_json::from_str(&fs::read_to_string(output).expect("should read")).expect("should parse")
+}
+
+fn result_fields(doc: &Value, field: &str) -> Vec<(String, Option<String>)> {
+    doc["runs"][0]["results"]
+        .as_array()
+        .expect("results")
+        .iter()
+        .map(|result| {
+            (
+                result["locations"][0]["logicalLocations"][0]["name"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+                result[field].as_str().map(str::to_string),
+            )
+        })
+        .collect()
+}
+
+fn named(pairs: &[(&str, Option<&str>)]) -> Vec<(String, Option<String>)> {
+    pairs
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.map(str::to_string)))
+        .collect()
+}
+
+#[test]
+fn a_gated_diff_marks_each_result_with_its_baseline_state_and_verdict() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.sarif");
+
+    let doc = store_with(&output, &baseline(true));
+
+    assert_eq!(
+        result_fields(&doc, "baselineState"),
+        named(&[
+            ("fresh", Some("new")),
+            ("kept", Some("unchanged")),
+            ("worse", Some("updated")),
+            ("better", Some("updated")),
+            ("untouched", Some("unchanged")),
+        ])
+    );
+    assert_eq!(
+        result_fields(&doc, "level"),
+        named(&[
+            ("fresh", Some("error")),
+            ("kept", Some("note")),
+            ("worse", Some("error")),
+            ("better", Some("note")),
+            ("untouched", Some("note")),
+        ])
+    );
+}
+
+#[test]
+fn a_diff_that_does_not_gate_keeps_the_level_and_the_fingerprints() {
+    let dir = tempdir().expect("tempdir should work");
+    let gated = store_with(&dir.path().join("gated.sarif"), &baseline(true));
+    let plain = store_with(&dir.path().join("plain.sarif"), &baseline(false));
+    let without = write_and_load(&dir.path().join("none.sarif"), &gated_files(), 15, false);
+
+    assert!(
+        result_fields(&plain, "level")
+            .iter()
+            .all(|(_, level)| level.as_deref() == Some("warning"))
+    );
+    assert_eq!(
+        result_fields(&plain, "baselineState"),
+        result_fields(&gated, "baselineState")
+    );
+    assert!(
+        result_fields(&without, "baselineState")
+            .iter()
+            .all(|(_, state)| state.is_none())
+    );
+    let fingerprints = |doc: &Value| -> Vec<Value> {
+        doc["runs"][0]["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|result| result["partialFingerprints"].clone())
+            .collect()
+    };
+    assert_eq!(fingerprints(&gated), fingerprints(&without));
+}
+
+#[test]
+fn every_result_carries_a_baseline_state_when_any_does() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.sarif");
+    let mut planned = function_complexity("kept", 30);
+    planned.refactor_plans = vec![refactor_plan()];
+    let mut below = function_complexity("small", 3);
+    below.refactor_plans = vec![refactor_plan()];
+    let files = vec![file_complexity("src/a.py", "a.py", vec![planned, below])];
+
+    store_sarif(
+        output.to_str().unwrap(),
+        &files,
+        15,
+        true,
+        Some(&baseline(true)),
+    )
+    .expect("should write");
+    let doc: Value =
+        serde_json::from_str(&fs::read_to_string(&output).expect("should read")).expect("parse");
+
+    let states: Vec<(&str, &str)> = doc["runs"][0]["results"]
+        .as_array()
+        .expect("results")
+        .iter()
+        .map(|result| {
+            (
+                result["ruleId"].as_str().unwrap(),
+                result["baselineState"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        vec![
+            ("CC001", "unchanged"),
+            ("C001", "unchanged"),
+            ("C001", "unchanged")
+        ]
     );
 }
