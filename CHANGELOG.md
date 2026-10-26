@@ -3,6 +3,8 @@
 All notable changes to complexipy are documented here, newest first. Each
 release section links to its GitHub release notes for the full details.
 
+## Unreleased
+
 ## [8.2.0] - 2026-10-25
 
 ### Added

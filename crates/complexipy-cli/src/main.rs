@@ -8,10 +8,7 @@ use complexipy_cli::run::run_at;
 #[cfg(any(
     target_os = "macos",
     target_os = "windows",
-    all(
-        target_os = "linux",
-        any(target_arch = "x86_64", target_arch = "aarch64")
-    )
+    all(target_os = "linux", target_arch = "x86_64")
 ))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
