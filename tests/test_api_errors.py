@@ -48,6 +48,7 @@ def test_a_forked_child_runs_parallel_work_after_its_parent(tmp_path) -> None:
 
     result = subprocess.run(
         [sys.executable, "-c", script, str(tmp_path)],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         timeout=120,
