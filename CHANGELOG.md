@@ -5,6 +5,11 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Documentation
+
+- Document Git 2.30 or newer as a requirement for `--diff`, `--diff-only`,
+  and `--staged`.
+
 ### Fixed
 
 - `--diff` and `--diff-only` read each file from the repository that holds

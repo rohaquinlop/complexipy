@@ -32,6 +32,10 @@ The `complexipy` command is a native implementation written in Rust; the
 whole analysis pipeline runs without a Python interpreter. The same wheel
 also provides the Python API for embedding analysis in your own tools.
 
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
+
 ## Command Line Usage
 
 ### Basic Analysis
@@ -161,6 +165,10 @@ cognitive-complexity threshold findings appear -- matching the CLI's rich
 output, which also hides refactor suggestions unless the flag is set.
 
 ### Complexity Diff
+
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
 
 Compare current results against any git reference:
 

@@ -6,6 +6,11 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Documentación
+
+- Se documenta Git 2.30 o posterior como requisito para `--diff`,
+  `--diff-only` y `--staged`.
+
 ### Corregido
 
 - `--diff` y `--diff-only` leen cada archivo del repositorio que lo contiene,

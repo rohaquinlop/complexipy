@@ -33,6 +33,10 @@ todo el pipeline de análisis se ejecuta sin un intérprete de Python.
 La misma rueda también proporciona la API de Python para integrar el
 análisis en tus propias herramientas.
 
+Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+para el análisis sin estas opciones.
+
 ## Uso en Línea de Comandos
 
 ### Análisis Básico
@@ -158,6 +162,10 @@ cognitiva -- igual que la salida enriquecida de la CLI, que también oculta
 las sugerencias de refactorización a menos que se active la flag.
 
 ### Diff de Complejidad
+
+Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+para el análisis sin estas opciones.
 
 Compara los resultados actuales contra cualquier referencia de git:
 
