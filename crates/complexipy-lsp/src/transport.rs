@@ -102,17 +102,17 @@ pub fn read_frame(input: &mut impl BufRead) -> io::Result<Option<Vec<u8>>> {
             .split_once(": ")
             .ok_or_else(|| invalid("a header has no value"))?;
         if name.eq_ignore_ascii_case(CONTENT_LENGTH) {
-            let declared: usize = value
+            let declared: u64 = value
                 .trim()
                 .parse()
                 .map_err(|_| invalid("Content-Length is not a number"))?;
-            if declared > MAX_FRAME_BYTES {
+            if declared > MAX_FRAME_BYTES as u64 {
                 return Err(invalid(&format!(
                     "a frame of {} bytes exceeds the limit of {} bytes",
                     declared, MAX_FRAME_BYTES
                 )));
             }
-            length = Some(declared);
+            length = Some(declared as usize);
         }
     }
 
