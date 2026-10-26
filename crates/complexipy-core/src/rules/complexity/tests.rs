@@ -647,7 +647,10 @@ fn negate_condition_reads_the_parsed_operator() {
     assert_eq!(negate_condition("not a or(b)"), "not (not a or(b))");
     assert_eq!(negate_condition("not(a)"), "a");
     assert_eq!(negate_condition("(not a) or b"), "not ((not a) or b)");
-    assert_eq!(negate_condition("not a if b else c"), "not (not a if b else c)");
+    assert_eq!(
+        negate_condition("not a if b else c"),
+        "not (not a if b else c)"
+    );
 }
 
 #[test]
