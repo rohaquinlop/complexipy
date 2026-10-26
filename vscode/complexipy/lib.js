@@ -19,13 +19,20 @@ function isExecutable(file) {
 	}
 }
 
-function findExecutable(command, env = process.env, platform = process.platform) {
-	if (path.isAbsolute(command) || command.includes('/') || command.includes('\\')) {
+function findExecutable(command, env = process.env, platform = process.platform, workspaceRoot = undefined) {
+	if (path.isAbsolute(command)) {
 		return isExecutable(command) ? command : undefined;
+	}
+	if (command.includes('/') || command.includes('\\')) {
+		if (workspaceRoot === undefined) {
+			return undefined;
+		}
+		const resolved = path.resolve(workspaceRoot, command);
+		return isExecutable(resolved) ? resolved : undefined;
 	}
 	const extensions = platform === 'win32' ? (env.PATHEXT || '.EXE;.CMD;.BAT').split(';') : [''];
 	const delimiter = platform === 'win32' ? ';' : ':';
-	for (const dir of (env.PATH || '').split(delimiter).filter(Boolean)) {
+	for (const dir of (env.PATH || '').split(delimiter).filter(dir => path.isAbsolute(dir))) {
 		for (const extension of extensions) {
 			const candidate = path.join(dir, command + extension);
 			if (isExecutable(candidate)) {
@@ -51,9 +58,46 @@ function statusText(count) {
 	return count === 0 ? '$(check) complexipy' : `$(warning) ${count} over threshold`;
 }
 
+function withinTimeout(promise, milliseconds) {
+	let timer;
+	const expired = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error(`no answer within ${milliseconds / 1000} seconds`)), milliseconds);
+	});
+	return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
+
+function functionBand(complexity, maxComplexityAllowed) {
+	if (complexity > maxComplexityAllowed) {
+		return 'red';
+	}
+	return complexity * 2 > maxComplexityAllowed ? 'yellow' : 'green';
+}
+
+function lineBand(increment, warningAt, errorAt) {
+	if (increment >= errorAt) {
+		return 'red';
+	}
+	return increment >= warningAt ? 'yellow' : 'green';
+}
+
+function badges(result, warningAt, errorAt) {
+	return result.functions.flatMap(fn => [
+		{ line: fn.line, text: `ƒ ${fn.complexity}`, band: functionBand(fn.complexity, result.maxComplexityAllowed) },
+		...fn.lines.map(entry => ({
+			line: entry.line,
+			text: `+${entry.complexity}`,
+			band: lineBand(entry.complexity, warningAt, errorAt)
+		}))
+	]);
+}
+
 module.exports = {
 	serverCommand,
 	findExecutable,
 	countOverThreshold,
-	statusText
+	statusText,
+	withinTimeout,
+	functionBand,
+	lineBand,
+	badges
 };

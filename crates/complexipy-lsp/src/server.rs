@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use complexipy_core::classes::RefactorPlan;
 use complexipy_core::config::{LspConfig, config_file_names};
+use complexipy_core::sanitize::escape_controls;
 use crossbeam_channel::{Receiver, Sender, select};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -13,9 +14,11 @@ use lsp_types::{
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern, Hover,
     HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType,
     NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
-    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentIdentifier,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
+    WorkspaceServerCapabilities,
 };
+use serde::Deserialize;
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
 use crate::documents::{Documents, uri_to_path};
@@ -34,8 +37,10 @@ pub const DID_CHANGE_WATCHED_FILES: &str = "workspace/didChangeWatchedFiles";
 pub const CANCEL_REQUEST: &str = "$/cancelRequest";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
+pub const LINE_COMPLEXITIES: &str = "complexipy/lineComplexities";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
+pub const CONFIG_WARNING_MESSAGE: &str = "complexipy found a problem in the project configuration. See the complexipy output log for details.";
 pub const REGISTER_CAPABILITY: &str = "client/registerCapability";
 const CONFIG_WATCH_ID: &str = "complexipy-config-watch";
 pub const SHUTDOWN: &str = "shutdown";
@@ -44,16 +49,25 @@ pub const EXIT: &str = "exit";
 pub const EXIT_CODE_CLEAN: i32 = 0;
 pub const EXIT_CODE_FAILURE: i32 = 1;
 
+const MAX_LOGGED_ERROR_CHARS: usize = 200;
+
 pub fn serve(connection: Connection) -> i32 {
     let initialized = match handshake(&connection) {
         Ok(initialized) => initialized,
         Err(error) => {
-            eprintln!("{}: {}", SERVER_NAME, error);
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(&shortened(&error)));
             return EXIT_CODE_FAILURE;
         }
     };
 
     Server::new(connection, initialized).run()
+}
+
+fn shortened(text: &str) -> String {
+    match text.char_indices().nth(MAX_LOGGED_ERROR_CHARS) {
+        Some((end, _)) => format!("{}...", &text[..end]),
+        None => text.to_string(),
+    }
 }
 
 struct Initialized {
@@ -258,15 +272,24 @@ struct PendingAnalysis {
     waiting: Vec<RequestId>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LineComplexitiesParams {
+    text_document: TextDocumentIdentifier,
+}
+
 enum PendingRequest {
     Hints { uri: Uri, range: Range },
     Hover { uri: Uri, position: Position },
+    LineComplexities { uri: Uri },
 }
 
 impl PendingRequest {
     fn uri(&self) -> &Uri {
         match self {
-            PendingRequest::Hints { uri, .. } | PendingRequest::Hover { uri, .. } => uri,
+            PendingRequest::Hints { uri, .. }
+            | PendingRequest::Hover { uri, .. }
+            | PendingRequest::LineComplexities { uri } => uri,
         }
     }
 }
@@ -371,6 +394,11 @@ impl Server {
                 Ok(Message::Notification(notification)) if notification.method == EXIT => {
                     return EXIT_CODE_CLEAN;
                 }
+                Ok(Message::Request(request)) => self.send(Response::new_err(
+                    request.id,
+                    ErrorCode::InvalidRequest as i32,
+                    "the server is shutting down".to_string(),
+                )),
                 Ok(_) => {}
                 Err(_) => return EXIT_CODE_CLEAN,
             }
@@ -417,6 +445,18 @@ impl Server {
                         PendingRequest::Hover {
                             uri: params.text_document_position_params.text_document.uri,
                             position: params.text_document_position_params.position,
+                        },
+                    ),
+                    Err(_) => self.respond_invalid_params(id),
+                }
+            }
+            LINE_COMPLEXITIES => {
+                let id = request.id.clone();
+                match request.extract::<LineComplexitiesParams>(LINE_COMPLEXITIES) {
+                    Ok((id, params)) => self.dispatch(
+                        id,
+                        PendingRequest::LineComplexities {
+                            uri: params.text_document.uri,
                         },
                     ),
                     Err(_) => self.respond_invalid_params(id),
@@ -496,7 +536,7 @@ impl Server {
             eprintln!(
                 "{}: {}: ignoring an incremental change, complexipy declares full document sync",
                 SERVER_NAME,
-                uri.as_str()
+                escape_controls(uri.as_str())
             );
             return;
         }
@@ -593,17 +633,24 @@ impl Server {
         self.reanalyze_all();
     }
 
+    /// Logs each configuration warning to stderr, and shows the editor one
+    /// fixed message: a warning quotes repository text, which an editor
+    /// could render as a clickable link.
     fn report_warnings(&mut self) {
-        for warning in self.workspace.take_warnings() {
-            eprintln!("{}: {}", SERVER_NAME, warning);
-            self.send(Notification::new(
-                SHOW_MESSAGE.to_string(),
-                ShowMessageParams {
-                    typ: MessageType::WARNING,
-                    message: warning,
-                },
-            ));
+        let warnings = self.workspace.take_warnings();
+        if warnings.is_empty() {
+            return;
         }
+        for warning in &warnings {
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(warning));
+        }
+        self.send(Notification::new(
+            SHOW_MESSAGE.to_string(),
+            ShowMessageParams {
+                typ: MessageType::WARNING,
+                message: CONFIG_WARNING_MESSAGE.to_string(),
+            },
+        ));
     }
 
     /// Drops every analysis and marks every document dirty. Work already
@@ -899,13 +946,24 @@ impl Server {
 
                 self.send(Response::new_ok(id, hints));
             }
+            PendingRequest::LineComplexities { uri } => {
+                let config = &self.workspace.for_uri(&uri).config;
+                let result = match self.analyses.get(key) {
+                    Some(analysis) => analysis.line_complexities(config),
+                    None => DocumentAnalysis::empty(0).line_complexities(config),
+                };
+
+                self.send(Response::new_ok(id, result));
+            }
             PendingRequest::Hover { uri, position } => {
                 let Some(analysis) = self.analyses.get(key) else {
                     self.send(Response::new_ok(id, None::<Hover>));
                     return;
                 };
 
-                if let Some(line_start) = analysis.plans_needed(position) {
+                if let Some(line_start) =
+                    analysis.plans_needed(&self.workspace.for_uri(&uri).config, position)
+                {
                     let slot = (key.to_string(), analysis.version, line_start);
                     let source = analysis.source();
                     let waiting = self.planning.entry(slot.clone()).or_default();
@@ -946,7 +1004,12 @@ impl Server {
     fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
         let diagnostics = self.failure_diagnostics(uri, &failure);
 
-        eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), failure.message);
+        eprintln!(
+            "{}: {}: {}",
+            SERVER_NAME,
+            escape_controls(uri.as_str()),
+            escape_controls(&failure.message)
+        );
         self.failures.insert(Documents::key(uri), failure);
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
     }

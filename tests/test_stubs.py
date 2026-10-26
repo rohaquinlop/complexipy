@@ -3,9 +3,9 @@
 The `.pyi` file is hand-maintained, so it can drift from the extension in
 either direction. These tests use the live module and the Rust declarations as
 the oracles: they compare the declared top-level names, the declared
-constructors and their signatures, the declared fields and their descriptor
-kind, the declared enum members, and the field annotations against the Rust
-field types. Unmapped Rust types and unrecognized shapes fail the test rather
+functions and constructors and their signatures, the declared fields and their
+descriptor kind, the declared enum members, and the field annotations against
+the Rust field types. Unmapped Rust types and unrecognized shapes fail the test rather
 than passing silently.
 """
 
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import enum
+import inspect
 import re
 from pathlib import Path
 from typing import Any
@@ -269,6 +270,54 @@ def python_annotation(rust_type: str, classes: set[str]) -> str:
     raise AssertionError(
         f"no Python annotation is mapped for the Rust type {rust_type!r}"
     )
+
+
+def declared_function_parameters() -> dict[str, list[tuple[str, bool, Any]]]:
+    """Map each module-level function the stub declares to its parameters.
+
+    Each parameter is its name, whether it has a default, and the default.
+    """
+    parameters: dict[str, list[tuple[str, bool, Any]]] = {}
+
+    for node in stub_tree().body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+
+        arguments = node.args
+        positional = arguments.posonlyargs + arguments.args
+        required = len(positional) - len(arguments.defaults)
+        defaults = [ast.literal_eval(value) for value in arguments.defaults]
+        parameters[node.name] = [
+            (argument.arg, False, None)
+            if index < required
+            else (argument.arg, True, defaults[index - required])
+            for index, argument in enumerate(positional)
+        ]
+
+    return parameters
+
+
+def runtime_function_parameters(name: str) -> list[tuple[str, bool, Any]]:
+    signature = inspect.signature(getattr(extension, name))
+
+    return [
+        (parameter.name, False, None)
+        if parameter.default is inspect.Parameter.empty
+        else (parameter.name, True, parameter.default)
+        for parameter in signature.parameters.values()
+    ]
+
+
+def test_stub_function_signatures_match_the_extension() -> None:
+    declared = declared_function_parameters()
+
+    assert declared
+
+    for name, parameters in declared.items():
+        assert parameters == runtime_function_parameters(name), (
+            f"{name} is declared as {parameters} but the extension accepts "
+            f"{runtime_function_parameters(name)}"
+        )
 
 
 def test_stub_declares_every_exported_name() -> None:

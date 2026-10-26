@@ -18,18 +18,14 @@ grep -m1 -HE '^"""|^//!' tests/*.py crates/*/tests/it/*.rs  # what each test fil
 uv run ruff check .                                 # lint
 uv run ruff format .                                # format
 uv run ty check .                                   # type check
-cargo check -p complexipy-core                      # default features
 cargo check -p complexipy-core --no-default-features
 cargo check -p complexipy-wasm --target wasm32-unknown-unknown
 cargo clippy --manifest-path zed/Cargo.toml --target wasm32-wasip2  # Zed extension
-uv run complexipy <path>                            # run the tool
-uv run complexipy . --diff main --max-complexity-allowed 15
-uv run complexipy complexipy --failed               # dogfood it on itself
+uv run complexipy . --diff main --max-complexity-allowed 15  # run the tool
 ./benchmarks/benchmark-cli.sh                       # corpus and scaling guard
 ./build-wasm.sh                                     # wasm-pack -> web/wasm/
 ./serve-web-version.sh                              # serve web/ on :8080
 complexipy lsp                                      # stdio LSP server
-cargo run -p complexipy-lsp                         # the same server from the tree
 uv run mkdocs serve                                 # preview the docs site
 ./deploy-docs.sh                                    # deploy the docs site by hand
 ```
@@ -52,8 +48,7 @@ uv run mkdocs serve                                 # preview the docs site
   type declaration, the `#[pymodule]` export list, the stubs in
   `complexipy/_complexipy.pyi`, and `tests/test_stubs.py`, which reads the Rust
   declarations and fails when a stub disagrees.
-- Rules consume `ComplexityRegion`s. A rule never re-parses source to find
-  structure.
+- Rules consume `ComplexityRegion`s. A rule never re-parses source to find structure.
 - `--fix` applies a suggestion only inside a function over the threshold, and
   only when its tier is `MachineApplicable` and its `CodeSuggestion.spliceable`
   flag is true. Each pass checks the threshold again. Never gate fixes on
@@ -78,10 +73,17 @@ uv run mkdocs serve                                 # preview the docs site
 - Exclusion has two matchers: the walker's pattern program and
   `helpers::exclude::ExcludeMatcher`, which the server compiles once per config
   load for open documents. `helpers/exclude/tests.rs` pins them together, so a
-  change to one has to keep the other in agreement.
+  change to one has to keep the other in agreement. Patterns match relative to
+  the path argument or cwd, and explicit file arguments bypass them, like ruff.
+- Start at most one git process per repository root, since each costs tens of
+  milliseconds. Find the roots in Rust: walk up to a `.git` directory or file.
 - The public Python API is a compatibility promise: `complexipy/__init__.py`, its
   `__all__`, and the `DiffStatus` values. A new export needs docs in `docs/` and
   `docs/es/`. `run_lsp` is a process entry point and stays out of `__all__`.
+  It raises `ValueError` or `RuntimeError`. A panic reaching Python is a bug.
+- Repository content is untrusted: read via `fs_guard::read_bounded`, write via
+  `fs_guard::write_atomic`, escape terminal and log text via
+  `sanitize::escape_controls`. `showMessage` sends constant text.
 
 ## Testing
 
@@ -107,17 +109,17 @@ uv run mkdocs serve                                 # preview the docs site
 
 - Use `uv` for everything: `uv run pytest`, `uv run ruff`, `uv run complexipy`.
   Never `pip`, and never `python -m`.
-- Commit only when asked. Stage explicit paths, never `git add -A` or
-  `git add .`.
+- Commit only when asked. Stage explicit paths, never `git add -A` or `git add .`.
 - Commit subjects and PR titles follow Conventional Commits. `CONTRIBUTING.md`
   states the rule; CI enforces the PR side.
+- Record each behavior change under Unreleased in `CHANGELOG.md` and
+  `docs/es/changelog.md`: scores, fingerprints, SARIF, exit codes, exclusion.
 - Before implementing, check the linked issue or pull request with `gh` for the
   full scope and any earlier discussion.
 - A `vscode-vX.Y.Z` tag releases the VS Code extension through
   `vscode-release.yml`, and `release.yml` ignores it. Push one only after the
   complexipy release with every server feature that extension version needs.
-- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus
-  "no files to check".
+- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus "no files to check".
 
 ## Code Style
 
@@ -129,8 +131,6 @@ uv run mkdocs serve                                 # preview the docs site
   changelog or a history note.
 - ASCII punctuation only. No em dash, en dash, or horizontal bar in code,
   comments, docs, or commit messages.
-- Ruff runs at line-length 80 and indent-width 4, with `tests/**` excluded from
-  lint.
 - Pre-commit runs complexipy on itself with `max-complexity-allowed = 15`,
   mdformat, and yamlfix. `SKILL.md` files are excluded from mdformat: it has no
   frontmatter support and rewrites the opening and closing `---`, which destroys

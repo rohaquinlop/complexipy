@@ -5,13 +5,17 @@ pub mod cognitive_complexity;
 #[cfg(feature = "config")]
 pub mod config;
 pub mod diff;
+pub mod encoding;
 pub mod fix;
+pub mod fs_guard;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
 mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
 pub mod runner;
+pub mod sanitize;
+mod syntax_tree;
 pub mod utils;
 
 #[cfg(feature = "runner")]
@@ -27,6 +31,7 @@ pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_reg
 #[cfg(feature = "runner")]
 pub use helpers::exclude::{
     ExcludeMatcher, exclude_list_overflows, invalid_exclude_patterns, is_path_excluded,
+    unmatchable_exclude_patterns,
 };
 pub use rules::{
     AnalysisOptions, RuleSet, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,

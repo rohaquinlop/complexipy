@@ -1,6 +1,8 @@
+use crate::runner::{SkipReason, SkippedPath};
 use ignore::{DirEntry, WalkBuilder, WalkState};
 use std::borrow::Cow;
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use wax::query::When;
 use wax::{Any, BuildError, CandidatePath, Glob, Program, any};
@@ -45,6 +47,22 @@ impl ExcludeMatcher {
         let relative = relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
             .unwrap_or(normalized_path.as_str());
 
+        self.matches(relative)
+    }
+
+    /// Like `is_excluded`, for a `path` inside `root` only.
+    pub fn is_excluded_inside(&self, path: &str, root: &str) -> bool {
+        if self.programs.is_empty() {
+            return false;
+        }
+
+        let normalized_path = path.replace('\\', "/");
+        let normalized_root = root.replace('\\', "/");
+        relative_to(&normalized_path, normalized_root.trim_end_matches('/'))
+            .is_some_and(|relative| self.matches(relative))
+    }
+
+    fn matches(&self, relative: &str) -> bool {
         match &self.combined {
             Some(combined) => combined.is_match(relative),
             None => self
@@ -163,41 +181,107 @@ fn visit(entry: &DirEntry, python_files: &Glob<'_>, exclusion: Option<&WalkExclu
     }
 }
 
+/// The patterns that match no path: paths are matched relative to a root,
+/// so they never start with `/`, `./`, `../`, or a drive, and a file path
+/// never ends with `/`.
+pub fn unmatchable_exclude_patterns(patterns: &[String]) -> Vec<String> {
+    patterns
+        .iter()
+        .filter(|pattern| {
+            let pattern = normalized_pattern(pattern);
+            let bytes = pattern.as_bytes();
+            let drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+            pattern.starts_with('/')
+                || pattern.starts_with("./")
+                || pattern.starts_with("../")
+                || pattern.ends_with('/')
+                || drive
+        })
+        .cloned()
+        .collect()
+}
+
+#[derive(Debug, Default)]
+pub struct Discovery {
+    pub files: Vec<String>,
+    pub skipped: Vec<SkippedPath>,
+}
+
+#[derive(Default)]
+struct Walked {
+    files: Vec<String>,
+    skipped: Vec<SkippedPath>,
+    visited: HashSet<PathBuf>,
+}
+
+/// Selects the `*.py` files under `root_path` that no pattern excludes, in
+/// one parallel walk that honors `.gitignore`, `.ignore`, and hidden paths,
+/// and prunes every directory an exhaustive pattern covers. A pattern
+/// matches a path relative to `root_path`, and also relative to `anchor`,
+/// the directory of the configuration, for files inside it. A selected file
+/// is a regular file inside the root; a symlink to a file elsewhere, a
+/// dangling link, a directory named `*.py`, and a directory the walk cannot
+/// read are skipped and reported, never read. With `list_hidden`, a second
+/// walk without the ignore rules reports every file they hide. A file whose
+/// name is not UTF-8 is selected under a lossy name, so its read fails and
+/// the run reports it.
 pub fn get_paths_to_process(
     root_path: &str,
     to_exclude_paths: Vec<String>,
-) -> Result<Vec<String>, String> {
+    anchor: &Path,
+    list_hidden: bool,
+) -> Result<Discovery, String> {
     let python_files = Glob::new("**/*.py").unwrap();
 
     let normalized_root = root_path.replace('\\', "/");
+    let canonical_root = Path::new(&normalized_root)
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve {}: {}", root_path, e))?;
     let normalized_excludes: Vec<String> = to_exclude_paths
         .iter()
         .map(|s| s.replace('\\', "/"))
         .collect();
 
+    let anchor_matcher =
+        (canonical_root != anchor).then(|| ExcludeMatcher::new(&normalized_excludes));
+    let anchor = slashed(anchor);
+    let excluded_from_anchor = |file_abs: &str| {
+        anchor_matcher
+            .as_ref()
+            .is_some_and(|matcher| matcher.is_excluded_inside(file_abs, &anchor))
+    };
+
     let exclusion = WalkExclusion::new(&normalized_excludes)
         .map_err(|e| format!("Failed to apply exclude patterns: {}", e))?;
 
-    let files_paths: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let walked: Mutex<Walked> = Mutex::new(Walked::default());
     WalkBuilder::new(&normalized_root).build_parallel().run(|| {
         Box::new(|result| {
-            let Ok(entry) = result else {
-                return WalkState::Continue;
+            let entry = match result {
+                Ok(entry) => entry,
+                Err(error) => {
+                    if let Some(path) = unreadable_path(&error) {
+                        lock(&walked)
+                            .skipped
+                            .push(skipped(path, SkipReason::Unreadable));
+                    }
+                    return WalkState::Continue;
+                }
             };
             match visit(&entry, &python_files, exclusion.as_ref()) {
                 Visit::Prune => WalkState::Skip,
                 Visit::Skip => WalkState::Continue,
                 Visit::Select => {
-                    if entry.path().to_str().is_some() {
-                        let entry_path = entry.path();
-                        let file_abs = entry_path
-                            .canonicalize()
-                            .unwrap_or_else(|_| entry_path.to_path_buf());
-                        let file_abs_str = file_abs.to_string_lossy().replace('\\', "/");
-                        files_paths
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .push(file_abs_str);
+                    let entry_path = entry.path();
+                    let selected = selected_file(entry_path, &canonical_root);
+                    let mut walked = lock(&walked);
+                    if list_hidden {
+                        walked.visited.insert(entry_path.to_path_buf());
+                    }
+                    match selected.map(|file_abs| slashed(&file_abs)) {
+                        Ok(file_abs) if excluded_from_anchor(&file_abs) => {}
+                        Ok(file_abs) => walked.files.push(file_abs),
+                        Err(reason) => walked.skipped.push(skipped(entry_path, reason)),
                     }
                     WalkState::Continue
                 }
@@ -205,11 +289,90 @@ pub fn get_paths_to_process(
         })
     });
 
-    let mut files_paths = files_paths
+    let walked = walked
         .into_inner()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    files_paths.sort();
-    Ok(files_paths)
+    let mut discovery = Discovery {
+        files: walked.files,
+        skipped: walked.skipped,
+    };
+    if list_hidden {
+        let hidden: Mutex<Vec<SkippedPath>> = Mutex::new(Vec::new());
+        WalkBuilder::new(&normalized_root)
+            .standard_filters(false)
+            .build_parallel()
+            .run(|| {
+                Box::new(|result| {
+                    let Ok(entry) = result else {
+                        return WalkState::Continue;
+                    };
+                    match visit(&entry, &python_files, exclusion.as_ref()) {
+                        Visit::Prune => WalkState::Skip,
+                        Visit::Skip => WalkState::Continue,
+                        Visit::Select => {
+                            let path = entry.path();
+                            if !walked.visited.contains(path)
+                                && !path
+                                    .canonicalize()
+                                    .is_ok_and(|file_abs| excluded_from_anchor(&slashed(&file_abs)))
+                            {
+                                lock(&hidden).push(skipped(path, SkipReason::IgnoreRule));
+                            }
+                            WalkState::Continue
+                        }
+                    }
+                })
+            });
+        discovery.skipped.extend(
+            hidden
+                .into_inner()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        );
+    }
+
+    discovery.files.sort();
+    discovery.skipped.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(discovery)
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn slashed(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn unreadable_path(error: &ignore::Error) -> Option<&Path> {
+    match error {
+        ignore::Error::WithPath { path, .. } => Some(path),
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+            unreadable_path(err)
+        }
+        _ => None,
+    }
+}
+
+fn skipped(path: &Path, reason: SkipReason) -> SkippedPath {
+    SkippedPath {
+        path: slashed(path),
+        reason,
+    }
+}
+
+fn selected_file(entry_path: &Path, canonical_root: &Path) -> Result<PathBuf, SkipReason> {
+    let file_abs = entry_path
+        .canonicalize()
+        .map_err(|_| SkipReason::NotRegularFile)?;
+    if !file_abs.starts_with(canonical_root) {
+        return Err(SkipReason::OutsideRoot);
+    }
+    if !file_abs.is_file() {
+        return Err(SkipReason::NotRegularFile);
+    }
+    Ok(file_abs)
 }
 
 #[cfg(test)]

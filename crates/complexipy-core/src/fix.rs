@@ -1,6 +1,6 @@
 use crate::classes::{Applicability, CodeSuggestion, RefactorPlan};
+use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
-use ruff_python_parser::parse_module;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SkipReason {
@@ -332,7 +332,7 @@ pub(crate) fn splice_window(
         .replace("\r\n", "\n")
         .replace('\r', "\n");
     spliced.push_str(&normalized.trim_end_matches('\n').replace('\n', newline));
-    if byte_end < source.len() || source.ends_with('\n') {
+    if byte_end < source.len() || source.ends_with(['\r', '\n']) {
         spliced.push_str(newline);
     }
     spliced.push_str(&source[byte_end..window_end]);
@@ -342,7 +342,14 @@ pub(crate) fn splice_window(
 pub(crate) fn line_ending_of(source: &str) -> &'static str {
     let crlf = source.matches("\r\n").count();
     let lf = source.matches('\n').count() - crlf;
-    if crlf > lf { "\r\n" } else { "\n" }
+    let cr = source.matches('\r').count() - crlf;
+    if cr > lf && cr > crlf {
+        "\r"
+    } else if crlf > lf {
+        "\r\n"
+    } else {
+        "\n"
+    }
 }
 
 #[cfg(test)]

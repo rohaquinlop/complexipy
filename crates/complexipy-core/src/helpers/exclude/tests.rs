@@ -49,7 +49,9 @@ fn canonical_root(dir: &TempDir) -> String {
 }
 
 fn agreement(root: &str, patterns: &[String]) {
-    let mut kept = get_paths_to_process(root, patterns.to_vec()).unwrap();
+    let mut kept = get_paths_to_process(root, patterns.to_vec(), Path::new(root), false)
+        .unwrap()
+        .files;
     kept.sort();
 
     for file in FILES {
@@ -130,7 +132,7 @@ fn a_pattern_is_reported_when_the_walker_refuses_it() {
     for pattern in VALIDITY_CORPUS {
         let patterns = vec![pattern.to_string()];
         let reported = invalid_exclude_patterns(&patterns);
-        let refused = get_paths_to_process(&root, patterns).is_err();
+        let refused = get_paths_to_process(&root, patterns, Path::new(&root), false).is_err();
 
         assert_eq!(
             reported.is_empty(),
@@ -195,6 +197,99 @@ fn a_list_too_large_for_one_program_is_reported_as_overflowing() {
     assert!(exclude_list_overflows(&patterns));
 }
 
+#[cfg(unix)]
+#[test]
+fn discovery_skips_links_that_leave_the_root_and_entries_that_are_not_files() {
+    use std::os::unix::fs::symlink;
+
+    let dir = tree();
+    let outside = TempDir::new().unwrap();
+    fs::write(outside.path().join("y.py"), "def secret():\n    return 1\n").unwrap();
+    symlink(outside.path().join("y.py"), dir.path().join("x.py")).unwrap();
+    symlink("/dev/zero", dir.path().join("zero.py")).unwrap();
+    symlink(
+        dir.path().join("missing.py"),
+        dir.path().join("dangling.py"),
+    )
+    .unwrap();
+    fs::create_dir(dir.path().join("pkg.py")).unwrap();
+    symlink(dir.path().join("mix.py"), dir.path().join("alias.py")).unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new(), Path::new(&root), false).unwrap();
+    let mut skipped: Vec<(String, SkipReason)> = discovery
+        .skipped
+        .into_iter()
+        .map(|skipped| {
+            let name = skipped.path.rsplit('/').next().unwrap().to_string();
+            (name, skipped.reason)
+        })
+        .collect();
+    skipped.sort_by(|a, b| a.0.cmp(&b.0));
+
+    assert_eq!(
+        skipped,
+        vec![
+            ("dangling.py".to_string(), SkipReason::NotRegularFile),
+            ("pkg.py".to_string(), SkipReason::NotRegularFile),
+            ("x.py".to_string(), SkipReason::OutsideRoot),
+            ("zero.py".to_string(), SkipReason::OutsideRoot),
+        ]
+    );
+    assert!(discovery.files.iter().all(|file| file.starts_with(&root)));
+    assert!(discovery.files.contains(&format!("{}/mix.py", root)));
+}
+
+#[test]
+fn files_hidden_by_ignore_rules_are_reported_as_skipped() {
+    let dir = tree();
+    fs::write(dir.path().join(".ignore"), "legacy/\n").unwrap();
+    fs::create_dir(dir.path().join(".impl")).unwrap();
+    fs::write(
+        dir.path().join(".impl/hidden.py"),
+        "def h():\n    return 1\n",
+    )
+    .unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new(), Path::new(&root), true).unwrap();
+    let mut hidden: Vec<String> = discovery
+        .skipped
+        .iter()
+        .filter(|skipped| skipped.reason == SkipReason::IgnoreRule)
+        .map(|skipped| skipped.path.trim_start_matches(&root).to_string())
+        .collect();
+    hidden.sort();
+
+    assert_eq!(hidden, vec!["/.impl/hidden.py", "/legacy/old.py"]);
+    assert_eq!(discovery.files.len(), 2);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_file_name_that_is_not_utf8_is_selected_and_fails_its_read() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let dir = tree();
+    fs::write(
+        dir.path().join(OsStr::from_bytes(b"bad\xff.py")),
+        "def evil():\n    return 1\n",
+    )
+    .unwrap();
+    let root = canonical_root(&dir);
+
+    let discovery = get_paths_to_process(&root, Vec::new(), Path::new(&root), false).unwrap();
+
+    assert_eq!(discovery.files.len(), 4);
+    let lossy = discovery
+        .files
+        .iter()
+        .find(|file| file.contains('\u{fffd}'))
+        .expect("the non-UTF-8 file is selected");
+    assert!(fs::read(lossy).is_err());
+}
+
 #[test]
 fn a_sibling_directory_is_not_inside_the_root() {
     let dir = tree();
@@ -214,10 +309,108 @@ fn a_sibling_directory_is_not_inside_the_root() {
 }
 
 #[test]
+fn a_walk_below_the_anchor_also_matches_relative_to_the_anchor() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    fs::create_dir_all(dir.path().join("src/legacy")).unwrap();
+    fs::write(
+        dir.path().join("src/legacy/inner.py"),
+        "def inner():\n    return 1\n",
+    )
+    .unwrap();
+    let files = ["legacy/old.py", "src/new.py", "src/legacy/inner.py"];
+
+    for pattern in ["legacy/**", "src/legacy/**", "src/*.py", "**/legacy/**"] {
+        let patterns = vec![pattern.to_string()];
+        let mut kept = Vec::new();
+        for walked in ["legacy", "src"] {
+            kept.extend(
+                get_paths_to_process(
+                    &format!("{root}/{walked}"),
+                    patterns.clone(),
+                    Path::new(&root),
+                    false,
+                )
+                .unwrap()
+                .files,
+            );
+        }
+
+        for file in files {
+            let path = format!("{root}/{file}");
+            let walked = format!("{root}/{}", file.split('/').next().unwrap());
+            let matcher = ExcludeMatcher::new(&patterns);
+            let expected =
+                !(matcher.is_excluded(&path, &walked) || matcher.is_excluded_inside(&path, &root));
+
+            assert_eq!(
+                kept.contains(&path),
+                expected,
+                "the walker and the matcher disagreed on {} for {:?}",
+                file,
+                pattern
+            );
+        }
+    }
+}
+
+#[test]
+fn a_configuration_listing_two_paths_excludes_by_its_own_directory() {
+    let dir = tree();
+    let root = canonical_root(&dir);
+    fs::create_dir_all(dir.path().join("src/legacy")).unwrap();
+    fs::write(
+        dir.path().join("src/legacy/inner.py"),
+        "def inner():\n    return 1\n",
+    )
+    .unwrap();
+    let patterns = vec!["legacy/**".to_string()];
+
+    let kept = get_paths_to_process(&format!("{root}/legacy"), patterns, Path::new(&root), false)
+        .unwrap()
+        .files;
+
+    assert!(kept.is_empty());
+}
+
+#[test]
+fn a_path_outside_the_root_is_never_excluded_inside_it() {
+    let matcher = ExcludeMatcher::new(&["**".to_string()]);
+
+    assert!(!matcher.is_excluded_inside("/elsewhere/a.py", "/repo"));
+    assert!(matcher.is_excluded_inside("/repo/a.py", "/repo"));
+}
+
+#[test]
+fn patterns_that_can_never_match_are_reported() {
+    let patterns: Vec<String> = [
+        "legacy/",
+        "./legacy/**",
+        "/legacy/**",
+        "../repo/legacy/**",
+        "C:/repo/legacy/**",
+        ".\\legacy\\**",
+        "legacy/**",
+        "**/legacy",
+        ".hidden/**",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+
+    assert_eq!(
+        unmatchable_exclude_patterns(&patterns),
+        patterns[..6].to_vec()
+    );
+}
+
+#[test]
 fn the_walker_lists_every_file_once_in_sorted_order() {
     let dir = tree();
     let root = canonical_root(&dir);
-    let kept = get_paths_to_process(&root, Vec::new()).unwrap();
+    let kept = get_paths_to_process(&root, Vec::new(), Path::new(&root), false)
+        .unwrap()
+        .files;
     let mut sorted = kept.clone();
     sorted.sort();
     sorted.dedup();
@@ -232,7 +425,14 @@ fn an_exhaustive_pattern_excludes_the_whole_directory() {
     fs::create_dir_all(dir.path().join("legacy/deep/deeper")).unwrap();
     fs::write(dir.path().join("legacy/deep/deeper/x.py"), "x = 1\n").unwrap();
     let root = canonical_root(&dir);
-    let kept = get_paths_to_process(&root, vec!["legacy/**".to_string()]).unwrap();
+    let kept = get_paths_to_process(
+        &root,
+        vec!["legacy/**".to_string()],
+        Path::new(&root),
+        false,
+    )
+    .unwrap()
+    .files;
 
     assert!(kept.iter().all(|path| !path.contains("/legacy/")));
     assert_eq!(kept.len(), 2);

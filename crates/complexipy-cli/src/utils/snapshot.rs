@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use complexipy_core::classes::FileComplexity;
+use complexipy_core::diff::function_keys;
 use complexipy_core::utils::{ExportError, create_snapshot_file_shared, load_snapshot_file_shared};
 
 pub struct SnapshotEvaluation {
@@ -12,15 +13,18 @@ pub struct SnapshotEvaluation {
     pub snapshot_result: bool,
 }
 
+/// Checks the run against the snapshot. With `persist` false, as under
+/// `--dry-run`, the snapshot file is neither created nor rewritten.
 pub fn evaluate_snapshot(
     snapshot_create: bool,
     snapshot_ignore: bool,
+    persist: bool,
     output_snapshot_path: &str,
     max_complexity_allowed: u64,
     files_complexities: &[FileComplexity],
 ) -> Result<SnapshotEvaluation, ExportError> {
     handle_snapshot_file_creation(
-        snapshot_create,
+        snapshot_create && persist,
         output_snapshot_path,
         max_complexity_allowed,
         files_complexities,
@@ -38,6 +42,7 @@ pub fn evaluate_snapshot(
 
     let (watermark_success, watermark_messages) = handle_snapshot_watermark(
         should_run,
+        persist,
         snapshot_file_exists,
         output_snapshot_path,
         files_complexities,
@@ -67,10 +72,29 @@ fn handle_snapshot_file_creation(
         create_snapshot_file_shared(
             snapshot_file_path,
             max_complexity_allowed,
-            merge_snapshot_files(snapshot_files, files_complexities),
+            merge_snapshot_files(snapshot_files, &with_keyed_names(files_complexities)),
         )?;
     }
     Ok(())
+}
+
+/// The files with each function renamed to its key, the name the snapshot
+/// stores, so same-name functions keep separate entries.
+fn with_keyed_names(files_complexities: &[FileComplexity]) -> Vec<FileComplexity> {
+    files_complexities
+        .iter()
+        .map(|file| {
+            let mut keyed = file.clone();
+            for (function, key) in keyed
+                .functions
+                .iter_mut()
+                .zip(function_keys(&file.functions))
+            {
+                function.name = key;
+            }
+            keyed
+        })
+        .collect()
 }
 
 fn handle_snapshot_functions_load(
@@ -132,6 +156,7 @@ pub fn merge_snapshot_files(
 
 fn handle_snapshot_watermark(
     snapshot_watermark: bool,
+    persist: bool,
     snapshot_exists: bool,
     output_snapshot_path: &str,
     files_complexities: &[FileComplexity],
@@ -152,9 +177,10 @@ fn handle_snapshot_watermark(
     }
 
     let snapshot_map = build_snapshot_map(snapshot_files);
+    let keyed_files = with_keyed_names(files_complexities);
     let mut violations = Vec::new();
 
-    for file_complexity in files_complexities {
+    for file_complexity in &keyed_files {
         for function in file_complexity
             .functions
             .iter()
@@ -197,11 +223,14 @@ fn handle_snapshot_watermark(
     if !violations.is_empty() {
         return Ok((false, violations));
     }
+    if !persist {
+        return Ok((true, Vec::new()));
+    }
 
     create_snapshot_file_shared(
         output_snapshot_path,
         max_complexity_allowed,
-        merge_snapshot_files(snapshot_files.to_vec(), files_complexities),
+        merge_snapshot_files(snapshot_files.to_vec(), &keyed_files),
     )?;
 
     Ok((true, Vec::new()))
@@ -212,12 +241,12 @@ pub fn build_snapshot_map(
 ) -> HashMap<(String, String, String), u64> {
     let mut snapshot_map = HashMap::new();
     for file_complexity in snapshot_files {
-        for function in &file_complexity.functions {
-            let key = build_function_key(
-                &file_complexity.path,
-                &file_complexity.file_name,
-                &function.name,
-            );
+        for (function, name) in file_complexity
+            .functions
+            .iter()
+            .zip(function_keys(&file_complexity.functions))
+        {
+            let key = build_function_key(&file_complexity.path, &file_complexity.file_name, &name);
             snapshot_map.insert(key, function.complexity);
         }
     }

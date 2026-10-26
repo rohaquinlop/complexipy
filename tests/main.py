@@ -69,7 +69,7 @@ class TestFiles:
         path = self.local_path / "src"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 64 == total_complexity
+        assert 69 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -160,6 +160,15 @@ class TestFiles:
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 10 == total_complexity
+
+    def test_nested_definitions(self):
+        # Definitions under a module-level try/except and methods of a nested
+        # class are scored as functions; the except handler stays module code.
+        path = self.local_path / "src/test_nested_definitions.py"
+        result = file_complexity(str(path))
+        functions = {f.name: f.complexity for f in result.functions}
+        assert functions == {"fast_path": 3, "Outer::Inner::method": 1}
+        assert 5 == result.complexity
 
     def test_file_complexity(self):
         path = self.local_path / "src/test_try_nested.py"
@@ -472,6 +481,19 @@ class TestPaperConformance:
 
     def test_bare_expression_boolean_sequence(self):
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
+
+    def test_each_boolean_sequence_counts_once(self):
+        # One per run of like operators: the outer `and` run plus one per
+        # parenthesized `or`; an `and` group inside the `and` run joins it.
+        def returning(expression: str) -> str:
+            return f"def f(a, b, c, d):\n    return {expression}\n"
+
+        assert self._c(returning("(a or b) and (c and d)")) == 2
+        assert self._c(returning("(a or b) and c and (c or d)")) == 3
+        assert self._c(returning("a and not (b or c) and (c or d)")) == 3
+        assert self._c(returning("not (a and (b or c))")) == 2
+        repeated = " and ".join(["(a or b) and (c and d)"] * 100)
+        assert self._c(returning(repeated)) == 101
 
     def test_loop_else_is_not_nested(self):
         code = "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n"

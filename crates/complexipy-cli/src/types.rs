@@ -180,6 +180,15 @@ pub struct RunConfig {
     pub diff: Option<String>,
     pub diff_only: Option<String>,
     pub staged: bool,
+    pub gate_changes_from_config: Vec<ConfigGateChange>,
+}
+
+/// A config file key that changes how the exit code is decided.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigGateChange {
+    DiffRef(String),
+    StagedDiff,
+    SnapshotCreate,
 }
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq, ValueEnum, Default)]

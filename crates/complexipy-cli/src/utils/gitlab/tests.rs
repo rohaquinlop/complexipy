@@ -235,3 +235,57 @@ fn gitlab_write_failure_is_io_error() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn gitlab_fingerprint_survives_lines_added_above() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.gitlab.json");
+    let moved = FunctionComplexity {
+        line_start: 30,
+        line_end: 40,
+        ..function_complexity("f", 20)
+    };
+
+    let before = write_and_load(
+        &output,
+        &[file_complexity(
+            "src/a.py",
+            "a.py",
+            vec![function_complexity("f", 20)],
+        )],
+        15,
+        false,
+    );
+    let after = write_and_load(
+        &output,
+        &[file_complexity("src/a.py", "a.py", vec![moved])],
+        15,
+        false,
+    );
+
+    assert_eq!(before[0]["fingerprint"], after[0]["fingerprint"]);
+}
+
+#[test]
+fn gitlab_fingerprints_tell_same_name_functions_apart() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.gitlab.json");
+    let second = FunctionComplexity {
+        line_start: 30,
+        line_end: 40,
+        ..function_complexity("f", 20)
+    };
+
+    let report = write_and_load(
+        &output,
+        &[file_complexity(
+            "src/a.py",
+            "a.py",
+            vec![second, function_complexity("f", 25)],
+        )],
+        15,
+        false,
+    );
+
+    assert_ne!(report[0]["fingerprint"], report[1]["fingerprint"]);
+}

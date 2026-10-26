@@ -21,7 +21,6 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  VSCE_VERSION: 4.0.0
 
 jobs:
   check:
@@ -32,18 +31,18 @@ jobs:
       run:
         working-directory: vscode/complexipy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: vscode/complexipy/package-lock.json
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Lint
         run: npm run lint
       # pretest runs lint again; --ignore-scripts skips it and still runs test.
       - name: Test
         run: npm test --ignore-scripts
       - name: Package
-        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" package --out complexipy.vsix
+        run: ./node_modules/.bin/vsce package --out complexipy.vsix

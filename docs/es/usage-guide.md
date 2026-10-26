@@ -115,10 +115,13 @@ complexipy . --exclude "src/legacy/old_code.py"
 
 !!! note "Cómo funciona la exclusión"
 
-    - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada
+    - Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada, y de forma relativa al directorio donde se ejecuta el comando, donde está el archivo de configuración
+    - Un patrón que empieza con `/`, `./` o `../`, o termina en `/`, nunca coincide; complexipy avisa de ello
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
-    - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos
+    - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos, y también los archivos `.ignore` y los archivos y directorios ocultos. `--report-ignored` lista cada archivo `*.py` que estas reglas omiten, y una ejecución que no selecciona ningún archivo imprime una advertencia en stderr, incluso bajo `--quiet`
+    - Un enlace simbólico `*.py` se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados `*.py` se omiten con una advertencia
+    - Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse
 
 ### Formatos de Salida
 
@@ -242,6 +245,17 @@ complexipy path/to/script.py --check-script --max-complexity-allowed 5
 Esto es útil para scripts con flujo de control complejo en el nivel superior,
 fuera de las funciones.
 
+Cada función que define un módulo se puntúa por separado, esté donde esté el
+`def`: bajo un `if`, `try`, `with`, `for`, `while` o `match` a nivel de módulo,
+y en clases anidadas, cuyos métodos se llaman `Outer::Inner::method`. Una
+función definida dentro de otra función cuenta para la función exterior.
+
+Un archivo fuente con una declaración de codificación PEP 263 se lee en esa
+codificación: UTF-8 y Latin-1 siempre, y una codificación compatible con ASCII
+como `cp1252` cuando el archivo es ASCII puro. Un archivo que declara otra
+codificación, como `utf-7`, se reporta como fallido, porque leerlo como UTF-8
+no mostraría el código que ejecuta Python.
+
 ### Sugerencias de Refactorización
 
 Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de planes deterministas de refactorización junto a los resultados enriquecidos de la CLI:
@@ -274,7 +288,9 @@ complexipy . --fix
 
 `--fix` solo cambia funciones cuya complejidad supera `max-complexity-allowed`, la misma regla que usa el control. Cada paso vuelve a comprobar el umbral, así que una función deja de cambiar en cuanto lo cumple. Una función en el umbral o por debajo conserva sus sugerencias en el informe y nunca se reescribe. Una ejecución aplica cada plan aplicable de esas funciones en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde delante del número (`(- ~3 complexity)`) cuando el número es estimado. Las líneas del resumen usan los números de línea del archivo anteriores a la ejecución, en cada paso; una corrección dentro de una región que un paso anterior reescribió informa las líneas de esa región. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El informe y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
 
-`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
+`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada, ni siquiera la caché o el snapshot. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
+
+`--fix` reescribe solo archivos regulares dentro del directorio desde el que se ejecuta. Omite un enlace simbólico y un archivo que cambió en disco después de que complexipy lo leyera. Escribe un archivo nuevo junto al original y lo renombra en su lugar, conservando los bits de permisos y el grupo, pero no setuid, setgid, los atributos extendidos ni las ACL.
 
 **Estructura de Salida JSON:**
 
@@ -314,7 +330,7 @@ complexipy . --fix
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no cambia y no incluye planes. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Salida en Color
 
@@ -328,6 +344,8 @@ complexipy . --color no    # Deshabilita colores
 
 `auto` da estilo a un flujo solo cuando es una terminal y `NO_COLOR` no está definido o está vacío. `--color` cubre cada línea con estilo, incluido el diff de `--fix` y los avisos en stderr, y la salida `--plain` nunca lleva estilo.
 
+El texto que viene de los archivos analizados se imprime con sus caracteres de control escapados: una ruta, una línea de código o un valor de configuración muestra un carácter de escape como `\u{1b}` y un salto de línea como `\u{a}`, así que no puede mover el cursor, reescribir líneas anteriores, cambiar el título de la ventana ni imprimir un enlace oculto.
+
 ## Archivos de Configuración
 
 ### Prioridad de Configuración
@@ -338,6 +356,28 @@ complexipy carga la configuración en este orden (de mayor a menor prioridad):
 1. `complexipy.toml`
 1. `.complexipy.toml`
 1. `pyproject.toml` (bajo `[tool.complexipy]`)
+
+complexipy lee el primero de estos archivos que se analiza y tiene valores
+válidos, y nunca combina archivos. Cuando un archivo de mayor prioridad oculta
+a otro de menor prioridad que también tiene ajustes, una advertencia nombra el
+archivo que no se aplica.
+
+`--isolated` ignora todos los archivos de configuración, y `--config <ruta>`
+lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el archivo
+se llama `pyproject.toml`, y el archivo completo en otro caso. Usa cualquiera
+de los dos en CI para fijar el gate, de modo que un cambio en la configuración
+del repositorio no pueda alterarlo.
+
+Un archivo de configuración que no es un archivo regular, que pesa más de
+4 MiB, o que es un enlace simbólico que sale del directorio se omite con una
+advertencia. Un error de configuración nombra el archivo, la línea y la
+columna, o la clave, y nunca repite el contenido del archivo.
+
+Los valores leídos de un archivo de configuración se validan antes de usarse:
+`paths`, `output` y `cache-dir` deben quedar dentro del directorio desde el
+que se ejecuta complexipy, incluidos los enlaces simbólicos, y una `branch` de
+diff no puede empezar con `-`. Pasa una ruta fuera del proyecto en la línea de
+comandos.
 
 ### Configuraciones de Ejemplo
 
@@ -433,7 +473,12 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
 - `staged` habilita la comparación staged por defecto, como pasar
   `--staged` en cada llamada.
 - Los flags de CLI siempre tienen prioridad sobre los valores de la sección.
-- `branch = ""` deshabilita el diff para el repositorio actual (opt-out).
+- `branch = ""` deshabilita el diff para el repositorio actual (opt-out),
+  y con él el valor `staged` de la sección.
+- Una sección `[diff]` cambia lo que verifica el código de salida, así que
+  cada ejecución en la que se aplica imprime una advertencia en stderr que
+  nombra el archivo. Pasa `--diff`, `--isolated` o `--config <ruta>` para
+  fijar el gate en CI.
 - Orden de resolución: flag de CLI, luego la sección `diff`.
 - Si la `branch` configurada no existe en el clon local (por ejemplo un
   clon recién hecho o shallow), cada función se reporta como `NEW`, la
@@ -513,7 +558,9 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](#diff-de-complejidad)) | `false` |
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
-| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. Se imprime incluso bajo `--quiet` | `false` |
+| `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. `--quiet` oculta la lista | `false` |
+| `--isolated` | Ignora todos los archivos de configuración. No se puede combinar con `--config` | `false` |
+| `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
 
 Las banderas booleanas aceptan un valor explícito solo en la forma
 adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
@@ -661,14 +708,15 @@ if has_regressions(entries, 15):
 
 `DiffEntry` expone `file_path`, `func_name`, `old_complexity` y
 `new_complexity` (cualquiera puede ser `None` para funciones NEW / REMOVED),
-más las propiedades `status` y `delta`. `status` es un miembro de
+más la propiedad `status`. `status` es un miembro de
 `DiffStatus` - un enum basado en `str`, por lo que compara igual a su valor
 de cadena (p. ej. `DiffStatus.REGRESSED == "REGRESSED"`).
 
 ```python
 for e in entries:
     if e.status != DiffStatus.UNCHANGED:
-        print(f"{e.file_path}::{e.func_name}: {e.status} {e.delta}")
+        print(f"{e.file_path}::{e.func_name}: {e.status} "
+              f"{e.old_complexity} -> {e.new_complexity}")
 ```
 
 ### Uso Práctico de la API
@@ -786,6 +834,11 @@ complexipy . --snapshot-create --max-complexity-allowed 15
 
 Esto crea `complexipy-snapshot.json` en tu directorio de trabajo, registrando todas las funciones que actualmente superan el umbral.
 
+Crea la línea base desde la línea de comandos. `snapshot-create = true` en un
+archivo de configuración vuelve a registrar la línea base en cada ejecución,
+así que toda violación actual pasa; esa ejecución imprime una advertencia en
+stderr que nombra el archivo.
+
 ### Cómo Funcionan las snapshots
 
 Una vez que exista un snapshot, complexipy:
@@ -837,7 +890,7 @@ complexipy . --snapshot-ignore
 ```json
 [
     {
-        "path": "src",
+        "path": "src/legacy.py",
         "file_name": "legacy.py",
         "functions": [
             {
@@ -850,6 +903,8 @@ complexipy . --snapshot-ignore
 ```
 
 Los snapshots se guardan como un arreglo JSON de archivos analizados. Cada entrada contiene solo las funciones por encima del umbral cuando se escribió el snapshot. El archivo se reescribe después de verificaciones de snapshot exitosas, así que las funciones que mejoran se eliminan automáticamente. Las actualizaciones solo afectan a los archivos analizados en la ejecución - las entradas de archivos fuera del análisis se conservan, por lo que ejecutar sobre un subconjunto de archivos (por ejemplo, a través de un hook de pre-commit) nunca reduce la línea base. Es posible que los snapshots creados por versiones anteriores de complexipy deban regenerarse con `--snapshot-create`.
+
+Las funciones de un mismo archivo que comparten nombre, como el getter y el setter de una propiedad, reciben entradas separadas: la primera en orden de código fuente conserva el nombre, y las siguientes se guardan como `name#2`, `name#3`. `--diff` compara con las mismas claves.
 
 ## Selección de Reglas
 
@@ -908,6 +963,13 @@ def complex_function():
     pass
 ```
 
+Una marca cuenta solo dentro de un comentario: en la línea del `def`, en una
+línea de su firma o de sus decoradores, o como comentario en su propia línea
+justo encima. El mismo texto en una cadena, un docstring o un argumento de
+decorador, o un comentario al final de la línea de código anterior, no suprime
+nada. Las palabras se comparan completas y separadas solo por espacios o
+tabuladores, así que `# complexipy: ignored` no es una marca.
+
 ### Suprimir Reglas Específicas
 
 Añade una lista de reglas entre corchetes para conservar la función pero
@@ -961,7 +1023,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-El formato de salida es `ruta:línea  # texto-del-comentario`. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. El informe se imprime incluso bajo `--quiet`.
+Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos.
 
 Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
 
@@ -979,7 +1041,7 @@ from complexipy import collect_all_ignored_locations
 
 locations, failed = collect_all_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
 )
 for loc in locations:
     print(f"{loc.path}:{loc.line}  {loc.comment}")
@@ -1013,7 +1075,7 @@ from complexipy import collect_removable_ignored_locations
 
 removable, failed = collect_removable_ignored_locations(
     paths=["src"],
-    exclude=["tests/"],
+    exclude=["tests/**"],
     max_complexity_allowed=15,
 )
 for rem in removable:

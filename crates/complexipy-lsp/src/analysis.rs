@@ -6,11 +6,13 @@ use complexipy_core::classes::{FunctionComplexity, RefactorPlan};
 use complexipy_core::cognitive_complexity::{
     code_complexity_shared, plans_for_function, syntax_error,
 };
-use complexipy_core::config::{InlayHints, LspConfig};
+use complexipy_core::config::{DiagnosticRange, HoverScope, InlayHints, LspConfig};
+use complexipy_core::utils::{LineIndex, split_lines};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, Hover, HoverContents, InlayHint, InlayHintKind, InlayHintLabel,
     MarkupContent, MarkupKind, NumberOrString, Position, Range,
 };
+use serde::Serialize;
 
 pub const DIAGNOSTIC_CODE: &str = "cognitive-complexity";
 pub const PARSE_ERROR_CODE: &str = "complexipy-parse-error";
@@ -28,8 +30,7 @@ pub struct LineBounds {
 impl LineBounds {
     pub fn new(text: &str) -> Self {
         Self {
-            lengths: text
-                .lines()
+            lengths: split_lines(text)
                 .map(|line| line.encode_utf16().count() as u32)
                 .collect(),
         }
@@ -70,25 +71,55 @@ impl ParseFailure {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct Declaration {
+    start: u64,
+    end: u64,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LineComplexities {
+    pub version: i32,
+    pub max_complexity_allowed: u64,
+    pub functions: Vec<FunctionLines>,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionLines {
+    pub name: String,
+    pub complexity: u64,
+    pub line: u32,
+    pub lines: Vec<LineIncrement>,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct LineIncrement {
+    pub line: u32,
+    pub complexity: u64,
+}
+
 #[derive(Clone)]
 pub struct DocumentAnalysis {
     pub version: i32,
     pub functions: Vec<FunctionComplexity>,
     bounds: LineBounds,
-    declaration_lines: Vec<u64>,
+    declarations: Vec<Declaration>,
     source: Arc<str>,
     plans: HashMap<u64, Vec<RefactorPlan>>,
 }
 
 impl DocumentAnalysis {
     pub fn new(version: i32, functions: Vec<FunctionComplexity>, source: Arc<str>) -> Self {
-        let lines: Vec<&str> = source.lines().collect();
-        let declaration_lines = functions
+        let lines: Vec<&str> = split_lines(&source).collect();
+        let declarations = functions
             .iter()
             .map(|function| {
                 let start = declaration_start_line(&lines, function);
+                let end = declaration_end_line(&lines, start, function.line_end);
 
-                declaration_end_line(&lines, start, function.line_end)
+                Declaration { start, end }
             })
             .collect();
 
@@ -96,7 +127,7 @@ impl DocumentAnalysis {
             version,
             functions,
             bounds: LineBounds::new(&source),
-            declaration_lines,
+            declarations,
             source,
             plans: HashMap::new(),
         }
@@ -108,12 +139,8 @@ impl DocumentAnalysis {
 
     /// Returns the first line of the function under `position` when its
     /// plans are not built yet, so a hover there needs them first.
-    pub fn plans_needed(&self, position: Position) -> Option<u64> {
-        let line = u64::from(position.line) + 1;
-        let function = self
-            .functions
-            .iter()
-            .find(|function| line >= function.line_start && line <= function.line_end)?;
+    pub fn plans_needed(&self, config: &LspConfig, position: Position) -> Option<u64> {
+        let function = &self.functions[self.hovered(config, position)?];
 
         (!self.plans.contains_key(&function.line_start)).then_some(function.line_start)
     }
@@ -127,7 +154,7 @@ impl DocumentAnalysis {
             version,
             functions: Vec::new(),
             bounds: LineBounds::default(),
-            declaration_lines: Vec::new(),
+            declarations: Vec::new(),
             source: Arc::from(""),
             plans: HashMap::new(),
         }
@@ -181,18 +208,47 @@ impl DocumentAnalysis {
 
         self.functions
             .iter()
-            .filter(|function| is_over_threshold(function.complexity, config))
-            .map(|function| diagnostic(&self.bounds, function, config))
+            .enumerate()
+            .filter(|(_, function)| is_over_threshold(function.complexity, config))
+            .map(|(index, function)| {
+                diagnostic(self.diagnostic_range(index, config), function, config)
+            })
             .collect()
     }
 
+    pub fn line_complexities(&self, config: &LspConfig) -> LineComplexities {
+        LineComplexities {
+            version: self.version,
+            max_complexity_allowed: config.max_complexity_allowed,
+            functions: self
+                .functions
+                .iter()
+                .enumerate()
+                .map(|(index, function)| FunctionLines {
+                    name: function.name.clone(),
+                    complexity: function.complexity,
+                    line: self.declaration_position(index).line,
+                    lines: function
+                        .line_complexities
+                        .iter()
+                        .filter(|line| line.complexity > 0)
+                        .map(|line| LineIncrement {
+                            line: line.line.saturating_sub(1) as u32,
+                            complexity: line.complexity,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
+
     pub fn hover(&mut self, config: &LspConfig, position: Position) -> Option<Hover> {
-        let line = u64::from(position.line) + 1;
-        let function = self
-            .functions
-            .iter()
-            .find(|function| line >= function.line_start && line <= function.line_end)?
-            .clone();
+        let index = self.hovered(config, position)?;
+        let function = self.functions[index].clone();
+        let range = match config.lsp.hover {
+            HoverScope::Function => function_range(&self.bounds, &function),
+            _ => self.declaration_range(index),
+        };
         let top_plan = self.plans(function.line_start, config).first();
 
         Some(Hover {
@@ -200,8 +256,48 @@ impl DocumentAnalysis {
                 kind: MarkupKind::Markdown,
                 value: hover_value(&function, top_plan, config),
             }),
-            range: Some(function_range(&self.bounds, &function)),
+            range: Some(range),
         })
+    }
+
+    fn hovered(&self, config: &LspConfig, position: Position) -> Option<usize> {
+        let line = u64::from(position.line) + 1;
+
+        match config.lsp.hover {
+            HoverScope::Never => None,
+            HoverScope::Function => self
+                .functions
+                .iter()
+                .position(|function| line >= function.line_start && line <= function.line_end),
+            HoverScope::Signature => self
+                .declarations
+                .iter()
+                .position(|declaration| line >= declaration.start && line <= declaration.end),
+        }
+    }
+
+    fn declaration_range(&self, index: usize) -> Range {
+        let declaration = self.declarations[index];
+
+        Range::new(
+            Position::new(declaration.start.saturating_sub(1) as u32, 0),
+            self.bounds.end_position(declaration.end),
+        )
+    }
+
+    fn diagnostic_range(&self, index: usize, config: &LspConfig) -> Range {
+        let function = &self.functions[index];
+
+        match config.lsp.diagnostic_range {
+            DiagnosticRange::Function => function_range(&self.bounds, function),
+            DiagnosticRange::Name => {
+                let start = self.declarations[index].start;
+                let content = split_lines(&self.source).nth(start.saturating_sub(1) as usize);
+
+                name_range(content.unwrap_or(""), start)
+                    .unwrap_or_else(|| self.declaration_range(index))
+            }
+        }
     }
 
     pub fn plans(&mut self, line_start: u64, config: &LspConfig) -> &[RefactorPlan] {
@@ -212,10 +308,11 @@ impl DocumentAnalysis {
 
     fn declaration_position(&self, index: usize) -> Position {
         let line = self
-            .declaration_lines
+            .declarations
             .get(index)
-            .copied()
-            .unwrap_or_else(|| self.functions[index].line_start);
+            .map_or(self.functions[index].line_start, |declaration| {
+                declaration.end
+            });
 
         self.bounds.end_position(line)
     }
@@ -280,11 +377,12 @@ fn position_at(text: &str, offset: usize) -> Position {
     while !text.is_char_boundary(offset) {
         offset -= 1;
     }
-    let before = &text[..offset];
-    let line_start = before.rfind('\n').map_or(0, |index| index + 1);
+    let index = LineIndex::new(text);
+    let line = index.line_of(offset);
+    let line_start = index.byte_of_line(line).unwrap_or(0);
 
     Position::new(
-        before.matches('\n').count() as u32,
+        line.saturating_sub(1) as u32,
         text[line_start..offset].encode_utf16().count() as u32,
     )
 }
@@ -354,6 +452,36 @@ pub fn is_within(position: Position, requested: Option<&Range>) -> bool {
     }
 }
 
+fn name_range(content: &str, line: u64) -> Option<Range> {
+    let indent = indentation(content);
+    let trimmed = &content[indent..];
+    let after_async = trimmed
+        .strip_prefix("async")
+        .filter(|rest| rest.starts_with(char::is_whitespace))
+        .map_or(trimmed, str::trim_start);
+    let after_def = after_async
+        .strip_prefix("def")
+        .filter(|rest| rest.starts_with(char::is_whitespace))?
+        .trim_start();
+    let name_len = after_def
+        .find(|character: char| !(character.is_alphanumeric() || character == '_'))
+        .unwrap_or(after_def.len());
+
+    if name_len == 0 {
+        return None;
+    }
+
+    let name_offset = content.len() - after_def.len();
+    let start = content[..name_offset].encode_utf16().count() as u32;
+    let end = start + after_def[..name_len].encode_utf16().count() as u32;
+    let row = line.saturating_sub(1) as u32;
+
+    Some(Range::new(
+        Position::new(row, start),
+        Position::new(row, end),
+    ))
+}
+
 fn is_def_line(trimmed: &str) -> bool {
     trimmed.starts_with("def ") || trimmed.starts_with("async def ")
 }
@@ -417,13 +545,9 @@ fn line_hint(position: Position, complexity: u64) -> InlayHint {
     }
 }
 
-fn diagnostic(
-    bounds: &LineBounds,
-    function: &FunctionComplexity,
-    config: &LspConfig,
-) -> Diagnostic {
+fn diagnostic(range: Range, function: &FunctionComplexity, config: &LspConfig) -> Diagnostic {
     Diagnostic {
-        range: function_range(bounds, function),
+        range,
         severity: Some(DiagnosticSeverity::WARNING),
         code: Some(NumberOrString::String(DIAGNOSTIC_CODE.to_string())),
         code_description: None,
@@ -445,6 +569,17 @@ fn function_range(bounds: &LineBounds, function: &FunctionComplexity) -> Range {
     )
 }
 
+fn escape_markdown(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        if character.is_ascii_punctuation() {
+            escaped.push('\\');
+        }
+        escaped.push(character);
+    }
+    escaped
+}
+
 fn hover_value(
     function: &FunctionComplexity,
     top_plan: Option<&RefactorPlan>,
@@ -452,7 +587,8 @@ fn hover_value(
 ) -> String {
     let mut value = format!(
         "**{}**: cognitive complexity {}",
-        function.name, function.complexity
+        escape_markdown(&function.name),
+        function.complexity
     );
 
     if is_over_threshold(function.complexity, config) {

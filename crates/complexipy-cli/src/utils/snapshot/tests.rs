@@ -38,7 +38,7 @@ fn no_snapshot_file_exists() {
     let path = snapshot_path(&dir);
     let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
 
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &files)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &files)
         .expect("should evaluate");
 
     assert!(!result.should_run);
@@ -53,9 +53,10 @@ fn snapshot_file_exists_not_ignored() {
     let dir = tempdir().expect("tempdir should work");
     let path = snapshot_path(&dir);
     let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 0, &files).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 0, &files)
+        .expect("should evaluate");
 
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &files)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &files)
         .expect("should evaluate");
 
     assert!(result.should_run);
@@ -71,9 +72,10 @@ fn snapshot_file_exists_ignored() {
     let dir = tempdir().expect("tempdir should work");
     let path = snapshot_path(&dir);
     let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 0, &files).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 0, &files)
+        .expect("should evaluate");
 
-    let result = evaluate_snapshot(false, true, path.to_str().unwrap(), 15, &files)
+    let result = evaluate_snapshot(false, true, true, path.to_str().unwrap(), 15, &files)
         .expect("should evaluate");
 
     assert!(!result.should_run);
@@ -89,7 +91,8 @@ fn snapshot_create_generates_file() {
         file_complexity("b.py", "b.py", &[("low", 2)]),
     ];
 
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &files).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &files)
+        .expect("should evaluate");
 
     let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
     assert_eq!(stored.len(), 1);
@@ -102,10 +105,11 @@ fn watermark_passes_when_no_regressions() {
     let dir = tempdir().expect("tempdir should work");
     let path = snapshot_path(&dir);
     let baseline = vec![file_complexity("a.py", "a.py", &[("f", 20)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &baseline).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
 
     let current = vec![file_complexity("a.py", "a.py", &[("f", 20)])];
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &current)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &current)
         .expect("should evaluate");
 
     assert!(result.watermark_success);
@@ -117,14 +121,15 @@ fn watermark_reports_new_violation() {
     let dir = tempdir().expect("tempdir should work");
     let path = snapshot_path(&dir);
     let baseline = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &baseline).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
 
     let current = vec![file_complexity(
         "a.py",
         "a.py",
         &[("f", 20), ("new_fn", 25)],
     )];
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &current)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &current)
         .expect("should evaluate");
 
     assert!(!result.watermark_success);
@@ -142,10 +147,11 @@ fn watermark_reports_increased_complexity() {
     let dir = tempdir().expect("tempdir should work");
     let path = snapshot_path(&dir);
     let baseline = vec![file_complexity("a.py", "a.py", &[("f", 18)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &baseline).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
 
     let current = vec![file_complexity("a.py", "a.py", &[("f", 25)])];
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &current)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &current)
         .expect("should evaluate");
 
     assert!(!result.watermark_success);
@@ -161,7 +167,7 @@ fn watermark_without_snapshot_file() {
     let path = snapshot_path(&dir);
     let files = vec![file_complexity("a.py", "a.py", &[("f", 20)])];
 
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &files)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &files)
         .expect("should evaluate");
 
     assert!(!result.should_run);
@@ -174,7 +180,7 @@ fn snapshot_result_neutral_when_not_running() {
     let path = snapshot_path(&dir);
     let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
 
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &files)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &files)
         .expect("should evaluate");
 
     assert!(result.snapshot_result);
@@ -188,10 +194,11 @@ fn partial_run_preserves_unanalyzed_files() {
         file_complexity("a.py", "a.py", &[("f", 20)]),
         file_complexity("b.py", "b.py", &[("g", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &both).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &both)
+        .expect("should evaluate");
 
     let only_a = vec![file_complexity("a.py", "a.py", &[("f", 20)])];
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &only_a)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &only_a)
         .expect("should evaluate");
 
     assert!(result.watermark_success);
@@ -209,10 +216,12 @@ fn partial_run_keeps_analyzed_file_position() {
         file_complexity("b.py", "b.py", &[("g", 20)]),
         file_complexity("c.py", "c.py", &[("h", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &all).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &all)
+        .expect("should evaluate");
 
     let only_b = vec![file_complexity("b.py", "b.py", &[("g", 25)])];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &only_b).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &only_b)
+        .expect("should evaluate");
 
     let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
     let names: Vec<&str> = stored.iter().map(|f| f.file_name.as_str()).collect();
@@ -228,13 +237,16 @@ fn repeated_partial_runs_keep_snapshot_byte_identical() {
         file_complexity("a.py", "a.py", &[("f", 20)]),
         file_complexity("b.py", "b.py", &[("g", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &both).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &both)
+        .expect("should evaluate");
 
     let only_b = vec![file_complexity("b.py", "b.py", &[("g", 20)])];
-    evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &only_b).expect("should evaluate");
+    evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &only_b)
+        .expect("should evaluate");
     let first_content = fs::read_to_string(&path).expect("should read");
 
-    evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &only_b).expect("should evaluate");
+    evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &only_b)
+        .expect("should evaluate");
 
     assert_eq!(
         fs::read_to_string(&path).expect("should read"),
@@ -250,13 +262,13 @@ fn new_file_appends_at_end() {
         file_complexity("a.py", "a.py", &[("f", 20)]),
         file_complexity("b.py", "b.py", &[("g", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &ab).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &ab).expect("should evaluate");
 
     let ac = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
         file_complexity("c.py", "c.py", &[("h", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &ac).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &ac).expect("should evaluate");
 
     let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
     let names: Vec<&str> = stored.iter().map(|f| f.file_name.as_str()).collect();
@@ -272,7 +284,8 @@ fn duplicate_snapshot_entries_collapse_in_place() {
         file_complexity("b.py", "b.py", &[("g", 20)]),
         file_complexity("c.py", "c.py", &[("h", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &abc).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &abc)
+        .expect("should evaluate");
 
     let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
     let duplicated = vec![
@@ -284,7 +297,8 @@ fn duplicate_snapshot_entries_collapse_in_place() {
     create_snapshot_file_shared(path.to_str().unwrap(), 0, duplicated).expect("should write");
 
     let only_b = vec![file_complexity("b.py", "b.py", &[("g", 20)])];
-    evaluate_snapshot(false, false, path.to_str().unwrap(), 0, &only_b).expect("should evaluate");
+    evaluate_snapshot(false, false, true, path.to_str().unwrap(), 0, &only_b)
+        .expect("should evaluate");
 
     let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
     let names: Vec<&str> = stored.iter().map(|f| f.file_name.as_str()).collect();
@@ -300,10 +314,11 @@ fn partial_run_removes_improved_function() {
         file_complexity("a.py", "a.py", &[("f", 20)]),
         file_complexity("b.py", "b.py", &[("g", 20)]),
     ];
-    evaluate_snapshot(true, false, path.to_str().unwrap(), 15, &both).expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &both)
+        .expect("should evaluate");
 
     let improved_a = vec![file_complexity("a.py", "a.py", &[("f", 2)])];
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &improved_a)
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &improved_a)
         .expect("should evaluate");
 
     assert!(result.watermark_success);
@@ -350,7 +365,63 @@ fn corrupt_snapshot_propagates_error() {
     fs::write(&path, json!([{"path": "broken"}]).to_string()).expect("should write");
     let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
 
-    let result = evaluate_snapshot(false, false, path.to_str().unwrap(), 15, &files);
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &files);
 
     assert!(result.is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_symlinked_out_of_the_project_fails_closed() {
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    let target = outside.path().join("baseline.json");
+    fs::write(&target, "[]").expect("should write");
+    std::os::unix::fs::symlink(&target, snapshot_path(&dir)).expect("should link");
+    let files = vec![file_complexity("a.py", "a.py", &[("f", 5)])];
+
+    let result = evaluate_snapshot(
+        false,
+        false,
+        true,
+        snapshot_path(&dir).to_str().unwrap(),
+        15,
+        &files,
+    );
+
+    assert!(result.is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_snapshot_that_is_a_device_fails_closed_without_reading() {
+    let dir = tempdir().expect("tempdir should work");
+    std::os::unix::fs::symlink("/dev/zero", snapshot_path(&dir)).expect("should link");
+
+    assert!(load_snapshot_file_shared(snapshot_path(&dir).to_str().unwrap()).is_err());
+}
+
+#[test]
+fn a_same_name_function_needs_its_own_snapshot_entry() {
+    let dir = tempdir().expect("tempdir should work");
+    let path = snapshot_path(&dir);
+    let baseline = vec![file_complexity(
+        "svc.py",
+        "svc.py",
+        &[("Svc::value", 26), ("Svc::value", 2)],
+    )];
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
+
+    let current = vec![file_complexity(
+        "svc.py",
+        "svc.py",
+        &[("Svc::value", 26), ("Svc::value", 26)],
+    )];
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &current)
+        .expect("should evaluate");
+
+    assert!(!result.watermark_success);
+    assert_eq!(result.watermark_messages.len(), 1);
+    assert!(result.watermark_messages[0].contains("Svc::value#2"));
 }

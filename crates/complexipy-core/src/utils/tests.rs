@@ -5,7 +5,9 @@
 //! module's private helpers through `super::` without widening visibility.
 
 use crate::classes::FunctionComplexity;
-use crate::utils::{collect_ignored_locations, extract_comment_marker, find_noqa_comment};
+use crate::utils::{
+    CommentRanges, collect_ignored_locations, extract_comment_marker, find_noqa_comment,
+};
 
 fn function(name: &str, complexity: u64, line_start: u64, line_end: u64) -> FunctionComplexity {
     FunctionComplexity {
@@ -97,7 +99,8 @@ fn trailing_reason_after_a_list_does_not_change_the_list() {
 fn rule_list_marker_is_found_for_a_decorated_function() {
     let code = "# complexipy: ignore[C007]\n@decorator\ndef f(x):\n    return x\n";
     let offset = code.find("@decorator").expect("decorator should exist");
-    let directive = find_noqa_comment(offset, code).expect("directive should be found");
+    let directive = find_noqa_comment(offset, code, &CommentRanges::of(code))
+        .expect("directive should be found");
 
     assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
 }
@@ -105,7 +108,8 @@ fn rule_list_marker_is_found_for_a_decorated_function() {
 #[test]
 fn rule_list_marker_is_found_for_the_function() {
     let code = "def f(x):  # complexipy: ignore[C007]\n    return x\n";
-    let directive = find_noqa_comment(0, code).expect("directive should be found");
+    let directive =
+        find_noqa_comment(0, code, &CommentRanges::of(code)).expect("directive should be found");
 
     assert_eq!(directive.rules, Some(vec!["C007".to_string()]));
 }

@@ -1,14 +1,18 @@
-use std::fs;
+use std::path::Path;
 
 use serde_json::{Map, Value, json};
 
+use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use complexipy_core::classes::{
     Applicability, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
 };
+use complexipy_core::fs_guard::write_atomic;
 use complexipy_core::utils::ExportError;
 
 const RULE_ID: &str = "CC001";
-const SCHEMA: &str = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json";
+const SCHEMA: &str =
+    "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json";
+const FINGERPRINT_KEY: &str = "complexipyFindingHash/v1";
 const INFO_URI: &str = "https://complexipy.com/";
 const HELP_URI: &str = "https://complexipy.com/understanding-scores/";
 
@@ -42,7 +46,7 @@ pub fn store_sarif(
 
     let serialized = serde_json::to_string_pretty(&sarif_doc)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize SARIF: {}", e)))?;
-    fs::write(output_path, serialized)
+    write_atomic(Path::new(output_path), serialized.as_bytes())
         .map_err(|e| ExportError::Io(format!("Failed to write SARIF to {}: {}", output_path, e)))?;
     Ok(())
 }
@@ -56,17 +60,21 @@ fn collect_results(
     let mut refactor_rule_definitions = Map::new();
 
     for file in files {
+        let ranks = function_ranks(file);
         for function in &file.functions {
+            let location = Location {
+                file,
+                function,
+                rank: ranks
+                    .get(&(function.name.as_str(), function.line_start))
+                    .copied()
+                    .unwrap_or(0),
+            };
             if function.complexity > max_complexity {
-                results.push(complexity_result(file, function, max_complexity));
+                results.push(complexity_result(&location, max_complexity));
             }
             if suggest_refactors {
-                add_refactor_plan_results(
-                    file,
-                    function,
-                    &mut results,
-                    &mut refactor_rule_definitions,
-                );
+                add_refactor_plan_results(&location, &mut results, &mut refactor_rule_definitions);
             }
         }
     }
@@ -74,26 +82,46 @@ fn collect_results(
     (results, refactor_rule_definitions)
 }
 
+struct Location<'a> {
+    file: &'a FileComplexity,
+    function: &'a FunctionComplexity,
+    rank: usize,
+}
+
 fn add_refactor_plan_results(
-    file: &FileComplexity,
-    function: &FunctionComplexity,
+    location: &Location,
     results: &mut Vec<Value>,
     refactor_rule_definitions: &mut Map<String, Value>,
 ) {
-    for plan in &function.refactor_plans {
+    for plan in &location.function.refactor_plans {
         if !refactor_rule_definitions.contains_key(&plan.rule_id) {
             refactor_rule_definitions
                 .insert(plan.rule_id.clone(), refactor_plan_rule_definition(plan));
         }
-        results.push(refactor_plan_result(file, function, plan));
+        results.push(refactor_plan_result(location, plan));
     }
 }
 
-fn complexity_result(
-    file: &FileComplexity,
-    function: &FunctionComplexity,
-    max_complexity: u64,
-) -> Value {
+/// `path` as a relative URI reference: each byte outside the unreserved
+/// set and `/` is percent-encoded.
+fn uri_reference(path: &str) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.replace('\\', "/").bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~/".contains(&byte) {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{:02X}", byte));
+        }
+    }
+    encoded
+}
+
+fn complexity_result(location: &Location, max_complexity: u64) -> Value {
+    let Location {
+        file,
+        function,
+        rank,
+    } = location;
     json!({
         "ruleId": RULE_ID,
         "level": "warning",
@@ -103,10 +131,13 @@ fn complexity_result(
                 function.name, function.complexity, max_complexity
             )
         },
+        "partialFingerprints": {
+            FINGERPRINT_KEY: finding_fingerprint(RULE_ID, &file.path, &function.name, *rank, 0),
+        },
         "locations": [{
             "physicalLocation": {
                 "artifactLocation": {
-                    "uri": file.path,
+                    "uri": uri_reference(&file.path),
                     "uriBaseId": "%SRCROOT%",
                 },
                 "region": {
@@ -131,19 +162,29 @@ fn complexity_rule_definition() -> Value {
     })
 }
 
-fn refactor_plan_result(
-    file: &FileComplexity,
-    function: &FunctionComplexity,
-    plan: &RefactorPlan,
-) -> Value {
+fn refactor_plan_result(location: &Location, plan: &RefactorPlan) -> Value {
+    let Location {
+        file,
+        function,
+        rank,
+    } = location;
     json!({
         "ruleId": plan.rule_id,
         "level": refactor_plan_level(&plan.applicability),
         "message": {"text": format!("{}: {}", plan.title, plan.explanation)},
+        "partialFingerprints": {
+            FINGERPRINT_KEY: finding_fingerprint(
+                &plan.rule_id,
+                &file.path,
+                &function.name,
+                *rank,
+                plan_rank(function, plan),
+            ),
+        },
         "locations": [{
             "physicalLocation": {
                 "artifactLocation": {
-                    "uri": file.path,
+                    "uri": uri_reference(&file.path),
                     "uriBaseId": "%SRCROOT%",
                 },
                 "region": {

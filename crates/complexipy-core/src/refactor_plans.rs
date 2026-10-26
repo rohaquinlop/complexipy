@@ -28,6 +28,7 @@ pub struct ComplexityRegion {
     pub total: u64,
     pub elif_count: u64,
     pub bool_op_count: u64,
+    pub has_else: bool,
     pub children: Vec<ComplexityRegion>,
 }
 

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import ast
+import inspect
+import itertools
+import sys
 import textwrap
 from pathlib import Path
 
@@ -474,3 +477,84 @@ def test_select_with_one_known_rule_does_not_warn_about_none_active(
     err = strip_ansi(capfd.readouterr().err)
     assert "Unknown rule id 'C999'" in err
     assert "No refactoring rule is active" not in err
+
+
+BEHAVIOR_FIXTURES = sorted(FIXTURES.glob("fix_behavior_*.py"))
+
+REWRITTEN = {
+    "fix_behavior_c002_inline_body.py",
+    "fix_behavior_c002_mixed_tabs.py",
+    "fix_behavior_c002_not_or_without_space.py",
+    "fix_behavior_c002_statement_after_inner_member.py",
+    "fix_behavior_c007_mixed_tabs.py",
+    "fix_behavior_c007_or_without_space.py",
+    "fix_behavior_c007_ternary_without_space.py",
+}
+
+
+class StepBudgetExceeded(Exception):
+    pass
+
+
+def outcome(function, arguments) -> str:
+    steps = 0
+
+    def tracer(frame, event, arg):
+        nonlocal steps
+        steps += 1
+        if steps > 10_000:
+            raise StepBudgetExceeded
+        return tracer
+
+    sys.settrace(tracer)
+    try:
+        return repr(function(*arguments))
+    except StepBudgetExceeded:
+        return "does not terminate"
+    except Exception as error:
+        return f"raises {type(error).__name__}"
+    finally:
+        sys.settrace(None)
+
+
+def defined_function(source: str, filename: str):
+    namespace: dict = {}
+    exec(compile(source, filename, "exec"), namespace)
+    return namespace["f"]
+
+
+def argument_sets(function):
+    choices = [
+        [[1, 2, 3]] if name == "xs" else [True, False]
+        for name in inspect.signature(function).parameters
+    ]
+    return itertools.product(*choices)
+
+
+@pytest.mark.parametrize(
+    "fixture", BEHAVIOR_FIXTURES, ids=lambda path: path.stem
+)
+def test_fix_keeps_what_the_function_does(tmp_path, fixture) -> None:
+    source = fixture.read_text()
+    target = tmp_path / fixture.name
+    target.write_text(source)
+
+    run_cli(
+        [
+            "--fix",
+            "--max-complexity-allowed=1",
+            "--ignore-complexity",
+            str(target),
+        ],
+        str(tmp_path),
+    )
+
+    fixed = target.read_text()
+    assert (fixed != source) == (fixture.name in REWRITTEN), fixed
+    before = defined_function(source, fixture.name)
+    after = defined_function(fixed, fixture.name)
+    for arguments in argument_sets(before):
+        assert outcome(after, arguments) == outcome(before, arguments), (
+            arguments,
+            fixed,
+        )

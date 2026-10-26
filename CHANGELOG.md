@@ -5,38 +5,6 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
-### Added
-
-- `file_complexity()` and `code_complexity()` take `with_plans`, `True` by
-  default. Pass `with_plans=False` to skip building refactor plans when only
-  the scores are needed.
-
-### Changed
-
-- Faster runs. File discovery walks the tree once, in parallel, and no longer
-  reads gitignored directories; paths that fail to analyze are listed in path
-  order. The default report, `--report-ignored`, and the stale ignore comment
-  report share one read of each file. File arguments are analyzed in parallel,
-  and `--fix` analyzes again only the files it wrote. The analysis cache keeps
-  the entries of other targets unparsed, rewrites its file only when this
-  run's results changed, and holds at most 32 MiB of entries. On macOS,
-  Windows, and 64-bit Linux, complexipy allocates with mimalloc.
-- Refactor plans are measured on their own function instead of the whole
-  file, so `--suggest-refactors` grows linearly with the file size
-  ([#274](https://github.com/rohaquinlop/complexipy/issues/274)). `--failed`,
-  `--fix`, and `--dry-run` build plans only for functions over the limit,
-  unless an output lists the others. The web demo builds no plans.
-- `--diff` and `--staged` read every file at the ref through one
-  `git cat-file --batch` process per repository, and look each file up at its
-  own repository path. A file that moved since the ref is reported as new, and a run from a
-  subdirectory finds the history of each file.
-- The language server analyzes on its own thread, so requests are answered
-  while other documents are analyzed. Each document has its own debounce, and
-  `$/cancelRequest` cancels a request that is still waiting.
-- The Python API releases the GIL while it analyzes and while `compute_diff`
-  runs. `functions`, `line_complexities`, and `refactor_plans` return a new
-  list over objects built once, instead of copying the data on every access.
-
 ### Fixed
 
 - `--diff` and `--diff-only` read each file from the repository that holds
@@ -55,6 +23,301 @@ release section links to its GitHub release notes for the full details.
   a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`
   violations. Parentheses stay around `and`, `or`, other comparisons,
   conditional expressions, lambdas, and walrus assignments.
+
+## [8.2.0] - 2026-10-25
+
+### Added
+
+- `file_complexity()` and `code_complexity()` take `with_plans`, `True` by
+  default. Pass `with_plans=False` to skip building refactor plans when only
+  the scores are needed.
+- The language server answers `complexipy/lineComplexities` with the total of
+  every function and the increment of every line, whatever the hint settings
+  say. The VS Code extension draws its colored badges from it
+  ([#292](https://github.com/rohaquinlop/complexipy/discussions/292)).
+- `[lsp] diagnostic-range` and `[lsp] hover` choose what the warning
+  underlines and where hover answers.
+- `--isolated` ignores every configuration file, and `--config <path>` reads
+  only the named file: its `[tool.complexipy]` section when the file is named
+  `pyproject.toml`, and the whole file otherwise. The two flags cannot be
+  combined. Pass either one in CI to pin the gate, so a change to the
+  repository's configuration cannot change it.
+
+### Changed
+
+- The language server is quieter by default. The warning underlines the
+  function name instead of the whole function, and hover answers only on the
+  `def` lines, so it no longer covers the editor's own hover inside the body
+  ([#290](https://github.com/rohaquinlop/complexipy/discussions/290)). Set
+  `diagnostic-range = "function"` or `hover = "function"` under `[lsp]` for the
+  previous behaviour.
+- Faster runs. File discovery walks the tree once, in parallel, and no longer
+  reads gitignored directories; paths that fail to analyze are listed in path
+  order. The default report, `--report-ignored`, and the stale ignore comment
+  report share one read of each file. File arguments are analyzed in parallel,
+  and `--fix` analyzes again only the files it wrote. The analysis cache keeps
+  the entries of other targets unparsed, rewrites its file only when this
+  run's results changed, and holds at most 32 MiB of entries. On macOS,
+  Windows, and 64-bit Linux, complexipy allocates with mimalloc.
+- Refactor plans are measured on their own function instead of the whole
+  file, so `--suggest-refactors` grows linearly with the file size
+  ([#274](https://github.com/rohaquinlop/complexipy/issues/274)). `--failed`,
+  `--fix`, and `--dry-run` build plans only for functions over the limit,
+  unless an output lists the others. The web demo builds no plans.
+- `--diff` and `--staged` read every file at the ref through one
+  `git cat-file --batch` process, and look each file up at its own repository
+  path. A file that moved since the ref is reported as new, and a run from a
+  subdirectory finds the history of each file.
+- The language server analyzes on its own thread, so requests are answered
+  while other documents are analyzed. Each document has its own debounce, and
+  `$/cancelRequest` cancels a request that is still waiting.
+- The Python API releases the GIL while it analyzes and while `compute_diff`
+  runs. `functions`, `line_complexities`, and `refactor_plans` return a new
+  list over objects built once, instead of copying the data on every access.
+- A bare `complexipy` run whose configuration file sets no `paths`, or an
+  empty list, stops with the missing paths error instead of analyzing nothing
+  and passing. Set `paths` in the file or name the paths on the command line.
+- `paths`, `output`, and `cache-dir` read from a configuration file must stay
+  inside the directory complexipy runs from, symbolic links included, or the
+  run stops with an error that names the key. The same values on the command
+  line are not restricted, so pass a path outside the project there. A diff
+  reference that starts with `-`, from `--diff`, `--diff-only`, or the
+  `[diff]` `branch`, also stops the run.
+- complexipy reads the first configuration file that parses and has valid
+  values, and never merges files. The language server now moves on to the
+  next file when one has an invalid value, as the CLI does. When a
+  higher-priority file shadows a lower one that also holds settings, every
+  run prints a warning that names the file not applied, so a project with
+  both `complexipy.toml` and a `[tool.complexipy]` section in
+  `pyproject.toml` sees it until it keeps its settings in one file. A
+  configuration file that is not a regular file, that is larger than 4 MiB,
+  or that is a symbolic link resolving outside its directory is skipped with
+  a warning. A configuration error names the file and the line and column,
+  or the key, instead of quoting the file.
+- A configuration file that sets a `[diff]` `branch`, `[diff]`
+  `staged = true`, or `snapshot-create = true` prints a warning on stderr on
+  every run the setting applies to, even under `--quiet`. The warning names
+  the file and says how the setting changes the exit code. Pin the gate in CI
+  with the matching flag, `--isolated`, or `--config <path>`, and create a
+  snapshot with `--snapshot-create` on the command line instead of in the
+  file.
+- Every function a module defines is scored on its own: a `def` under a
+  module-level `if`, `try`, `with`, `for`, `while`, or `match`, and a method
+  of a nested class, named `Outer::Inner::method`. These functions appear in
+  every output and the gate checks them, so a run that passed before can fail
+  on one, and a file's total can change. A function defined inside another
+  function still counts toward the outer one.
+- An ignore marker counts only inside a comment: on the `def` line, on a line
+  of its signature or decorators, or on its own line directly above. The same
+  text in a string, a docstring, or a decorator argument, or in a trailing
+  comment on the code line above, no longer suppresses the function. The
+  marker words must be whole and separated by spaces or tabs only, so
+  `# complexipy: ignored` is not a marker. Move such a marker into a comment
+  on the `def` line.
+- A source file with a PEP 263 coding cookie is read in that encoding: UTF-8
+  and Latin-1 always, and an ASCII-compatible encoding such as `cp1252` when
+  the file is pure ASCII, so a Latin-1 file with non-ASCII bytes, which failed
+  before, is now analyzed. A file that declares any other encoding, such as
+  `utf-7`, or that declares an ASCII-compatible encoding and holds non-ASCII
+  bytes, is reported as failed, and `file_complexity()` raises `ValueError`
+  for it.
+- Functions of one file that share a name, such as a property's getter and
+  setter, get separate entries in the snapshot, in `--diff`, and in
+  `compute_diff()`: the first in source order keeps the name, and the next
+  ones are keyed `name#2`, `name#3`. A snapshot written before this change can
+  fail on such a file; run `--snapshot-create` once to rewrite it.
+- File discovery selects a `*.py` symbolic link only when it resolves to a
+  regular file inside the analyzed directory. A link that leaves it, a
+  dangling link, a device, a FIFO, a directory named `*.py`, and a directory
+  that cannot be read are skipped, with a warning on stderr unless `--quiet`
+  is set. A file whose name is not valid UTF-8 is reported as failed instead
+  of skipped silently. A run that selects no file prints a warning even
+  under `--quiet`, and `--report-ignored` also lists the `*.py` files that
+  `.gitignore`, `.ignore`, and hidden-path rules skip.
+- A source file larger than 64 MiB is reported as failed instead of read, and
+  `file_complexity()` raises `ValueError` for it and for a path that is not a
+  regular file, such as a device. A snapshot that is not a regular file of at
+  most 64 MiB inside its own directory stops the run with an error, and a
+  cache file like that is ignored. The default cache is not used when
+  `.complexipy_cache` resolves outside the directory complexipy runs from.
+- `--fix` rewrites only regular files inside the directory complexipy runs
+  from. It skips a symbolic link, a file outside that directory, and a file
+  that changed on disk after complexipy read it, and says so on stderr. It
+  writes a new file next to the original and renames it into place, keeping
+  the permission bits and the group but not setuid, setgid, extended
+  attributes, or ACLs. Result files, the snapshot, and the cache are written
+  the same way, so a symbolic link at an output path is replaced by a regular
+  file instead of written through. `--fix --dry-run` writes nothing, not even
+  the cache or the snapshot.
+- Text that comes from the analyzed files or the configuration, such as a
+  path, a function name, a source line, or a configuration value, prints with
+  its control characters and bidirectional formatting characters escaped: an
+  escape character shows as `\u{1b}` and a line break as `\u{a}`. Tabs print
+  as they are. This covers the report, `--plain`, the `--fix` diff, the
+  warnings, and the language server log.
+- CSV output writes a cell that starts with `=`, `+`, `-`, `@`, a tab, or a
+  carriage return with a leading `'`, so a spreadsheet shows it as text.
+- When the configuration has a problem, such as an unknown rule id or a
+  shadowed configuration file, the language server shows the editor one fixed
+  warning that points to the complexipy output log, and writes the details
+  only to that log.
+- The VS Code extension runs in Restricted Mode instead of staying disabled
+  there. In Restricted Mode it ignores a `complexipy.server.path` from
+  workspace settings and runs the path from your user settings, or
+  `complexipy` from the `PATH`, and trusting the workspace restarts the
+  server with the workspace value. A relative `complexipy.server.path`
+  resolves against the first workspace folder, where the server now starts,
+  and relative `PATH` entries are skipped.
+- Boolean operators add one per sequence of like operators, as the cognitive
+  complexity paper specifies. A boolean group nested in another one was
+  compared with every sibling of its parent, so an expression that mixes
+  operators across groups scored too high: `(a or b) and (c and d)` now scores
+  2 instead of 4, and `not a and (b or c)` scores 2 instead of 3. On a
+  1,915-function corpus, 4 scores changed, each down by 1.
+- GitLab Code Quality fingerprints no longer hash the function's line number,
+  so a line added above a function keeps the fingerprint of every finding
+  below it. A fingerprint now hashes the check, the path, the function name,
+  and the finding's rank among the findings that share them. Every existing
+  fingerprint changes once with this release, so the first comparison with a
+  report from an earlier release shows every finding as new and every earlier
+  one as fixed.
+- SARIF reports percent-encode `artifactLocation.uri`, so a path with spaces,
+  quotes, non-ASCII characters, `#`, `?`, or `%` points at the right file.
+  `$schema` names the published OASIS SARIF 2.1.0 schema instead of a URL
+  that returned 404. Each result carries `partialFingerprints`, which stay the
+  same when lines are added above the finding, so uploads through a code
+  scanning API do not duplicate alerts.
+- `--quiet --ignore-complexity` exits 0, like `--ignore-complexity` alone; it
+  exited 1 when a function was over the limit. When stdout closes early, as
+  in `complexipy . | head`, the output stops and the run keeps its exit code,
+  instead of panicking with exit code 101 from the binary or 1 from the
+  console script. The language server answers a message that is not valid
+  JSON or JSON-RPC with an error response and keeps running, instead of
+  exiting with 1.
+- An `exclude` pattern matches a path relative to each path argument, as
+  before, and also relative to the working directory, so the CLI and the
+  language server exclude the same files. With `paths = ["src", "legacy"]` and
+  `exclude = ["legacy/**"]`, they used to exclude opposite files. A CLI run
+  whose path argument differs from the working directory can exclude more
+  files than before, and never fewer. The server also matches each pattern
+  relative to each `paths` entry, resolves `..` in document paths before
+  matching, and gives a nested workspace folder without a configuration file
+  the configuration of the nearest enclosing folder that has one. A pattern
+  that starts with `/`, `./`, or `../`, or ends with `/`, never matches, and
+  the CLI and the server now warn about it. A file named on the command line
+  is still analyzed when a pattern matches it, as in ruff. A
+  `--force-exclude` flag that also excludes those files is tracked in
+  [#293](https://github.com/rohaquinlop/complexipy/issues/293).
+- C002 offers a loop guard replacement only when the nested `if` chain is the
+  last statement of the loop body and each `if` the last statement of its
+  parent. When statements follow the chain, the plan carries help text
+  instead, because a `continue` guard would skip them: `--fix` used to write
+  that guard, which could turn a `while` loop whose counter followed the
+  chain into an infinite loop. C007 moves a single comment on the merged `if`
+  lines, such as `# type: ignore`, to the merged line, and gives help text
+  when those lines carry two or more comments or the inner `if` has its body
+  on its header line.
+- `--report-ignored`, `complexipy-ignored.json`, and the stale ignore comment
+  report show a file inside the working directory at the same path as the
+  results. They used to show paths relative to the parent of each analyzed
+  directory, or to a file argument's own directory, so `complexipy .`
+  prefixed every path with the working directory's name. Each result's
+  `file_name` now matches its `path`, also for a file reached through a
+  symlink.
+- An internal error in the Python API raises `ValueError` from the analysis,
+  diff, and ignore collection functions, and `RuntimeError` from `run_cli`
+  and `run_lsp`, instead of `pyo3_runtime.PanicException`, which derives from
+  `BaseException`. `except Exception` now catches it, so one file that hits
+  an internal error no longer aborts a batch. The stubs and docs now name the
+  errors each function raises.
+
+### Fixed
+
+- `--diff` and `--staged` read a path at the ref only when it was a regular
+  file there. A path that was a symbolic link at the ref and is now a regular
+  file compares as added instead of against the link's target text, so its
+  functions above the threshold fail the gate. `--staged` also compares a
+  staged change between a symbolic link and a regular file, which it skipped.
+- `--staged` reads a staged file whose name starts like a stage number, such
+  as `0:a.py`, instead of reading the staged `a.py` in its place.
+- `branch = ""` in the `[diff]` section turns the diff off, and the section's
+  `staged` value with it, as documented, so the run checks every function
+  against the threshold. Before, it compared against the index instead, so
+  the exit code checked only the functions that changed.
+- `--diff` and `compute_diff()` read no old version of a path whose name
+  holds a control character, so its functions report NEW. A name that ended
+  in a carriage return read the old version of the same name without it.
+- A lone CR (`\r`) and CRLF now end a line everywhere, as they do for the
+  tokenizer and in LSP 3.17. A file with CR line endings no longer panics
+  while refactor plans are built or while the caret under a suggestion is
+  drawn, reports every function on line 1, lets one ignore comment suppress
+  the whole file, or takes quadratic time and output. `--fix` keeps a file's
+  CR line endings, and the column of the caret under a suggestion counts
+  characters, not bytes.
+- A long chained expression, such as `a + a + ... + a`, `a.b.b...`,
+  `f()()...`, or `a[0][0]...`, no longer overflows the stack, which aborted
+  the CLI and the language server and crashed the Python interpreter. A
+  300,000-term chain now analyzes in the CLI, the Python API, the language
+  server, and the web demo.
+- Scoring a long boolean expression that mixes operators, and building
+  refactor plans for a deep `if` chain, no longer take quadratic time.
+- `--fix` keeps what the rewritten code does. An `else` written as `else :`,
+  or one after a condition that holds a run of quotes, is no longer missed.
+  `a or(b)` and `not a or(b)` are parenthesized and inverted correctly. Each
+  line keeps its own indentation, so a file that mixes tabs and spaces stays
+  valid, and a tab-indented file gets tab-indented replacements. An inner
+  `if` with its body on its header line no longer loses that body, C002 no
+  longer rewrites a chain inside a nested function, and a `#` inside a string
+  no longer hides a later multi-line string from the check that refuses the
+  rewrite.
+- A file reached through several path arguments, such as
+  `complexipy . src src/a.py`, or through a symlink next to it, is analyzed,
+  reported, and fixed once.
+- `--report-ignored` lists each suppressed location as
+  `path:line  # comment`, followed by the count, as its help text and the
+  docs describe. It used to print only the count.
+- Suggestion snippets honor `--color no`, `NO_COLOR`, and piped output, and a
+  comment in a snippet no longer colors every line after it. Color is decided
+  on each run, so a Python host that calls `run_cli` several times follows
+  each run's terminal and `NO_COLOR`.
+- A `--diff` ref wider than the terminal no longer panics while the banner is
+  drawn.
+- `compute_diff(current, "origin/main")` works as documented:
+  `invocation_path` defaults to `None`. Ctrl-C stops the console script at
+  once instead of after the run finishes. A process forked after a parallel
+  call no longer hangs on its next parallel call. The stubs and docs drop the
+  nonexistent `DiffEntry.delta`, fix an `exclude` example that matched
+  nothing, and show the real snapshot entry format.
+- The language server reads each frame as it arrives, up to 256 MiB, so a
+  huge `Content-Length` no longer makes it allocate that size or abort, and a
+  broken frame is reported on stderr before the server stops. A request after
+  `shutdown`, or one whose id is neither an integer nor a string, gets an
+  `InvalidRequest` error instead of no answer. After a failed handshake the
+  server exits instead of waiting for stdin to close. `file://localhost/...`
+  resolves to the local path, and a URI with a remote host resolves to a UNC
+  path on Windows and to no path elsewhere, so the server reads the right
+  configuration. Hover shows a function name such as `Box::__init__`
+  literally instead of rendering it as Markdown.
+- The VS Code extension stops a server that does not start within 30 seconds
+  and shows an error, so a later restart is no longer blocked. It keeps one
+  output channel instead of adding one per restart.
+- The web demo loads a fresh analyzer after an analysis crashes, instead of
+  failing every later analysis until the page reloads.
+
+### Security
+
+- complexipy now treats the content of the analyzed repository as untrusted.
+  This release fixes the issues described in
+  [GHSA-8p2q-4h62-q593](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-8p2q-4h62-q593),
+  [GHSA-9qgh-5xjp-8g3m](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-9qgh-5xjp-8g3m),
+  [GHSA-wg3w-cmfg-c94w](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wg3w-cmfg-c94w),
+  [GHSA-mh97-m2f8-q8vj](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-mh97-m2f8-q8vj),
+  and, for the VS Code extension 0.4.0,
+  [GHSA-wpx6-54p3-527q](https://github.com/rohaquinlop/complexipy/security/advisories/GHSA-wpx6-54p3-527q).
+  Upgrading is recommended for every user.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/8.2.0)
+for the full details.
 
 ## [8.1.0] - 2026-10-18
 

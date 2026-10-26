@@ -3,6 +3,7 @@ use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::output::render::rule;
 use complexipy_core::diff::{DiffEntry, DiffStatus};
+use complexipy_core::sanitize::escape_controls;
 
 pub fn format_diff(entries: &[DiffEntry], git_ref: &str) -> String {
     let changed: Vec<&DiffEntry> = entries
@@ -19,7 +20,10 @@ pub fn format_diff(entries: &[DiffEntry], git_ref: &str) -> String {
         .collect();
 
     if changed.is_empty() {
-        return format!("No functions changed relative to {}.", git_ref);
+        return format!(
+            "No functions changed relative to {}.",
+            escape_controls(git_ref)
+        );
     }
 
     let mut table = Table::new();
@@ -27,14 +31,21 @@ pub fn format_diff(entries: &[DiffEntry], git_ref: &str) -> String {
     for entry in changed.iter().copied() {
         table.add_row(vec![
             Cell::new(status_style(&entry.status())),
-            Cell::new(format!("{}::{}", entry.file_path, entry.func_name)),
+            Cell::new(format!(
+                "{}::{}",
+                escape_controls(&entry.file_path),
+                escape_controls(&entry.func_name)
+            )),
             Cell::new(format_change(entry)),
         ]);
     }
 
     format!(
         "\n{}\n{}\n\nNet: {}",
-        rule(&format!("Complexity diff (vs {})", git_ref)),
+        rule(&format!(
+            "Complexity diff (vs {})",
+            escape_controls(git_ref)
+        )),
         table,
         build_diff_summary(&changed)
     )

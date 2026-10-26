@@ -1,48 +1,89 @@
 use std::process::ExitCode;
 
+macro_rules! emit {
+    ($($arguments:tt)*) => {
+        crate::output::emit(format_args!($($arguments)*))
+    };
+}
+
+macro_rules! emit_error {
+    ($($arguments:tt)*) => {
+        crate::output::emit_error(format_args!($($arguments)*))
+    };
+}
+
 use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
-    diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
-    unresolved_diff_warnings,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
+    ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
+    nothing_selected_warning, removable_ignores_output, skipped_path_warning, unknown_rule_warning,
+    unmatchable_exclude_warning, unresolved_diff_warnings,
 };
-use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
+use crate::output::render::{
+    color_enabled_for, handle_console_settings, print_invalid_paths, rule,
+};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
 use crate::types::{ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::handle_report_ignored;
 use crate::utils::snapshot::evaluate_snapshot;
-use crate::utils::toml::get_complexipy_toml_config;
+use crate::utils::toml::load_run_config;
 use complexipy_core::diff::{
     compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::{Analysis, LocationReports};
-use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
+use complexipy_core::sanitize::escape_controls;
+use complexipy_core::{
+    AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
-    let toml_config = get_complexipy_toml_config(invocation_path);
+    let source = match load_run_config(&cli, invocation_path) {
+        Ok(source) => source,
+        Err(error) => {
+            emit_error!("{}", escape_controls(&error.to_string()));
+            return ExitCode::FAILURE;
+        }
+    };
+    let config_path = source
+        .as_ref()
+        .map(|source| source.path.display().to_string());
 
-    let config = match resolve_config(toml_config, cli) {
+    let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
+    let label = if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
+        "Warning:".yellow().to_string()
+    } else {
+        "Warning:".to_string()
+    };
+    if let Some(config_path) = &config_path {
+        for change in &config.gate_changes_from_config {
+            emit_error!(
+                "{} {}",
+                label,
+                escape_controls(&config_gate_change_warning(config_path, change))
+            );
+        }
+    }
     if !settings.banner.is_empty() {
-        println!("{}", settings.banner);
+        emit!("{}", settings.banner);
     }
 
     if !config.quiet
         && let Some(warning) =
             diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref())
     {
-        println!(
+        emit!(
             "{} {}",
             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
             warning
@@ -61,12 +102,13 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         if !rules.has_active_rule(&known_rules) {
             warnings.push(no_active_rule_warning());
         }
+        warnings.extend(
+            unmatchable_exclude_patterns(&config.exclude)
+                .iter()
+                .map(|pattern| unmatchable_exclude_warning(pattern)),
+        );
         for warning in warnings {
-            eprintln!(
-                "{} {}",
-                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
-                warning
-            );
+            emit_error!("{} {}", label, escape_controls(&warning));
         }
     }
     let analysis = analysis_options(&config, rules);
@@ -81,6 +123,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             removable_above: (!config.quiet).then_some(config.max_complexity_allowed),
         },
     );
+    if !config.quiet {
+        for warning in run.skipped.iter().filter_map(skipped_path_warning) {
+            emit_error!("{} {}", label, escape_controls(&warning));
+        }
+    }
+    if run.files.is_empty() && run.failed_paths.is_empty() {
+        emit_error!("{} {}", label, nothing_selected_warning(&run.skipped));
+    }
+    let skipped = std::mem::take(&mut run.skipped);
 
     let mut fix_console = String::new();
     if config.fix || config.dry_run {
@@ -104,13 +155,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let snap = match evaluate_snapshot(
         config.snapshot_create,
         config.snapshot_ignore,
+        !config.dry_run,
         &output_snapshot_path,
         config.max_complexity_allowed,
         &files_complexities,
     ) {
         Ok(snap) => snap,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -127,11 +179,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
-                println!("{}", line);
+                emit!("{}", line);
             }
         }
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     }
@@ -148,15 +200,17 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         plain: config.plain,
         invocation_path,
         cache_dir: config.cache_dir.as_deref(),
+        write_cache: !config.dry_run,
         top: config.top,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
+        color: settings.color_enabled,
     });
     if !display_output.is_empty() {
-        println!("{}", display_output);
+        emit!("{}", display_output);
     }
 
     if !config.quiet && !fix_console.is_empty() {
-        println!("{}", fix_console);
+        emit!("{}", fix_console);
     }
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(
@@ -168,26 +222,27 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(result) => result,
         Err(error) => {
-            eprintln!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
     if config.report_ignored {
         if !config.quiet {
-            println!(
+            emit!(
                 "{}",
-                ignored_summary_output(ignored_locations.len(), config.no_ignore)
+                ignored_summary_output(&ignored_locations, config.no_ignore)
             );
+            emit!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
-            println!("{}", ignored_saved_output(&path));
+            emit!("{}", escape_controls(&ignored_saved_output(&path)));
         }
     }
 
     if !config.quiet {
         let removable_output = removable_ignores_output(&run.removable_ignores());
         if !removable_output.is_empty() {
-            println!("{}", removable_output);
+            emit!("{}", removable_output);
         }
     }
 
@@ -200,14 +255,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     } else {
         let snapshot_output = handle_snapshot_console(&snap, &output_snapshot_path);
         if !snapshot_output.is_empty() {
-            println!("{}", snapshot_output);
+            emit!("{}", snapshot_output);
         }
         snap.watermark_success
     };
 
     let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths);
     if !invalid_paths_output.is_empty() {
-        println!("{}", invalid_paths_output);
+        emit!("{}", invalid_paths_output);
     }
 
     let diff_ref = diff.clone().or_else(|| diff_only.clone());
@@ -216,7 +271,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             match compute_staged_diff(&diff_ref, invocation_path) {
                 Some(entries) => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{}",
                             format_diff_for(&entries, &format!("{} (staged)", diff_ref))
                         );
@@ -225,7 +280,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 }
                 None => {
                     if !config.quiet {
-                        println!(
+                        emit!(
                             "{} --staged requires a git repository; skipping the staged diff.",
                             "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
                         );
@@ -236,12 +291,12 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         } else if !files_complexities.is_empty() {
             let report = compute_diff_report(&files_complexities, &diff_ref, invocation_path);
             if !config.quiet {
-                println!("{}", format_diff_for(&report.entries, &diff_ref));
+                emit!("{}", format_diff_for(&report.entries, &diff_ref));
                 for warning in unresolved_diff_warnings(&report.unresolved, &diff_ref) {
-                    println!(
+                    emit!(
                         "{} {}",
                         "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-                        warning
+                        escape_controls(&warning)
                     );
                 }
             }
@@ -262,9 +317,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
 
     if !config.quiet && !config.plain {
         if cfg!(windows) {
-            println!("{}", rule("Analysis completed!"));
+            emit!("{}", rule("Analysis completed!"));
         } else {
-            println!("{}", rule("🎉 Analysis completed! 🎉"));
+            emit!("{}", rule("🎉 Analysis completed! 🎉"));
         }
     }
 

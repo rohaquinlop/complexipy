@@ -283,3 +283,21 @@ fn json_write_failure_is_io_error() {
 
     assert!(matches!(result, Err(ExportError::Io(_))));
 }
+
+#[test]
+fn csv_cells_that_start_a_formula_are_neutralized() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.csv");
+    let files = vec![file_complexity(
+        "=HYPERLINK(\"https://evil.example\")",
+        "@SUM(A1).py",
+        vec![function_complexity("f", 5)],
+    )];
+
+    output_csv_shared(output.to_str().unwrap(), files, "asc", true, 0).expect("should write");
+
+    let content = fs::read_to_string(&output).expect("should read");
+    let row = content.lines().nth(1).expect("row");
+    assert!(row.starts_with("\"'=HYPERLINK("));
+    assert!(row.contains(",'@SUM(A1).py,"));
+}

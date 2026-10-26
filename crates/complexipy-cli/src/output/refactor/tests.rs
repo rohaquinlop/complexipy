@@ -94,7 +94,7 @@ fn applicability_icons_and_names() {
 
 #[test]
 fn single_plan_output_structure() {
-    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), None));
+    let output = strip_ansi(&output_refactor_plans(&row_with_plans(), None, true));
 
     assert!(output.contains("[1] C001 Extract method"));
     assert!(output.contains("--> src/a.py:2:4"));
@@ -115,7 +115,7 @@ fn unmeasured_reduction_uses_qualifier() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, None));
+    let output = strip_ansi(&output_refactor_plans(&r, None, true));
 
     assert!(output.contains("Estimated reduction"));
     assert!(output.contains("-~2"));
@@ -126,7 +126,7 @@ fn no_plans_returns_empty() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![];
 
-    assert_eq!(output_refactor_plans(&r, None), "");
+    assert_eq!(output_refactor_plans(&r, None, true), "");
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn help_rendered_when_no_suggestion() {
     let mut r = row_with_plans();
     r.refactor_plans = vec![p];
 
-    let output = strip_ansi(&output_refactor_plans(&r, None));
+    let output = strip_ansi(&output_refactor_plans(&r, None, true));
 
     assert!(output.contains("Help:"));
     assert!(output.contains("See the docs"));
@@ -156,8 +156,49 @@ fn caret_span_rendered_from_source() {
             "        return 1".to_string(),
             "    return 0".to_string(),
         ]),
+        true,
     );
 
     assert!(output.contains("2 | "));
     assert!(output.contains("^"));
+}
+
+#[test]
+fn caret_span_counts_columns_in_characters() {
+    let mut p = plan();
+    p.column_start = 3;
+    let output = crate::output::refactor::output_single_plan_for_test(
+        &p,
+        1,
+        "src/a.py",
+        Some(&[
+            "line one".to_string(),
+            "\u{20ac}\u{20ac}if x:".to_string(),
+            "        return 1".to_string(),
+        ]),
+        true,
+    );
+
+    assert!(strip_ansi(&output).contains("|   ^^^^^\n"));
+}
+
+#[test]
+fn snippets_carry_no_color_when_color_is_off() {
+    let output = output_refactor_plans(&row_with_plans(), None, false);
+
+    assert!(output.contains("return x"));
+    assert!(!output.contains("\u{1b}[38;2"));
+}
+
+#[test]
+fn a_comment_colors_only_its_own_line() {
+    let lines = crate::output::refactor::highlight_regions("# note\nx = 1", &|_| None);
+    let comment_color = lines[0]
+        .split('m')
+        .next()
+        .expect("the comment is colored")
+        .to_string();
+
+    assert_eq!(lines.len(), 2);
+    assert!(!lines[1].starts_with(&comment_color));
 }

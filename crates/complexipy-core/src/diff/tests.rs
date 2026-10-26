@@ -675,3 +675,159 @@ fn resolve_diff_flags_plain_passthrough() {
         (None, Some("dev".to_string()))
     );
 }
+
+#[test]
+fn an_option_like_ref_never_reaches_git_show_as_an_option() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("mod.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    let target = dir.path().join("written");
+    let git_ref = format!("--output={}", target.display());
+
+    let entries = compute_diff(
+        &[file_complexity("mod.py", "mod.py", &[("simple", 0)])],
+        &git_ref,
+        dir.path().to_str().unwrap(),
+    );
+
+    assert!(!dir.path().join("written:mod.py").exists());
+    assert!(!target.exists());
+    assert_eq!(entries[0].status(), DiffStatus::New);
+}
+
+#[test]
+fn an_option_like_ref_never_reaches_git_diff_as_an_option() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("mod.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    let victim = dir.path().join("victim.txt");
+    fs::write(&victim, "keep me").unwrap();
+    let git_ref = format!("--output={}", victim.display());
+
+    let entries = compute_staged_diff(&git_ref, dir.path().to_str().unwrap());
+
+    assert_eq!(entries, Some(Vec::new()));
+    assert_eq!(fs::read_to_string(&victim).unwrap(), "keep me");
+}
+
+const PROPERTY_PAIR: &str = "class Svc:\n    @property\n    def value(self):\n        for x in self.a:\n            if x:\n                if self.b:\n                    return x\n        return 0\n\n    @value.setter\n    def value(self, v):\n        self.v = v\n";
+
+#[test]
+fn a_property_setter_cannot_hide_its_getter_in_a_staged_diff() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("a.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("svc.py"), PROPERTY_PAIR).unwrap();
+    git(dir.path(), &["add", "svc.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    let mut keys: Vec<(&str, Option<u64>)> = entries
+        .iter()
+        .map(|entry| (entry.func_name.as_str(), entry.new_complexity))
+        .collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        vec![("Svc::value", Some(6)), ("Svc::value#2", Some(0))]
+    );
+    assert!(has_regressions(&entries, 3));
+}
+
+#[test]
+fn function_keys_number_repeated_names_in_source_order() {
+    use crate::classes::FunctionComplexity;
+    use crate::diff::function_keys;
+
+    let function = |name: &str, line_start: u64| FunctionComplexity {
+        name: name.to_string(),
+        complexity: 0,
+        line_start,
+        line_end: line_start,
+        line_complexities: vec![],
+        refactor_plans: vec![],
+        additional_refactor_plans: 0,
+    };
+    let functions = [function("f", 9), function("g", 5), function("f", 1)];
+
+    assert_eq!(function_keys(&functions), vec!["f#2", "g", "f"]);
+}
+
+#[cfg(unix)]
+const NESTED: &str = "def nested(a, b, c):\n    if a:\n        if b:\n            if c:\n                return 1\n    return 0\n";
+
+#[cfg(unix)]
+fn link_at_head_now_a_regular_file(dir: &Path) {
+    init_repo(dir);
+    std::os::unix::fs::symlink(NESTED, dir.join("x.py")).unwrap();
+    commit_all(dir, "link");
+    fs::remove_file(dir.join("x.py")).unwrap();
+    fs::write(dir.join("x.py"), NESTED).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_at_the_ref_is_never_read_as_python() {
+    let dir = tempdir().unwrap();
+    link_at_head_now_a_regular_file(dir.path());
+
+    let entries = compute_diff(
+        &[file_complexity("x.py", "x.py", &[("nested", 6)])],
+        "HEAD",
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(entries, vec![entry("x.py", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_staged_link_made_a_regular_file_is_compared_as_added() {
+    let dir = tempdir().unwrap();
+    link_at_head_now_a_regular_file(dir.path());
+    git(dir.path(), &["add", "x.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    assert_eq!(entries, vec![entry("x.py", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_path_ending_in_a_carriage_return_is_not_read_as_another_path() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("x.py"), NESTED).unwrap();
+    fs::write(dir.path().join("x.py\r"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("x.py\r"), NESTED).unwrap();
+
+    let entries = compute_diff(
+        &[file_complexity("x.py\r", "x.py\r", &[("nested", 6)])],
+        "HEAD",
+        dir.path().to_str().unwrap(),
+    );
+
+    assert_eq!(entries, vec![entry("x.py\r", "nested", None, Some(6))]);
+    assert!(has_regressions(&entries, 3));
+}
+
+#[cfg(unix)]
+#[test]
+fn compute_staged_diff_reads_a_staged_name_that_starts_like_a_stage_number() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("new.py"), SIMPLE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("0:new.py"), WITH_IF).unwrap();
+    git(dir.path(), &["add", "--", "0:new.py"]);
+
+    let entries = compute_staged_diff("HEAD", dir.path().to_str().unwrap()).unwrap();
+
+    assert_eq!(entries, vec![entry("0:new.py", "with_if", None, Some(1))]);
+}

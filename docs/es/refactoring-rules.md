@@ -96,6 +96,8 @@ Usa guardas `continue` al inicio de los bucles para reducir el anidamiento.
 
 Esta regla se activa cuando un bucle contiene sentencias `if` anidadas que podrían convertirse en guardas `continue` anticipadas.
 
+Solo se ofrece un reemplazo cuando el `if` anidado es la última sentencia del cuerpo del bucle. Si le siguen otras sentencias, una guarda las omitiría, así que la regla da un texto de ayuda en su lugar.
+
 #### Ejemplo
 
 **Antes:**
@@ -388,6 +390,8 @@ Combina sentencias `if` anidadas en un único `if` con las condiciones combinada
 Esta regla se activa cuando el cuerpo completo de una sentencia `if` es un único `if` anidado sin rama `else`, para una cadena de dos o más niveles de este tipo.
 
 La fusión se omite cuando hay alguna sentencia o comentario entre el `if` exterior y el interior, de modo que la sugerencia nunca elimina código.
+
+Un comentario en una de las líneas `if` fusionadas, como `# type: ignore`, pasa a la línea fusionada. Cuando dos o más de esas líneas tienen un comentario, o el `if` interior tiene su cuerpo en la misma línea, la regla da un texto de ayuda en lugar de un reemplazo.
 
 #### Ejemplo
 

@@ -176,6 +176,7 @@ measure_scaling() {
         local lines
         lines="$(wc -l < "$file" | tr -d ' ')"
         local ms qms ratio qratio
+        cd "$(clean_dir "scaling-$size")"
         ms="$(scaling_mean "$tmp/hf-scaling-$size.json" "$NEW_CLI $file")"
         qms="$(scaling_mean "$tmp/hf-scaling-$size-quiet.json" "$NEW_CLI $file --quiet")"
         ratio="-"
@@ -208,6 +209,14 @@ echo "  scaling fixture: $(wc -l < "$SCALING_DIR/scaling_1x.py" | tr -d ' ') lin
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# Each timed run starts in its own empty directory, so neither the repo's
+# complexipy.toml nor a cache written by another workload reaches it.
+clean_dir() {
+    local dir="$tmp/cwd-$1"
+    mkdir -p "$dir"
+    echo "$dir"
+}
+
 declare -a rows
 declare -a rss_rows
 declare -a scaling_rows
@@ -228,6 +237,7 @@ for name in $workload_names; do
             old_cmd="$old_cmd > \"$tmp/out-old.txt\""
         fi
         json="$tmp/hf-$name-$mode.json"
+        cd "$(clean_dir "$name-$mode")"
 
         echo "== $name ($file_count files) [$mode] =="
         run_hyperfine "$name [$mode]" "$WARMUP" "$RUNS" "$json" "$new_cmd" "$old_cmd"
@@ -280,6 +290,7 @@ for mode in default quiet failed render; do
         old_cmd="$old_cmd > \"$tmp/out-old.txt\""
     fi
     json="$tmp/hf-probe-$mode.json"
+    cd "$(clean_dir "probe-$mode")"
 
     echo "== single-file probe [${mode}] =="
     run_hyperfine "probe [$mode]" "$PROBE_WARMUP" "$PROBE_RUNS" "$json" "$new_cmd" "$old_cmd"

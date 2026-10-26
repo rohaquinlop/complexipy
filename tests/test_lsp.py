@@ -664,3 +664,58 @@ def test_shutdown_without_exit_keeps_the_server_alive(tmp_path: Path) -> None:
 
         session.notify("exit", {})
         assert session.process.wait(timeout=TIMEOUT) == 0
+
+
+def test_a_malformed_message_gets_an_error_and_the_session_continues(
+    tmp_path: Path,
+) -> None:
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.process.stdin.write(b"Content-Length: 5\r\n\r\n{oops")
+        session.process.stdin.flush()
+        parse_error = session.read_message()
+        session.send(
+            {
+                "jsonrpc": "2.0",
+                "id": 4294967296,
+                "method": "textDocument/hover",
+                "params": {},
+            }
+        )
+        invalid_id = session.read_message()
+
+        assert parse_error["id"] is None
+        assert parse_error["error"]["code"] == -32700
+        assert invalid_id["id"] == 4294967296
+        assert invalid_id["error"]["code"] == -32600
+        assert session.shutdown() == 0
+
+
+def test_an_oversized_frame_ends_the_server_with_a_message(
+    tmp_path: Path,
+) -> None:
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        session.process.stdin.write(
+            b"Content-Length: 4611686018427387904\r\n\r\n"
+        )
+        session.process.stdin.flush()
+
+        assert session.process.wait(timeout=TIMEOUT) == 1
+        assert "exceeds the limit" in session.stderr_text()
+
+
+def test_a_failed_handshake_ends_the_process(tmp_path: Path) -> None:
+    with LspSession(tmp_path) as session:
+        session.send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"capabilities": "none"},
+            }
+        )
+        response = session.read_message()
+
+        assert response["error"]["code"] == -32602
+        assert session.process.wait(timeout=TIMEOUT) == 1

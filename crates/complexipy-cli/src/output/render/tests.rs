@@ -109,6 +109,29 @@ fn plain_output_lines() {
 }
 
 #[test]
+fn plain_output_escapes_terminal_controls_and_line_breaks() {
+    let path = "csi_\u{1b}[1A\u{1b}[2KALL GOOD\nFAKE.py";
+    let entries = vec![FileEntry {
+        path: path.to_string(),
+        functions: vec![row("f", 5, true, path)],
+    }];
+
+    let output = output_plain(&entries);
+
+    assert!(!output.contains('\u{1b}'));
+    assert_eq!(output.lines().count(), 1);
+    assert!(output.starts_with("csi_\\u{1b}[1A"));
+}
+
+#[test]
+fn invalid_paths_escape_terminal_controls() {
+    let (_, raw) = print_invalid_paths(&["bad_\u{1b}]0;TITLE\u{7}.py".to_string()]);
+
+    assert!(!strip_ansi(&raw).contains('\u{7}'));
+    assert!(strip_ansi(&raw).contains("bad_\\u{1b}]0;TITLE\\u{7}.py"));
+}
+
+#[test]
 fn summary_no_files_message() {
     let (has_success, output) = output_summary(SummaryOptions {
         files: &[],
@@ -122,6 +145,7 @@ fn summary_no_files_message() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert!(has_success);
@@ -160,6 +184,7 @@ fn summary_failed_only_empty_message() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert_eq!(
@@ -182,6 +207,7 @@ fn summary_plain_mode_skips_messages() {
         top: None,
         suggest_refactors: false,
         invocation_path: "",
+        color: false,
     });
 
     assert_eq!(output, "");
@@ -223,6 +249,14 @@ fn rule_matches_rich_layout_at_width() {
     assert_eq!(right, 37);
     assert_eq!(output.chars().count(), 98);
     assert_eq!(UnicodeWidthStr::width(output.as_str()), 100);
+}
+
+#[test]
+fn rule_fits_a_title_wider_than_the_terminal() {
+    let title = format!("Complexity diff (vs {})", "x".repeat(120));
+    let output = strip_ansi(&rule_at(&title, 80));
+
+    assert_eq!(UnicodeWidthStr::width(output.as_str()), 80);
 }
 
 #[test]

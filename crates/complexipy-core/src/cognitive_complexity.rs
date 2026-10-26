@@ -5,11 +5,15 @@ mod shared_deps {
         build_refactor_plans,
     };
     pub use crate::rules::{AnalysisOptions, RuleSet};
+    pub use crate::syntax_tree::{Node, PreOrder, parse_module};
     pub use crate::utils::{
-        LineIndex, count_bool_ops, find_noqa_comment, is_decorator, may_contain_marker,
+        CommentRanges, LineIndex, count_bool_ops, find_noqa_comment, is_decorator,
+        may_contain_marker,
     };
     pub use ruff_python_ast::{self as ast, Stmt};
 }
+
+use std::borrow::Cow;
 
 use crate::classes::CodeComplexity;
 
@@ -25,7 +29,7 @@ struct FileContext<'a> {
     code: &'a str,
     index: LineIndex,
     opts: &'a AnalysisOptions,
-    may_hold_directive: bool,
+    comments: CommentRanges,
     def_names: OnceCell<HashSet<String>>,
     newline: OnceCell<&'static str>,
 }
@@ -36,27 +40,27 @@ impl<'a> FileContext<'a> {
             code,
             index: LineIndex::new(code),
             opts,
-            may_hold_directive: !opts.no_ignore && may_contain_marker(code),
+            comments: if !opts.no_ignore && may_contain_marker(code) {
+                CommentRanges::of(code)
+            } else {
+                CommentRanges::default()
+            },
             def_names: OnceCell::new(),
             newline: OnceCell::new(),
         }
     }
 
     fn is_ignored(&self, f: &ast::StmtFunctionDef) -> bool {
-        self.may_hold_directive
-            && find_noqa_comment(usize::from(f.range.start()), self.code)
-                .is_some_and(|directive| directive.rules.is_none())
+        find_noqa_comment(usize::from(f.range.start()), self.code, &self.comments)
+            .is_some_and(|directive| directive.rules.is_none())
     }
 
-    fn active_rules_for(&self, f: &ast::StmtFunctionDef) -> std::borrow::Cow<'a, RuleSet> {
-        if !self.may_hold_directive {
-            return std::borrow::Cow::Borrowed(&self.opts.rules);
-        }
-        match find_noqa_comment(usize::from(f.range.start()), self.code)
+    fn active_rules_for(&self, f: &ast::StmtFunctionDef) -> Cow<'a, RuleSet> {
+        match find_noqa_comment(usize::from(f.range.start()), self.code, &self.comments)
             .and_then(|directive| directive.rules)
         {
-            Some(rules) => std::borrow::Cow::Owned(self.opts.rules.without(&rules)),
-            None => std::borrow::Cow::Borrowed(&self.opts.rules),
+            Some(rules) => Cow::Owned(self.opts.rules.without(&rules)),
+            None => Cow::Borrowed(&self.opts.rules),
         }
     }
 
@@ -96,7 +100,7 @@ pub struct SyntaxError {
 /// Returns the first syntax error the parser reports for `code`, with its
 /// byte range, or `None` when `code` parses.
 pub fn syntax_error(code: &str) -> Option<SyntaxError> {
-    let error = ruff_python_parser::parse_module(code).err()?;
+    let error = parse_module(code).err()?;
 
     Some(SyntaxError {
         message: error.error.to_string(),
@@ -109,10 +113,9 @@ pub fn code_complexity_shared(
     code: &str,
     opts: &AnalysisOptions,
 ) -> Result<CodeComplexity, String> {
-    let parsed = ruff_python_parser::parse_module(code)
-        .map_err(|e| format!("Failed to parse code: {}", e))?;
-    let ast_body = parsed.into_suite();
-    let (functions, complexity) = function_level_cognitive_complexity_shared(&ast_body, code, opts);
+    let parsed = parse_module(code).map_err(|e| format!("Failed to parse code: {}", e))?;
+    let (functions, complexity) =
+        function_level_cognitive_complexity_shared(parsed.suite(), code, opts);
     Ok(CodeComplexity {
         functions,
         complexity,
@@ -134,29 +137,34 @@ pub fn function_level_cognitive_complexity_shared(
     let mut module_regions: Vec<ComplexityRegion> = Vec::new();
 
     for node in ast_body.iter() {
-        match named_functions(node) {
-            Some(defs) => {
-                for (node, f, name) in defs {
-                    if !file.is_ignored(f) {
-                        functions.push(analyze_function(node, f, name, &file));
-                    }
-                }
+        let defs = named_functions(node);
+        let has_defs = !defs.is_empty();
+        for (def_node, f, name) in defs {
+            if !file.is_ignored(f) {
+                functions.push(analyze_function(def_node, f, name, &file));
             }
-            None => {
-                let result = statement_cognitive_complexity_shared(node, 0, code, &file.index);
-                if opts.check_script {
-                    module_complexity += result.complexity;
-                    module_line_complexities.extend(result.line_complexities);
-                    module_regions.extend(result.regions);
-                } else {
-                    complexity += result.complexity;
-                }
-            }
+        }
+        if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
+            continue;
+        }
+
+        let statement = if has_defs {
+            Cow::Owned(without_definitions(node))
+        } else {
+            Cow::Borrowed(node)
+        };
+        let result = statement_cognitive_complexity_shared(&statement, 0, code, &file.index);
+        if opts.check_script {
+            module_complexity += result.complexity;
+            module_line_complexities.extend(result.line_complexities);
+            module_regions.extend(result.regions);
+        } else {
+            complexity += result.complexity;
         }
     }
 
     if opts.check_script {
-        let total_lines = code.lines().count() as u64;
+        let total_lines = crate::utils::split_lines(code).count() as u64;
         let (refactor_plans, additional_refactor_plans) =
             if opts.builds_plans_for(module_complexity) {
                 file.plans(module_complexity, &module_regions, None, &opts.rules)
@@ -188,9 +196,7 @@ pub fn plans_for_function(
     line_start: u64,
     opts: &AnalysisOptions,
 ) -> Result<Option<(Vec<crate::classes::RefactorPlan>, u64)>, String> {
-    let parsed = ruff_python_parser::parse_module(code)
-        .map_err(|e| format!("Failed to parse code: {}", e))?;
-    let ast_body = parsed.into_suite();
+    let parsed = parse_module(code).map_err(|e| format!("Failed to parse code: {}", e))?;
     let opts = AnalysisOptions {
         with_plans: true,
         plans_above: None,
@@ -198,10 +204,10 @@ pub fn plans_for_function(
     };
     let file = FileContext::new(code, &opts);
 
-    let Some((node, f, name)) = ast_body
+    let Some((node, f, name)) = parsed
+        .suite()
         .iter()
-        .filter_map(named_functions)
-        .flatten()
+        .flat_map(named_functions)
         .filter(|(_, f, _)| !file.is_ignored(f))
         .find(|(_, f, _)| file.index.line_of(usize::from(f.range.start())) == line_start)
     else {
@@ -216,19 +222,123 @@ pub fn plans_for_function(
     )))
 }
 
-fn named_functions(node: &Stmt) -> Option<Vec<(&Stmt, &ast::StmtFunctionDef, String)>> {
+type NamedFunction<'a> = (&'a Stmt, &'a ast::StmtFunctionDef, String);
+
+/// Every function a module-level statement defines: the statement itself
+/// when it is a `def`, the methods of a class and of its nested classes, and
+/// the definitions under `if`, `try`, `with`, `for`, `while`, and `match`.
+/// Methods are named `Class::method`, through every enclosing class. The
+/// bodies of functions are not searched: a nested function belongs to the
+/// function that holds it.
+fn named_functions(node: &Stmt) -> Vec<NamedFunction<'_>> {
+    let mut defs = Vec::new();
+    collect_named_functions(node, None, &mut defs);
+    defs
+}
+
+fn collect_named_functions<'a>(
+    node: &'a Stmt,
+    class: Option<&str>,
+    defs: &mut Vec<NamedFunction<'a>>,
+) {
     match node {
-        Stmt::FunctionDef(f) => Some(vec![(node, f, f.name.to_string())]),
-        Stmt::ClassDef(c) => Some(
-            c.body
-                .iter()
-                .filter_map(|node| match node {
-                    Stmt::FunctionDef(f) => Some((node, f, format!("{}::{}", c.name, f.name))),
-                    _ => None,
-                })
-                .collect(),
-        ),
-        _ => None,
+        Stmt::FunctionDef(f) => defs.push((node, f, qualified(class, f.name.as_str()))),
+        Stmt::ClassDef(c) => {
+            let name = qualified(class, c.name.as_str());
+            for child in c.body.iter() {
+                collect_named_functions(child, Some(&name), defs);
+            }
+        }
+        _ => {
+            for suite in nested_suites(node) {
+                for child in suite.iter() {
+                    collect_named_functions(child, class, defs);
+                }
+            }
+        }
+    }
+}
+
+fn qualified(class: Option<&str>, name: &str) -> String {
+    match class {
+        Some(class) => format!("{}::{}", class, name),
+        None => name.to_string(),
+    }
+}
+
+fn nested_suites(node: &Stmt) -> Vec<&[Stmt]> {
+    match node {
+        Stmt::If(i) => std::iter::once(i.body.as_slice())
+            .chain(
+                i.elif_else_clauses
+                    .iter()
+                    .map(|clause| clause.body.as_slice()),
+            )
+            .collect(),
+        Stmt::For(f) => vec![&f.body, &f.orelse],
+        Stmt::While(w) => vec![&w.body, &w.orelse],
+        Stmt::Try(t) => std::iter::once(t.body.as_slice())
+            .chain(t.handlers.iter().map(|handler| {
+                let ast::ExceptHandler::ExceptHandler(handler) = handler;
+                handler.body.as_slice()
+            }))
+            .chain([t.orelse.as_slice(), t.finalbody.as_slice()])
+            .collect(),
+        Stmt::With(w) => vec![&w.body],
+        Stmt::Match(m) => m.cases.iter().map(|case| case.body.as_slice()).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn nested_suites_mut(node: &mut Stmt) -> Vec<&mut Vec<Stmt>> {
+    match node {
+        Stmt::If(i) => std::iter::once(&mut i.body)
+            .chain(
+                i.elif_else_clauses
+                    .iter_mut()
+                    .map(|clause| &mut clause.body),
+            )
+            .collect(),
+        Stmt::For(f) => vec![&mut f.body, &mut f.orelse],
+        Stmt::While(w) => vec![&mut w.body, &mut w.orelse],
+        Stmt::Try(t) => std::iter::once(&mut t.body)
+            .chain(t.handlers.iter_mut().map(|handler| {
+                let ast::ExceptHandler::ExceptHandler(handler) = handler;
+                &mut handler.body
+            }))
+            .chain([&mut t.orelse, &mut t.finalbody])
+            .collect(),
+        Stmt::With(w) => vec![&mut w.body],
+        Stmt::Match(m) => m.cases.iter_mut().map(|case| &mut case.body).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// A copy of a module-level compound statement with every `def` and `class`
+/// it holds replaced by `pass`, because those are scored on their own and
+/// must not count again toward the module.
+fn without_definitions(node: &Stmt) -> Stmt {
+    let mut stripped = node.clone();
+    strip_definitions(&mut stripped);
+    stripped
+}
+
+fn strip_definitions(node: &mut Stmt) {
+    for suite in nested_suites_mut(node) {
+        for child in suite.iter_mut() {
+            let range = match child {
+                Stmt::FunctionDef(f) => f.range,
+                Stmt::ClassDef(c) => c.range,
+                other => {
+                    strip_definitions(other);
+                    continue;
+                }
+            };
+            *child = Stmt::Pass(ast::StmtPass {
+                node_index: Default::default(),
+                range,
+            });
+        }
     }
 }
 
@@ -274,44 +384,20 @@ fn analyze_function(
     }
 }
 
-struct RecursionFinder<'a> {
-    name: &'a str,
-    found: Option<usize>,
-}
-
-impl<'a> ast::visitor::Visitor<'a> for RecursionFinder<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        if self.found.is_some() {
-            return;
-        }
-        if matches!(stmt, Stmt::FunctionDef(_) | Stmt::ClassDef(_)) {
-            return;
-        }
-        ast::visitor::walk_stmt(self, stmt);
-    }
-
-    fn visit_expr(&mut self, expr: &'a ast::Expr) {
-        if self.found.is_some() {
-            return;
-        }
-        if let ast::Expr::Call(c) = expr
-            && let ast::Expr::Name(n) = c.func.as_ref()
-            && n.id.as_str() == self.name
-        {
-            self.found = Some(usize::from(c.range.start()));
-            return;
-        }
-        if matches!(expr, ast::Expr::Lambda(_)) {
-            return;
-        }
-        ast::visitor::walk_expr(self, expr);
-    }
-}
-
 fn detect_direct_recursion(body: &[Stmt], name: &str, index: &LineIndex) -> Option<u64> {
-    let mut finder = RecursionFinder { name, found: None };
-    ast::visitor::walk_body(&mut finder, body);
-    finder.found.map(|offset| index.line_of(offset))
+    let mut walk = PreOrder::new(body.iter().map(Node::Stmt));
+    while let Some(node) = walk.next() {
+        match node {
+            Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_)) => continue,
+            Node::Expr(ast::Expr::Call(call)) if matches!(call.func.as_ref(), ast::Expr::Name(callee) if callee.id.as_str() == name) =>
+            {
+                return Some(index.line_of(usize::from(call.range.start())));
+            }
+            Node::Expr(ast::Expr::Lambda(_)) => continue,
+            _ => walk.descend(node),
+        }
+    }
+    None
 }
 
 fn empty_result() -> ComplexityResult {
@@ -446,6 +532,7 @@ fn loop_complexity(
             boolean,
             total: own,
             bool_op_count: boolean,
+            has_else: !orelse.is_empty(),
             children,
             ..Default::default()
         },
@@ -580,6 +667,7 @@ fn statement_cognitive_complexity_shared(
                     total: own,
                     elif_count,
                     bool_op_count: boolean,
+                    has_else: !i.elif_else_clauses.is_empty(),
                     children,
                 },
             );
@@ -629,6 +717,7 @@ fn statement_cognitive_complexity_shared(
                     structural,
                     nesting: nesting_level,
                     total: own,
+                    has_else: !t.orelse.is_empty(),
                     children,
                     ..Default::default()
                 },

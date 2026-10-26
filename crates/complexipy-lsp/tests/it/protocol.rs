@@ -4,9 +4,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use complexipy_lsp::server::{
-    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES, DID_CHANGE_WORKSPACE_FOLDERS,
-    DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT,
-    REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN, serve,
+    CONFIG_WARNING_MESSAGE, DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES,
+    DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE,
+    HOVER, INLAY_HINT, LINE_COMPLEXITIES, REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN,
+    serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
@@ -330,6 +331,13 @@ impl Session {
         serde_json::from_value(result).unwrap()
     }
 
+    fn line_complexities(&mut self, uri: &Uri) -> serde_json::Value {
+        self.request(
+            LINE_COMPLEXITIES,
+            serde_json::json!({ "textDocument": { "uri": uri.as_str() } }),
+        )
+    }
+
     fn shutdown(mut self) -> i32 {
         let id = self.next_id();
         self.publish(id.clone(), SHUTDOWN, ());
@@ -342,6 +350,23 @@ impl Session {
     fn join(self) -> i32 {
         self.server.join().unwrap()
     }
+}
+
+#[test]
+fn requests_after_shutdown_get_an_invalid_request_error() {
+    let mut session = start();
+    session.initialize();
+
+    let shutdown = session.next_id();
+    session.publish(shutdown.clone(), SHUTDOWN, ());
+    session.result(shutdown);
+    let late = session.next_id();
+    session.publish(late.clone(), HOVER, ());
+    let error = session.response(late).unwrap_err();
+    session.send(Notification::new(EXIT.to_string(), ()));
+
+    assert_eq!(error.code, ErrorCode::InvalidRequest as i32);
+    assert_eq!(session.join(), EXIT_CODE_CLEAN);
 }
 
 #[test]
@@ -378,7 +403,7 @@ fn publishes_diagnostics_and_hints_above_the_limit() {
         "cognitive complexity 3 exceeds the allowed 2"
     );
     assert_eq!(diagnostics[0].severity, Some(DiagnosticSeverity::WARNING));
-    assert_eq!(diagnostics[0].range.start, Position::new(4, 0));
+    assert_eq!(diagnostics[0].range.start, Position::new(4, 4));
 
     let hints = session.inlay_hints(&uri);
     assert_eq!(hints.len(), 1);
@@ -504,6 +529,75 @@ fn hover_reports_the_function_total() {
     assert!(content.value.contains("**heavy**: cognitive complexity 3"));
     assert!(session.hover(&uri, 2).is_none());
 
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn line_complexities_report_every_function_and_line() {
+    let mut session = start();
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    assert_eq!(
+        session.line_complexities(&uri),
+        serde_json::json!({
+            "version": 1,
+            "maxComplexityAllowed": 15,
+            "functions": [
+                { "name": "light", "complexity": 0, "line": 0, "lines": [] },
+                {
+                    "name": "heavy",
+                    "complexity": 3,
+                    "line": 4,
+                    "lines": [
+                        { "line": 5, "complexity": 1 },
+                        { "line": 6, "complexity": 2 }
+                    ]
+                }
+            ]
+        })
+    );
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn line_complexities_follow_an_unanalyzed_edit() {
+    let mut session = start();
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+    session.change(&uri, 2, CLEAN);
+
+    let result = session.line_complexities(&uri);
+
+    assert_eq!(result["version"], serde_json::json!(2));
+    assert_eq!(result["functions"].as_array().map(Vec::len), Some(1));
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn line_complexities_skip_excluded_ignored_and_unopened_documents() {
+    let mut session = start();
+    session.write_config("exclude = [\"excluded.py\"]\n");
+    session.initialize();
+    let excluded = session.document_uri("excluded.py");
+    let ignored = session.document_uri("ignored.py");
+    let missing = session.document_uri("missing.py");
+    session.open(&excluded, SAMPLE);
+    session.open(
+        &ignored,
+        "def heavy(a):  # complexipy: ignore\n    if a:\n        return 1\n",
+    );
+
+    for uri in [&excluded, &ignored, &missing] {
+        assert_eq!(
+            session.line_complexities(uri)["functions"],
+            serde_json::json!([]),
+            "{}",
+            uri.as_str()
+        );
+    }
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }
 
@@ -728,7 +822,7 @@ fn folders_added_and_removed_at_runtime_take_effect() {
 }
 
 #[test]
-fn config_problems_reach_the_client_once() {
+fn config_problems_reach_the_client_once_as_fixed_text() {
     let mut session = start();
     session.write_config("select = [\"C07\"]\n");
     session.initialize();
@@ -736,13 +830,9 @@ fn config_problems_reach_the_client_once() {
     session.open(&uri, SAMPLE);
 
     let messages = session.messages_before_diagnostics(&uri);
-    assert_eq!(messages.len(), 2);
-    assert!(
-        messages
-            .iter()
-            .all(|message| message.typ == MessageType::WARNING)
-    );
-    assert!(messages[0].message.contains("'C07'"));
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].typ, MessageType::WARNING);
+    assert_eq!(messages[0].message, CONFIG_WARNING_MESSAGE);
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }
@@ -851,7 +941,29 @@ fn a_malformed_config_edit_warns_once_and_uses_the_defaults() {
 
     let messages = session.messages_before_diagnostics(&uri);
     assert_eq!(messages.len(), 1);
-    assert!(messages[0].message.starts_with("Failed to parse "));
+    assert_eq!(messages[0].message, CONFIG_WARNING_MESSAGE);
     assert!(session.inlay_hints(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_link_in_the_config_never_reaches_the_editor() {
+    let mut session = start();
+    session.write_config(
+        "max-complexity-allowed = \"[Open](command:workbench.action.terminal.new)\"\n\
+         select = [\"[FIX](https://evil.example/x)\"]\n",
+    );
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    let messages = session.messages_before_diagnostics(&uri);
+    assert!(!messages.is_empty());
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.message == CONFIG_WARNING_MESSAGE)
+    );
+
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

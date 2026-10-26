@@ -1,9 +1,11 @@
 //! Tests for document analysis: diagnostics, inlay hints, and hover.
 
-use complexipy_core::config::{InlayHints, LspConfig, LspSection, StringOrList};
+use complexipy_core::config::{
+    DiagnosticRange, HoverScope, InlayHints, LspConfig, LspSection, StringOrList,
+};
 use complexipy_lsp::analysis::{
-    DIAGNOSTIC_CODE, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, LineBounds, analyze, is_stale,
-    is_within,
+    DIAGNOSTIC_CODE, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, FunctionLines, LineBounds,
+    LineIncrement, analyze, is_stale, is_within,
 };
 use lsp_types::{
     DiagnosticSeverity, HoverContents, InlayHint, InlayHintLabel, NumberOrString, Position, Range,
@@ -44,6 +46,19 @@ fn config_with(
             inlay_hints,
             per_line_hints,
             diagnostics,
+            ..LspSection::default()
+        },
+        ..LspConfig::default()
+    }
+}
+
+fn scoped(hover: HoverScope, diagnostic_range: DiagnosticRange) -> LspConfig {
+    LspConfig {
+        max_complexity_allowed: 2,
+        lsp: LspSection {
+            hover,
+            diagnostic_range,
+            ..LspSection::default()
         },
         ..LspConfig::default()
     }
@@ -223,8 +238,83 @@ fn diagnostics_report_the_function_and_the_limit() {
         Some(NumberOrString::String(DIAGNOSTIC_CODE.to_string()))
     );
     assert_eq!(diagnostics[0].severity, Some(DiagnosticSeverity::WARNING));
-    assert_eq!(diagnostics[0].range.start, Position::new(4, 0));
-    assert_eq!(diagnostics[0].range.end, Position::new(8, 12));
+    assert_eq!(
+        diagnostics[0].range,
+        Range::new(Position::new(4, 4), Position::new(4, 9))
+    );
+}
+
+#[test]
+fn diagnostics_underline_the_function_name() {
+    for (source, expected) in [
+        (
+            DECORATED,
+            Range::new(Position::new(1, 4), Position::new(1, 9)),
+        ),
+        (
+            ASYNC,
+            Range::new(Position::new(0, 10), Position::new(0, 15)),
+        ),
+        (
+            MULTILINE,
+            Range::new(Position::new(0, 4), Position::new(0, 9)),
+        ),
+        (
+            DECORATOR_STRING,
+            Range::new(Position::new(5, 4), Position::new(5, 9)),
+        ),
+    ] {
+        let analysis = analyzed(source, &config(0));
+        let diagnostics = analysis.diagnostics(&config(0));
+
+        assert_eq!(diagnostics.len(), 1, "{:?}", source);
+        assert_eq!(diagnostics[0].range, expected, "{:?}", source);
+    }
+}
+
+#[test]
+fn diagnostics_can_cover_the_whole_function() {
+    let config = scoped(HoverScope::Signature, DiagnosticRange::Function);
+    let analysis = analyzed(SAMPLE, &config);
+    let diagnostics = analysis.diagnostics(&config);
+
+    assert_eq!(
+        diagnostics[0].range,
+        Range::new(Position::new(4, 0), Position::new(8, 12))
+    );
+}
+
+#[test]
+fn cr_line_breaks_place_diagnostics_on_the_same_lines() {
+    for newline in ["\r", "\r\n"] {
+        let source = SAMPLE.replace('\n', newline);
+        for (diagnostic_range, expected) in [
+            (
+                DiagnosticRange::Name,
+                Range::new(Position::new(4, 4), Position::new(4, 9)),
+            ),
+            (
+                DiagnosticRange::Function,
+                Range::new(Position::new(4, 0), Position::new(8, 12)),
+            ),
+        ] {
+            let config = scoped(HoverScope::Signature, diagnostic_range);
+            let analysis = analyzed(&source, &config);
+            let diagnostics = analysis.diagnostics(&config);
+
+            assert_eq!(diagnostics.len(), 1, "{newline:?}");
+            assert_eq!(diagnostics[0].range, expected, "{newline:?}");
+        }
+    }
+}
+
+#[test]
+fn hover_builds_plans_for_a_cr_source() {
+    let source = "def f(xs, a, b, c):\n    if c:\r        for x in xs:\r            if a:\r                if b:\r                    print(x)\n";
+    let config = scoped(HoverScope::Function, DiagnosticRange::Name);
+    let mut analysis = analyzed(source, &config);
+
+    assert!(analysis.hover(&config, Position::new(3, 0)).is_some());
 }
 
 #[test]
@@ -272,6 +362,20 @@ fn hover_reports_the_total_and_the_limit() {
 
     assert!(content.value.contains("**heavy**: cognitive complexity 3"));
     assert!(content.value.contains("Exceeds the allowed 2"));
+    assert!(content.value.contains("Top refactor"));
+}
+
+#[test]
+fn hover_shows_the_function_name_literally() {
+    let source = "class Box:\n    def __init__(self, a, b):\n        if a:\n            if b:\n                return\n";
+    let mut analysis = analyzed(source, &config(2));
+    let hover = analysis.hover(&config(2), Position::new(1, 0)).unwrap();
+
+    let HoverContents::Markup(content) = hover.contents else {
+        panic!("expected markup content");
+    };
+
+    assert!(content.value.starts_with("**Box\\:\\:\\_\\_init\\_\\_**"));
 }
 
 #[test]
@@ -282,15 +386,90 @@ fn hover_outside_a_function_is_empty() {
 }
 
 #[test]
-fn hover_includes_the_top_refactor_plan() {
+fn hover_answers_only_on_the_signature_by_default() {
     let mut analysis = analyzed(SAMPLE, &config(2));
-    let hover = analysis.hover(&config(2), Position::new(5, 0)).unwrap();
+    let hover = analysis.hover(&config(2), Position::new(4, 0)).unwrap();
 
-    let HoverContents::Markup(content) = hover.contents else {
-        panic!("expected markup content");
-    };
+    assert_eq!(
+        hover.range,
+        Some(Range::new(Position::new(4, 0), Position::new(4, 16)))
+    );
+    assert!(
+        analysis
+            .plans_needed(&config(2), Position::new(5, 0))
+            .is_none()
+    );
+    assert!(analysis.hover(&config(2), Position::new(5, 0)).is_none());
+}
 
-    assert!(content.value.contains("Top refactor"));
+#[test]
+fn hover_covers_every_line_of_a_multiline_signature() {
+    let mut analysis = analyzed(MULTILINE, &config(2));
+
+    for line in 0..4 {
+        assert!(analysis.hover(&config(2), Position::new(line, 0)).is_some());
+    }
+    assert!(analysis.hover(&config(2), Position::new(4, 0)).is_none());
+}
+
+#[test]
+fn hover_can_cover_the_whole_function() {
+    let config = scoped(HoverScope::Function, DiagnosticRange::Name);
+    let mut analysis = analyzed(SAMPLE, &config);
+    let hover = analysis.hover(&config, Position::new(5, 0)).unwrap();
+
+    assert_eq!(
+        hover.range,
+        Some(Range::new(Position::new(4, 0), Position::new(8, 12)))
+    );
+}
+
+#[test]
+fn hover_can_be_disabled() {
+    let config = scoped(HoverScope::Never, DiagnosticRange::Name);
+    let mut analysis = analyzed(SAMPLE, &config);
+
+    assert!(
+        analysis
+            .plans_needed(&config, Position::new(4, 0))
+            .is_none()
+    );
+    assert!(analysis.hover(&config, Position::new(4, 0)).is_none());
+}
+
+#[test]
+fn line_complexities_ignore_the_hint_settings() {
+    let config = config_with(15, InlayHints::Never, false, false);
+    let result = analyzed(SAMPLE, &config).line_complexities(&config);
+
+    assert_eq!(result.version, 1);
+    assert_eq!(result.max_complexity_allowed, 15);
+    assert_eq!(
+        result.functions,
+        vec![
+            FunctionLines {
+                name: "light".to_string(),
+                complexity: 0,
+                line: 0,
+                lines: Vec::new(),
+            },
+            FunctionLines {
+                name: "heavy".to_string(),
+                complexity: 3,
+                line: 4,
+                lines: vec![
+                    LineIncrement {
+                        line: 5,
+                        complexity: 1,
+                    },
+                    LineIncrement {
+                        line: 6,
+                        complexity: 2,
+                    },
+                ],
+            },
+        ]
+    );
 }
 
 #[test]

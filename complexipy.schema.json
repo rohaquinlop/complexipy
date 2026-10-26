@@ -11,6 +11,13 @@
       ],
       "type": "string"
     },
+    "DiagnosticRange": {
+      "enum": [
+        "name",
+        "function"
+      ],
+      "type": "string"
+    },
     "DiffSection": {
       "additionalProperties": false,
       "properties": {
@@ -31,6 +38,14 @@
       },
       "type": "object"
     },
+    "HoverScope": {
+      "enum": [
+        "signature",
+        "function",
+        "never"
+      ],
+      "type": "string"
+    },
     "InlayHints": {
       "enum": [
         "always",
@@ -43,10 +58,28 @@
       "additionalProperties": false,
       "description": "Settings for the `complexipy lsp` language server.",
       "properties": {
+        "diagnostic-range": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiagnosticRange"
+            }
+          ],
+          "default": "name",
+          "description": "What the warning underlines: `name` the function name only, `function` the whole function."
+        },
         "diagnostics": {
           "default": true,
           "description": "Publish a warning for every function above `max-complexity-allowed`.",
           "type": "boolean"
+        },
+        "hover": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/HoverScope"
+            }
+          ],
+          "default": "signature",
+          "description": "Where hover answers: `signature` on the `def` lines only, `function` on any line of the function, `never` for no hover."
         },
         "inlay-hints": {
           "allOf": [

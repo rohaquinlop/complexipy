@@ -3,43 +3,55 @@ use std::path::Path;
 use complexipy_core::config::{LspConfig, is_config_file_name, read_complexipy_config};
 use complexipy_core::{
     ExcludeMatcher, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
+    unmatchable_exclude_patterns,
 };
 use lsp_types::Uri;
-use serde::Deserialize;
 
-use crate::documents::uri_to_path;
+use crate::documents::{lexically_normalized, uri_to_path};
 
 pub struct Folder {
     pub root: String,
     pub config: LspConfig,
     exclude: ExcludeMatcher,
+    anchors: Vec<String>,
+    has_config: bool,
 }
 
 impl Folder {
+    /// A folder whose own configuration file holds `config`.
     pub fn new(root: String, config: LspConfig) -> Self {
         let exclude = ExcludeMatcher::new(&config.exclude.clone().into_vec());
+        let anchors = config
+            .paths
+            .clone()
+            .into_vec()
+            .iter()
+            .map(|path| {
+                let joined = Path::new(&root).join(path);
+                lexically_normalized(&joined.to_string_lossy().replace('\\', "/"))
+            })
+            .collect();
 
         Self {
             root,
             config,
             exclude,
+            anchors,
+            has_config: true,
         }
     }
 
     pub fn load(root: String) -> (Self, Vec<String>) {
-        let (source, mut warnings) = read_complexipy_config(&root);
+        let (source, mut warnings) = read_complexipy_config::<LspConfig>(&root);
         let Some(source) = source else {
-            return (Self::new(root, LspConfig::default()), warnings);
+            let folder = Self {
+                has_config: false,
+                ..Self::new(root, LspConfig::default())
+            };
+            return (folder, warnings);
         };
         let path = source.path.display().to_string();
-
-        let config = match LspConfig::deserialize(source.value) {
-            Ok(config) => config,
-            Err(error) => {
-                warnings.push(format!("invalid config in {}: {}", path, error));
-                return (Self::new(root, LspConfig::default()), warnings);
-            }
-        };
+        let config = source.value;
 
         let (rules, unknown) = config.resolve_rules();
         for rule_id in &unknown {
@@ -50,6 +62,15 @@ impl Folder {
         }
 
         let folder = Self::new(root, config);
+        let unmatchable = unmatchable_exclude_patterns(&folder.config.exclude.clone().into_vec());
+        if !unmatchable.is_empty() {
+            warnings.push(format!(
+                "{}: these exclude patterns can never match, because paths are matched \
+                 relative to the folder without a leading `/` or `./` and never end \
+                 with `/`: {:?}",
+                path, unmatchable
+            ));
+        }
         if !folder.exclude.invalid().is_empty() {
             warnings.push(format!(
                 "{}: ignoring invalid exclude patterns: {:?}",
@@ -68,8 +89,15 @@ impl Folder {
         (folder, warnings)
     }
 
+    /// Matches `path` relative to the folder, and relative to each `paths`
+    /// entry of the configuration that contains it, as a CLI run in the
+    /// folder does.
     pub fn is_excluded(&self, path: &str) -> bool {
         self.exclude.is_excluded(path, &self.root)
+            || self
+                .anchors
+                .iter()
+                .any(|anchor| self.exclude.is_excluded_inside(path, anchor))
     }
 
     fn contains(&self, path: &Path) -> bool {
@@ -118,13 +146,22 @@ impl Workspace {
         workspace
     }
 
+    /// The deepest folder with its own configuration that contains `path`,
+    /// or the deepest folder that contains it when none has one.
     pub fn for_path(&self, path: &str) -> &Folder {
         let path = Path::new(path);
-
-        self.folders
+        let mut containing: Vec<&Folder> = self
+            .folders
             .iter()
             .filter(|folder| folder.contains(path))
-            .max_by_key(|folder| folder.depth())
+            .collect();
+        containing.sort_by_key(|folder| std::cmp::Reverse(folder.depth()));
+
+        containing
+            .iter()
+            .find(|folder| folder.has_config)
+            .or(containing.first())
+            .copied()
             .unwrap_or_else(|| self.first())
     }
 
