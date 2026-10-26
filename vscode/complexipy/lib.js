@@ -19,13 +19,20 @@ function isExecutable(file) {
 	}
 }
 
-function findExecutable(command, env = process.env, platform = process.platform) {
-	if (path.isAbsolute(command) || command.includes('/') || command.includes('\\')) {
+function findExecutable(command, env = process.env, platform = process.platform, workspaceRoot = undefined) {
+	if (path.isAbsolute(command)) {
 		return isExecutable(command) ? command : undefined;
+	}
+	if (command.includes('/') || command.includes('\\')) {
+		if (workspaceRoot === undefined) {
+			return undefined;
+		}
+		const resolved = path.resolve(workspaceRoot, command);
+		return isExecutable(resolved) ? resolved : undefined;
 	}
 	const extensions = platform === 'win32' ? (env.PATHEXT || '.EXE;.CMD;.BAT').split(';') : [''];
 	const delimiter = platform === 'win32' ? ';' : ':';
-	for (const dir of (env.PATH || '').split(delimiter).filter(Boolean)) {
+	for (const dir of (env.PATH || '').split(delimiter).filter(dir => path.isAbsolute(dir))) {
 		for (const extension of extensions) {
 			const candidate = path.join(dir, command + extension);
 			if (isExecutable(candidate)) {

@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use complexipy_core::classes::RefactorPlan;
 use complexipy_core::config::{LspConfig, config_file_names};
+use complexipy_core::sanitize::escape_controls;
 use crossbeam_channel::{Receiver, Sender, select};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -39,6 +40,7 @@ pub const HOVER: &str = "textDocument/hover";
 pub const LINE_COMPLEXITIES: &str = "complexipy/lineComplexities";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
+pub const CONFIG_WARNING_MESSAGE: &str = "complexipy found a problem in the project configuration. See the complexipy output log for details.";
 pub const REGISTER_CAPABILITY: &str = "client/registerCapability";
 const CONFIG_WATCH_ID: &str = "complexipy-config-watch";
 pub const SHUTDOWN: &str = "shutdown";
@@ -53,7 +55,7 @@ pub fn serve(connection: Connection) -> i32 {
     let initialized = match handshake(&connection) {
         Ok(initialized) => initialized,
         Err(error) => {
-            eprintln!("{}: {}", SERVER_NAME, shortened(&error));
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(&shortened(&error)));
             return EXIT_CODE_FAILURE;
         }
     };
@@ -534,7 +536,7 @@ impl Server {
             eprintln!(
                 "{}: {}: ignoring an incremental change, complexipy declares full document sync",
                 SERVER_NAME,
-                uri.as_str()
+                escape_controls(uri.as_str())
             );
             return;
         }
@@ -631,17 +633,24 @@ impl Server {
         self.reanalyze_all();
     }
 
+    /// Logs each configuration warning to stderr, and shows the editor one
+    /// fixed message: a warning quotes repository text, which an editor
+    /// could render as a clickable link.
     fn report_warnings(&mut self) {
-        for warning in self.workspace.take_warnings() {
-            eprintln!("{}: {}", SERVER_NAME, warning);
-            self.send(Notification::new(
-                SHOW_MESSAGE.to_string(),
-                ShowMessageParams {
-                    typ: MessageType::WARNING,
-                    message: warning,
-                },
-            ));
+        let warnings = self.workspace.take_warnings();
+        if warnings.is_empty() {
+            return;
         }
+        for warning in &warnings {
+            eprintln!("{}: {}", SERVER_NAME, escape_controls(warning));
+        }
+        self.send(Notification::new(
+            SHOW_MESSAGE.to_string(),
+            ShowMessageParams {
+                typ: MessageType::WARNING,
+                message: CONFIG_WARNING_MESSAGE.to_string(),
+            },
+        ));
     }
 
     /// Drops every analysis and marks every document dirty. Work already
@@ -995,7 +1004,12 @@ impl Server {
     fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
         let diagnostics = self.failure_diagnostics(uri, &failure);
 
-        eprintln!("{}: {}: {}", SERVER_NAME, uri.as_str(), failure.message);
+        eprintln!(
+            "{}: {}: {}",
+            SERVER_NAME,
+            escape_controls(uri.as_str()),
+            escape_controls(&failure.message)
+        );
         self.failures.insert(Documents::key(uri), failure);
         self.send_diagnostics(uri.clone(), diagnostics, Some(version));
     }

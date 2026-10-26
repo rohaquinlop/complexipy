@@ -46,8 +46,13 @@ function decorationsActive() {
 	return settings().get('display') === 'decorations' && !decorationsUnsupported;
 }
 
-function createClient(command, args) {
-	const serverOptions = { command, args, transport: TransportKind.stdio };
+function workspaceRoot() {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	return folder?.uri.scheme === 'file' ? folder.uri.fsPath : undefined;
+}
+
+function createClient(command, args, cwd) {
+	const serverOptions = { command, args, transport: TransportKind.stdio, options: cwd === undefined ? {} : { cwd } };
 	const clientOptions = {
 		documentSelector: [
 			{ scheme: 'file', language: 'python' },
@@ -63,13 +68,14 @@ function createClient(command, args) {
 
 async function startClient() {
 	const { command, args } = serverCommand(settings().get('server.path'));
-	const executable = findExecutable(command);
+	const cwd = workspaceRoot();
+	const executable = findExecutable(command, process.env, process.platform, cwd);
 	serverFailed = executable === undefined;
 	decorationsUnsupported = false;
 	if (serverFailed) {
 		vscode.window.showErrorMessage(`complexipy: cannot find "${command}". ${INSTALL_HINT}`);
 	} else {
-		client = createClient(executable, args);
+		client = createClient(executable, args, cwd);
 		try {
 			await withinTimeout(client.start(), START_TIMEOUT_MS);
 		} catch (err) {
@@ -248,6 +254,7 @@ async function activate(context) {
 				refreshInlayHints();
 			}
 		}),
+		vscode.workspace.onDidGrantWorkspaceTrust(restartClient),
 		{ dispose: () => refreshTimers.forEach(clearTimeout) }
 	);
 

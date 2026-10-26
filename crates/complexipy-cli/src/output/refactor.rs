@@ -1,4 +1,4 @@
-use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
 
 use owo_colors::{OwoColorize, Stream, Style};
@@ -9,6 +9,8 @@ use syntect::parsing::SyntaxSet;
 use crate::types::FunctionRow;
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
+use complexipy_core::fs_guard::{MAX_SOURCE_BYTES, read_bounded_text};
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::split_lines;
 
 /// Renders the plans of one function. `source_lines` holds the lines of
@@ -22,7 +24,8 @@ pub fn output_refactor_plans(
         return String::new();
     }
 
-    let display_path = normalize_path(&function.path, &function.file_name);
+    let display_path =
+        escape_controls(&normalize_path(&function.path, &function.file_name)).into_owned();
 
     let mut sections = vec![format!(
         "\n      {}",
@@ -74,7 +77,7 @@ pub fn read_source_lines(
     } else {
         full_path
     };
-    fs::read_to_string(full_path)
+    read_bounded_text(Path::new(&full_path), None, MAX_SOURCE_BYTES)
         .ok()
         .map(|content| split_lines(&content).map(str::to_string).collect())
 }
@@ -96,7 +99,7 @@ fn output_single_plan(
         index,
         plan.rule_id.if_supports_color(Stream::Stdout, |text| text
             .style(Style::new().cyan().bold())),
-        plan.title
+        escape_controls(&plan.title)
     )];
     sections.push(format!(
         "          --> {}:{}:{}",
@@ -130,7 +133,7 @@ fn output_single_plan(
     if !plan.description.is_empty() {
         sections.push(format!(
             "\n          {}",
-            plan.description
+            escape_controls(&plan.description)
                 .if_supports_color(Stream::Stdout, |text| text.dimmed())
         ));
     }
@@ -138,7 +141,7 @@ fn output_single_plan(
         sections.push(format!(
             "\n          {} {}",
             ">".if_supports_color(Stream::Stdout, |text| text.bold()),
-            plan.explanation
+            escape_controls(&plan.explanation)
         ));
     }
 
@@ -229,8 +232,7 @@ fn output_suggestion(
     if !suggestion.description.is_empty() {
         sections.push(format!(
             "          {}",
-            suggestion
-                .description
+            escape_controls(&suggestion.description)
                 .if_supports_color(Stream::Stdout, |text| text.dimmed())
         ));
     }
@@ -295,7 +297,7 @@ fn output_caret_span(plan: &RefactorPlan, source_lines: Option<&[String]>) -> St
         "          {}\n          {}{}\n          {}{}{}\n          {}",
         blank_gutter,
         gutter,
-        source_line,
+        escape_controls(source_line),
         blank_gutter,
         " ".repeat(column_index),
         "^".repeat(caret_width),
@@ -307,7 +309,7 @@ fn output_help(help_text: &str) -> String {
     format!(
         "\n          {}\n          {}",
         "Help:".if_supports_color(Stream::Stdout, |text| text.bold()),
-        help_text
+        escape_controls(help_text)
     )
 }
 
@@ -367,7 +369,7 @@ pub fn highlight_lines_where(
             if last_shown.is_none_or(|last| index > last) {
                 return String::new();
             }
-            let terminated = format!("{line}\n");
+            let terminated = format!("{}\n", escape_controls(line));
             let regions = highlight
                 .highlight_line(&terminated, syntax_set)
                 .unwrap_or_default();

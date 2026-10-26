@@ -5,6 +5,11 @@ on:
   pull_request:
     types: [opened, edited, synchronize]
 
+# The action reads the pull request through the API, which the repository
+# default token denies when it is content-only.
+permissions:
+  pull-requests: read
+
 jobs:
   check-title:
     runs-on: ubuntu-latest

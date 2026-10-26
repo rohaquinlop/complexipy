@@ -16,6 +16,7 @@ use crate::utils::gitlab::store_gitlab;
 use crate::utils::paths::resolve_output_paths;
 use crate::utils::sarif::store_sarif;
 use complexipy_core::classes::FileComplexity;
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::{ExportError, output_csv_shared, output_json_shared};
 
 /// Writes one line to stdout. A closed stdout, such as a pipe whose reader
@@ -50,6 +51,7 @@ pub struct DisplayOptions<'a> {
     pub plain: bool,
     pub invocation_path: &'a str,
     pub cache_dir: Option<&'a str>,
+    pub write_cache: bool,
     pub top: Option<u64>,
     pub suggest_refactors: bool,
     pub color: bool,
@@ -68,12 +70,13 @@ pub fn handle_display(options: DisplayOptions) -> (bool, String) {
         plain,
         invocation_path,
         cache_dir,
+        write_cache,
         top,
         suggest_refactors,
         color,
     } = options;
 
-    let previous_functions = if !files_complexities.is_empty() {
+    let previous_functions = if write_cache && !files_complexities.is_empty() {
         remember_previous_functions(invocation_path, paths, files_complexities, cache_dir)
     } else {
         None
@@ -166,7 +169,10 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
                 suggest_refactors,
             )?,
         }
-        saved_lines.push(format!("Results saved at {}", output_path));
+        saved_lines.push(format!(
+            "Results saved at {}",
+            escape_controls(&output_path)
+        ));
     }
 
     Ok(saved_lines)

@@ -1,7 +1,7 @@
 use clap::Parser;
 
 use crate::args::CliArgs;
-use crate::types::{Color, Config, OutputFormat, RunConfig, Sort};
+use crate::types::{Color, Config, ConfigGateChange, OutputFormat, RunConfig, Sort};
 use crate::utils::config::{ConfigError, resolve_config};
 
 fn resolve(cli_args: &[&str], toml_source: Option<&str>) -> Result<RunConfig, ConfigError> {
@@ -9,7 +9,7 @@ fn resolve(cli_args: &[&str], toml_source: Option<&str>) -> Result<RunConfig, Co
     argv.extend_from_slice(cli_args);
     let cli = CliArgs::try_parse_from(argv).expect("cli args should parse");
     let toml = toml_source.map(|source| toml::from_str(source).expect("toml should parse"));
-    resolve_config(toml, cli)
+    resolve_config(toml, cli, ".")
 }
 
 #[test]
@@ -90,16 +90,153 @@ fn toml_paths_used_when_cli_absent() {
 }
 
 #[test]
-fn toml_without_paths_allows_empty() {
-    let config = resolve(&[], Some("max-complexity-allowed = 10")).expect("resolve should succeed");
+fn toml_without_paths_is_missing_paths() {
+    let result = resolve(&[], Some("max-complexity-allowed = 10"));
 
-    assert_eq!(config.paths, Vec::<String>::new());
+    assert_eq!(result, Err(ConfigError::MissingPaths));
+}
+
+#[test]
+fn toml_with_an_empty_path_list_is_missing_paths() {
+    let result = resolve(&[], Some("paths = []"));
+
+    assert_eq!(result, Err(ConfigError::MissingPaths));
+}
+
+#[test]
+fn toml_paths_outside_the_project_are_rejected() {
+    for paths in [
+        "paths = [\"..\"]",
+        "paths = [\"src\", \"../outside\"]",
+        "paths = \"/\"",
+    ] {
+        let result = resolve(&[], Some(paths));
+
+        assert!(
+            matches!(
+                result,
+                Err(ConfigError::OutsideProject { key: "paths", .. })
+            ),
+            "{paths}"
+        );
+    }
+}
+
+#[test]
+fn cli_paths_outside_the_project_are_trusted() {
+    let config = resolve(&["../elsewhere"], None).expect("resolve should succeed");
+
+    assert_eq!(config.paths, vec!["../elsewhere"]);
+}
+
+#[test]
+fn toml_output_outside_the_project_is_rejected() {
+    for output in [
+        "../victim/out.json",
+        "/tmp/complexipy-out.json",
+        "a/../../b/",
+    ] {
+        let result = resolve(&["src"], Some(&format!("output = {:?}", output)));
+
+        assert!(
+            matches!(
+                result,
+                Err(ConfigError::OutsideProject { key: "output", .. })
+            ),
+            "{output}"
+        );
+    }
+}
+
+#[test]
+fn cli_output_outside_the_project_is_trusted() {
+    let config = resolve(
+        &["src", "--output", "/tmp/report.json"],
+        Some("output = \"../x.json\""),
+    )
+    .expect("resolve should succeed");
+
+    assert_eq!(config.output, Some("/tmp/report.json".to_string()));
+}
+
+#[test]
+fn toml_cache_dir_outside_the_project_is_rejected() {
+    let result = resolve(&["src"], Some("cache-dir = \"../victimdir\""));
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::OutsideProject {
+            key: "cache-dir",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn an_option_like_diff_ref_is_rejected() {
+    let from_toml = resolve(&["src"], Some("[diff]\nbranch = \"--output=pwned\""));
+    assert_eq!(
+        from_toml,
+        Err(ConfigError::OptionLikeDiffRef("--output=pwned".to_string()))
+    );
+
+    let from_cli = resolve(&["src", "--diff-only=-x"], None);
+    assert_eq!(
+        from_cli,
+        Err(ConfigError::OptionLikeDiffRef("-x".to_string()))
+    );
+}
+
+#[test]
+fn an_empty_branch_disables_the_diff_section() {
+    let config = resolve(&["src"], Some("[diff]\nbranch = \"\"\nstaged = true"))
+        .expect("resolve should succeed");
+
+    assert_eq!(config.diff, None);
+    assert!(!config.staged);
+    assert!(config.gate_changes_from_config.is_empty());
+}
+
+#[test]
+fn config_keys_that_change_the_gate_are_recorded() {
+    let config = resolve(
+        &["src"],
+        Some("snapshot-create = true\n[diff]\nbranch = \"HEAD\"\nstaged = true"),
+    )
+    .expect("resolve should succeed");
+
+    assert_eq!(
+        config.gate_changes_from_config,
+        vec![
+            ConfigGateChange::SnapshotCreate,
+            ConfigGateChange::DiffRef("HEAD".to_string()),
+            ConfigGateChange::StagedDiff,
+        ]
+    );
+}
+
+#[test]
+fn cli_flags_that_pin_the_gate_record_no_change() {
+    let config = resolve(
+        &[
+            "src",
+            "--diff",
+            "main",
+            "--staged=false",
+            "--snapshot-create=false",
+        ],
+        Some("snapshot-create = true\n[diff]\nbranch = \"HEAD\"\nstaged = true"),
+    )
+    .expect("resolve should succeed");
+
+    assert!(config.gate_changes_from_config.is_empty());
+    assert_eq!(config.diff, Some("main".to_string()));
 }
 
 #[test]
 fn cli_overrides_toml() {
     let config = resolve(
-        &["--max-complexity-allowed", "20"],
+        &["src", "--max-complexity-allowed", "20"],
         Some("max-complexity-allowed = 10"),
     )
     .expect("resolve should succeed");

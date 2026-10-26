@@ -1,10 +1,11 @@
-use std::fs;
+use std::path::Path;
 
 use serde_json::{Value, json};
 
 use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{Applicability, FileComplexity, FunctionComplexity, RefactorPlan};
+use complexipy_core::fs_guard::write_atomic;
 use complexipy_core::utils::ExportError;
 
 const CHECK_NAME: &str = "complexipy/cognitive-complexity";
@@ -68,27 +69,16 @@ pub fn store_gitlab(
 
     let serialized = serde_json::to_string_pretty(&report)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize GitLab report: {}", e)))?;
-    let mut file = fs::File::create(output_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create GitLab report at {}: {}",
-            output_path, e
-        ))
-    })?;
-    use std::io::Write;
-    file.write_all(serialized.as_bytes()).map_err(|e| {
+    write_atomic(
+        Path::new(output_path),
+        format!("{}\n", serialized).as_bytes(),
+    )
+    .map_err(|e| {
         ExportError::Io(format!(
             "Failed to write GitLab report to {}: {}",
             output_path, e
         ))
-    })?;
-    file.write_all(b"\n").map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write GitLab report to {}: {}",
-            output_path, e
-        ))
-    })?;
-
-    Ok(())
+    })
 }
 
 fn build_description(function_name: &str, complexity: u64, max_complexity: u64) -> String {

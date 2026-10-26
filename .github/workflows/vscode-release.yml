@@ -18,14 +18,14 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  VSCE_VERSION: 4.0.0
-  OVSX_VERSION: 1.2.0
 
 jobs:
   publish:
     name: Publish to the Marketplace and OpenVSX
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The environment holds VSCE_PAT and is the one the OpenVSX trusted publisher is bound to.
+    environment: vscode-marketplace
     # id-token lets ovsx exchange the GitHub OIDC token through the OpenVSX
     # trusted publisher registered for this workflow; no OpenVSX secret exists.
     permissions:
@@ -35,8 +35,8 @@ jobs:
       run:
         working-directory: vscode/complexipy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: "22"
           cache: npm
@@ -49,19 +49,21 @@ jobs:
             echo "::error::tag ${GITHUB_REF_NAME} is version ${tag_version}, but package.json is ${package_version}"
             exit 1
           fi
+      # vsce and ovsx are locked dev dependencies. Install scripts stay off: packaging and publishing
+      # need none of them.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Lint
         run: npm run lint
       - name: Test
         run: npm test --ignore-scripts
       - name: Package
-        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" package --out complexipy.vsix
+        run: ./node_modules/.bin/vsce package --out complexipy.vsix
       # Both registries get the same file; --skip-duplicate makes a rerun after
       # a partial failure publish only where the version is missing.
       - name: Publish to the Visual Studio Marketplace
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes "@vscode/vsce@${VSCE_VERSION}" publish --packagePath complexipy.vsix --skip-duplicate
+        run: ./node_modules/.bin/vsce publish --packagePath complexipy.vsix --skip-duplicate
       - name: Publish to OpenVSX
-        run: npx --yes "ovsx@${OVSX_VERSION}" publish complexipy.vsix --trusted-publishing --skip-duplicate
+        run: ./node_modules/.bin/ovsx publish complexipy.vsix --trusted-publishing --skip-duplicate

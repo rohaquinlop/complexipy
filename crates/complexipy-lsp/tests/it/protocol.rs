@@ -4,9 +4,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use complexipy_lsp::server::{
-    DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES, DID_CHANGE_WORKSPACE_FOLDERS,
-    DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE, HOVER, INLAY_HINT,
-    LINE_COMPLEXITIES, REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN, serve,
+    CONFIG_WARNING_MESSAGE, DID_CHANGE, DID_CHANGE_CONFIGURATION, DID_CHANGE_WATCHED_FILES,
+    DID_CHANGE_WORKSPACE_FOLDERS, DID_CLOSE, DID_OPEN, EXIT, EXIT_CODE_CLEAN, EXIT_CODE_FAILURE,
+    HOVER, INLAY_HINT, LINE_COMPLEXITIES, REGISTER_CAPABILITY, SERVER_NAME, SHOW_MESSAGE, SHUTDOWN,
+    serve,
 };
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId};
 use lsp_types::{
@@ -821,7 +822,7 @@ fn folders_added_and_removed_at_runtime_take_effect() {
 }
 
 #[test]
-fn config_problems_reach_the_client_once() {
+fn config_problems_reach_the_client_once_as_fixed_text() {
     let mut session = start();
     session.write_config("select = [\"C07\"]\n");
     session.initialize();
@@ -829,13 +830,9 @@ fn config_problems_reach_the_client_once() {
     session.open(&uri, SAMPLE);
 
     let messages = session.messages_before_diagnostics(&uri);
-    assert_eq!(messages.len(), 2);
-    assert!(
-        messages
-            .iter()
-            .all(|message| message.typ == MessageType::WARNING)
-    );
-    assert!(messages[0].message.contains("'C07'"));
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].typ, MessageType::WARNING);
+    assert_eq!(messages[0].message, CONFIG_WARNING_MESSAGE);
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }
@@ -944,7 +941,29 @@ fn a_malformed_config_edit_warns_once_and_uses_the_defaults() {
 
     let messages = session.messages_before_diagnostics(&uri);
     assert_eq!(messages.len(), 1);
-    assert!(messages[0].message.starts_with("Failed to parse "));
+    assert_eq!(messages[0].message, CONFIG_WARNING_MESSAGE);
     assert!(session.inlay_hints(&uri).is_empty());
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn a_link_in_the_config_never_reaches_the_editor() {
+    let mut session = start();
+    session.write_config(
+        "max-complexity-allowed = \"[Open](command:workbench.action.terminal.new)\"\n\
+         select = [\"[FIX](https://evil.example/x)\"]\n",
+    );
+    session.initialize();
+    let uri = session.document_uri("sample.py");
+    session.open(&uri, SAMPLE);
+
+    let messages = session.messages_before_diagnostics(&uri);
+    assert!(!messages.is_empty());
+    assert!(
+        messages
+            .iter()
+            .all(|message| message.message == CONFIG_WARNING_MESSAGE)
+    );
+
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

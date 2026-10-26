@@ -16,8 +16,9 @@ use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
-    diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
+    ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
+    nothing_selected_warning, removable_ignores_output, skipped_path_warning, unknown_rule_warning,
     unmatchable_exclude_warning,
 };
 use crate::output::render::{
@@ -29,27 +30,51 @@ use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::handle_report_ignored;
 use crate::utils::snapshot::evaluate_snapshot;
-use crate::utils::toml::get_complexipy_toml_config;
+use crate::utils::toml::load_run_config;
 use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::{Analysis, LocationReports};
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
     AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
 };
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
-    let toml_config = get_complexipy_toml_config(invocation_path);
+    let source = match load_run_config(&cli, invocation_path) {
+        Ok(source) => source,
+        Err(error) => {
+            emit_error!("{}", escape_controls(&error.to_string()));
+            return ExitCode::FAILURE;
+        }
+    };
+    let config_path = source
+        .as_ref()
+        .map(|source| source.path.display().to_string());
 
-    let config = match resolve_config(toml_config, cli) {
+    let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
-            emit_error!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
+    let label = if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
+        "Warning:".yellow().to_string()
+    } else {
+        "Warning:".to_string()
+    };
+    if let Some(config_path) = &config_path {
+        for change in &config.gate_changes_from_config {
+            emit_error!(
+                "{} {}",
+                label,
+                escape_controls(&config_gate_change_warning(config_path, change))
+            );
+        }
+    }
     if !settings.banner.is_empty() {
         emit!("{}", settings.banner);
     }
@@ -79,14 +104,8 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 .iter()
                 .map(|pattern| unmatchable_exclude_warning(pattern)),
         );
-        let label =
-            if color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr) {
-                "Warning:".yellow().to_string()
-            } else {
-                "Warning:".to_string()
-            };
         for warning in warnings {
-            emit_error!("{} {}", label, warning);
+            emit_error!("{} {}", label, escape_controls(&warning));
         }
     }
     let analysis = analysis_options(&config, rules);
@@ -101,6 +120,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             removable_above: (!config.quiet).then_some(config.max_complexity_allowed),
         },
     );
+    if !config.quiet {
+        for warning in run.skipped.iter().filter_map(skipped_path_warning) {
+            emit_error!("{} {}", label, escape_controls(&warning));
+        }
+    }
+    if run.files.is_empty() && run.failed_paths.is_empty() {
+        emit_error!("{} {}", label, nothing_selected_warning(&run.skipped));
+    }
+    let skipped = std::mem::take(&mut run.skipped);
 
     let mut fix_console = String::new();
     if config.fix || config.dry_run {
@@ -124,13 +152,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let snap = match evaluate_snapshot(
         config.snapshot_create,
         config.snapshot_ignore,
+        !config.dry_run,
         &output_snapshot_path,
         config.max_complexity_allowed,
         &files_complexities,
     ) {
         Ok(snap) => snap,
         Err(error) => {
-            emit_error!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -151,7 +180,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             }
         }
         Err(error) => {
-            emit_error!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     }
@@ -168,6 +197,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         plain: config.plain,
         invocation_path,
         cache_dir: config.cache_dir.as_deref(),
+        write_cache: !config.dry_run,
         top: config.top,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
         color: settings.color_enabled,
@@ -189,7 +219,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     ) {
         Ok(result) => result,
         Err(error) => {
-            emit_error!("{}", error);
+            emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
     };
@@ -199,9 +229,10 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                 "{}",
                 ignored_summary_output(&ignored_locations, config.no_ignore)
             );
+            emit!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
-            emit!("{}", ignored_saved_output(&path));
+            emit!("{}", escape_controls(&ignored_saved_output(&path)));
         }
     }
 

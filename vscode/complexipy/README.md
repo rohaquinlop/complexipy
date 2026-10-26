@@ -32,7 +32,8 @@ or `pip install complexipy`.
 
 - `complexipy.server.path`: the path to the `complexipy` executable. The
   extension runs `<path> lsp`. Leave it empty to use `complexipy` from the
-  `PATH`.
+  `PATH`. A relative path resolves against the first workspace folder. In
+  Restricted Mode, a value from workspace settings is ignored.
 - `complexipy.display`: `inlayHints` (default) shows the server's inlay hints.
   `decorations` shows colored badges instead: `ƒ N` after every function and
   `+N` after every line that adds complexity. A function is green up to half

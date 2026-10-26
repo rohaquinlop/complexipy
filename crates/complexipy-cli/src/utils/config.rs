@@ -1,13 +1,18 @@
 use std::fmt;
+use std::path::Path;
+
+use complexipy_core::fs_guard::is_within;
 
 use crate::args::CliArgs;
-use crate::types::{Color, Config, RunConfig, Sort};
+use crate::types::{Color, Config, ConfigGateChange, RunConfig, Sort};
 
 #[derive(Debug, PartialEq)]
 pub enum ConfigError {
     MissingPaths,
     CacheDirNotAString,
     CacheDirEmpty,
+    OptionLikeDiffRef(String),
+    OutsideProject { key: &'static str, value: String },
 }
 
 impl fmt::Display for ConfigError {
@@ -25,6 +30,17 @@ impl fmt::Display for ConfigError {
                 f,
                 "The 'cache-dir' option cannot be an empty string in the TOML config file"
             ),
+            Self::OptionLikeDiffRef(git_ref) => write!(
+                f,
+                "The diff reference {:?} starts with '-', so git would read it as an option",
+                git_ref
+            ),
+            Self::OutsideProject { key, value } => write!(
+                f,
+                "The '{}' value {:?} in the config file points outside the project directory; \
+                 pass it on the command line to use a path outside the project",
+                key, value
+            ),
         }
     }
 }
@@ -34,6 +50,7 @@ impl std::error::Error for ConfigError {}
 fn resolve_cache_dir(
     cli_value: Option<String>,
     toml_value: Option<&toml::Value>,
+    root: &Path,
 ) -> Result<Option<String>, ConfigError> {
     if let Some(value) = cli_value {
         if value.trim().is_empty() {
@@ -46,7 +63,7 @@ fn resolve_cache_dir(
             if value.trim().is_empty() {
                 Err(ConfigError::CacheDirEmpty)
             } else {
-                Ok(Some(value.clone()))
+                inside_project(root, "cache-dir", value).map(Some)
             }
         }
         Some(_) => Err(ConfigError::CacheDirNotAString),
@@ -54,26 +71,68 @@ fn resolve_cache_dir(
     }
 }
 
-pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunConfig, ConfigError> {
+fn inside_project(root: &Path, key: &'static str, value: &str) -> Result<String, ConfigError> {
+    if is_within(root, Path::new(value)) {
+        Ok(value.to_string())
+    } else {
+        Err(ConfigError::OutsideProject {
+            key,
+            value: value.to_string(),
+        })
+    }
+}
+
+fn reject_option_like(reference: &str) -> Result<(), ConfigError> {
+    if reference.starts_with('-') {
+        Err(ConfigError::OptionLikeDiffRef(reference.to_string()))
+    } else {
+        Ok(())
+    }
+}
+
+/// Merges the CLI arguments over the config file. Values that come from the
+/// config file are untrusted: scan and write paths must stay inside the
+/// project directory, and no diff reference may start with `-`.
+pub fn resolve_config(
+    toml_config: Option<Config>,
+    cli: CliArgs,
+    invocation_path: &str,
+) -> Result<RunConfig, ConfigError> {
     let toml = toml_config.as_ref();
+    let root = Path::new(invocation_path);
 
     let paths = if !cli.paths.is_empty() {
         cli.paths
     } else if let Some(toml) = toml {
-        toml.paths.clone().into_vec()
+        toml.paths
+            .clone()
+            .into_vec()
+            .iter()
+            .map(|path| inside_project(root, "paths", path))
+            .collect::<Result<Vec<_>, _>>()?
     } else {
         return Err(ConfigError::MissingPaths);
     };
+    if paths.is_empty() {
+        return Err(ConfigError::MissingPaths);
+    }
 
     let max_complexity_allowed = cli
         .max_complexity_allowed
         .or_else(|| toml.map(|toml| toml.max_complexity_allowed))
         .unwrap_or(15);
 
-    let snapshot_create = cli
-        .snapshot_create
-        .or_else(|| toml.map(|toml| toml.snapshot_create))
-        .unwrap_or(false);
+    let mut gate_changes_from_config = Vec::new();
+    let snapshot_create = match cli.snapshot_create {
+        Some(value) => value,
+        None => {
+            let from_config = toml.is_some_and(|toml| toml.snapshot_create);
+            if from_config {
+                gate_changes_from_config.push(ConfigGateChange::SnapshotCreate);
+            }
+            from_config
+        }
+    };
 
     let snapshot_ignore = cli
         .snapshot_ignore
@@ -108,9 +167,13 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
             .unwrap_or_default(),
     };
 
-    let output = cli
-        .output
-        .or_else(|| toml.and_then(|toml| toml.output.clone()));
+    let output = match cli.output {
+        Some(output) => Some(output),
+        None => toml
+            .and_then(|toml| toml.output.as_deref())
+            .map(|output| inside_project(root, "output", output))
+            .transpose()?,
+    };
 
     let exclude = if !cli.exclude.is_empty() {
         cli.exclude
@@ -153,24 +216,37 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
     let dry_run = cli.dry_run.unwrap_or(false);
     let suggest_refactors = cli.suggest_refactors.unwrap_or(false) || fix || dry_run;
     let top = cli.top;
-    let cache_dir =
-        resolve_cache_dir(cli.cache_dir, toml.and_then(|toml| toml.cache_dir.as_ref()))?;
+    let cache_dir = resolve_cache_dir(
+        cli.cache_dir,
+        toml.and_then(|toml| toml.cache_dir.as_ref()),
+        root,
+    )?;
 
     let mut diff = cli.diff;
     let diff_only = cli.diff_only;
     let mut staged = cli.staged.unwrap_or(false);
-    if let Some(section) = toml.and_then(|toml| toml.diff.as_ref()) {
+    let section = toml
+        .and_then(|toml| toml.diff.as_ref())
+        .filter(|section| section.branch.as_deref() != Some(""));
+    if let Some(section) = section {
         if diff.is_none()
             && diff_only.is_none()
             && let Some(branch) = &section.branch
         {
             diff = Some(branch.clone());
+            gate_changes_from_config.push(ConfigGateChange::DiffRef(branch.clone()));
         }
         if cli.staged.is_none()
             && let Some(section_staged) = section.staged
         {
             staged = section_staged;
+            if section_staged && diff_only.is_none() {
+                gate_changes_from_config.push(ConfigGateChange::StagedDiff);
+            }
         }
+    }
+    for reference in diff.iter().chain(diff_only.iter()) {
+        reject_option_like(reference)?;
     }
 
     Ok(RunConfig {
@@ -200,6 +276,7 @@ pub fn resolve_config(toml_config: Option<Config>, cli: CliArgs) -> Result<RunCo
         diff,
         diff_only,
         staged,
+        gate_changes_from_config,
     })
 }
 

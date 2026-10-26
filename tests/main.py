@@ -69,7 +69,7 @@ class TestFiles:
         path = self.local_path / "src"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 64 == total_complexity
+        assert 69 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -160,6 +160,15 @@ class TestFiles:
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
         assert 10 == total_complexity
+
+    def test_nested_definitions(self):
+        # Definitions under a module-level try/except and methods of a nested
+        # class are scored as functions; the except handler stays module code.
+        path = self.local_path / "src/test_nested_definitions.py"
+        result = file_complexity(str(path))
+        functions = {f.name: f.complexity for f in result.functions}
+        assert functions == {"fast_path": 3, "Outer::Inner::method": 1}
+        assert 5 == result.complexity
 
     def test_file_complexity(self):
         path = self.local_path / "src/test_try_nested.py"

@@ -171,6 +171,12 @@ define su ruta en `settings.json`:
 }
 ```
 
+Una ruta relativa se resuelve contra la primera carpeta del espacio de
+trabajo. En Modo Restringido, VS Code ignora un `complexipy.server.path`
+definido en la configuración del espacio de trabajo, así que un repositorio
+no confiable no puede elegir el binario; la extensión ejecuta entonces la
+ruta de tu configuración de usuario, o `complexipy` desde el `PATH`.
+
 ## Configuración
 
 El servidor lee los mismos archivos de configuración que la CLI -
@@ -303,8 +309,10 @@ función anidada se muestra su función padre.
   omite. El resto de patrones de la lista siguen aplicándose. Cada problema de
   configuración (un glob mal formado, una lista demasiado grande, un id de regla
   desconocido en `select` o `ignore`, una selección que no deja ninguna regla
-  activa o un archivo que no se puede leer) aparece en el editor como un mensaje
-  de advertencia y en el registro del servidor.
+  activa o un archivo que no se puede leer) se escribe en el registro del
+  servidor, y el editor muestra una advertencia fija que remite a ese registro.
+  La advertencia nunca cita la configuración, así que un repositorio no puede
+  colocar un enlace en ella.
 - Una lista demasiado grande para compilarse como un solo programa se reporta
   una vez por carga de configuración y se sigue aplicando patrón a patrón. Una
   ejecución de la CLI se detiene con esa misma lista.

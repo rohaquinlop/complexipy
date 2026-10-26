@@ -14,6 +14,10 @@ const MIXED: &str = "def one(a, b):\n    if a:\n        if b:\n            retur
 
 const LOW_AND_HIGH: &str = "def low(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n\n\ndef high(a, b, c):\n    for x in c:\n        if a:\n            if b:\n                return x\n    return 0\n";
 
+const ORIGINAL: &str = "def a():\n    if x:\n        return 1\n";
+
+const PATCHED: &str = "def a():\n    pass\n";
+
 fn options() -> AnalysisOptions {
     AnalysisOptions {
         check_script: true,
@@ -28,14 +32,11 @@ fn options() -> AnalysisOptions {
 fn write_patched_replaces_content_and_leaves_no_temp_file() {
     let dir = tempdir().expect("tempdir should work");
     let file = dir.path().join("a.py");
-    fs::write(&file, "def a():\n    if x:\n        return 1\n").expect("should write");
+    fs::write(&file, ORIGINAL).expect("should write");
 
-    write_patched(&file, "def a():\n    pass\n").expect("should patch");
+    write_patched(&file, dir.path(), ORIGINAL, PATCHED).expect("should patch");
 
-    assert_eq!(
-        fs::read_to_string(&file).expect("should read"),
-        "def a():\n    pass\n"
-    );
+    assert_eq!(fs::read_to_string(&file).expect("should read"), PATCHED);
     let leftovers: Vec<String> = fs::read_dir(dir.path())
         .expect("should list")
         .map(|entry| {
@@ -51,27 +52,103 @@ fn write_patched_replaces_content_and_leaves_no_temp_file() {
 
 #[cfg(unix)]
 #[test]
-fn write_patched_writes_through_a_symlink() {
+fn write_patched_refuses_a_symlink_and_leaves_its_target_alone() {
     use std::os::unix::fs::symlink;
 
     let dir = tempdir().expect("tempdir should work");
-    let real = dir.path().join("real.py");
-    fs::write(&real, "def a():\n    if x:\n        return 1\n").expect("should write");
+    let outside = tempdir().expect("tempdir should work");
+    let victim = outside.path().join("victim.py");
+    fs::write(&victim, ORIGINAL).expect("should write");
     let link = dir.path().join("link.py");
-    symlink(&real, &link).expect("symlink should work");
+    symlink(&victim, &link).expect("symlink should work");
 
-    write_patched(&link, "def a():\n    pass\n").expect("should patch");
+    let result = write_patched(&link, dir.path(), ORIGINAL, PATCHED);
 
+    assert!(result.is_err());
     assert!(
         fs::symlink_metadata(&link)
             .expect("link exists")
             .file_type()
             .is_symlink()
     );
-    assert_eq!(
-        fs::read_to_string(&real).expect("should read"),
-        "def a():\n    pass\n"
+    assert_eq!(fs::read_to_string(&victim).expect("should read"), ORIGINAL);
+}
+
+#[cfg(unix)]
+#[test]
+fn write_patched_refuses_a_file_reached_through_a_directory_link() {
+    use std::os::unix::fs::symlink;
+
+    let dir = tempdir().expect("tempdir should work");
+    let outside = tempdir().expect("tempdir should work");
+    let victim = outside.path().join("victim.py");
+    fs::write(&victim, ORIGINAL).expect("should write");
+    symlink(outside.path(), dir.path().join("sub")).expect("symlink should work");
+
+    let result = write_patched(
+        &dir.path().join("sub/victim.py"),
+        dir.path(),
+        ORIGINAL,
+        PATCHED,
     );
+
+    assert!(result.is_err());
+    assert_eq!(fs::read_to_string(&victim).expect("should read"), ORIGINAL);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_planted_link_at_the_old_temp_name_redirects_nothing() {
+    use std::os::unix::fs::symlink;
+
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("a.py");
+    fs::write(&file, ORIGINAL).expect("should write");
+    let decoy = dir.path().join("landing.pth");
+    let planted = dir
+        .path()
+        .join(format!(".a.py.complexipy-tmp-{}", std::process::id()));
+    symlink(&decoy, &planted).expect("symlink should work");
+
+    write_patched(&file, dir.path(), ORIGINAL, PATCHED).expect("should patch");
+
+    assert!(!decoy.exists());
+    assert!(fs::symlink_metadata(&file).expect("file exists").is_file());
+    assert_eq!(fs::read_to_string(&file).expect("should read"), PATCHED);
+}
+
+#[test]
+fn write_patched_refuses_a_file_that_changed_on_disk() {
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("a.py");
+    fs::write(&file, "def a():\n    return 2\n").expect("should write");
+
+    let result = write_patched(&file, dir.path(), ORIGINAL, PATCHED);
+
+    assert!(result.is_err());
+    assert_eq!(
+        fs::read_to_string(&file).expect("should read"),
+        "def a():\n    return 2\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn write_patched_keeps_the_mode_and_drops_setuid() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempdir().expect("tempdir should work");
+    let file = dir.path().join("a.py");
+    fs::write(&file, ORIGINAL).expect("should write");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o4750)).expect("should chmod");
+
+    write_patched(&file, dir.path(), ORIGINAL, PATCHED).expect("should patch");
+
+    let mode = fs::metadata(&file)
+        .expect("file exists")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o7777, 0o750);
 }
 
 #[test]
@@ -80,7 +157,7 @@ fn write_patched_refuses_unparseable_text() {
     let file = dir.path().join("a.py");
     fs::write(&file, "def a():\n    pass\n").expect("should write");
 
-    let result = write_patched(&file, "def a(): (:");
+    let result = write_patched(&file, dir.path(), "def a():\n    pass\n", "def a(): (:");
 
     assert!(result.is_err());
     assert_eq!(

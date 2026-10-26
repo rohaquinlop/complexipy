@@ -5,13 +5,16 @@ pub mod cognitive_complexity;
 #[cfg(feature = "config")]
 pub mod config;
 pub mod diff;
+pub mod encoding;
 pub mod fix;
+pub mod fs_guard;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
 mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
 pub mod runner;
+pub mod sanitize;
 mod syntax_tree;
 pub mod utils;
 

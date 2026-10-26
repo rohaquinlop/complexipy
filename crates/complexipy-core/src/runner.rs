@@ -1,5 +1,7 @@
 use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
+use crate::encoding::decode_python_source;
+use crate::fs_guard::{MAX_SOURCE_BYTES, read_bounded};
 use crate::helpers::exclude::get_paths_to_process;
 use crate::rules::{AnalysisOptions, RuleSet};
 use crate::syntax_tree::parse_module;
@@ -59,18 +61,23 @@ struct PendingSource {
 struct Discovery {
     failure: Option<String>,
     files: Vec<PendingSource>,
+    skipped: Vec<SkippedPath>,
 }
 
 struct ArgumentRecord {
     failure: Option<String>,
     sources: Vec<(SourceRecord, Option<FileComplexity>)>,
+    skipped: Vec<SkippedPath>,
 }
 
 /// The results of analyzing every path argument, with the ignore-comment
-/// reports gathered in the same pass over each file.
+/// reports gathered in the same pass over each file. `skipped` holds the
+/// entries discovery left out; the files an ignore rule hides are listed
+/// when the run reports ignored locations, or when it selected nothing.
 pub struct Analysis {
     pub files: Vec<FileComplexity>,
     pub failed_paths: Vec<String>,
+    pub skipped: Vec<SkippedPath>,
     sources: Vec<SourceRecord>,
     context: RunContext,
 }
@@ -105,14 +112,17 @@ impl Analysis {
                     .into_par_iter()
                     .map(|file| analyze_source(file.path, file.resolved, file.location, &context))
                     .collect(),
+                skipped: discovery.skipped,
             })
             .collect();
 
         let mut files = Vec::new();
         let mut failed_paths = Vec::new();
         let mut sources = Vec::new();
-        for argument in arguments {
+        let mut skipped = Vec::new();
+        for mut argument in arguments {
             failed_paths.extend(argument.failure);
+            skipped.append(&mut argument.skipped);
             let mut complexities = Vec::new();
             for (source, complexity) in argument.sources {
                 match complexity {
@@ -124,10 +134,14 @@ impl Analysis {
             sort_files(&mut complexities);
             files.append(&mut complexities);
         }
+        if files.is_empty() && failed_paths.is_empty() && !context.reports.ignored {
+            skipped.extend(hidden_files(paths, exclude, &context.invocation));
+        }
 
         Self {
             files,
             failed_paths,
+            skipped,
             sources,
             context,
         }
@@ -189,6 +203,21 @@ impl Analysis {
     }
 }
 
+/// Why discovery left a `*.py` entry out of the analysis.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SkipReason {
+    NotRegularFile,
+    OutsideRoot,
+    IgnoreRule,
+    Unreadable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkippedPath {
+    pub path: String,
+    pub reason: SkipReason,
+}
+
 pub fn run_analysis_shared(
     paths: &[String],
     exclude: &[String],
@@ -203,6 +232,16 @@ pub fn run_analysis_shared(
         LocationReports::default(),
     );
     Ok((analysis.files, analysis.failed_paths))
+}
+
+fn hidden_files(paths: &[String], exclude: &[String], invocation: &path::Path) -> Vec<SkippedPath> {
+    paths
+        .iter()
+        .filter(|path| path::Path::new(path).is_dir())
+        .filter_map(|path| get_paths_to_process(path, exclude.to_vec(), invocation, true).ok())
+        .flat_map(|discovery| discovery.skipped)
+        .filter(|skipped| skipped.reason == SkipReason::IgnoreRule)
+        .collect()
 }
 
 fn sort_files(complexities: &mut [FileComplexity]) {
@@ -228,6 +267,7 @@ fn discover_argument(path: &str, exclude: &[String], context: &RunContext) -> Di
         return Discovery {
             failure: Some(path.to_string()),
             files: Vec::new(),
+            skipped: Vec::new(),
         };
     }
 
@@ -242,26 +282,33 @@ fn discover_argument(path: &str, exclude: &[String], context: &RunContext) -> Di
                 resolved: false,
                 location,
             }],
+            skipped: Vec::new(),
         };
     }
 
-    let files_paths_to_process =
-        match get_paths_to_process(path, exclude.to_vec(), &context.invocation) {
-            Ok(paths) => paths,
-            Err(e) => {
-                return Discovery {
-                    failure: Some(format!("{}: {}", path, e)),
-                    files: Vec::new(),
-                };
-            }
-        };
+    let discovery = match get_paths_to_process(
+        path,
+        exclude.to_vec(),
+        &context.invocation,
+        context.reports.ignored,
+    ) {
+        Ok(discovery) => discovery,
+        Err(e) => {
+            return Discovery {
+                failure: Some(format!("{}: {}", path, e)),
+                files: Vec::new(),
+                skipped: Vec::new(),
+            };
+        }
+    };
     let location_base = context
         .reports
         .any()
         .then(|| directory_location_base(path_obj, &context.invocation));
     Discovery {
         failure: None,
-        files: files_paths_to_process
+        files: discovery
+            .files
             .into_iter()
             .map(|file_path| PendingSource {
                 key: file_path.clone(),
@@ -272,6 +319,7 @@ fn discover_argument(path: &str, exclude: &[String], context: &RunContext) -> Di
                 resolved: true,
             })
             .collect(),
+        skipped: discovery.skipped,
     }
 }
 
@@ -289,7 +337,7 @@ fn analyze_source(
         ignored: Vec::new(),
         removable: Vec::new(),
     };
-    let Ok(code) = std::fs::read_to_string(&record.path) else {
+    let Ok(code) = read_source(&record.path) else {
         return (record, None);
     };
     let parsed = parse_module(&code).ok();
@@ -444,8 +492,7 @@ pub fn file_complexity_shared(
         .ok()
         .and_then(|p| p.to_str())
         .unwrap_or(file_path);
-    let code = std::fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    let code = read_source(file_path)?;
     let code_complexity = code_complexity_shared(&code, opts)
         .map_err(|e| format!("Failed to process file '{}': {}", file_path, e))?;
     Ok(FileComplexity {
@@ -461,8 +508,7 @@ pub fn collect_file_ignored_locations(
     base_path: &str,
 ) -> Result<Vec<IgnoredLocation>, String> {
     let relative_path = relative_to_base(file_path, base_path);
-    let code = std::fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    let code = read_source(file_path)?;
     Ok(ignored_locations(
         collect_ignored_locations(&code),
         relative_path,
@@ -491,6 +537,12 @@ pub fn collect_removable_ignored_locations_shared(
     collect_locations(paths, exclude, invocation_path, |file_path, base_dir| {
         collect_removable_ignores_from_file(file_path, base_dir, max_complexity_allowed)
     })
+}
+
+fn read_source(file_path: &str) -> Result<String, String> {
+    let bytes = read_bounded(path::Path::new(file_path), None, MAX_SOURCE_BYTES)
+        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    decode_python_source(&bytes).map_err(|e| format!("File '{}' {}", file_path, e))
 }
 
 trait Located {
@@ -532,13 +584,14 @@ where
         let path_obj = path::Path::new(path_str);
 
         if path_obj.is_dir() {
-            let mut files = match get_paths_to_process(path_str, exclude.to_vec(), &invocation) {
-                Ok(paths) => paths,
-                Err(e) => {
-                    failed_paths.push(format!("{}: {}", path_str, e));
-                    continue;
-                }
-            };
+            let mut files =
+                match get_paths_to_process(path_str, exclude.to_vec(), &invocation, false) {
+                    Ok(discovery) => discovery.files,
+                    Err(e) => {
+                        failed_paths.push(format!("{}: {}", path_str, e));
+                        continue;
+                    }
+                };
             files.retain(|file_path| seen.insert(file_path.clone()));
             let base_dir = directory_location_base(path_obj, &invocation);
             let results: Vec<Result<Vec<T>, String>> = files
@@ -576,8 +629,7 @@ fn collect_removable_ignores_from_file(
     max_complexity_allowed: u64,
 ) -> Result<Vec<RemovableIgnore>, String> {
     let relative_path = relative_to_base(file_path, base_path);
-    let code = std::fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file '{}': {}", file_path, e))?;
+    let code = read_source(file_path)?;
     let locations = collect_ignored_locations(&code);
     if locations.is_empty() {
         return Ok(vec![]);

@@ -4,10 +4,11 @@ use std::sync::OnceLock;
 
 mod export_deps {
     pub use crate::classes::{FileComplexity, FunctionComplexity};
+    pub use crate::fs_guard::write_atomic;
+    pub use crate::sanitize::neutralize_csv_cell;
     pub use csv::Writer;
     pub use serde_json;
-    pub use std::fs::File;
-    pub use std::io::Write;
+    pub use std::path::Path;
 }
 
 use export_deps::*;
@@ -45,12 +46,7 @@ pub fn output_csv_shared(
         other => return Err(ExportError::InvalidSort(other.to_string())),
     }
 
-    let mut writer = Writer::from_path(invocation_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create CSV at {}: {}",
-            invocation_path, e
-        ))
-    })?;
+    let mut writer = Writer::from_writer(Vec::new());
 
     writer
         .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
@@ -85,19 +81,23 @@ pub fn output_csv_shared(
     for (path, file_name, function) in all_functions {
         writer
             .write_record([
-                &path,
-                &file_name,
-                &function.name,
+                neutralize_csv_cell(&path).as_ref(),
+                neutralize_csv_cell(&file_name).as_ref(),
+                neutralize_csv_cell(&function.name).as_ref(),
                 &function.complexity.to_string(),
             ])
             .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;
     }
 
-    writer
-        .flush()
-        .map_err(|e| ExportError::Io(format!("Failed to flush CSV to disk: {}", e)))?;
-
-    Ok(())
+    let bytes = writer
+        .into_inner()
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to create CSV at {}: {}",
+            invocation_path, e
+        ))
+    })
 }
 
 pub fn output_json_shared(
@@ -131,26 +131,16 @@ pub fn output_json_shared(
 
     let json_string = serde_json::to_string_pretty(&json_data)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    let mut file = File::create(invocation_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create JSON file at {}: {}",
-            invocation_path, e
-        ))
-    })?;
-    file.write_all(json_string.as_bytes()).map_err(|e| {
+    write_atomic(
+        Path::new(invocation_path),
+        format!("{}\n", json_string).as_bytes(),
+    )
+    .map_err(|e| {
         ExportError::Io(format!(
             "Failed to write JSON to {}: {}",
             invocation_path, e
         ))
-    })?;
-    file.write_all(b"\n").map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write JSON to {}: {}",
-            invocation_path, e
-        ))
-    })?;
-
-    Ok(())
+    })
 }
 
 pub fn create_snapshot_file_shared(
@@ -180,26 +170,28 @@ pub fn create_snapshot_file_shared(
 
     let json_string = serde_json::to_string_pretty(&files_snapshot)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    let mut file = File::create(snapshot_file_path).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create snapshot file at {}: {}",
-            snapshot_file_path, e
-        ))
-    })?;
-    file.write_all(json_string.as_bytes()).map_err(|e| {
+    write_atomic(Path::new(snapshot_file_path), json_string.as_bytes()).map_err(|e| {
         ExportError::Io(format!(
             "Failed to write snapshot file at {}: {}",
             snapshot_file_path, e
         ))
-    })?;
-
-    Ok(())
+    })
 }
 
 pub fn load_snapshot_file_shared(
     snapshot_file_path: &str,
 ) -> Result<Vec<FileComplexity>, ExportError> {
-    let snapshot_content = std::fs::read_to_string(snapshot_file_path).map_err(|e| {
+    let snapshot_path = std::path::Path::new(snapshot_file_path);
+    let root = snapshot_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    let snapshot_content = crate::fs_guard::read_bounded_text(
+        snapshot_path,
+        Some(root),
+        crate::fs_guard::MAX_DATA_BYTES,
+    )
+    .map_err(|e| {
         ExportError::Io(format!(
             "Failed to read snapshot file {}: {}",
             snapshot_file_path, e
@@ -480,28 +472,75 @@ pub struct IgnoreDirective {
     pub rules: Option<Vec<String>>,
 }
 
+fn ignore_re() -> &'static Regex {
+    static IGNORE_RE: OnceLock<Regex> = OnceLock::new();
+    IGNORE_RE.get_or_init(|| {
+        Regex::new(r"(?i)#[ \t]*complexipy[ \t]*:[ \t]*ignore\b([ \t]*\[([^\]]*)\])?").unwrap()
+    })
+}
+
+fn noqa_re() -> &'static Regex {
+    static NOQA_RE: OnceLock<Regex> = OnceLock::new();
+    NOQA_RE.get_or_init(|| {
+        Regex::new(r"(?i)#[ \t]*noqa[ \t]*:[ \t]*complexipy\b([ \t]*\[([^\]]*)\])?").unwrap()
+    })
+}
+
 /// Extract an ignore directive from a line.
 ///
 /// Returns `Some(..)` for `# complexipy: ignore` and `# noqa: complexipy`,
 /// case-insensitive, with an optional bracketed rule list after the marker.
-/// Returns `None` when no marker is found.
+/// The marker word must end there, and only spaces and tabs separate its
+/// parts. Returns `None` when no marker is found.
 pub fn extract_comment_marker(line: &str) -> Option<IgnoreDirective> {
-    static IGNORE_RE: OnceLock<Regex> = OnceLock::new();
-    static NOQA_RE: OnceLock<Regex> = OnceLock::new();
-
-    let ignore_re = IGNORE_RE
-        .get_or_init(|| Regex::new(r"(?i)#\s*complexipy\s*:\s*ignore(\s*\[([^\]]*)\])?").unwrap());
-    let noqa_re = NOQA_RE
-        .get_or_init(|| Regex::new(r"(?i)#\s*noqa\s*:\s*complexipy(\s*\[([^\]]*)\])?").unwrap());
-
-    if let Some(captures) = ignore_re.captures(line) {
+    if let Some(captures) = ignore_re().captures(line) {
         return Some(build_directive("# complexipy: ignore", captures.get(2)));
     }
-    if let Some(captures) = noqa_re.captures(line) {
+    if let Some(captures) = noqa_re().captures(line) {
         return Some(build_directive("# noqa: complexipy", captures.get(2)));
     }
 
     None
+}
+
+/// The byte ranges of the comment tokens of a source, the only places an
+/// ignore marker counts. A marker inside a string, a docstring, or a
+/// decorator argument is data, not a comment.
+#[derive(Debug, Default)]
+pub struct CommentRanges(Vec<(usize, usize)>);
+
+impl CommentRanges {
+    /// Tokenizes `code` only when it holds marker text somewhere, so a file
+    /// without markers costs one scan.
+    pub fn of(code: &str) -> Self {
+        if !ignore_re().is_match(code) && !noqa_re().is_match(code) {
+            return Self::default();
+        }
+        Self(crate::syntax_tree::comment_ranges(code))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn on_line(&self, line_start: usize, line_end: usize) -> impl Iterator<Item = (usize, usize)> {
+        let first = self.0.partition_point(|(start, _)| *start < line_start);
+        self.0[first..]
+            .iter()
+            .copied()
+            .take_while(move |(start, _)| *start < line_end)
+    }
+
+    fn marker_on_line(&self, code: &str, line_start: usize) -> Option<IgnoreDirective> {
+        self.on_line(line_start, line_end_of(code, line_start))
+            .find_map(|(start, end)| extract_comment_marker(&code[start..end]))
+    }
+
+    fn own_line_marker(&self, code: &str, line_start: usize) -> Option<IgnoreDirective> {
+        self.on_line(line_start, line_end_of(code, line_start))
+            .filter(|(start, _)| code[line_start..*start].trim().is_empty())
+            .find_map(|(start, end)| extract_comment_marker(&code[start..end]))
+    }
 }
 
 fn build_directive(marker: &str, codes: Option<regex::Match<'_>>) -> IgnoreDirective {
@@ -548,22 +587,30 @@ pub fn may_contain_marker(code: &str) -> bool {
         .is_match(code)
 }
 
-/// Find an ignore directive near a `def` or decorator line.
+/// Find an ignore directive near a `def` or decorator line: in a comment on
+/// the `def` line, on a signature line or a decorator line that follows it,
+/// or in an own-line comment directly above it.
 ///
 /// Returns `Some(..)` when a marker is found that would trigger suppression,
 /// `None` otherwise.
-pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<IgnoreDirective> {
+pub fn find_noqa_comment(
+    byte_offset: usize,
+    code: &str,
+    comments: &CommentRanges,
+) -> Option<IgnoreDirective> {
+    if comments.is_empty() {
+        return None;
+    }
     let line_start = line_start_of(code, byte_offset);
     let current_line = line_at(code, line_start);
 
     let signature_has_marker = |def_line_start: usize| -> Option<IgnoreDirective> {
         let mut pos = def_line_start;
         for _ in 0..20 {
-            let line = line_at(code, pos);
-            if let Some(directive) = extract_comment_marker(line) {
+            if let Some(directive) = comments.marker_on_line(code, pos) {
                 return Some(directive);
             }
-            if line.contains(':') {
+            if line_at(code, pos).contains(':') {
                 break;
             }
             pos = next_line_start(code, pos)?;
@@ -571,12 +618,12 @@ pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<IgnoreDirecti
         None
     };
 
-    if let Some(marker) = extract_comment_marker(current_line) {
+    if let Some(marker) = comments.marker_on_line(code, line_start) {
         return Some(marker);
     }
 
     if let Some(prev_start) = previous_line_start(code, line_start)
-        && let Some(marker) = extract_comment_marker(line_at(code, prev_start))
+        && let Some(marker) = comments.own_line_marker(code, prev_start)
     {
         return Some(marker);
     }
@@ -596,7 +643,7 @@ pub fn find_noqa_comment(byte_offset: usize, code: &str) -> Option<IgnoreDirecti
                     return Some(marker);
                 }
                 if let Some(prev_start) = previous_line_start(code, pos)
-                    && let Some(directive) = extract_comment_marker(line_at(code, prev_start))
+                    && let Some(directive) = comments.marker_on_line(code, prev_start)
                 {
                     return Some(directive);
                 }
@@ -619,6 +666,10 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
     if !may_contain_marker(code) {
         return Vec::new();
     }
+    let comments = CommentRanges::of(code);
+    if comments.is_empty() {
+        return Vec::new();
+    }
     let index = LineIndex::new(code);
     let mut results = Vec::new();
     let mut line_start = 0;
@@ -628,7 +679,7 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
         let trimmed = line.trim_start();
 
         if trimmed.starts_with("def ") {
-            if let Some(directive) = find_noqa_comment(line_start, code)
+            if let Some(directive) = find_noqa_comment(line_start, code, &comments)
                 && directive.rules.is_none()
             {
                 results.push((index.line_of(line_start), directive.text));
@@ -653,7 +704,7 @@ pub fn collect_ignored_locations(code: &str) -> Vec<(u64, String)> {
             }
             let mut reported = false;
             if let Some(def_line_start) = def_offset
-                && let Some(directive) = find_noqa_comment(def_line_start, code)
+                && let Some(directive) = find_noqa_comment(def_line_start, code, &comments)
                 && directive.rules.is_none()
             {
                 results.push((index.line_of(def_line_start), directive.text));

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::classes::FileComplexity;
+use crate::classes::{FileComplexity, FunctionComplexity};
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(15);
 const GIT_ROOT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -56,21 +56,23 @@ pub fn compute_diff(
     let mut entries = Vec::new();
 
     let repository = Repository::locate(invocation_path);
+    let regular_files = repository
+        .as_ref()
+        .map(|_| regular_files_at_ref(git_ref, invocation_path))
+        .unwrap_or_default();
     let names: Vec<Option<String>> = current_files
         .iter()
         .map(|file| {
             let path_from_root = repository.as_ref()?.path_of(&file.path)?;
-            Some(format!("{}:{}", git_ref, path_from_root))
+            regular_files
+                .contains(&path_from_root)
+                .then(|| format!("{}:{}", git_ref, path_from_root))
         })
         .collect();
     let old_functions = analyse_contents(read_objects(invocation_path, &names));
 
     for (file, old_functions) in current_files.iter().zip(old_functions) {
-        let current_map: HashMap<String, u64> = file
-            .functions
-            .iter()
-            .map(|function| (function.name.clone(), function.complexity))
-            .collect();
+        let current_map = keyed_complexities(&file.functions);
 
         let Some(old_functions) = old_functions else {
             let mut names: Vec<&String> = current_map.keys().collect();
@@ -110,6 +112,7 @@ pub fn compute_diff(
 
 pub fn compute_staged_diff(git_ref: &str, invocation_path: &str) -> Option<Vec<DiffEntry>> {
     let root = git_root(invocation_path)?;
+    let regular_files = regular_files_at_ref(git_ref, &root);
 
     let mut entries = Vec::new();
     let paths = staged_python_files(git_ref, &root);
@@ -117,8 +120,10 @@ pub fn compute_staged_diff(git_ref: &str, invocation_path: &str) -> Option<Vec<D
         .iter()
         .flat_map(|path_from_root| {
             [
-                Some(format!("{}:{}", git_ref, path_from_root)),
-                Some(format!(":{}", path_from_root)),
+                regular_files
+                    .contains(path_from_root)
+                    .then(|| format!("{}:{}", git_ref, path_from_root)),
+                Some(format!(":0:{}", path_from_root)),
             ]
         })
         .collect();
@@ -217,7 +222,9 @@ enum GitObject {
 }
 
 /// Reads every object that `names` lists through one `git cat-file --batch`
-/// process, in order. A `None` name is not requested and reads as missing.
+/// process, in order. A `None` name, or one with a control character, which
+/// git would split or trim as a line ending, is not requested and reads as
+/// missing.
 /// A blob reads as its text; a blob over `MAX_BLOB_BYTES` or not valid
 /// UTF-8, or an object that does not exist, reads as missing; any other
 /// object, such as a tree, reads as unreadable.
@@ -227,7 +234,7 @@ fn read_objects(cwd: &str, names: &[Option<String>]) -> Vec<GitObject> {
         .iter()
         .enumerate()
         .filter_map(|(index, name)| Some((index, name.as_deref()?)))
-        .filter(|(_, name)| !name.contains('\n'))
+        .filter(|(_, name)| !name.chars().any(char::is_control))
         .collect();
     if requested.is_empty() {
         return objects;
@@ -319,6 +326,28 @@ fn read_object(reader: &mut impl BufRead) -> Option<GitObject> {
     Some(object)
 }
 
+/// The paths from the repository root that are regular files at `git_ref`,
+/// mode 100644 or 100755, leaving out symbolic links and submodules.
+fn regular_files_at_ref(git_ref: &str, cwd: &str) -> HashSet<String> {
+    let args = [
+        "ls-tree",
+        "-r",
+        "-z",
+        "--full-tree",
+        "--end-of-options",
+        git_ref,
+    ];
+    let Some((true, output)) = run_git_bytes(cwd, &args, GIT_TIMEOUT) else {
+        return HashSet::new();
+    };
+    output
+        .split(|byte| *byte == 0)
+        .filter_map(|entry| std::str::from_utf8(entry).ok()?.split_once('\t'))
+        .filter(|(meta, _)| matches!(meta.split(' ').next(), Some("100644" | "100755")))
+        .map(|(_, path)| path.to_string())
+        .collect()
+}
+
 fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
     let (success, output) = run_git(
         cwd,
@@ -327,7 +356,8 @@ fn staged_python_files(git_ref: &str, cwd: &str) -> Vec<String> {
             "--name-only",
             "--cached",
             "--no-renames",
-            "--diff-filter=ACMRD",
+            "--diff-filter=ACMRDT",
+            "--end-of-options",
             git_ref,
             "--",
             "*.py",
@@ -374,15 +404,45 @@ fn analyse_content_to_map(content: &str) -> Option<HashMap<String, u64>> {
         content,
         &crate::rules::AnalysisOptions::default(),
     );
-    Some(
-        functions
-            .into_iter()
-            .map(|function| (function.name, function.complexity))
-            .collect(),
-    )
+    Some(keyed_complexities(&functions))
+}
+
+/// One key per function, in input order: the qualified name, then `#N` for
+/// the N-th function of that name in source order. A property's getter and
+/// setter, or a redefinition, never share a key, in the diff or in the
+/// snapshot.
+pub fn function_keys(functions: &[FunctionComplexity]) -> Vec<String> {
+    let mut order: Vec<usize> = (0..functions.len()).collect();
+    order.sort_by_key(|&index| functions[index].line_start);
+
+    let mut keys = vec![String::new(); functions.len()];
+    let mut seen: HashMap<&str, usize> = HashMap::new();
+    for index in order {
+        let name = functions[index].name.as_str();
+        let ordinal = seen.entry(name).or_insert(0);
+        *ordinal += 1;
+        keys[index] = if *ordinal == 1 {
+            name.to_string()
+        } else {
+            format!("{}#{}", name, ordinal)
+        };
+    }
+    keys
+}
+
+fn keyed_complexities(functions: &[FunctionComplexity]) -> HashMap<String, u64> {
+    function_keys(functions)
+        .into_iter()
+        .zip(functions.iter().map(|function| function.complexity))
+        .collect()
 }
 
 fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
+    let (success, output) = run_git_bytes(cwd, args, timeout)?;
+    Some((success, String::from_utf8(output).ok()?))
+}
+
+fn run_git_bytes(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, Vec<u8>)> {
     let mut child = Command::new("git")
         .args(args)
         .current_dir(cwd)
@@ -417,7 +477,6 @@ fn run_git(cwd: &str, args: &[&str], timeout: Duration) -> Option<(bool, String)
     };
 
     let output = stdout_handle.join().ok()?;
-    let output = String::from_utf8(output).ok()?;
     Some((status.success(), output))
 }
 

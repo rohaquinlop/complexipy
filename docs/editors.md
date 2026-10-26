@@ -162,6 +162,11 @@ set its path in `settings.json`:
 }
 ```
 
+A relative path resolves against the first workspace folder. In Restricted
+Mode, VS Code ignores a `complexipy.server.path` set in the workspace's
+settings, so an untrusted repository cannot choose the binary; the extension
+then runs the path from your user settings, or `complexipy` from the `PATH`.
+
 ## Configuration
 
 The server reads the same configuration files as the CLI - `complexipy.toml`,
@@ -287,8 +292,10 @@ parent.
 - A malformed glob is reported once per configuration load and skipped.
   Each configuration problem (a malformed glob, an oversized list, an unknown
   rule id in `select` or `ignore`, a selection that leaves no rule active, or
-  a file that does not parse) appears in the editor as a warning message and
-  in the server log. The other patterns in the list keep applying.
+  a file that does not parse) is written to the server log, and the editor
+  shows one fixed warning that points to that log. The warning never quotes
+  the configuration, so a repository cannot place a link in it. The other
+  patterns in the list keep applying.
 - A list too large to compile as one program is reported once per
   configuration load and still applied one pattern at a time. A CLI run stops
   on the same list.

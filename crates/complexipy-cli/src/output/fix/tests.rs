@@ -183,3 +183,16 @@ fn empty_report_renders_empty_summary_and_no_fixes_message() {
     assert_eq!(format_fix_diff("pkg/a.py", SOURCE, &empty, false), "");
     assert_eq!(no_fixes_output(), "No fixes to apply.");
 }
+
+#[test]
+fn diff_escapes_terminal_controls_from_the_source_with_and_without_color() {
+    let source = "def a():\n    if x:  # \u{1b}]0;TITLE\u{7}\n        return 1\n";
+
+    for colored in [false, true] {
+        let rendered = format_fix_diff("pkg/\u{1b}[2Ja.py", source, &report(), colored);
+
+        assert!(!rendered.contains('\u{7}'), "colored = {colored}");
+        assert!(!rendered.contains("\u{1b}]0;"), "colored = {colored}");
+        assert!(!rendered.contains("\u{1b}[2J"), "colored = {colored}");
+    }
+}

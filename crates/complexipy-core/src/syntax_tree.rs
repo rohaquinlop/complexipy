@@ -95,6 +95,26 @@ pub fn parse_expression(text: &str) -> Option<ParsedExpression> {
     }
 }
 
+/// The byte ranges of the comment tokens of `code`, in source order.
+pub fn comment_ranges(code: &str) -> Vec<(usize, usize)> {
+    let parsed = parse_unchecked_source(code, PySourceType::Python);
+    let chained = has_long_logical_line(parsed.tokens());
+    let comments = parsed
+        .tokens()
+        .iter()
+        .filter(|token| token.kind() == TokenKind::Comment)
+        .map(|token| {
+            let (_, range) = token.as_tuple();
+            (usize::from(range.start()), usize::from(range.end()))
+        })
+        .collect();
+    drop(ParsedModule {
+        suite: parsed.into_suite(),
+        chained,
+    });
+    comments
+}
+
 fn has_long_logical_line(tokens: &Tokens) -> bool {
     let mut run = 0;
     for token in tokens.iter() {

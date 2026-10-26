@@ -6,7 +6,6 @@ use complexipy_core::{
     unmatchable_exclude_patterns,
 };
 use lsp_types::Uri;
-use serde::Deserialize;
 
 use crate::documents::{lexically_normalized, uri_to_path};
 
@@ -43,7 +42,7 @@ impl Folder {
     }
 
     pub fn load(root: String) -> (Self, Vec<String>) {
-        let (source, mut warnings) = read_complexipy_config(&root);
+        let (source, mut warnings) = read_complexipy_config::<LspConfig>(&root);
         let Some(source) = source else {
             let folder = Self {
                 has_config: false,
@@ -52,14 +51,7 @@ impl Folder {
             return (folder, warnings);
         };
         let path = source.path.display().to_string();
-
-        let config = match LspConfig::deserialize(source.value) {
-            Ok(config) => config,
-            Err(error) => {
-                warnings.push(format!("invalid config in {}: {}", path, error));
-                return (Self::new(root, LspConfig::default()), warnings);
-            }
-        };
+        let config = source.value;
 
         let (rules, unknown) = config.resolve_rules();
         for rule_id in &unknown {

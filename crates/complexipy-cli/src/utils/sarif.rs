@@ -1,4 +1,4 @@
-use std::fs;
+use std::path::Path;
 
 use serde_json::{Map, Value, json};
 
@@ -6,6 +6,7 @@ use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use complexipy_core::classes::{
     Applicability, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
 };
+use complexipy_core::fs_guard::write_atomic;
 use complexipy_core::utils::ExportError;
 
 const RULE_ID: &str = "CC001";
@@ -45,7 +46,7 @@ pub fn store_sarif(
 
     let serialized = serde_json::to_string_pretty(&sarif_doc)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize SARIF: {}", e)))?;
-    fs::write(output_path, serialized)
+    write_atomic(Path::new(output_path), serialized.as_bytes())
         .map_err(|e| ExportError::Io(format!("Failed to write SARIF to {}: {}", output_path, e)))?;
     Ok(())
 }

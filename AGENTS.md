@@ -48,8 +48,7 @@ uv run mkdocs serve                                 # preview the docs site
   type declaration, the `#[pymodule]` export list, the stubs in
   `complexipy/_complexipy.pyi`, and `tests/test_stubs.py`, which reads the Rust
   declarations and fails when a stub disagrees.
-- Rules consume `ComplexityRegion`s. A rule never re-parses source to find
-  structure.
+- Rules consume `ComplexityRegion`s. A rule never re-parses source to find structure.
 - `--fix` applies a suggestion only inside a function over the threshold, and
   only when its tier is `MachineApplicable` and its `CodeSuggestion.spliceable`
   flag is true. Each pass checks the threshold again. Never gate fixes on
@@ -82,6 +81,9 @@ uv run mkdocs serve                                 # preview the docs site
   `__all__`, and the `DiffStatus` values. A new export needs docs in `docs/` and
   `docs/es/`. `run_lsp` is a process entry point and stays out of `__all__`.
   It raises `ValueError` or `RuntimeError`. A panic reaching Python is a bug.
+- Repository content is untrusted: read via `fs_guard::read_bounded`, write via
+  `fs_guard::write_atomic`, escape terminal and log text via
+  `sanitize::escape_controls`. `showMessage` sends constant text.
 
 ## Testing
 
@@ -107,8 +109,7 @@ uv run mkdocs serve                                 # preview the docs site
 
 - Use `uv` for everything: `uv run pytest`, `uv run ruff`, `uv run complexipy`.
   Never `pip`, and never `python -m`.
-- Commit only when asked. Stage explicit paths, never `git add -A` or
-  `git add .`.
+- Commit only when asked. Stage explicit paths, never `git add -A` or `git add .`.
 - Commit subjects and PR titles follow Conventional Commits. `CONTRIBUTING.md`
   states the rule; CI enforces the PR side.
 - Record each behavior change under Unreleased in `CHANGELOG.md` and
@@ -118,8 +119,7 @@ uv run mkdocs serve                                 # preview the docs site
 - A `vscode-vX.Y.Z` tag releases the VS Code extension through
   `vscode-release.yml`, and `release.yml` ignores it. Push one only after the
   complexipy release with every server feature that extension version needs.
-- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus
-  "no files to check".
+- Run `pre-commit run --files` with quoted paths. Unquoted globs yield a bogus "no files to check".
 
 ## Code Style
 

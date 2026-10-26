@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason};
+use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::split_lines;
 use owo_colors::OwoColorize;
 use unicode_width::UnicodeWidthChar;
@@ -53,14 +54,18 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
         )
     } else {
         (
-            split_lines(source).map(str::to_string).collect(),
-            split_lines(&report.patched).map(str::to_string).collect(),
+            split_lines(source)
+                .map(|line| escape_controls(line).into_owned())
+                .collect(),
+            split_lines(&report.patched)
+                .map(|line| escape_controls(line).into_owned())
+                .collect(),
         )
     };
 
     let width = old_lines.max(new_lines).to_string().len();
     let code_cells = terminal_width().saturating_sub(width * 2 + 3);
-    let display = path.trim_start_matches('/');
+    let display = escape_controls(path.trim_start_matches('/'));
     let mut lines = vec![
         colored_line(&format!("--- a/{display}"), colored, Tone::Removed),
         colored_line(&format!("+++ b/{display}"), colored, Tone::Added),
@@ -216,7 +221,7 @@ fn hunk_header(
         "@@ -{},{} +{},{} @@",
         old_start, old_count, new_start, new_count
     );
-    let label = format!("{} {}", applied.rule_id, applied.title);
+    let label = format!("{} {}", applied.rule_id, escape_controls(&applied.title));
     if colored {
         format!("{} {}", ranges.cyan(), label.trim().dimmed())
     } else {
@@ -332,7 +337,7 @@ pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool, map: &L
                 "{} {} at {}:{}-{} (-{}{} complexity)",
                 fixed_label(colored),
                 applied.rule_id,
-                path,
+                escape_controls(path),
                 line_start,
                 line_end,
                 qualifier,
@@ -346,7 +351,7 @@ pub fn format_fix_summary(path: &str, report: &FixReport, colored: bool, map: &L
             "{} {} at {}:{}-{} ({})",
             skipped_label(colored),
             skipped.rule_id,
-            path,
+            escape_controls(path),
             line_start,
             line_end,
             reason_text(skipped.reason)

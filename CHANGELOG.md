@@ -16,6 +16,11 @@ release section links to its GitHub release notes for the full details.
   ([#292](https://github.com/rohaquinlop/complexipy/discussions/292)).
 - `[lsp] diagnostic-range` and `[lsp] hover` choose what the warning
   underlines and where hover answers.
+- `--isolated` ignores every configuration file, and `--config <path>` reads
+  only the named file: its `[tool.complexipy]` section when the file is named
+  `pyproject.toml`, and the whole file otherwise. The two flags cannot be
+  combined. Pass either one in CI to pin the gate, so a change to the
+  repository's configuration cannot change it.
 
 ### Changed
 
@@ -48,6 +53,100 @@ release section links to its GitHub release notes for the full details.
 - The Python API releases the GIL while it analyzes and while `compute_diff`
   runs. `functions`, `line_complexities`, and `refactor_plans` return a new
   list over objects built once, instead of copying the data on every access.
+- A bare `complexipy` run whose configuration file sets no `paths`, or an
+  empty list, stops with the missing paths error instead of analyzing nothing
+  and passing. Set `paths` in the file or name the paths on the command line.
+- `paths`, `output`, and `cache-dir` read from a configuration file must stay
+  inside the directory complexipy runs from, symbolic links included, or the
+  run stops with an error that names the key. The same values on the command
+  line are not restricted, so pass a path outside the project there. A diff
+  reference that starts with `-`, from `--diff`, `--diff-only`, or the
+  `[diff]` `branch`, also stops the run.
+- complexipy reads the first configuration file that parses and has valid
+  values, and never merges files. The language server now moves on to the
+  next file when one has an invalid value, as the CLI does. When a
+  higher-priority file shadows a lower one that also holds settings, every
+  run prints a warning that names the file not applied, so a project with
+  both `complexipy.toml` and a `[tool.complexipy]` section in
+  `pyproject.toml` sees it until it keeps its settings in one file. A
+  configuration file that is not a regular file, that is larger than 4 MiB,
+  or that is a symbolic link resolving outside its directory is skipped with
+  a warning. A configuration error names the file and the line and column,
+  or the key, instead of quoting the file.
+- A configuration file that sets a `[diff]` `branch`, `[diff]`
+  `staged = true`, or `snapshot-create = true` prints a warning on stderr on
+  every run the setting applies to, even under `--quiet`. The warning names
+  the file and says how the setting changes the exit code. Pin the gate in CI
+  with the matching flag, `--isolated`, or `--config <path>`, and create a
+  snapshot with `--snapshot-create` on the command line instead of in the
+  file.
+- Every function a module defines is scored on its own: a `def` under a
+  module-level `if`, `try`, `with`, `for`, `while`, or `match`, and a method
+  of a nested class, named `Outer::Inner::method`. These functions appear in
+  every output and the gate checks them, so a run that passed before can fail
+  on one, and a file's total can change. A function defined inside another
+  function still counts toward the outer one.
+- An ignore marker counts only inside a comment: on the `def` line, on a line
+  of its signature or decorators, or on its own line directly above. The same
+  text in a string, a docstring, or a decorator argument, or in a trailing
+  comment on the code line above, no longer suppresses the function. The
+  marker words must be whole and separated by spaces or tabs only, so
+  `# complexipy: ignored` is not a marker. Move such a marker into a comment
+  on the `def` line.
+- A source file with a PEP 263 coding cookie is read in that encoding: UTF-8
+  and Latin-1 always, and an ASCII-compatible encoding such as `cp1252` when
+  the file is pure ASCII, so a Latin-1 file with non-ASCII bytes, which failed
+  before, is now analyzed. A file that declares any other encoding, such as
+  `utf-7`, or that declares an ASCII-compatible encoding and holds non-ASCII
+  bytes, is reported as failed, and `file_complexity()` raises `ValueError`
+  for it.
+- Functions of one file that share a name, such as a property's getter and
+  setter, get separate entries in the snapshot, in `--diff`, and in
+  `compute_diff()`: the first in source order keeps the name, and the next
+  ones are keyed `name#2`, `name#3`. A snapshot written before this change can
+  fail on such a file; run `--snapshot-create` once to rewrite it.
+- File discovery selects a `*.py` symbolic link only when it resolves to a
+  regular file inside the analyzed directory. A link that leaves it, a
+  dangling link, a device, a FIFO, a directory named `*.py`, and a directory
+  that cannot be read are skipped, with a warning on stderr unless `--quiet`
+  is set. A file whose name is not valid UTF-8 is reported as failed instead
+  of skipped silently. A run that selects no file prints a warning even
+  under `--quiet`, and `--report-ignored` also lists the `*.py` files that
+  `.gitignore`, `.ignore`, and hidden-path rules skip.
+- A source file larger than 64 MiB is reported as failed instead of read, and
+  `file_complexity()` raises `ValueError` for it and for a path that is not a
+  regular file, such as a device. A snapshot that is not a regular file of at
+  most 64 MiB inside its own directory stops the run with an error, and a
+  cache file like that is ignored. The default cache is not used when
+  `.complexipy_cache` resolves outside the directory complexipy runs from.
+- `--fix` rewrites only regular files inside the directory complexipy runs
+  from. It skips a symbolic link, a file outside that directory, and a file
+  that changed on disk after complexipy read it, and says so on stderr. It
+  writes a new file next to the original and renames it into place, keeping
+  the permission bits and the group but not setuid, setgid, extended
+  attributes, or ACLs. Result files, the snapshot, and the cache are written
+  the same way, so a symbolic link at an output path is replaced by a regular
+  file instead of written through. `--fix --dry-run` writes nothing, not even
+  the cache or the snapshot.
+- Text that comes from the analyzed files or the configuration, such as a
+  path, a function name, a source line, or a configuration value, prints with
+  its control characters and bidirectional formatting characters escaped: an
+  escape character shows as `\u{1b}` and a line break as `\u{a}`. Tabs print
+  as they are. This covers the report, `--plain`, the `--fix` diff, the
+  warnings, and the language server log.
+- CSV output writes a cell that starts with `=`, `+`, `-`, `@`, a tab, or a
+  carriage return with a leading `'`, so a spreadsheet shows it as text.
+- When the configuration has a problem, such as an unknown rule id or a
+  shadowed configuration file, the language server shows the editor one fixed
+  warning that points to the complexipy output log, and writes the details
+  only to that log.
+- The VS Code extension runs in Restricted Mode instead of staying disabled
+  there. In Restricted Mode it ignores a `complexipy.server.path` from
+  workspace settings and runs the path from your user settings, or
+  `complexipy` from the `PATH`, and trusting the workspace restarts the
+  server with the workspace value. A relative `complexipy.server.path`
+  resolves against the first workspace folder, where the server now starts,
+  and relative `PATH` entries are skipped.
 - Boolean operators add one per sequence of like operators, as the cognitive
   complexity paper specifies. A boolean group nested in another one was
   compared with every sibling of its parent, so an expression that mixes
@@ -113,6 +212,20 @@ release section links to its GitHub release notes for the full details.
 
 ### Fixed
 
+- `--diff` and `--staged` read a path at the ref only when it was a regular
+  file there. A path that was a symbolic link at the ref and is now a regular
+  file compares as added instead of against the link's target text, so its
+  functions above the threshold fail the gate. `--staged` also compares a
+  staged change between a symbolic link and a regular file, which it skipped.
+- `--staged` reads a staged file whose name starts like a stage number, such
+  as `0:a.py`, instead of reading the staged `a.py` in its place.
+- `branch = ""` in the `[diff]` section turns the diff off, and the section's
+  `staged` value with it, as documented, so the run checks every function
+  against the threshold. Before, it compared against the index instead, so
+  the exit code checked only the functions that changed.
+- `--diff` and `compute_diff()` read no old version of a path whose name
+  holds a control character, so its functions report NEW. A name that ended
+  in a carriage return read the old version of the same name without it.
 - A lone CR (`\r`) and CRLF now end a line everywhere, as they do for the
   tokenizer and in LSP 3.17. A file with CR line endings no longer panics
   while refactor plans are built or while the caret under a suggestion is

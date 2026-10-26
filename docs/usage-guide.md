@@ -118,7 +118,9 @@ complexipy . --exclude "src/legacy/old_code.py"
     - A pattern that starts with `/`, `./`, or `../`, or ends with `/`, never matches; complexipy warns about it
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
-    - Gitignore rules are still respected during file discovery
+    - Gitignore rules are still respected during file discovery, and so are `.ignore` files and hidden files and directories. `--report-ignored` lists every `*.py` file these rules skip, and a run that selects no file at all prints a warning on stderr, even under `--quiet`
+    - A `*.py` symlink is analyzed only when it resolves to a regular file inside the analyzed directory. Links that leave it, dangling links, devices, and directories named `*.py` are skipped with a warning
+    - A source file larger than 64 MiB is reported as failed instead of read
 
 ### Output Formats
 
@@ -229,6 +231,17 @@ complexipy path/to/script.py --check-script --max-complexity-allowed 5
 This is useful for scripts with complex top-level control flow outside
 functions.
 
+Every function a module defines is scored on its own, wherever the `def`
+sits: under a module-level `if`, `try`, `with`, `for`, `while`, or `match`,
+and in nested classes, whose methods are named `Outer::Inner::method`. A
+function defined inside another function counts toward the outer one.
+
+A source file with a PEP 263 coding cookie is read in that encoding: UTF-8
+and Latin-1 always, and an ASCII-compatible encoding such as `cp1252` when
+the file is pure ASCII. A file that declares any other encoding, such as
+`utf-7`, is reported as failed, because reading it as UTF-8 would not show
+the code Python runs.
+
 ### Refactor Suggestions
 
 Use `--suggest-refactors` to print a small, ranked set of deterministic refactor plans next to rich CLI results:
@@ -261,7 +274,9 @@ complexipy . --fix
 
 `--fix` changes only functions whose complexity is above `max-complexity-allowed`, the same rule the gate uses. Every pass checks the threshold again, so a function stops changing once it passes. A function at or under the threshold keeps its suggestions in the report and is never rewritten. One run applies every fixable plan of those functions in every analyzed file and repeats pass by pass, up to 8 passes, until no fixable plan remains; a later pass labels its diff `pass 2:`. For each fixed file the run prints a syntax-highlighted unified diff of the applied changes, with line numbers, one context line per hunk, and the rule that fired, and then a summary of fixed and skipped fixes. The summary shows the reduction per fix as `(-3 complexity)`, with a tilde before the number (`(- ~3 complexity)`) when the number is estimated. Summary lines use the file's line numbers from before the run, in every pass; a fix inside a region that an earlier pass rewrote reports that region's lines. When nothing is fixable the run prints `No fixes to apply.` The report and every gate measure the state after the fixes. Re-analyzing a fixed file shows the finding is gone and the complexity dropped by the plan's measured reduction.
 
-`--fix --dry-run` previews the same changes: it prints only the unified diff and writes nothing. `--fix` runs wherever you are: uncommitted changes, untracked files, and a missing git repository never block it, and no extra flag is needed. A fix keeps the file's line endings and its trailing newline. Per-rule filtering rides on `--select` and `--ignore`.
+`--fix --dry-run` previews the same changes: it prints only the unified diff and writes nothing, not even the cache or the snapshot. `--fix` runs wherever you are: uncommitted changes, untracked files, and a missing git repository never block it, and no extra flag is needed. A fix keeps the file's line endings and its trailing newline. Per-rule filtering rides on `--select` and `--ignore`.
+
+`--fix` rewrites only regular files inside the directory it runs from. It skips a symlink, and a file that changed on disk after complexipy read it. It writes a new file next to the original and renames it into place, keeping the permission bits and the group but not setuid, setgid, extended attributes, or ACLs.
 
 **JSON Output Structure:**
 
@@ -301,7 +316,7 @@ complexipy . --fix
 ]
 ```
 
-JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output is unchanged and does not include plans. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
+JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output does not include plans, and a cell that a spreadsheet would run as a formula (one that starts with `=`, `+`, `-`, or `@`) is written with a leading `'`. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
 
 ### Color Output
 
@@ -315,6 +330,8 @@ complexipy . --color no    # Disable colors
 
 `auto` styles a stream only when it is a terminal and `NO_COLOR` is unset or empty. `--color` covers every styled line, including the `--fix` diff and the warnings on stderr, and `--plain` output is never styled.
 
+Text that comes from the analyzed files is printed with its control characters escaped: a path, a source line, or a configuration value shows an escape character as `\u{1b}` and a line break as `\u{a}`, so it cannot move the cursor, rewrite earlier lines, set the window title, or print a hidden link.
+
 ## Configuration Files
 
 ### Configuration Priority
@@ -325,6 +342,25 @@ complexipy loads configuration in this order (highest to lowest priority):
 1. `complexipy.toml`
 1. `.complexipy.toml`
 1. `pyproject.toml` (under `[tool.complexipy]`)
+
+complexipy reads the first of these files that parses and has valid values,
+and never merges files. When a higher file shadows a lower one that also
+holds settings, a warning names the file that is not applied.
+
+`--isolated` ignores every configuration file, and `--config <path>` reads
+only the named file: its `[tool.complexipy]` section when the file is named
+`pyproject.toml`, and the whole file otherwise. Use either one in CI to pin
+the gate, so a change to the repository's configuration cannot change it.
+
+A configuration file that is not a regular file, that is larger than 4 MiB,
+or that is a symlink resolving outside the directory is skipped with a
+warning. A configuration error names the file, the line and column, or the
+key, and never repeats the file's contents.
+
+Values read from a configuration file are checked before use: `paths`,
+`output`, and `cache-dir` must stay inside the directory complexipy runs
+from, symlinks included, and a diff `branch` cannot start with `-`. Pass a
+path outside the project on the command line instead.
 
 ### Example Configurations
 
@@ -417,7 +453,11 @@ section to the same configuration file:
 - `staged` enables staged comparison by default, like passing `--staged`
   on every call.
 - CLI flags always take precedence over the section values.
-- `branch = ""` disables the diff for the current repository (opt-out).
+- `branch = ""` disables the diff for the current repository (opt-out),
+  and the section's `staged` value with it.
+- A `[diff]` section changes what the exit code checks, so every run it
+  applies to prints a warning on stderr that names the file. Pass `--diff`,
+  `--isolated`, or `--config <path>` to pin the gate in CI.
 - Resolution order: CLI flag, then the `diff` section.
 - If the configured `branch` does not exist in the local clone (for
   example a fresh or shallow clone), every function reports as `NEW` and
@@ -497,6 +537,8 @@ equals the threshold passes, as it does on the command line.
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. `--quiet` hides the list | `false` |
+| `--isolated` | Ignore every configuration file. Cannot be combined with `--config` | `false` |
+| `--config <path>` | Read the configuration from this file only, instead of the invocation directory's files | - |
 
 Boolean flags take an explicit value only in the attached form
 `--flag=<true|false>`. A bare flag means `true`, and the following
@@ -765,6 +807,10 @@ complexipy . --snapshot-create --max-complexity-allowed 15
 
 This creates `complexipy-snapshot.json` in your working directory, recording all functions that currently exceed the threshold.
 
+Create the baseline from the command line. `snapshot-create = true` in a
+configuration file re-records the baseline on every run, so every current
+violation passes; such a run prints a warning on stderr that names the file.
+
 ### How Snapshots Work
 
 Once a snapshot exists, complexipy will:
@@ -830,6 +876,8 @@ Use this when:
 
 Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
+Functions of one file that share a name, such as a property's getter and setter, get separate entries: the first in source order keeps the name, and the next ones are stored as `name#2`, `name#3`. `--diff` keys its comparison the same way.
+
 ## Rule Selection
 
 Refactoring rules carry ids like `C001` (see
@@ -884,6 +932,13 @@ The ignore comment can also be placed on the line above the function definition:
 def complex_function():
     pass
 ```
+
+A marker counts only inside a comment: on the `def` line, on a line of its
+signature or decorators, or as a comment on its own line directly above. The
+same text in a string, a docstring, or a decorator argument, or a trailing
+comment on the code line above, suppresses nothing. The words are matched
+whole and separated by spaces or tabs only, so `# complexipy: ignored` is
+not a marker.
 
 ### Suppressing Specific Rules
 
