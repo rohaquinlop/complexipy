@@ -254,6 +254,38 @@ impl ExitReport {
     }
 }
 
+/// What a run's diff knows about each function, by file path and function
+/// key.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiffBaseline {
+    /// The complexity each function compares with at the ref, `None` for a
+    /// new function.
+    pub complexities: std::collections::HashMap<(String, String), Option<u64>>,
+    /// When the diff decides the exit code, the functions that fail the run,
+    /// as the report's rows judge them.
+    pub failing: Option<std::collections::HashSet<(String, String)>>,
+}
+
+impl DiffBaseline {
+    /// The SARIF `baselineState` of a function: `new`, `updated`, or
+    /// `unchanged`, which a function in a file the diff found unchanged also
+    /// gets.
+    pub fn state(&self, path: &str, key: &str, complexity: u64) -> &'static str {
+        match self.complexities.get(&(path.to_string(), key.to_string())) {
+            Some(None) => "new",
+            Some(Some(previous)) if *previous != complexity => "updated",
+            _ => "unchanged",
+        }
+    }
+
+    /// Whether the function fails the run, or `None` when the diff does not
+    /// decide the exit code.
+    pub fn fails(&self, path: &str, key: &str) -> Option<bool> {
+        let failing = self.failing.as_ref()?;
+        Some(failing.contains(&(path.to_string(), key.to_string())))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionRow {
     pub name: String,

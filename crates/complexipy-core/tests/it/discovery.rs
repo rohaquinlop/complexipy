@@ -3,6 +3,7 @@
 
 use std::fs;
 
+use complexipy_core::runner::ArgumentCoverage;
 use complexipy_core::{
     AnalysisOptions, collect_all_ignored_locations, collect_removable_ignored_locations,
     run_analysis_shared,
@@ -90,4 +91,54 @@ fn ignored_locations_use_the_same_paths_as_the_analysis() {
         ["legacy/old.py", "src/legacy/inner.py", "src/new.py"]
     );
     assert_eq!(removable, ignored);
+}
+
+#[test]
+fn the_arguments_cover_a_removed_file_where_discovery_would_select_it() {
+    let (_dir, root) = project();
+    let paths = arguments(&root, &["src", "legacy/old.py"]);
+    let exclude = ["legacy/**".to_string()];
+    let coverage = ArgumentCoverage::new(&paths, &exclude, &root);
+    let covers = |relative: &str| coverage.covers(&std::path::Path::new(&root).join(relative));
+
+    for analyzed in analyzed_paths(&root, &paths, &exclude) {
+        assert!(covers(&analyzed), "{analyzed}");
+    }
+    assert!(covers("src/gone.py"));
+    assert!(covers("src/pkg/gone.py"));
+    assert!(!covers("src/legacy/inner.py"));
+    assert!(!covers("src/legacy/gone.py"));
+    assert!(!covers("src/.hidden/gone.py"));
+    assert!(!covers("src/notes.txt"));
+    assert!(!covers("other/gone.py"));
+}
+
+#[test]
+fn the_arguments_skip_a_removed_file_that_ignore_files_hide() {
+    let (_dir, root) = project();
+    fs::create_dir_all(format!("{root}/.git/info")).unwrap();
+    fs::write(format!("{root}/.git/info/exclude"), "local.py\n").unwrap();
+    fs::write(format!("{root}/.gitignore"), "generated/\n").unwrap();
+    fs::write(format!("{root}/src/.ignore"), "scratch_*.py\n").unwrap();
+    fs::create_dir_all(format!("{root}/src/generated")).unwrap();
+    for hidden in [
+        "src/generated/present.py",
+        "src/scratch_present.py",
+        "src/local.py",
+    ] {
+        fs::write(format!("{root}/{hidden}"), MARKED).unwrap();
+    }
+    let paths = arguments(&root, &["src"]);
+    let coverage = ArgumentCoverage::new(&paths, &[], &root);
+    let covers = |relative: &str| coverage.covers(&std::path::Path::new(&root).join(relative));
+
+    assert_eq!(
+        analyzed_paths(&root, &paths, &[]),
+        ["src/legacy/inner.py", "src/new.py"]
+    );
+    assert!(!covers("src/generated/gone.py"));
+    assert!(!covers("src/scratch_gone.py"));
+    assert!(!covers("src/deeper/local.py"));
+    assert!(covers("src/gone.py"));
+    assert!(covers("src/legacy/gone.py"));
 }

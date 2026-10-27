@@ -2,7 +2,9 @@ use crate::classes::{FileComplexity, IgnoredLocation, RemovableIgnore};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::encoding::decode_python_source;
 use crate::fs_guard::{MAX_SOURCE_BYTES, read_bounded};
-use crate::helpers::exclude::get_paths_to_process;
+use crate::helpers::exclude::{
+    ExcludeMatcher, get_paths_to_process, global_gitignore, ignore_rules_hide,
+};
 use crate::rules::{AnalysisOptions, RuleSet};
 use crate::syntax_tree::parse_module;
 use crate::utils::{collect_ignored_locations, filter_removable_ignores};
@@ -200,6 +202,82 @@ impl Analysis {
             .collect();
         removable.sort_by_key(Located::sort_key);
         removable
+    }
+}
+
+/// The path arguments of a run, resolved once, to decide whether the run
+/// covers a file that the working tree no longer holds, such as a staged
+/// deletion. A file argument covers the file it names. A directory argument
+/// covers a `*.py` path under it that discovery would select: outside
+/// hidden entries, not hidden by `.ignore`, `.gitignore`, git's exclude
+/// file, or the global gitignore, and matched by no exclude pattern,
+/// relative to the argument or to the invocation directory.
+pub struct ArgumentCoverage {
+    files: Vec<PathBuf>,
+    directories: Vec<PathBuf>,
+    exclude: ExcludeMatcher,
+    anchor: String,
+    global_gitignore: ignore::gitignore::Gitignore,
+}
+
+impl ArgumentCoverage {
+    pub fn new(paths: &[String], exclude: &[String], invocation_path: &str) -> Self {
+        let mut coverage = Self {
+            files: Vec::new(),
+            directories: Vec::new(),
+            exclude: ExcludeMatcher::new(exclude),
+            anchor: slashed(&canonical(path::Path::new(invocation_path))),
+            global_gitignore: global_gitignore(),
+        };
+        for path in paths {
+            let resolved = resolved(path);
+            if resolved.is_dir() {
+                coverage.directories.push(resolved);
+            } else {
+                coverage.files.push(resolved);
+            }
+        }
+        coverage
+    }
+
+    /// Whether the run covers `file`, an absolute path with its existing
+    /// directories resolved.
+    pub fn covers(&self, file: &path::Path) -> bool {
+        if self.files.iter().any(|candidate| candidate == file) {
+            return true;
+        }
+        if file.extension().is_none_or(|extension| extension != "py") {
+            return false;
+        }
+        let file_text = slashed(file);
+        self.directories.iter().any(|directory| {
+            let Ok(relative) = file.strip_prefix(directory) else {
+                return false;
+            };
+            !relative
+                .components()
+                .any(|component| component.as_os_str().to_string_lossy().starts_with('.'))
+                && !self.exclude.is_excluded(&file_text, &slashed(directory))
+                && !self.exclude.is_excluded_inside(&file_text, &self.anchor)
+                && !ignore_rules_hide(directory, file, &self.global_gitignore)
+        })
+    }
+}
+
+/// `path` resolved, or, when it does not exist, its resolved parent joined
+/// with its name.
+fn resolved(path: &str) -> PathBuf {
+    let path = path::Path::new(path);
+    if let Ok(resolved) = path.canonicalize() {
+        return resolved;
+    }
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => path::Path::new("."),
+    };
+    match (parent.canonicalize(), path.file_name()) {
+        (Ok(parent), Some(name)) => parent.join(name),
+        _ => path.to_path_buf(),
     }
 }
 

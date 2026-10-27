@@ -6,7 +6,7 @@ use std::io::IsTerminal;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::output::refactor::{output_refactor_plans, read_source_lines};
-use crate::output::rows::{build_output_rows, truncate_top_n};
+use crate::output::rows::{DiffFailures, build_output_rows, truncate_top_n};
 use crate::types::{FileEntry, FunctionRow, Sort};
 use complexipy_core::classes::FileComplexity;
 use complexipy_core::sanitize::escape_controls;
@@ -142,6 +142,7 @@ pub struct SummaryOptions<'a> {
     pub max_complexity: u64,
     pub previous_functions: Option<&'a HashMap<(String, String, String), u64>>,
     pub snapshot_map: Option<&'a HashMap<(String, String, String), u64>>,
+    pub diff_failures: Option<&'a DiffFailures>,
     pub plain: bool,
     pub top: Option<u64>,
     pub suggest_refactors: bool,
@@ -158,15 +159,23 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
         max_complexity,
         previous_functions,
         snapshot_map,
+        diff_failures,
         plain,
         top,
         suggest_refactors,
         invocation_path,
         color,
     } = options;
-    let (mut file_entries, total_functions, all_pass) =
-        build_output_rows(files, failed_only, sort, max_complexity, snapshot_map);
-    let has_success = all_pass || ignore_complexity;
+    let rows = build_output_rows(
+        files,
+        failed_only,
+        sort,
+        max_complexity,
+        snapshot_map,
+        diff_failures,
+    );
+    let has_success = rows.all_pass || ignore_complexity;
+    let mut file_entries = rows.files;
 
     if let Some(top) = top {
         file_entries = truncate_top_n(file_entries, top);
@@ -176,13 +185,15 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
         return (has_success, output_plain(&file_entries));
     }
 
-    let output = if failed_only && file_entries.is_empty() {
+    let output = if failed_only && file_entries.is_empty() && rows.allowed > 0 {
+        allowed_summary(rows.allowed, max_complexity)
+    } else if failed_only && file_entries.is_empty() {
         let plural = if files.len() > 1 { "s" } else { "" };
         format!(
             "No function{} were found with complexity greater than {}.",
             plural, max_complexity
         )
-    } else if total_functions == 0 {
+    } else if rows.total_functions == 0 {
         "No files were found with functions. No complexity was calculated.".to_string()
     } else {
         output_file_entries(
@@ -192,10 +203,28 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
             suggest_refactors,
             invocation_path,
             color,
+            rows.allowed,
         )
     };
 
     (has_success, output)
+}
+
+/// The closing line of a report in which no function fails the run, but
+/// `allowed` functions above the threshold pass a gate.
+fn allowed_summary(allowed: u64, max_complexity: u64) -> String {
+    let functions = if allowed == 1 {
+        "function"
+    } else {
+        "functions"
+    };
+    format!(
+        "No function fails the run. {} {} above {} {} ALLOWED: no worse than the baseline the gate compares with.",
+        allowed,
+        functions,
+        max_complexity,
+        if allowed == 1 { "is" } else { "are" }
+    )
 }
 
 pub fn output_plain(file_entries: &[FileEntry]) -> String {
@@ -220,6 +249,7 @@ pub fn output_file_entries(
     suggest_refactors: bool,
     invocation_path: &str,
     color: bool,
+    allowed: u64,
 ) -> String {
     let mut sections = Vec::new();
 
@@ -231,7 +261,8 @@ pub fn output_file_entries(
         ];
         let source_lines = OnceCell::new();
         for function in &entry.functions {
-            let status_text = format_status_text(function.passed);
+            let status_text =
+                format_status_text(function.passed, function.complexity > max_complexity);
             let complexity_text = colorize_complexity(function.complexity, max_complexity);
             let delta_text = output_delta_text(previous_functions, function, max_complexity);
             lines.push(format!(
@@ -264,19 +295,31 @@ pub fn output_file_entries(
             .iter()
             .all(|entry| entry.functions.iter().all(|function| function.passed))
     {
+        let summary = if allowed == 0 {
+            "All functions are within the allowed complexity.".to_string()
+        } else {
+            allowed_summary(allowed, max_complexity)
+        };
         output.push_str(&format!(
             "\n\n{}",
-            "All functions are within the allowed complexity."
-                .if_supports_color(Stream::Stdout, |text| text
-                    .style(Style::new().green().bold()))
+            summary.if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().green().bold()))
         ));
     }
 
     output
 }
 
-pub fn format_status_text(passed: bool) -> String {
-    if passed {
+/// The status of a row: PASSED, FAILED, or, for a function above the
+/// threshold that passes a gate, ALLOWED.
+pub fn format_status_text(passed: bool, over_threshold: bool) -> String {
+    if passed && over_threshold {
+        format!(
+            "⚠️ {} ",
+            " ALLOWED ".if_supports_color(Stream::Stdout, |text| text
+                .style(Style::new().black().on_yellow().bold()))
+        )
+    } else if passed {
         format!(
             "✅ {} ",
             " PASSED ".if_supports_color(Stream::Stdout, |text| text

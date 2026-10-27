@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::output::rows::{
-    build_output_rows, has_success_functions, is_function_passing, sort_functions, truncate_top_n,
+    DiffFailures, build_output_rows, failing_functions, has_success_functions, is_function_passing,
+    sort_functions, truncate_top_n,
 };
 use crate::types::Sort;
 use complexipy_core::classes::{FileComplexity, FunctionComplexity};
@@ -81,14 +82,20 @@ fn sort_file_name_by_lowercased_name() {
 #[test]
 fn passing_within_threshold() {
     let f = function("f", 5);
-    assert!(is_function_passing(&f, &f.name, "a.py", "a.py", 5, None));
-    assert!(is_function_passing(&f, &f.name, "a.py", "a.py", 10, None));
+    assert!(is_function_passing(
+        &f, &f.name, "a.py", "a.py", 5, None, None
+    ));
+    assert!(is_function_passing(
+        &f, &f.name, "a.py", "a.py", 10, None, None
+    ));
 }
 
 #[test]
 fn passing_above_threshold_without_snapshot_fails() {
     let f = function("f", 10);
-    assert!(!is_function_passing(&f, &f.name, "a.py", "a.py", 5, None));
+    assert!(!is_function_passing(
+        &f, &f.name, "a.py", "a.py", 5, None, None
+    ));
 }
 
 #[test]
@@ -101,7 +108,8 @@ fn passing_with_snapshot_allows_same_or_better() {
         "a.py",
         "a.py",
         5,
-        Some(&map)
+        Some(&map),
+        None
     ));
 
     let map = snapshot_map(&[("a.py", "a.py", "f", 10)]);
@@ -111,7 +119,8 @@ fn passing_with_snapshot_allows_same_or_better() {
         "a.py",
         "a.py",
         5,
-        Some(&map)
+        Some(&map),
+        None
     ));
 
     let map = snapshot_map(&[("a.py", "a.py", "f", 8)]);
@@ -121,7 +130,8 @@ fn passing_with_snapshot_allows_same_or_better() {
         "a.py",
         "a.py",
         5,
-        Some(&map)
+        Some(&map),
+        None
     ));
 }
 
@@ -140,15 +150,15 @@ fn build_rows_filters_failed_only_and_tracks_totals() {
         file("src/b.py", "b.py", vec![function("other", 1)]),
     ];
 
-    let (entries, total, all_pass) = build_output_rows(&files, false, Sort::Asc, 5, None);
+    let rows = build_output_rows(&files, false, Sort::Asc, 5, None, None);
 
-    assert_eq!(total, 4);
-    assert!(!all_pass);
-    assert_eq!(entries.len(), 2);
-    assert_eq!(entries[0].functions.len(), 3);
-    assert_eq!(entries[0].path, "src/a.py");
+    assert_eq!(rows.total_functions, 4);
+    assert!(!rows.all_pass);
+    assert_eq!(rows.files.len(), 2);
+    assert_eq!(rows.files[0].functions.len(), 3);
+    assert_eq!(rows.files[0].path, "src/a.py");
 
-    let (entries, _, _) = build_output_rows(&files, true, Sort::Asc, 5, None);
+    let entries = build_output_rows(&files, true, Sort::Asc, 5, None, None).files;
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].functions.len(), 1);
     assert_eq!(entries[0].functions[0].name, "fail");
@@ -158,9 +168,9 @@ fn build_rows_filters_failed_only_and_tracks_totals() {
 fn build_rows_all_pass_when_within_threshold() {
     let files = vec![file("src/a.py", "a.py", vec![function("f", 2)])];
 
-    let (_, _, all_pass) = build_output_rows(&files, false, Sort::Asc, 5, None);
+    let rows = build_output_rows(&files, false, Sort::Asc, 5, None, None);
 
-    assert!(all_pass);
+    assert!(rows.all_pass);
 }
 
 #[test]
@@ -214,8 +224,125 @@ fn truncate_top_n_groups_by_path() {
 #[test]
 fn has_success_functions_respects_snapshot() {
     let files = vec![file("a.py", "a.py", vec![function("f", 10)])];
-    assert!(!has_success_functions(&files, 5, None));
+    assert!(!has_success_functions(&files, 5, None, None));
 
     let map = snapshot_map(&[("a.py", "a.py", "f", 12)]);
-    assert!(has_success_functions(&files, 5, Some(&map)));
+    assert!(has_success_functions(&files, 5, Some(&map), None));
+}
+
+fn failures(entries: &[(&str, &str)]) -> DiffFailures {
+    entries
+        .iter()
+        .map(|(path, key)| (path.to_string(), key.to_string()))
+        .collect()
+}
+
+#[test]
+fn a_diff_gate_fails_only_the_functions_it_names() {
+    let over = function("over", 10);
+    let named = failures(&[("a.py", "over")]);
+    let none = failures(&[]);
+
+    assert!(!is_function_passing(
+        &over,
+        "over",
+        "a.py",
+        "a.py",
+        5,
+        None,
+        Some(&named)
+    ));
+    assert!(is_function_passing(
+        &over,
+        "over",
+        "a.py",
+        "a.py",
+        5,
+        None,
+        Some(&none)
+    ));
+    assert!(!is_function_passing(
+        &function("within", 2),
+        "within",
+        "a.py",
+        "a.py",
+        5,
+        None,
+        Some(&failures(&[("a.py", "within")]))
+    ));
+}
+
+#[test]
+fn a_diff_gate_with_a_snapshot_also_needs_the_snapshot() {
+    let over = function("f", 10);
+    let none = failures(&[]);
+
+    assert!(!is_function_passing(
+        &over,
+        "f",
+        "a.py",
+        "a.py",
+        5,
+        Some(&snapshot_map(&[("a.py", "a.py", "f", 8)])),
+        Some(&none)
+    ));
+    assert!(is_function_passing(
+        &over,
+        "f",
+        "a.py",
+        "a.py",
+        5,
+        Some(&snapshot_map(&[("a.py", "a.py", "f", 12)])),
+        Some(&none)
+    ));
+}
+
+#[test]
+fn rows_count_the_functions_a_gate_allows_and_list_only_failures() {
+    let files = vec![file(
+        "a.py",
+        "a.py",
+        vec![
+            function("old", 30),
+            function("worse", 20),
+            function("ok", 2),
+        ],
+    )];
+    let named = failures(&[("a.py", "worse")]);
+
+    let rows = build_output_rows(&files, true, Sort::Asc, 5, None, Some(&named));
+
+    assert!(!rows.all_pass);
+    assert_eq!(rows.allowed, 1);
+    let listed: Vec<&str> = rows.files[0]
+        .functions
+        .iter()
+        .map(|function| function.name.as_str())
+        .collect();
+    assert_eq!(listed, vec!["worse"]);
+}
+
+#[test]
+fn the_failing_functions_include_those_the_snapshot_fails_under_a_diff_gate() {
+    let files = vec![file(
+        "a.py",
+        "a.py",
+        vec![
+            function("unlisted", 10),
+            function("listed", 10),
+            function("worse", 10),
+        ],
+    )];
+    let snapshot = snapshot_map(&[
+        ("a.py", "a.py", "listed", 12),
+        ("a.py", "a.py", "worse", 12),
+    ]);
+    let diff = failures(&[("a.py", "worse")]);
+
+    let failing = failing_functions(&files, 5, Some(&snapshot), Some(&diff));
+
+    assert_eq!(
+        failing,
+        failures(&[("a.py", "unlisted"), ("a.py", "worse")])
+    );
 }

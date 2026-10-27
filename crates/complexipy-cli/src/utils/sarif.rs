@@ -2,10 +2,12 @@ use std::path::Path;
 
 use serde_json::{Map, Value, json};
 
+use crate::types::DiffBaseline;
 use crate::utils::fingerprint::{finding_fingerprint, function_ranks, plan_rank};
 use complexipy_core::classes::{
     Applicability, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
 };
+use complexipy_core::diff::function_keys;
 use complexipy_core::fs_guard::write_atomic;
 use complexipy_core::utils::ExportError;
 
@@ -16,14 +18,19 @@ const FINGERPRINT_KEY: &str = "complexipyFindingHash/v1";
 const INFO_URI: &str = "https://complexipy.com/";
 const HELP_URI: &str = "https://complexipy.com/understanding-scores/";
 
+/// Writes the SARIF report. With `baseline`, every result carries the
+/// `baselineState` of its function against the diff's ref, and, when the
+/// diff decides the exit code, a complexity result's `level` is `error` for
+/// a function that fails the run and `note` for one the run lets through.
 pub fn store_sarif(
     output_path: &str,
     files: &[FileComplexity],
     max_complexity: u64,
     suggest_refactors: bool,
+    baseline: Option<&DiffBaseline>,
 ) -> Result<(), ExportError> {
     let (results, refactor_rule_definitions) =
-        collect_results(files, max_complexity, suggest_refactors);
+        collect_results(files, max_complexity, suggest_refactors, baseline);
 
     let mut rules = vec![complexity_rule_definition()];
     rules.extend(refactor_rule_definitions.values().cloned());
@@ -55,13 +62,14 @@ fn collect_results(
     files: &[FileComplexity],
     max_complexity: u64,
     suggest_refactors: bool,
+    baseline: Option<&DiffBaseline>,
 ) -> (Vec<Value>, Map<String, Value>) {
     let mut results = Vec::new();
     let mut refactor_rule_definitions = Map::new();
 
     for file in files {
         let ranks = function_ranks(file);
-        for function in &file.functions {
+        for (function, key) in file.functions.iter().zip(function_keys(&file.functions)) {
             let location = Location {
                 file,
                 function,
@@ -70,11 +78,23 @@ fn collect_results(
                     .copied()
                     .unwrap_or(0),
             };
+            let first = results.len();
             if function.complexity > max_complexity {
-                results.push(complexity_result(&location, max_complexity));
+                let mut result = complexity_result(&location, max_complexity);
+                if let Some(fails) = baseline.and_then(|baseline| baseline.fails(&file.path, &key))
+                {
+                    result["level"] = Value::from(if fails { "error" } else { "note" });
+                }
+                results.push(result);
             }
             if suggest_refactors {
                 add_refactor_plan_results(&location, &mut results, &mut refactor_rule_definitions);
+            }
+            if let Some(baseline) = baseline {
+                let state = baseline.state(&file.path, &key, function.complexity);
+                for result in &mut results[first..] {
+                    result["baselineState"] = Value::from(state);
+                }
             }
         }
     }

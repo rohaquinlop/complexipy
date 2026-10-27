@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::ExitCode;
 
 macro_rules! emit {
@@ -15,6 +16,7 @@ macro_rules! emit_error {
 use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
+use crate::output::diff::format_diff;
 use crate::output::messages::{
     config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
     ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
@@ -24,17 +26,20 @@ use crate::output::messages::{
 use crate::output::render::{
     color_enabled_for, handle_console_settings, print_invalid_paths, rule,
 };
+use crate::output::rows::{DiffFailures, failing_functions};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
-use crate::types::{ExitReport, OutputFormat, RunConfig};
+use crate::types::{DiffBaseline, ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::handle_report_ignored;
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::load_run_config;
+use complexipy_core::classes::FileComplexity;
 use complexipy_core::diff::{
-    compute_diff_report, compute_staged_diff, has_regressions, resolve_diff_flags,
+    DiffReport, Verdict, compute_diff_report, compute_staged_diff, gate_verdicts,
+    resolve_diff_flags,
 };
-use complexipy_core::runner::{Analysis, LocationReports};
+use complexipy_core::runner::{Analysis, ArgumentCoverage, LocationReports};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
     AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
@@ -167,6 +172,33 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         }
     };
 
+    let run_diff = diff
+        .as_deref()
+        .or(diff_only.as_deref())
+        .and_then(|git_ref| {
+            compute_run_diff(
+                &config,
+                diff.is_some(),
+                git_ref,
+                &files_complexities,
+                invocation_path,
+            )
+        });
+    let compared = run_diff
+        .as_ref()
+        .filter(|run_diff| run_diff.report.is_some());
+    let diff_failures = compared.filter(|_| diff.is_some()).map(RunDiff::failures);
+    let diff_baseline = compared.map(|run_diff| {
+        run_diff.baseline(diff_failures.as_ref().map(|diff_failures| {
+            failing_functions(
+                &files_complexities,
+                config.max_complexity_allowed,
+                snap.active_snapshot_map.as_ref(),
+                Some(diff_failures),
+            )
+        }))
+    });
+
     match handle_results_storage(StorageOptions {
         output_formats: &config.output_format,
         output: config.output.as_deref(),
@@ -176,6 +208,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         max_complexity: config.max_complexity_allowed,
         invocation_path,
         suggest_refactors: config.suggest_refactors && !config.dry_run,
+        diff_baseline: diff_baseline.as_ref(),
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
@@ -196,6 +229,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         ignore_complexity: config.ignore_complexity,
         max_complexity_allowed: config.max_complexity_allowed,
         active_snapshot_map: snap.active_snapshot_map.as_ref(),
+        diff_failures: diff_failures.as_ref(),
         quiet: config.quiet,
         plain: config.plain,
         invocation_path,
@@ -265,34 +299,20 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         emit!("{}", invalid_paths_output);
     }
 
-    let diff_ref = diff.clone().or_else(|| diff_only.clone());
-    let diff_entries = if let Some(diff_ref) = diff_ref {
-        if config.staged {
-            match compute_staged_diff(&diff_ref, invocation_path) {
-                Some(entries) => {
-                    if !config.quiet {
-                        emit!(
-                            "{}",
-                            format_diff_for(&entries, &format!("{} (staged)", diff_ref))
-                        );
-                    }
-                    Some(entries)
-                }
-                None => {
-                    if !config.quiet {
-                        emit!(
-                            "{} --staged requires a git repository; skipping the staged diff.",
-                            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
-                        );
-                    }
-                    None
-                }
-            }
-        } else if !files_complexities.is_empty() {
-            let report = compute_diff_report(&files_complexities, &diff_ref, invocation_path);
-            if !config.quiet {
-                emit!("{}", format_diff_for(&report.entries, &diff_ref));
-                for warning in unresolved_diff_warnings(&report.unresolved, &diff_ref) {
+    if !config.quiet
+        && let Some(run_diff) = &run_diff
+    {
+        match &run_diff.report {
+            Some(report) => {
+                emit!(
+                    "{}",
+                    format_diff(
+                        &report.entries,
+                        &run_diff.label,
+                        run_diff.verdicts.as_deref()
+                    )
+                );
+                for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
                     emit!(
                         "{} {}",
                         "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
@@ -300,20 +320,16 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                     );
                 }
             }
-            Some(report.entries)
-        } else {
-            None
+            None => emit!(
+                "{} --staged requires a git repository; skipping the staged diff, so the threshold does not decide the exit code.",
+                "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
+            ),
         }
-    } else {
-        None
-    };
-
-    let mut diff_ok = true;
-    if diff.is_some()
-        && let Some(entries) = diff_entries
-    {
-        diff_ok = !has_regressions(&entries, config.max_complexity_allowed);
     }
+    let diff_ok = run_diff
+        .as_ref()
+        .and_then(|run_diff| run_diff.verdicts.as_ref())
+        .is_none_or(|verdicts| !verdicts.contains(&Verdict::Fails));
 
     if !config.quiet && !config.plain {
         if cfg!(windows) {
@@ -362,8 +378,101 @@ fn reports_passing_plans(config: &RunConfig) -> bool {
     shows_plans && (lists_passing || reports_every_plan)
 }
 
-fn format_diff_for(entries: &[complexipy_core::diff::DiffEntry], git_ref: &str) -> String {
-    crate::output::diff::format_diff(entries, git_ref)
+/// The comparison a run makes against a git ref.
+struct RunDiff {
+    git_ref: String,
+    label: String,
+    /// `None` when `--staged` runs outside a repository.
+    report: Option<DiffReport>,
+    /// The gate's verdict on each entry, when the diff decides the exit code.
+    verdicts: Option<Vec<Verdict>>,
+}
+
+impl RunDiff {
+    /// The functions the gate fails, by file path and function key.
+    fn failures(&self) -> DiffFailures {
+        let (Some(report), Some(verdicts)) = (&self.report, &self.verdicts) else {
+            return DiffFailures::new();
+        };
+        report
+            .entries
+            .iter()
+            .zip(verdicts)
+            .filter(|(_, verdict)| **verdict == Verdict::Fails)
+            .map(|(entry, _)| (entry.file_path.clone(), entry.func_name.clone()))
+            .collect()
+    }
+
+    /// The complexity each current function compares with, the old
+    /// function's for one that replaces it, and `failing`, the functions
+    /// that fail the run when the diff decides the exit code.
+    fn baseline(&self, failing: Option<DiffFailures>) -> DiffBaseline {
+        let mut baseline = DiffBaseline {
+            failing,
+            ..DiffBaseline::default()
+        };
+        let Some(report) = &self.report else {
+            return baseline;
+        };
+        for (index, entry) in report.entries.iter().enumerate() {
+            if entry.new_complexity.is_none() {
+                continue;
+            }
+            let complexity = match self.verdicts.as_ref().map(|verdicts| verdicts[index]) {
+                Some(Verdict::Replaces(removed)) => report.entries[removed].old_complexity,
+                _ => entry.old_complexity,
+            };
+            baseline.complexities.insert(
+                (entry.file_path.clone(), entry.func_name.clone()),
+                complexity,
+            );
+        }
+        baseline
+    }
+}
+
+fn compute_run_diff(
+    config: &RunConfig,
+    enforce: bool,
+    git_ref: &str,
+    files: &[FileComplexity],
+    invocation_path: &str,
+) -> Option<RunDiff> {
+    let coverage = ArgumentCoverage::new(&config.paths, &config.exclude, invocation_path);
+    let covers = |path: &Path| coverage.covers(path);
+    let gate = enforce.then_some(config.max_complexity_allowed);
+    let (label, report) = if config.staged {
+        (
+            format!("{} (staged)", git_ref),
+            compute_staged_diff(files, git_ref, invocation_path, &covers, gate),
+        )
+    } else if !files.is_empty() {
+        (
+            git_ref.to_string(),
+            Some(compute_diff_report(
+                files,
+                git_ref,
+                invocation_path,
+                &covers,
+                gate,
+            )),
+        )
+    } else {
+        return None;
+    };
+    let verdicts = report.as_ref().filter(|_| enforce).map(|report| {
+        gate_verdicts(
+            &report.entries,
+            config.max_complexity_allowed,
+            &report.bodies,
+        )
+    });
+    Some(RunDiff {
+        git_ref: git_ref.to_string(),
+        label,
+        report,
+        verdicts,
+    })
 }
 
 #[cfg(test)]
