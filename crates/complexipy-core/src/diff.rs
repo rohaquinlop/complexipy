@@ -934,7 +934,9 @@ impl GitObject {
 }
 
 /// Reads every object that `names` lists through one `git cat-file --batch`
-/// process, in order. A `None` name is not requested and reads as missing.
+/// process, in order. A `None` name, or one with a control character, which
+/// git would split or trim as a line ending, is not requested and reads as
+/// missing.
 /// A blob reads as its text; a blob over `MAX_BLOB_BYTES` or not valid
 /// UTF-8, or an object that does not exist, reads as missing; any other
 /// object, such as a tree, reads as unreadable.

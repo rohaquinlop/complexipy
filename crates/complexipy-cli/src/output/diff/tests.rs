@@ -123,7 +123,7 @@ fn no_gate_column_without_a_gate_note() {
     let output = strip_ansi(&format_diff(&entries, "main", Some(&[Verdict::Passes])));
 
     assert!(!header(&output).contains("Gate"));
-    assert!(output.ends_with("Gate: no function is REGRESSED or NEW above the threshold."));
+    assert!(output.ends_with("Gate: no function fails the gate."));
 }
 
 #[test]

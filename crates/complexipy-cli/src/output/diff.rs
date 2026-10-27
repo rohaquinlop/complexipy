@@ -68,7 +68,7 @@ fn gate_summary(verdicts: &[Verdict]) -> String {
         .filter(|verdict| **verdict == Verdict::Fails)
         .count();
     match failures {
-        0 => "\nGate: no function is REGRESSED or NEW above the threshold.".to_string(),
+        0 => "\nGate: no function fails the gate.".to_string(),
         1 => "\nGate: 1 function fails: REGRESSED or NEW above the threshold.".to_string(),
         _ => format!(
             "\nGate: {} functions fail: REGRESSED or NEW above the threshold.",
