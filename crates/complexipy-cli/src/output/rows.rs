@@ -1,9 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::types::{FileEntry, FunctionRow, Sort};
 use crate::utils::paths::normalize_path;
 use complexipy_core::classes::{FileComplexity, FunctionComplexity};
 use complexipy_core::diff::function_keys;
+
+/// The functions a diff gate fails, by file path and function key.
+pub type DiffFailures = HashSet<(String, String)>;
+
+/// The rows of a run's report.
+pub struct Rows {
+    pub files: Vec<FileEntry>,
+    pub total_functions: u64,
+    pub all_pass: bool,
+    /// The functions above the threshold that pass, because a gate finds
+    /// them no worse than its baseline.
+    pub allowed: u64,
+}
 
 pub fn build_output_rows(
     files: &[FileComplexity],
@@ -11,10 +24,14 @@ pub fn build_output_rows(
     sort: Sort,
     max_complexity: u64,
     snapshot_map: Option<&HashMap<(String, String, String), u64>>,
-) -> (Vec<FileEntry>, u64, bool) {
-    let mut file_entries = Vec::new();
-    let mut total_functions = 0u64;
-    let mut all_pass = true;
+    diff_failures: Option<&DiffFailures>,
+) -> Rows {
+    let mut rows = Rows {
+        files: Vec::new(),
+        total_functions: 0,
+        all_pass: true,
+        allowed: 0,
+    };
 
     for file in files {
         let keys: HashMap<(&str, u64), String> = file
@@ -27,7 +44,7 @@ pub fn build_output_rows(
         let mut displayable_functions = Vec::new();
 
         for function in sorted_functions {
-            total_functions += 1;
+            rows.total_functions += 1;
             let passed = is_function_passing(
                 &function,
                 &keys[&(function.name.as_str(), function.line_start)],
@@ -35,10 +52,13 @@ pub fn build_output_rows(
                 &file.file_name,
                 max_complexity,
                 snapshot_map,
+                diff_failures,
             );
 
             if !passed {
-                all_pass = false;
+                rows.all_pass = false;
+            } else if function.complexity > max_complexity {
+                rows.allowed += 1;
             }
 
             if failed_only && passed {
@@ -57,14 +77,14 @@ pub fn build_output_rows(
         }
 
         if !displayable_functions.is_empty() {
-            file_entries.push(FileEntry {
+            rows.files.push(FileEntry {
                 path: normalize_path(&file.path, &file.file_name),
                 functions: displayable_functions,
             });
         }
     }
 
-    (file_entries, total_functions, all_pass)
+    rows
 }
 
 pub fn sort_functions(functions: &[FunctionComplexity], sort: &Sort) -> Vec<FunctionComplexity> {
@@ -80,8 +100,11 @@ pub fn sort_functions(functions: &[FunctionComplexity], sort: &Sort) -> Vec<Func
     sorted
 }
 
-/// Whether `function` passes: at or under the threshold, or no worse than
-/// its snapshot entry, looked up by `key` from `function_keys`.
+/// Whether `function` passes, looked up by `key` from `function_keys`.
+/// When a diff decides the exit code, `diff_failures` holds the functions
+/// its gate fails and every other function passes the diff. Otherwise a
+/// function passes at or under the threshold. With a snapshot, a function
+/// also needs to be at or under the threshold or no worse than its entry.
 pub fn is_function_passing(
     function: &FunctionComplexity,
     key: &str,
@@ -89,7 +112,16 @@ pub fn is_function_passing(
     file_name: &str,
     max_complexity: u64,
     snapshot_map: Option<&HashMap<(String, String, String), u64>>,
+    diff_failures: Option<&DiffFailures>,
 ) -> bool {
+    if let Some(diff_failures) = diff_failures {
+        if diff_failures.contains(&(file_path.to_string(), key.to_string())) {
+            return false;
+        }
+        if snapshot_map.is_none() {
+            return true;
+        }
+    }
     if function.complexity <= max_complexity {
         return true;
     }
@@ -104,10 +136,41 @@ pub fn is_function_passing(
     previous.is_some_and(|previous| function.complexity <= *previous)
 }
 
+/// The functions that fail, by file path and function key, judged as
+/// `is_function_passing` judges them.
+pub fn failing_functions(
+    files: &[FileComplexity],
+    max_complexity: u64,
+    snapshot_map: Option<&HashMap<(String, String, String), u64>>,
+    diff_failures: Option<&DiffFailures>,
+) -> DiffFailures {
+    files
+        .iter()
+        .flat_map(|file| {
+            file.functions
+                .iter()
+                .zip(function_keys(&file.functions))
+                .filter(|(function, key)| {
+                    !is_function_passing(
+                        function,
+                        key,
+                        &file.path,
+                        &file.file_name,
+                        max_complexity,
+                        snapshot_map,
+                        diff_failures,
+                    )
+                })
+                .map(|(_, key)| (file.path.clone(), key))
+        })
+        .collect()
+}
+
 pub fn has_success_functions(
     files: &[FileComplexity],
     max_complexity: u64,
     snapshot_map: Option<&HashMap<(String, String, String), u64>>,
+    diff_failures: Option<&DiffFailures>,
 ) -> bool {
     files.iter().all(|file| {
         file.functions
@@ -121,6 +184,7 @@ pub fn has_success_functions(
                     &file.file_name,
                     max_complexity,
                     snapshot_map,
+                    diff_failures,
                 )
             })
     })

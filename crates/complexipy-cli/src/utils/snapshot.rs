@@ -14,7 +14,8 @@ pub struct SnapshotEvaluation {
 }
 
 /// Checks the run against the snapshot. With `persist` false, as under
-/// `--dry-run`, the snapshot file is neither created nor rewritten.
+/// `--dry-run`, the snapshot file is neither created nor rewritten. Paths in
+/// the snapshot are taken from the directory that holds it.
 pub fn evaluate_snapshot(
     snapshot_create: bool,
     snapshot_ignore: bool,
@@ -23,30 +24,28 @@ pub fn evaluate_snapshot(
     max_complexity_allowed: u64,
     files_complexities: &[FileComplexity],
 ) -> Result<SnapshotEvaluation, ExportError> {
+    let keyed_files = with_keyed_names(files_complexities);
     handle_snapshot_file_creation(
         snapshot_create && persist,
         output_snapshot_path,
         max_complexity_allowed,
-        files_complexities,
+        &keyed_files,
     )?;
 
     let snapshot_file_exists = Path::new(output_snapshot_path).exists();
     let snapshot_files = handle_snapshot_functions_load(output_snapshot_path)?;
     let should_run = snapshot_file_exists && !snapshot_ignore;
 
-    let active_snapshot_map = if should_run {
-        Some(build_snapshot_map(&snapshot_files))
-    } else {
-        None
-    };
+    let snapshot_map = build_snapshot_map(&snapshot_files);
 
     let (watermark_success, watermark_messages) = handle_snapshot_watermark(
         should_run,
         persist,
         snapshot_file_exists,
         output_snapshot_path,
-        files_complexities,
+        &keyed_files,
         &snapshot_files,
+        &snapshot_map,
         max_complexity_allowed,
     )?;
 
@@ -54,7 +53,7 @@ pub fn evaluate_snapshot(
 
     Ok(SnapshotEvaluation {
         should_run,
-        active_snapshot_map,
+        active_snapshot_map: should_run.then_some(snapshot_map),
         watermark_success,
         watermark_messages,
         snapshot_result,
@@ -65,17 +64,35 @@ fn handle_snapshot_file_creation(
     create_snapshot: bool,
     snapshot_file_path: &str,
     max_complexity_allowed: u64,
-    files_complexities: &[FileComplexity],
+    keyed_files: &[FileComplexity],
 ) -> Result<(), ExportError> {
     if create_snapshot {
         let snapshot_files = handle_snapshot_functions_load(snapshot_file_path)?;
         create_snapshot_file_shared(
             snapshot_file_path,
             max_complexity_allowed,
-            merge_snapshot_files(snapshot_files, &with_keyed_names(files_complexities)),
+            merge_snapshot_files(
+                existing_files(snapshot_files, snapshot_file_path),
+                keyed_files,
+            ),
         )?;
     }
     Ok(())
+}
+
+/// The snapshot files whose path still exists, taken from the directory of
+/// the snapshot, so a deleted file leaves the baseline when it is rewritten.
+fn existing_files(
+    snapshot_files: Vec<FileComplexity>,
+    snapshot_file_path: &str,
+) -> Vec<FileComplexity> {
+    let base = Path::new(snapshot_file_path)
+        .parent()
+        .unwrap_or(Path::new("."));
+    snapshot_files
+        .into_iter()
+        .filter(|file| base.join(&file.path).exists())
+        .collect()
 }
 
 /// The files with each function renamed to its key, the name the snapshot
@@ -154,13 +171,15 @@ pub fn merge_snapshot_files(
     merged
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_snapshot_watermark(
     snapshot_watermark: bool,
     persist: bool,
     snapshot_exists: bool,
     output_snapshot_path: &str,
-    files_complexities: &[FileComplexity],
+    keyed_files: &[FileComplexity],
     snapshot_files: &[FileComplexity],
+    snapshot_map: &HashMap<(String, String, String), u64>,
     max_complexity_allowed: u64,
 ) -> Result<(bool, Vec<String>), ExportError> {
     if !snapshot_watermark {
@@ -176,11 +195,9 @@ fn handle_snapshot_watermark(
         ));
     }
 
-    let snapshot_map = build_snapshot_map(snapshot_files);
-    let keyed_files = with_keyed_names(files_complexities);
     let mut violations = Vec::new();
 
-    for file_complexity in &keyed_files {
+    for file_complexity in keyed_files {
         for function in file_complexity
             .functions
             .iter()
@@ -230,7 +247,10 @@ fn handle_snapshot_watermark(
     create_snapshot_file_shared(
         output_snapshot_path,
         max_complexity_allowed,
-        merge_snapshot_files(snapshot_files.to_vec(), &keyed_files),
+        merge_snapshot_files(
+            existing_files(snapshot_files.to_vec(), output_snapshot_path),
+            keyed_files,
+        ),
     )?;
 
     Ok((true, Vec::new()))

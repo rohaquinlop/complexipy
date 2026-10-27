@@ -3,6 +3,7 @@ use std::fs;
 use serde_json::Value;
 use tempfile::tempdir;
 
+use crate::types::DiffBaseline;
 use crate::utils::gitlab::store_gitlab;
 use complexipy_core::classes::{
     Applicability, CodeSuggestion, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
@@ -67,6 +68,7 @@ fn write_and_load(
         files,
         max_complexity,
         suggest_refactors,
+        None,
     )
     .expect("should write");
     let content = fs::read_to_string(output).expect("should read");
@@ -231,6 +233,7 @@ fn gitlab_write_failure_is_io_error() {
         )],
         15,
         false,
+        None,
     );
 
     assert!(result.is_err());
@@ -288,4 +291,89 @@ fn gitlab_fingerprints_tell_same_name_functions_apart() {
     );
 
     assert_ne!(report[0]["fingerprint"], report[1]["fingerprint"]);
+}
+
+fn baseline(enforced: bool) -> DiffBaseline {
+    let key = |name: &str| ("src/a.py".to_string(), name.to_string());
+    DiffBaseline {
+        complexities: [
+            (key("fresh"), None),
+            (key("kept"), Some(30)),
+            (key("worse"), Some(18)),
+            (key("better"), Some(40)),
+        ]
+        .into_iter()
+        .collect(),
+        failing: enforced.then(|| [key("fresh"), key("worse")].into_iter().collect()),
+    }
+}
+
+fn gated_files() -> Vec<FileComplexity> {
+    vec![file_complexity(
+        "src/a.py",
+        "a.py",
+        vec![
+            function_complexity("fresh", 20),
+            function_complexity("kept", 30),
+            function_complexity("worse", 25),
+            function_complexity("better", 35),
+            function_complexity("untouched", 16),
+        ],
+    )]
+}
+
+fn severities(baseline: Option<&DiffBaseline>) -> Vec<(String, String)> {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.gitlab.json");
+    store_gitlab(
+        output.to_str().unwrap(),
+        &gated_files(),
+        15,
+        false,
+        baseline,
+    )
+    .expect("should write");
+    let report: Value =
+        serde_json::from_str(&fs::read_to_string(output).expect("should read")).expect("parse");
+    report
+        .as_array()
+        .expect("issues")
+        .iter()
+        .map(|issue| {
+            let description = issue["description"].as_str().unwrap();
+            let name = description.split('\'').nth(1).unwrap().to_string();
+            (name, issue["severity"].as_str().unwrap().to_string())
+        })
+        .collect()
+}
+
+#[test]
+fn a_gated_diff_raises_the_issues_it_fails_and_lowers_the_rest() {
+    let expected = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(name, severity)| (name.to_string(), severity.to_string()))
+            .collect()
+    };
+
+    assert_eq!(
+        severities(Some(&baseline(true))),
+        expected(&[
+            ("fresh", "major"),
+            ("kept", "info"),
+            ("worse", "major"),
+            ("better", "info"),
+            ("untouched", "info"),
+        ])
+    );
+    assert!(
+        severities(Some(&baseline(false)))
+            .iter()
+            .all(|(_, severity)| severity == "minor")
+    );
+    assert!(
+        severities(None)
+            .iter()
+            .all(|(_, severity)| severity == "minor")
+    );
 }

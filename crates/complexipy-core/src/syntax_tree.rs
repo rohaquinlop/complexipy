@@ -23,6 +23,12 @@ impl ParsedModule {
     pub fn suite(&self) -> &Suite {
         &self.suite
     }
+
+    /// Whether a logical line holds more tokens than a recursive walk of
+    /// the tree can safely meet.
+    pub fn has_long_logical_line(&self) -> bool {
+        self.chained
+    }
 }
 
 impl Drop for ParsedModule {

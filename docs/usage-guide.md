@@ -160,6 +160,18 @@ emitted when `--suggest-refactors` is also passed. Without it, only the
 cognitive-complexity threshold findings appear -- matching the CLI's rich
 output, which also hides refactor suggestions unless the flag is set.
 
+With `--diff`, `--diff-only`, or `--staged`, every SARIF result, refactor
+findings included, carries the `baselineState` of its function against the
+reference: `new` for a function the reference does not have, `updated` when
+its complexity changed, and `unchanged` when it did not or when the diff
+left its file alone. A function the gate pairs with one it replaces is
+compared with that function. When the diff decides the exit code, a
+complexity result's `level` is `error` for a function that fails the run,
+through the gate or the snapshot, and `note` for one the run lets through,
+and the GitLab Code Quality report rates the same functions `major` and
+`info`. Otherwise the levels stay `warning` and `minor`. Fingerprints do not
+change.
+
 ### Complexity Diff
 
 Compare current results against any git reference:
@@ -193,7 +205,11 @@ complexipy . --staged
 complexipy . --diff main --staged
 ```
 
-Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. Staged deletions produce `REMOVED` entries and staged additions `NEW` entries. Use `--diff-only` with `--staged` for a visual-only view.
+Like `--diff`, `--staged` enforces the threshold against the staged content and fails when a staged change pushes a function above `--max-complexity-allowed`. It compares only the staged files the run selects: the path arguments, `paths`, and `exclude` apply as they do without `--staged`, to the index rather than the working tree, so a staged regular file is compared whatever the working tree holds at its path. Staged deletions that discovery would have selected produce `REMOVED` entries: under a selected directory, outside hidden paths, and not matched by `exclude`, `.gitignore`, `.ignore`, or git's exclude file. Staged additions produce `NEW` entries. Use `--diff-only` with `--staged` for a visual-only view.
+
+A rename or a move passes the gate as long as the function's body stays as it was. A file that git pairs as renamed compares with its old path when the run covers that path; a file moved in from outside the selected paths compares as added, and a file moved out of them reports nothing. A path that was not a regular file at the reference, such as a symbolic link, is not read there: it compares as added, and its deletion reports nothing. A function above the threshold that the change adds passes only when it replaces a `REMOVED` function with the same body and at least its complexity, each removed function replaced once, and the compared files do not hold more functions with that body than they did at the reference. The complexity matters because a call to a function's own name scores as recursion, so a rename can make the same body more complex. The compared files are the ones the diff compares: modified, renamed from a covered path, deleted from a covered path, and added. Bodies compare structurally, ignoring formatting and comments, and leave out the name, the decorators, and the parameters, so a function rename, a class rename, a move to another file, and a method that becomes a function all pass, while a function that moves and changes fails. Functions that an ignore comment hides count on both sides, so a function copied from one that is now hidden fails. Bodies count and pair only within the repository that holds each file, since each repository is compared at its own reference. The diff table names, in a `Gate` column, the `REMOVED` function with the same body that each passing function replaces. A function that an ignore comment now hides was not removed, so it does not report as `REMOVED`. A deleted Python file that discovery would have selected reports its functions as `REMOVED`, so a function moved out of it passes as well.
+
+When `--diff` or `--staged` decides the exit code, the report shows the gate's verdict. A function that fails the run, REGRESSED or NEW above the threshold, is listed as `FAILED` and marked `FAILS` in the diff table's `Gate` column, and the table ends with a `Gate:` line that counts them. A function above the threshold that the gate lets through is listed as `ALLOWED`, and `--failed` lists only the functions that fail the run. A snapshot run lists the functions its snapshot lets through as `ALLOWED` too.
 
 This requires `git` and a repository-backed path. `--diff` and
 `--diff-only` read each file from the repository that holds it, so a run
@@ -204,11 +220,15 @@ outer repository pins for it at the reference, and deeper nesting follows
 each pin in turn. When the run starts inside the submodule, it is read at
 the reference itself. A repository inside another that the outer one does
 not track is read at the reference, like any other repository. `--staged`
-uses the repository of the working directory. When a file sits outside any
-repository, the reference names no commit in the file's repository, or the
-outer repository pins no commit for the submodule at the reference, or
-pins a commit the submodule does not have, every function of that file
-reports as `NEW` and the run prints a warning that names the cause.
+uses the repository of the working directory; outside a repository it
+prints a warning and compares nothing, so the report lists functions above
+the threshold as `FAILED` but the threshold does not decide the exit code.
+When a file sits outside any repository, the reference names no commit in
+the file's repository, or the outer repository pins no commit for the
+submodule at the reference, or pins a commit the submodule does not have,
+every function of that file reports as `NEW` and the run prints a warning
+that names the cause. The functions of a file that does not parse at the
+reference report as `NEW` too.
 
 Instead of repeating the reference on every call, declare the comparison
 policy once in a configuration file - see [Diff Configuration](#diff-configuration).
@@ -664,10 +684,14 @@ result = file_complexity("src/main.py", with_plans=False)
 (commit, tag, or branch) and returns `DiffEntry` objects - one per function
 that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
-*max_complexity*). Each file is read from the git repository that holds it,
-and a submodule at the commit its outer repository pins, as with
-`--diff`. `invocation_path`, the working directory by default, anchors
-relative file paths and plays the role of the directory a CLI run starts in.
+*max_complexity*). The entries carry no function bodies, so a moved or renamed
+function counts as NEW; only `--diff`, which compares the bodies, lets an exact
+copy through. Each file is read from the git repository that holds it, at its
+own path, and a submodule at the commit its outer repository pins, as with
+`--diff`, so a file moved since the reference reports its functions as NEW:
+its old path is not among the files you pass. `invocation_path`, the working
+directory by default, anchors relative file paths and plays the role of the
+directory a CLI run starts in.
 
 ```python
 from complexipy import (
@@ -835,6 +859,7 @@ Once a snapshot exists, complexipy will:
 - ✅ **Pass**: Functions that were already in the snapshot and haven't gotten worse
 - ✅ **Pass**: Functions that improved (automatically removed from snapshot)
 - ❌ **Fail**: New functions that exceed the threshold
+- ❌ **Fail**: Functions above the threshold that moved to another file or got a new name. The snapshot keys each entry by file and name, so run `--snapshot-create` after such a change to record them again
 - ❌ **Fail**: Tracked functions that got more complex
 
 ### Using Snapshots in CI
@@ -891,7 +916,7 @@ Use this when:
 ]
 ```
 
-Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
+Snapshots are stored as a JSON array of analyzed files. Each entry contains only functions above the threshold at the time the snapshot was written. The file is rewritten after successful snapshot checks, so improved functions are removed automatically. Updates only touch the files analyzed in the run - entries for files outside the analysis are preserved, so running on a subset of files (for example through a pre-commit hook) never shrinks the baseline. Entries for files that no longer exist are dropped when the file is rewritten. Snapshots created by older complexipy versions may need to be regenerated with `--snapshot-create`.
 
 Functions of one file that share a name, such as a property's getter and setter, get separate entries: the first in source order keeps the name, and the next ones are stored as `name#2`, `name#3`. `--diff` keys its comparison the same way.
 

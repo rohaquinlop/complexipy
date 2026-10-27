@@ -32,6 +32,14 @@ fn snapshot_path(dir: &tempfile::TempDir) -> std::path::PathBuf {
     dir.path().join("complexipy-snapshot.json")
 }
 
+/// Creates the files a test's results name, since a rewrite drops the
+/// snapshot entries of files that no longer exist.
+fn touch(dir: &tempfile::TempDir, names: &[&str]) {
+    for name in names {
+        fs::write(dir.path().join(name), "").expect("should write");
+    }
+}
+
 #[test]
 fn no_snapshot_file_exists() {
     let dir = tempdir().expect("tempdir should work");
@@ -189,6 +197,7 @@ fn snapshot_result_neutral_when_not_running() {
 #[test]
 fn partial_run_preserves_unanalyzed_files() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py"]);
     let path = snapshot_path(&dir);
     let both = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -210,6 +219,7 @@ fn partial_run_preserves_unanalyzed_files() {
 #[test]
 fn partial_run_keeps_analyzed_file_position() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py", "c.py"]);
     let path = snapshot_path(&dir);
     let all = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -232,6 +242,7 @@ fn partial_run_keeps_analyzed_file_position() {
 #[test]
 fn repeated_partial_runs_keep_snapshot_byte_identical() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py"]);
     let path = snapshot_path(&dir);
     let both = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -257,6 +268,7 @@ fn repeated_partial_runs_keep_snapshot_byte_identical() {
 #[test]
 fn new_file_appends_at_end() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py", "c.py"]);
     let path = snapshot_path(&dir);
     let ab = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -278,6 +290,7 @@ fn new_file_appends_at_end() {
 #[test]
 fn duplicate_snapshot_entries_collapse_in_place() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py", "c.py"]);
     let path = snapshot_path(&dir);
     let abc = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -309,6 +322,7 @@ fn duplicate_snapshot_entries_collapse_in_place() {
 #[test]
 fn partial_run_removes_improved_function() {
     let dir = tempdir().expect("tempdir should work");
+    touch(&dir, &["a.py", "b.py"]);
     let path = snapshot_path(&dir);
     let both = vec![
         file_complexity("a.py", "a.py", &[("f", 20)]),
@@ -424,4 +438,54 @@ fn a_same_name_function_needs_its_own_snapshot_entry() {
     assert!(!result.watermark_success);
     assert_eq!(result.watermark_messages.len(), 1);
     assert!(result.watermark_messages[0].contains("Svc::value#2"));
+}
+
+#[test]
+fn a_rewrite_drops_the_entries_of_a_file_that_no_longer_exists() {
+    let dir = tempdir().expect("tempdir should work");
+    let path = snapshot_path(&dir);
+    touch(&dir, &["gone.py", "kept.py"]);
+    let baseline = vec![
+        file_complexity("gone.py", "gone.py", &[("f", 20)]),
+        file_complexity("kept.py", "kept.py", &[("g", 20)]),
+    ];
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
+    fs::remove_file(dir.path().join("gone.py")).expect("should remove");
+
+    let kept = vec![file_complexity("kept.py", "kept.py", &[("g", 20)])];
+    let result = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &kept)
+        .expect("should evaluate");
+
+    assert!(result.watermark_success);
+    let stored = load_snapshot_file_shared(path.to_str().unwrap()).expect("should load");
+    let names: Vec<&str> = stored.iter().map(|f| f.file_name.as_str()).collect();
+    assert_eq!(names, vec!["kept.py"]);
+}
+
+#[test]
+fn a_moved_function_fails_until_the_snapshot_is_recreated() {
+    let dir = tempdir().expect("tempdir should work");
+    let path = snapshot_path(&dir);
+    touch(&dir, &["a.py", "b.py"]);
+    let baseline = vec![file_complexity("a.py", "a.py", &[("process", 20)])];
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &baseline)
+        .expect("should evaluate");
+
+    let moved = vec![
+        file_complexity("a.py", "a.py", &[]),
+        file_complexity("b.py", "b.py", &[("process", 20)]),
+    ];
+    let before = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &moved)
+        .expect("should evaluate");
+    evaluate_snapshot(true, false, true, path.to_str().unwrap(), 15, &moved)
+        .expect("should evaluate");
+    let after = evaluate_snapshot(false, false, true, path.to_str().unwrap(), 15, &moved)
+        .expect("should evaluate");
+
+    assert_eq!(
+        before.watermark_messages,
+        vec!["b.py/b.py:process exceeds 15 but was not part of the snapshot."]
+    );
+    assert!(after.watermark_success);
 }

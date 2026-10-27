@@ -38,15 +38,19 @@ fn row(name: &str, complexity: u64, passed: bool, path: &str) -> FunctionRow {
 
 #[test]
 fn status_text_contains_labels() {
-    assert!(format_status_text(true).contains("PASSED"));
-    assert!(format_status_text(false).contains("FAILED"));
+    assert!(format_status_text(true, false).contains("PASSED"));
+    assert!(format_status_text(false, true).contains("FAILED"));
+    assert!(format_status_text(true, true).contains("ALLOWED"));
 }
 
 #[test]
 fn status_text_emoji_outside_color() {
     let _guard = color_lock();
     let (passed, failed) = owo_colors::with_override(true, || {
-        (format_status_text(true), format_status_text(false))
+        (
+            format_status_text(true, false),
+            format_status_text(false, false),
+        )
     });
     assert!(passed.starts_with("✅ "));
     let colored = passed.trim_start_matches("✅ ");
@@ -141,6 +145,7 @@ fn summary_no_files_message() {
         max_complexity: 5,
         previous_functions: None,
         snapshot_map: None,
+        diff_failures: None,
         plain: false,
         top: None,
         suggest_refactors: false,
@@ -180,6 +185,7 @@ fn summary_failed_only_empty_message() {
         max_complexity: 5,
         previous_functions: None,
         snapshot_map: None,
+        diff_failures: None,
         plain: false,
         top: None,
         suggest_refactors: false,
@@ -203,6 +209,7 @@ fn summary_plain_mode_skips_messages() {
         max_complexity: 5,
         previous_functions: None,
         snapshot_map: None,
+        diff_failures: None,
         plain: true,
         top: None,
         suggest_refactors: false,
@@ -293,4 +300,65 @@ fn forced_color_modes_govern_styled_output() {
         assert_eq!(colorize_complexity(6, 5).contains('\u{1b}'), expected);
     }
     owo_colors::unset_override();
+}
+
+fn over_threshold_file() -> Vec<complexipy_core::classes::FileComplexity> {
+    vec![complexipy_core::classes::FileComplexity {
+        path: "a.py".to_string(),
+        file_name: "a.py".to_string(),
+        functions: vec![complexipy_core::classes::FunctionComplexity {
+            name: "old".to_string(),
+            complexity: 9,
+            line_start: 1,
+            line_end: 2,
+            line_complexities: vec![],
+            refactor_plans: vec![],
+            additional_refactor_plans: 0,
+        }],
+        complexity: 0,
+    }]
+}
+
+fn gated_summary(failed_only: bool) -> (bool, String) {
+    let files = over_threshold_file();
+    let no_failures = crate::output::rows::DiffFailures::new();
+    output_summary(SummaryOptions {
+        files: &files,
+        failed_only,
+        sort: Sort::Asc,
+        ignore_complexity: false,
+        max_complexity: 5,
+        previous_functions: None,
+        snapshot_map: None,
+        diff_failures: Some(&no_failures),
+        plain: false,
+        top: None,
+        suggest_refactors: false,
+        invocation_path: "",
+        color: false,
+    })
+}
+
+#[test]
+fn a_function_the_diff_gate_allows_is_listed_as_allowed() {
+    let (has_success, output) = gated_summary(false);
+    let output = strip_ansi(&output);
+
+    assert!(has_success);
+    assert!(output.contains("old 9"));
+    assert!(output.contains("ALLOWED"));
+    assert!(!output.contains("FAILED"));
+    assert!(output.ends_with(
+        "No function fails the run. 1 function above 5 is ALLOWED: no worse than the baseline the gate compares with."
+    ));
+}
+
+#[test]
+fn failed_only_names_the_allowed_functions_instead_of_listing_them() {
+    let (_, output) = gated_summary(true);
+
+    assert_eq!(
+        output,
+        "No function fails the run. 1 function above 5 is ALLOWED: no worse than the baseline the gate compares with."
+    );
 }

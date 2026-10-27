@@ -1,5 +1,6 @@
 use crate::runner::{SkipReason, SkippedPath};
-use ignore::{DirEntry, WalkBuilder, WalkState};
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
+use ignore::{DirEntry, Match, WalkBuilder, WalkState};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -333,6 +334,85 @@ pub fn get_paths_to_process(
     discovery.files.sort();
     discovery.skipped.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(discovery)
+}
+
+/// The global gitignore, matched the way discovery's walk matches it.
+pub(crate) fn global_gitignore() -> Gitignore {
+    GitignoreBuilder::new("").build_global().0
+}
+
+/// Whether the ignore rules discovery honors would hide `file` from a walk
+/// of `root`: `.ignore` files, and, inside a git repository, `.gitignore`
+/// files, git's exclude file, and `global`. Each directory from `root` down
+/// is checked as the walk would meet it, then the file, so `file` need not
+/// exist.
+pub(crate) fn ignore_rules_hide(root: &Path, file: &Path, global: &Gitignore) -> bool {
+    let Ok(relative) = file.strip_prefix(root) else {
+        return false;
+    };
+    let mut path = root.to_path_buf();
+    let mut components = relative.components().peekable();
+    while let Some(component) = components.next() {
+        path.push(component);
+        if ignore_match(&path, components.peek().is_some(), global).is_ignore() {
+            return true;
+        }
+    }
+    false
+}
+
+/// The rule that decides `path`, with the precedence the `ignore` crate
+/// gives it: the deepest `.ignore` match, then the deepest `.gitignore`
+/// match inside the repository, then the exclude file, then `global`.
+fn ignore_match(path: &Path, is_dir: bool, global: &Gitignore) -> Match<()> {
+    let has_git = |dir: &Path| dir.join(".git").exists() || dir.join(".jj").exists();
+    let directories: Vec<&Path> = path.ancestors().skip(1).collect();
+    let any_git = directories.iter().any(|dir| has_git(dir));
+    let matched = |gitignore: Gitignore| gitignore.matched(path, is_dir).map(|_| ());
+    let (mut ignore, mut gitignore, mut exclude) = (Match::None, Match::None, Match::None);
+    let mut saw_git = false;
+    for directory in directories {
+        if ignore.is_none() {
+            ignore = matched(Gitignore::new(directory.join(".ignore")).0);
+        }
+        if any_git && !saw_git {
+            if gitignore.is_none() {
+                gitignore = matched(Gitignore::new(directory.join(".gitignore")).0);
+            }
+            if exclude.is_none()
+                && let Some(exclude_file) = git_exclude_file(directory)
+            {
+                let mut builder = GitignoreBuilder::new(directory);
+                let _ = builder.add(exclude_file);
+                exclude = matched(builder.build().unwrap_or_else(|_| Gitignore::empty()));
+            }
+        }
+        saw_git = saw_git || has_git(directory);
+    }
+    let global_match = if any_git {
+        global.matched(path, is_dir).map(|_| ())
+    } else {
+        Match::None
+    };
+    ignore.or(gitignore).or(exclude).or(global_match)
+}
+
+/// The `info/exclude` file of the repository whose `.git` sits in
+/// `directory`, following a worktree's `.git` file to its common directory.
+fn git_exclude_file(directory: &Path) -> Option<PathBuf> {
+    let dot_git = directory.join(".git");
+    if dot_git.is_dir() {
+        return Some(dot_git.join("info/exclude"));
+    }
+    let first_line = |path: &Path| -> Option<String> {
+        let text =
+            crate::fs_guard::read_bounded_text(path, None, crate::fs_guard::MAX_CONFIG_BYTES)
+                .ok()?;
+        Some(text.lines().next()?.to_string())
+    };
+    let git_dir = directory.join(first_line(&dot_git)?.strip_prefix("gitdir: ")?);
+    let common = git_dir.join(first_line(&git_dir.join("commondir"))?);
+    Some(common.join("info/exclude"))
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {

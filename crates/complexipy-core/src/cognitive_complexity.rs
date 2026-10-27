@@ -222,6 +222,35 @@ pub fn plans_for_function(
     )))
 }
 
+/// A function the analysis scores, found without scoring it.
+pub(crate) struct DefinedFunction<'a> {
+    pub name: String,
+    pub line_start: u64,
+    /// Whether an ignore marker hides the function from the analysis.
+    pub ignored: bool,
+    pub def: &'a ast::StmtFunctionDef,
+}
+
+/// Every function the analysis of `code` scores when no marker hides it,
+/// in the order of the analysis, named as the analysis names it.
+pub(crate) fn defined_functions<'a>(
+    ast_body: &'a ast::Suite,
+    code: &str,
+) -> Vec<DefinedFunction<'a>> {
+    let opts = AnalysisOptions::default();
+    let file = FileContext::new(code, &opts);
+    ast_body
+        .iter()
+        .flat_map(named_functions)
+        .map(|(_, def, name)| DefinedFunction {
+            name,
+            line_start: file.index.line_of(usize::from(def.range.start())),
+            ignored: file.is_ignored(def),
+            def,
+        })
+        .collect()
+}
+
 type NamedFunction<'a> = (&'a Stmt, &'a ast::StmtFunctionDef, String);
 
 /// Every function a module-level statement defines: the statement itself

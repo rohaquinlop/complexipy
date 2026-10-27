@@ -620,15 +620,18 @@ def compute_diff(
     Compare the current complexity results against *git_ref*.
 
     For each file in *current_files*, retrieves the file's content at
-    *git_ref* from the git repository that holds the file and re-analyses
-    it. A submodule, a repository that the repository around it tracks as
-    a gitlink, is read at the commit that the outer repository pins for
-    it, unless it holds *invocation_path*. A file that is not a regular
-    file at that commit, such as a symbolic link, has no old version.
-    Functions that appear only in one version are marked NEW / REMOVED.
-    Every function of a file outside any repository, in a repository where
-    *git_ref* names no commit, or in a submodule without a pinned commit it
-    has, is marked NEW.
+    *git_ref*, at the same path, from the git repository that holds the
+    file and re-analyses it. A submodule, a repository that the repository
+    around it tracks as a gitlink, is read at the commit that the outer
+    repository pins for it, unless it holds *invocation_path*. Functions
+    that appear only in one version are marked NEW / REMOVED, except that
+    a function an ignore comment now hides is not marked REMOVED. A file
+    moved since *git_ref* is not followed to its old path, which is not in
+    *current_files*, so its functions are marked NEW, as are the functions
+    of a file that does not parse at *git_ref* or that was not a regular
+    file there, such as a symbolic link, of a file outside any repository,
+    of a file in a repository where *git_ref* names no commit, and of a
+    file in a submodule without a pinned commit it has.
 
     Args:
         current_files: Complexity results of the current analysis.
@@ -654,7 +657,10 @@ def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
     A ratchet failure is a REGRESSED function whose new complexity
     exceeds *max_complexity*, or a NEW function whose complexity exceeds
     *max_complexity*. Modified functions that increase in complexity but
-    stay at or below the threshold are not considered failures.
+    stay at or below the threshold are not considered failures. The
+    entries carry no function bodies, so a function that moved or was
+    renamed counts as NEW like any other; the `--diff` gate, which
+    compares the bodies, lets an exact copy through.
     """
     ...
 
