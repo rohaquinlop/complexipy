@@ -674,7 +674,8 @@ that changed, appeared, or disappeared. `has_regressions` reports whether any
 entry breaches a complexity threshold (a REGRESSED or NEW function above
 *max_complexity*). Each file is read from the git repository that holds it,
 and a submodule at the commit its outer repository pins, as with
-`--diff`. `invocation_path`, the working directory by default, anchors
+`--diff`, so it needs Git 2.30 or newer on your `PATH` too. `invocation_path`,
+the working directory by default, anchors
 relative file paths and plays the role of the directory a CLI run starts in.
 
 ```python

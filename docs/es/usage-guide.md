@@ -683,7 +683,8 @@ uno por función que cambió, apareció o desapareció. `has_regressions` inform
 si alguna entrada supera un umbral de complejidad (una función REGRESSED o NEW
 por encima de *max_complexity*). Cada archivo se lee del repositorio de git
 que lo contiene, y un submódulo en el commit que fija su repositorio
-exterior, igual que con `--diff`. `invocation_path`, por defecto
+exterior, igual que con `--diff`, por lo que también necesita Git 2.30 o
+posterior en tu `PATH`. `invocation_path`, por defecto
 el directorio de trabajo, ancla las rutas de archivo relativas y hace el
 papel del directorio donde empieza una ejecución de la CLI.
 
