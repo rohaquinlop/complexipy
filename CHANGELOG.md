@@ -7,6 +7,23 @@ release section links to its GitHub release notes for the full details.
 
 ## [8.3.0] - 2026-10-26
 
+### Added
+
+- A run gated by `--diff` or `--staged` shows which functions fail it. A
+  REGRESSED or NEW function above the threshold is listed as `FAILED` and
+  marked `FAILS` in the diff table, which ends with a `Gate:` line that counts
+  them. A function above the threshold that the gate lets through is listed
+  as `ALLOWED` instead of `FAILED`, and `--failed` lists only the functions
+  that fail the run. A snapshot run lists the functions its snapshot lets
+  through as `ALLOWED` too, instead of `PASSED`.
+- SARIF output is diff-aware. With a diff, every result carries the
+  `baselineState` of its function, `new`, `unchanged`, or `updated`, against
+  the reference, and when the diff decides the exit code a complexity
+  result's `level` is `error` for a function that fails the run, through the
+  gate or the snapshot, and `note` for one the run lets through. The GitLab
+  Code Quality report rates the same functions `major` and `info`.
+  Fingerprints are unchanged.
+
 ### Fixed
 
 - `--diff` and `--diff-only` read each file from the repository that holds
@@ -51,23 +68,9 @@ release section links to its GitHub release notes for the full details.
   snapshot gate does not pair functions: a moved or renamed function above the
   threshold fails it until `--snapshot-create` records the function again, and a
   snapshot rewrite drops the entries of files that no longer exist.
-- A run gated by `--diff` or `--staged` shows which functions fail it. A
-  REGRESSED or NEW function above the threshold is listed as `FAILED` and
-  marked `FAILS` in the diff table, which ends with a `Gate:` line that counts
-  them. A function above the threshold that the gate lets through is listed
-  as `ALLOWED` instead of `FAILED`, and `--failed` lists only the functions
-  that fail the run. A snapshot run lists the functions its snapshot lets
-  through as `ALLOWED` too, instead of `PASSED`.
 - `--diff` reports the functions of a file that does not parse at the
   reference as `NEW`, as `--staged` does, instead of leaving the file out of
   the comparison.
-- SARIF output is diff-aware. With a diff, every result carries the
-  `baselineState` of its function, `new`, `unchanged`, or `updated`, against
-  the reference, and when the diff decides the exit code a complexity
-  result's `level` is `error` for a function that fails the run, through the
-  gate or the snapshot, and `note` for one the run lets through. The GitLab
-  Code Quality report rates the same functions `major` and `info`.
-  Fingerprints are unchanged.
 - The `C002` loop guard negates its condition the way a linter expects:
   `x in y` becomes `x not in y`, `a is b` becomes `a is not b`, and a name or
   a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`
