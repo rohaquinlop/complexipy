@@ -53,6 +53,10 @@ uv add complexipy
 uv tool install complexipy
 ```
 
+Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+para el análisis sin estas opciones.
+
 ## Inicio Rápido
 
 ### Línea de Comandos

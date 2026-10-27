@@ -32,6 +32,10 @@ The `complexipy` command is a native implementation written in Rust; the
 whole analysis pipeline runs without a Python interpreter. The same wheel
 also provides the Python API for embedding analysis in your own tools.
 
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
+
 ## Command Line Usage
 
 ### Basic Analysis
@@ -173,6 +177,10 @@ and the GitLab Code Quality report rates the same functions `major` and
 change.
 
 ### Complexity Diff
+
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
 
 Compare current results against any git reference:
 
@@ -689,9 +697,10 @@ function counts as NEW; only `--diff`, which compares the bodies, lets an exact
 copy through. Each file is read from the git repository that holds it, at its
 own path, and a submodule at the commit its outer repository pins, as with
 `--diff`, so a file moved since the reference reports its functions as NEW:
-its old path is not among the files you pass. `invocation_path`, the working
-directory by default, anchors relative file paths and plays the role of the
-directory a CLI run starts in.
+its old path is not among the files you pass. Like `--diff`, it needs Git 2.30
+or newer on your `PATH`. `invocation_path`, the working directory by default,
+anchors relative file paths and plays the role of the directory a CLI run
+starts in.
 
 ```python
 from complexipy import (

@@ -33,6 +33,10 @@ todo el pipeline de análisis se ejecuta sin un intérprete de Python.
 La misma rueda también proporciona la API de Python para integrar el
 análisis en tus propias herramientas.
 
+Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+para el análisis sin estas opciones.
+
 ## Uso en Línea de Comandos
 
 ### Análisis Básico
@@ -171,6 +175,10 @@ los niveles siguen siendo `warning` y `minor`. Las huellas (fingerprints) no
 cambian.
 
 ### Diff de Complejidad
+
+Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+para el análisis sin estas opciones.
 
 Compara los resultados actuales contra cualquier referencia de git:
 
@@ -700,7 +708,8 @@ funciones, así que una función movida o renombrada cuenta como NEW; solo
 lee del repositorio de git que lo contiene, en su propia ruta, y un submódulo
 en el commit que fija su repositorio exterior, igual que con `--diff`, así que
 un archivo movido desde la referencia reporta sus funciones como NEW: su ruta
-anterior no está entre los archivos que pasas. `invocation_path`, por defecto
+anterior no está entre los archivos que pasas. Igual que `--diff`, necesita Git
+2.30 o posterior en tu `PATH`. `invocation_path`, por defecto
 el directorio de trabajo, ancla las rutas de archivo relativas y hace el papel
 del directorio donde empieza una ejecución de la CLI.
 
