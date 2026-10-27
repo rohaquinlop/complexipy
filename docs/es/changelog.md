@@ -6,6 +6,26 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [8.3.0] - 2026-10-26
+
+### Añadido
+
+- Una ejecución controlada por `--diff` o `--staged` muestra qué funciones la
+  hacen fallar. Una función REGRESSED o NEW por encima del umbral aparece como
+  `FAILED` y se marca `FAILS` en la tabla del diff, que termina con una línea
+  `Gate:` que las cuenta. Una función por encima del umbral que el control
+  deja pasar aparece como `ALLOWED` en lugar de `FAILED`, y `--failed` lista
+  solo las funciones que hacen fallar la ejecución. Una ejecución con snapshot
+  también lista como `ALLOWED` las funciones que su snapshot deja pasar, en
+  lugar de `PASSED`.
+- La salida SARIF tiene en cuenta el diff. Con un diff, cada resultado lleva
+  el `baselineState` de su función, `new`, `unchanged` o `updated`, respecto
+  a la referencia, y cuando el diff decide el código de salida el `level` de
+  un resultado de complejidad es `error` para una función que hace fallar la
+  ejecución, por el control o por el snapshot, y `note` para una que la
+  ejecución deja pasar. El reporte de GitLab Code Quality califica esas
+  mismas funciones como `major` e `info`. Las huellas no cambian.
+
 ### Corregido
 
 - `--diff` y `--diff-only` leen cada archivo del repositorio que lo contiene,
@@ -55,30 +75,18 @@ GitHub con todos los detalles.
   empareja funciones: una función movida o renombrada por encima del umbral lo
   hace fallar hasta que `--snapshot-create` la vuelve a registrar, y al
   reescribir el snapshot se eliminan las entradas de archivos que ya no existen.
-- Una ejecución controlada por `--diff` o `--staged` muestra qué funciones la
-  hacen fallar. Una función REGRESSED o NEW por encima del umbral aparece como
-  `FAILED` y se marca `FAILS` en la tabla del diff, que termina con una línea
-  `Gate:` que las cuenta. Una función por encima del umbral que el control
-  deja pasar aparece como `ALLOWED` en lugar de `FAILED`, y `--failed` lista
-  solo las funciones que hacen fallar la ejecución. Una ejecución con snapshot
-  también lista como `ALLOWED` las funciones que su snapshot deja pasar, en
-  lugar de `PASSED`.
 - `--diff` reporta como `NEW` las funciones de un archivo que no se puede
   analizar en la referencia, igual que `--staged`, en lugar de dejar el
   archivo fuera de la comparación.
-- La salida SARIF tiene en cuenta el diff. Con un diff, cada resultado lleva
-  el `baselineState` de su función, `new`, `unchanged` o `updated`, respecto
-  a la referencia, y cuando el diff decide el código de salida el `level` de
-  un resultado de complejidad es `error` para una función que hace fallar la
-  ejecución, por el control o por el snapshot, y `note` para una que la
-  ejecución deja pasar. El reporte de GitLab Code Quality califica esas
-  mismas funciones como `major` e `info`. Las huellas no cambian.
 - La guarda de bucle `C002` niega su condición como lo espera un linter:
   `x in y` pasa a `x not in y`, `a is b` pasa a `a is not b`, y un nombre o
   una llamada recibe un `not` sin paréntesis, así que `--fix` ya no escribe
   violaciones `E713`/`E714`. Los paréntesis se conservan alrededor de `and`,
   `or`, otras comparaciones, expresiones condicionales, lambdas y
   asignaciones walrus.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.3.0)
+para todos los detalles.
 
 ## [8.2.0] - 2026-10-25
 
