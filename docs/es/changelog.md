@@ -4,6 +4,8 @@ Todos los cambios notables de complexipy se documentan aquí, de más reciente
 a más antiguo. Cada sección de versión enlaza a sus notas de versión de
 GitHub con todos los detalles.
 
+## Sin publicar
+
 ## [8.3.0] - 2026-10-26
 
 ### Corregido
