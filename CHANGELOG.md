@@ -3,7 +3,7 @@
 All notable changes to complexipy are documented here, newest first. Each
 release section links to its GitHub release notes for the full details.
 
-## Unreleased
+## [8.3.0] - 2026-10-26
 
 ### Fixed
 
@@ -71,6 +71,9 @@ release section links to its GitHub release notes for the full details.
   a call gets a bare `not`, so `--fix` no longer writes `E713`/`E714`
   violations. Parentheses stay around `and`, `or`, other comparisons,
   conditional expressions, lambdas, and walrus assignments.
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/8.3.0)
+for the full details.
 
 ## [8.2.0] - 2026-10-25
 

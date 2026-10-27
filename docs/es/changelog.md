@@ -4,7 +4,7 @@ Todos los cambios notables de complexipy se documentan aquí, de más reciente
 a más antiguo. Cada sección de versión enlaza a sus notas de versión de
 GitHub con todos los detalles.
 
-## Sin publicar
+## [8.3.0] - 2026-10-26
 
 ### Corregido
 
@@ -79,6 +79,9 @@ GitHub con todos los detalles.
   violaciones `E713`/`E714`. Los paréntesis se conservan alrededor de `and`,
   `or`, otras comparaciones, expresiones condicionales, lambdas y
   asignaciones walrus.
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/8.3.0)
+para todos los detalles.
 
 ## [8.2.0] - 2026-10-25
 
