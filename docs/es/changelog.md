@@ -6,6 +6,14 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+### Añadido
+
+- `--force-exclude`, también `force-exclude = true` en la configuración, aplica
+  los patrones de `exclude` a los archivos pasados explícitamente como
+  argumentos. Sin él, un archivo explícito se analiza como antes. Úsalo con
+  pre-commit, que nombra cada archivo modificado, para que se aplique el
+  `exclude` configurado.
+
 ## [8.3.0] - 2026-10-26
 
 ### Añadido

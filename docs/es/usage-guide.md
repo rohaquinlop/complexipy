@@ -124,6 +124,7 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
     - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos, y también los archivos `.ignore` y los archivos y directorios ocultos. `--report-ignored` lista cada archivo `*.py` que estas reglas omiten, y una ejecución que no selecciona ningún archivo imprime una advertencia en stderr, incluso bajo `--quiet`
+    - Un archivo pasado explícitamente como argumento se analiza aunque un patrón coincida con él. Con `--force-exclude`, o `force-exclude = true` en la configuración, los patrones también se aplican a los argumentos de archivo, de forma relativa al directorio donde se ejecuta el comando. Las reglas de gitignore y las rutas ocultas nunca se aplican a los argumentos de archivo
     - Un enlace simbólico `*.py` se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados `*.py` se omiten con una advertencia
     - Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse
 
@@ -428,6 +429,7 @@ comandos.
     check-script = false
     no-ignore = false
     report-ignored = false
+    force-exclude = false
     cache-dir = ".complexipy_cache"
     ```
 
@@ -588,6 +590,7 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--check-script` | Reporta la complejidad a nivel módulo (script) como una entrada sintética `<module>` | `false` |
 | `--no-ignore` | Analiza cada función, ignorando los comentarios de ignore en línea (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | Lista cada archivo:línea donde un comentario de ignore suprime una función. `--quiet` oculta la lista | `false` |
+| `--force-exclude` | Aplica `exclude` a los archivos pasados explícitamente como argumentos, como los nombres de archivo que pasa pre-commit | `false` |
 | `--isolated` | Ignora todos los archivos de configuración. No se puede combinar con `--config` | `false` |
 | `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
 
@@ -1166,6 +1169,8 @@ repos:
           - id: complexipy
             args: [--max-complexity-allowed=15]
 ```
+
+pre-commit pasa cada archivo modificado como argumento, y `exclude` omite los argumentos de archivo explícitos salvo que se use `--force-exclude`. Agrega `--force-exclude` a `args` para que se aplique el `exclude` configurado.
 
 ### GitLab CI
 

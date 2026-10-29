@@ -5,6 +5,13 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+### Added
+
+- `--force-exclude`, also `force-exclude = true` in the configuration, applies
+  `exclude` patterns to files passed explicitly as arguments. Without it, an
+  explicit file is analyzed as before. Pass it under pre-commit, which names
+  each changed file, so the configured `exclude` applies there.
+
 ## [8.3.0] - 2026-10-26
 
 ### Added
