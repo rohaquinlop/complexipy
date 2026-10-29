@@ -9,6 +9,11 @@ One-time setup:
 1. Under Settings, Environments, give the `pypi` environment a required reviewer and a deployment tag rule for version tags.
 1. On PyPI, set the trusted publisher of `complexipy` to workflow `release.yml` with environment `pypi`, so a token minted outside that environment cannot publish.
 
+Each release:
+
+1. Run a dry run on the branch you will tag: `gh workflow run release.yml --ref <branch>`. It builds and tests every wheel. It does not publish: the `pypi` environment accepts only version tags, so the `Release` job fails by design. Wait until every build and unit test job passes.
+1. Tag the same commit and push the tag: `git tag X.Y.Z && git push origin X.Y.Z`.
+
 ## VS Code Extension
 
 The extension in `vscode/complexipy` has its own version and its own tags (`vscode-vX.Y.Z`). Pushing such a tag runs `.github/workflows/vscode-release.yml`, which builds one VSIX and publishes it to the Visual Studio Marketplace and to OpenVSX. These tags do not start the complexipy release.

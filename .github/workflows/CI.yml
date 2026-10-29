@@ -121,6 +121,60 @@ jobs:
           uv run --no-sync complexipy tests/src --exclude "exclude_dir/**" --ignore-complexity
           uv run --no-sync complexipy tests/src --exclude "**/test_exclude*.py" --ignore-complexity
 
+  wheel-tests:
+    name: Installed Wheel Tests
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      # The x86 leg runs the suite on a 32-bit target, where `usize` overflows that 64-bit runners never hit.
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: x64
+            rust-target: x86_64-unknown-linux-gnu
+          - runner: windows-latest
+            architecture: x86
+            rust-target: i686-pc-windows-msvc
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.architecture }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a  # v7.1.5
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec  # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust-target }}
+      # As in `quick-tests`: restore on a pull request, write only from `main`.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Test the installed wheel, as the release does. Never use `python -m pytest` or a synced
+      # `uv run` here: both import the source tree's `complexipy/`, which has no compiled extension.
+      - name: Build and install the wheel
+        shell: bash
+        run: |
+          uv venv --python "${{ steps.setup-python.outputs.python-path }}" .venv
+          uv pip install --python .venv pytest maturin==1.14.1
+          uv run --no-sync maturin build --locked --target ${{ matrix.rust-target }} --out dist \
+            --interpreter "${{ steps.setup-python.outputs.python-path }}"
+          uv pip install --python .venv dist/complexipy-*.whl
+      - name: pytest
+        shell: bash
+        run: uv run --no-sync pytest
+      - name: complexipy execution
+        shell: bash
+        run: uv run --no-sync complexipy complexipy --failed
+
   rust-tests:
     name: Rust Tests
     runs-on: ubuntu-latest

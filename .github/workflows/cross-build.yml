@@ -1,0 +1,48 @@
+---
+name: Cross Build
+
+# The cross compilers in the manylinux images are older than the runner's, so a dependency build
+# script can fail there and nowhere else. Only these files can bring in such a break.
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - crates/*/Cargo.toml
+      - pyproject.toml
+      - .github/workflows/release.yml
+      - .github/workflows/cross-build.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  aarch64-linux:
+    name: Cross Build (aarch64-unknown-linux-gnu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+      # The `linux-build` job of release.yml for one interpreter: `--interpreter` replaces
+      # `--find-interpreter`, and the other flags are the same.
+      - name: Build the wheel
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
+        with:
+          target: aarch64-unknown-linux-gnu
+          args: --release --locked --out dist --interpreter python3.13
+          sccache: "false"
+          manylinux: auto
+          maturin-version: "v1.14.1"
