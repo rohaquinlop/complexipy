@@ -1170,7 +1170,7 @@ repos:
             args: [--max-complexity-allowed=15]
 ```
 
-pre-commit pasa cada archivo modificado como argumento, y `exclude` omite los argumentos de archivo explícitos salvo que se use `--force-exclude`. Agrega `--force-exclude` a `args` para que se aplique el `exclude` configurado.
+pre-commit pasa cada archivo modificado como argumento, y `exclude` no se aplica a los argumentos de archivo explícitos salvo que se use `--force-exclude`. Agrega `--force-exclude` a `args` para que se aplique el `exclude` configurado.
 
 ### GitLab CI
 
