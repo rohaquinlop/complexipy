@@ -11,7 +11,7 @@ One-time setup:
 
 Each release:
 
-1. Run a dry run on the branch you will tag: `gh workflow run release.yml --ref <branch>`. It builds and tests every wheel. It does not publish: the `pypi` environment accepts only version tags, and the `Release` job stops a run that is not a version tag. Wait until every build and unit test job passes.
+1. Run a dry run on the branch you will tag: `gh workflow run release.yml --ref <branch>`. It builds and tests every wheel. It does not publish: the `pypi` environment accepts only version tags, so the `Release` job fails by design. Wait until every build and unit test job passes.
 1. Tag the same commit and push the tag: `git tag X.Y.Z && git push origin X.Y.Z`.
 
 ## VS Code Extension
