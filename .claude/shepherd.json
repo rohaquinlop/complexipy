@@ -1,0 +1,3 @@
+{
+  "branch_pattern": "issue-{number}-{slug}"
+}
