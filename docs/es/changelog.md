@@ -14,6 +14,14 @@ GitHub con todos los detalles.
   pre-commit, que nombra cada archivo modificado, para que se aplique el
   `exclude` configurado.
 
+### Cambiado
+
+- Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta
+  las advertencias: solo oculta el informe. Las advertencias de `--diff` y
+  `--staged` pasaron de stdout a stderr, así que ya no se mezclan con un
+  informe que otra herramienta lee desde una tubería
+  ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
+
 ## [8.3.0] - 2026-10-26
 
 ### Añadido
