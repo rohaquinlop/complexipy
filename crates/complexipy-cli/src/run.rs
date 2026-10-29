@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 macro_rules! emit {
@@ -443,22 +443,25 @@ fn without_excluded_files(
     invocation_path: &str,
 ) -> Vec<String> {
     let matcher = ExcludeMatcher::new(exclude);
-    let root = Path::new(invocation_path);
+    let anchor = resolved(Path::new(invocation_path));
     paths
         .iter()
         .filter(|path| {
-            let joined = root.join(path);
-            if joined.is_dir() {
-                return true;
-            }
-            let file: std::path::PathBuf = joined
-                .components()
-                .filter(|component| *component != std::path::Component::CurDir)
-                .collect();
-            !matcher.is_excluded_inside(&file.to_string_lossy(), invocation_path)
+            let file = Path::new(path);
+            file.is_dir()
+                || !matcher.is_excluded_inside(
+                    &resolved(file).to_string_lossy(),
+                    &anchor.to_string_lossy(),
+                )
         })
         .cloned()
         .collect()
+}
+
+fn resolved(path: &Path) -> PathBuf {
+    path.canonicalize()
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn compute_run_diff(

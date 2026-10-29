@@ -276,6 +276,17 @@ fn cli_boolean_overrides_toml() {
 }
 
 #[test]
+fn cli_force_exclude_overrides_toml() {
+    let config = resolve(
+        &["src", "--force-exclude=false"],
+        Some("force-exclude = true"),
+    )
+    .expect("resolve should succeed");
+
+    assert!(!config.force_exclude);
+}
+
+#[test]
 fn output_format_falls_back_to_toml_then_empty() {
     let from_toml = resolve(&["src"], Some("output-format = [\"csv\", \"json\"]"))
         .expect("resolve should succeed");
