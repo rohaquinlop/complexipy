@@ -124,7 +124,7 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Usa `directory/**` para excluir un directorio recursivamente
     - Usa una ruta relativa exacta, como `src/legacy/old_code.py`, para excluir un archivo
     - Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos, y también los archivos `.ignore` y los archivos y directorios ocultos. `--report-ignored` lista cada archivo `*.py` que estas reglas omiten, y una ejecución que no selecciona ningún archivo imprime una advertencia en stderr, incluso bajo `--quiet`
-    - Un archivo pasado explícitamente como argumento se analiza aunque un patrón coincida con él. Con `--force-exclude`, o `force-exclude = true` en la configuración, los patrones también se aplican a los argumentos de archivo, de forma relativa al directorio donde se ejecuta el comando. Las reglas de gitignore y las rutas ocultas nunca se aplican a los argumentos de archivo
+    - Un archivo pasado explícitamente como argumento se analiza aunque un patrón coincida con él. Con `--force-exclude`, o `force-exclude = true` en la configuración, los patrones también se aplican a los argumentos de archivo, solo de forma relativa al directorio donde se ejecuta el comando, no al directorio del propio archivo. Las reglas de gitignore y las rutas ocultas nunca se aplican a los argumentos de archivo
     - Un enlace simbólico `*.py` se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados `*.py` se omiten con una advertencia
     - Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse
 
