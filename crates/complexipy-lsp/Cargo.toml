@@ -30,5 +30,5 @@ serde_json = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 
-[target.'cfg(any(target_os = "macos", target_os = "windows", all(target_os = "linux", target_arch = "x86_64")))'.dependencies]
+[target.'cfg(any(target_os = "macos", target_os = "windows", all(target_os = "linux", target_arch = "x86_64"), all(target_os = "linux", target_arch = "aarch64", target_env = "musl")))'.dependencies]
 mimalloc = "0.1.49"

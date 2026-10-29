@@ -24,6 +24,9 @@ GitHub con todos los detalles.
 - La documentación indica que `--diff`, `--diff-only` y `--staged` requieren
   Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
   Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
+- La wheel musllinux de aarch64 reserva memoria con mimalloc, como la de
+  x86_64. Sobre el código fuente de django se ejecuta unas 4,5 veces más
+  rápido ([#303](https://github.com/rohaquinlop/complexipy/issues/303)).
 
 ### Corregido
 
