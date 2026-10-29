@@ -171,6 +171,11 @@
       "description": "Show only functions above the complexity threshold.",
       "type": "boolean"
     },
+    "force-exclude": {
+      "default": false,
+      "description": "Apply `exclude` to files passed explicitly as arguments, such as the file names pre-commit passes.",
+      "type": "boolean"
+    },
     "ignore": {
       "anyOf": [
         {

@@ -214,7 +214,7 @@ at the root of each workspace folder:
 The server ignores every other key of the same file: `paths`, `quiet`,
 `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
 `snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
-`report-ignored`, and `diff`. Run those keys through `complexipy <path>`.
+`report-ignored`, `force-exclude`, and `diff`. Run those keys through `complexipy <path>`.
 
 The server reads the configuration again when you save a change to one of
 these files at the root of a workspace folder. The editor must support dynamic

@@ -123,6 +123,7 @@ complexipy . --exclude "src/legacy/old_code.py"
     - Use `directory/**` to exclude a directory recursively
     - Use an exact relative file path, such as `src/legacy/old_code.py`, to exclude one file
     - Gitignore rules are still respected during file discovery, and so are `.ignore` files and hidden files and directories. `--report-ignored` lists every `*.py` file these rules skip, and a run that selects no file at all prints a warning on stderr, even under `--quiet`
+    - A file passed explicitly as an argument is analyzed even when a pattern matches it. With `--force-exclude`, or `force-exclude = true` in the configuration, patterns also apply to file arguments, relative to the directory the command runs in only, not to the file's own directory. Gitignore rules and hidden paths never apply to file arguments
     - A `*.py` symlink is analyzed only when it resolves to a regular file inside the analyzed directory. Links that leave it, dangling links, devices, and directories named `*.py` are skipped with a warning
     - A source file larger than 64 MiB is reported as failed instead of read
 
@@ -423,6 +424,7 @@ path outside the project on the command line instead.
     check-script = false
     no-ignore = false
     report-ignored = false
+    force-exclude = false
     cache-dir = ".complexipy_cache"
     ```
 
@@ -579,6 +581,7 @@ equals the threshold passes, as it does on the command line.
 | `--check-script` | Report module-level (script) complexity as a synthetic `<module>` entry | `false` |
 | `--no-ignore` | Analyze every function, disregarding inline ignore comments (`# complexipy: ignore`, `# noqa: complexipy`) | `false` |
 | `--report-ignored` | List every file:line where an ignore comment suppresses a function. `--quiet` hides the list | `false` |
+| `--force-exclude` | Apply `exclude` to files passed explicitly as arguments, such as the file names pre-commit passes | `false` |
 | `--isolated` | Ignore every configuration file. Cannot be combined with `--config` | `false` |
 | `--config <path>` | Read the configuration from this file only, instead of the invocation directory's files | - |
 
@@ -1149,6 +1152,8 @@ repos:
           - id: complexipy
             args: [--max-complexity-allowed=15]
 ```
+
+pre-commit passes each changed file as an argument, and `exclude` does not apply to explicit file arguments unless `--force-exclude` is set. Add `--force-exclude` to `args` for the configured `exclude` to apply.
 
 ### GitLab CI
 

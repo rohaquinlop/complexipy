@@ -211,6 +211,11 @@ pub fn resolve_config(
         .or_else(|| toml.map(|toml| toml.report_ignored))
         .unwrap_or(false);
 
+    let force_exclude = cli
+        .force_exclude
+        .or_else(|| toml.map(|toml| toml.force_exclude))
+        .unwrap_or(false);
+
     let plain = cli.plain.unwrap_or(false);
     let fix = cli.fix.unwrap_or(false);
     let dry_run = cli.dry_run.unwrap_or(false);
@@ -267,6 +272,7 @@ pub fn resolve_config(
         check_script,
         no_ignore,
         report_ignored,
+        force_exclude,
         plain,
         suggest_refactors,
         fix,

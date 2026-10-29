@@ -82,6 +82,9 @@ pub struct CliArgs {
     #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
     pub report_ignored: Option<bool>,
 
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
+    pub force_exclude: Option<bool>,
+
     #[arg(long, conflicts_with = "config", num_args = 0..=1, default_missing_value = "true", require_equals = true)]
     pub isolated: Option<bool>,
 

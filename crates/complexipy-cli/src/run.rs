@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 macro_rules! emit {
@@ -42,7 +42,7 @@ use complexipy_core::diff::{
 use complexipy_core::runner::{Analysis, ArgumentCoverage, LocationReports};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
-    AnalysisOptions, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
 };
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
@@ -57,7 +57,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         .as_ref()
         .map(|source| source.path.display().to_string());
 
-    let config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
+    let mut config = match resolve_config(source.map(|source| source.value), cli, invocation_path) {
         Ok(config) => config,
         Err(error) => {
             emit_error!("{}", escape_controls(&error.to_string()));
@@ -115,6 +115,9 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         for warning in warnings {
             emit_error!("{} {}", label, escape_controls(&warning));
         }
+    }
+    if config.force_exclude {
+        config.paths = without_excluded_files(&config.paths, &config.exclude, invocation_path);
     }
     let analysis = analysis_options(&config, rules);
 
@@ -429,6 +432,36 @@ impl RunDiff {
         }
         baseline
     }
+}
+
+/// `paths` without the file arguments an `exclude` pattern matches relative
+/// to `invocation_path`. Directory arguments stay, since their walk applies
+/// the patterns itself.
+fn without_excluded_files(
+    paths: &[String],
+    exclude: &[String],
+    invocation_path: &str,
+) -> Vec<String> {
+    let matcher = ExcludeMatcher::new(exclude);
+    let anchor = resolved(Path::new(invocation_path));
+    paths
+        .iter()
+        .filter(|path| {
+            let file = Path::new(path);
+            file.is_dir()
+                || !matcher.is_excluded_inside(
+                    &resolved(file).to_string_lossy(),
+                    &anchor.to_string_lossy(),
+                )
+        })
+        .cloned()
+        .collect()
+}
+
+fn resolved(path: &Path) -> PathBuf {
+    path.canonicalize()
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn compute_run_diff(
