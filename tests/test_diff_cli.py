@@ -73,11 +73,12 @@ def test_a_run_from_outside_the_repository_reads_the_files_history(
 
     exit_code = run_cli([str(repo / "pkg"), "--diff-only", "v1"], str(outside))
 
-    out = strip_ansi(capfd.readouterr().out)
+    captured = capfd.readouterr()
+    out = strip_ansi(captured.out)
     assert exit_code == 0
     assert "Net: 1 regressed" in out
     assert "NEW" not in out
-    assert "Warning:" not in out
+    assert "Warning:" not in strip_ansi(captured.err)
 
 
 def test_the_gate_from_outside_the_repository_passes_an_unchanged_function(
@@ -112,11 +113,11 @@ def test_the_gate_sees_a_nested_repository_the_change_adds_as_new(
         str(repo),
     )
 
-    out = strip_ansi(capfd.readouterr().out)
+    err = strip_ansi(capfd.readouterr().err)
     assert exit_code == 1
     assert (
         'vendored sits inside another repository but is not pinned there at "v1"'
-        in out
+        in err
     )
 
 
@@ -127,7 +128,7 @@ def test_diff_only_alone_prints_no_flag_warning(
 
     run_cli([str(repo / "pkg"), "--diff-only", "v1"], str(repo))
 
-    assert "both set" not in capfd.readouterr().out
+    assert "both set" not in capfd.readouterr().err
 
 
 def test_both_diff_flags_print_the_flag_warning(
@@ -137,8 +138,8 @@ def test_both_diff_flags_print_the_flag_warning(
 
     run_cli([str(repo / "pkg"), "--diff", "v1", "--diff-only", "v1"], str(repo))
 
-    out = strip_ansi(capfd.readouterr().out)
-    assert "Warning: --diff and --diff-only both set." in out
+    err = strip_ansi(capfd.readouterr().err)
+    assert "Warning: --diff and --diff-only both set." in err
 
 
 def test_a_ref_missing_from_the_repository_is_named_in_a_warning(
@@ -148,9 +149,9 @@ def test_a_ref_missing_from_the_repository_is_named_in_a_warning(
 
     run_cli([str(repo / "pkg"), "--diff-only", "v9"], str(repo))
 
-    out = strip_ansi(capfd.readouterr().out)
-    assert 'Warning: "v9" does not name a commit in ' in out
-    assert "its 1 analyzed file(s) report as NEW." in out
+    err = strip_ansi(capfd.readouterr().err)
+    assert 'Warning: "v9" does not name a commit in ' in err
+    assert "its 1 analyzed file(s) report as NEW." in err
 
 
 def test_a_file_outside_any_repository_is_named_in_a_warning(
@@ -160,10 +161,10 @@ def test_a_file_outside_any_repository_is_named_in_a_warning(
 
     run_cli([str(outside / "loose.py"), "--diff-only", "HEAD"], str(outside))
 
-    out = strip_ansi(capfd.readouterr().out)
+    err = strip_ansi(capfd.readouterr().err)
     assert (
         "Warning: loose.py is not inside a git repository, so all its "
-        "functions report as NEW." in out
+        "functions report as NEW." in err
     )
 
 
@@ -430,9 +431,37 @@ def test_a_staged_run_outside_a_repository_claims_no_baseline(
         str(outside),
     )
 
-    out = strip_ansi(capfd.readouterr().out)
+    captured = capfd.readouterr()
+    out = strip_ansi(captured.out)
     assert exit_code == 0
-    assert "--staged requires a git repository" in out
+    assert "--staged requires a git repository" in strip_ansi(captured.err)
     assert "FAILED" in out
     assert "ALLOWED" not in out
     assert "baseline" not in out
+
+
+@pytest.mark.parametrize(
+    ("arguments", "warning"),
+    [
+        (["--diff-only", "v9"], 'Warning: "v9" does not name a commit in '),
+        (
+            ["--diff", "v1", "--diff-only", "v1"],
+            "Warning: --diff and --diff-only both set.",
+        ),
+        (["--select", "C999"], "Warning: Unknown rule id 'C999'"),
+        (["--select", "C999"], "Warning: No refactoring rule is active"),
+    ],
+)
+def test_quiet_prints_warnings_on_stderr_only(
+    repo: Path,
+    capfd: pytest.CaptureFixture[str],
+    arguments: list[str],
+    warning: str,
+) -> None:
+    commit(repo, PLAIN)
+
+    run_cli([str(repo / "pkg"), "--quiet", *arguments], str(repo))
+
+    captured = capfd.readouterr()
+    assert warning in strip_ansi(captured.err)
+    assert "Warning" not in captured.out

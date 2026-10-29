@@ -13,7 +13,7 @@ macro_rules! emit_error {
     };
 }
 
-use owo_colors::{OwoColorize, Stream};
+use owo_colors::OwoColorize;
 
 use crate::args::CliArgs;
 use crate::output::diff::format_diff;
@@ -84,37 +84,28 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         emit!("{}", settings.banner);
     }
 
-    if !config.quiet
-        && let Some(warning) =
-            diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref())
-    {
-        emit!(
-            "{} {}",
-            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-            warning
-        );
+    if let Some(warning) = diff_flags_warning(config.diff.as_deref(), config.diff_only.as_deref()) {
+        emit_error!("{} {}", label, warning);
     }
     let (diff, diff_only) =
         resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
 
     let known_rules = registered_rule_ids();
     let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
-    if !config.quiet {
-        let mut warnings: Vec<String> = unknown_rules
+    let mut warnings: Vec<String> = unknown_rules
+        .iter()
+        .map(|rule_id| unknown_rule_warning(rule_id))
+        .collect();
+    if !rules.has_active_rule(&known_rules) {
+        warnings.push(no_active_rule_warning());
+    }
+    warnings.extend(
+        unmatchable_exclude_patterns(&config.exclude)
             .iter()
-            .map(|rule_id| unknown_rule_warning(rule_id))
-            .collect();
-        if !rules.has_active_rule(&known_rules) {
-            warnings.push(no_active_rule_warning());
-        }
-        warnings.extend(
-            unmatchable_exclude_patterns(&config.exclude)
-                .iter()
-                .map(|pattern| unmatchable_exclude_warning(pattern)),
-        );
-        for warning in warnings {
-            emit_error!("{} {}", label, escape_controls(&warning));
-        }
+            .map(|pattern| unmatchable_exclude_warning(pattern)),
+    );
+    for warning in warnings {
+        emit_error!("{} {}", label, escape_controls(&warning));
     }
     if config.force_exclude {
         config.paths = without_excluded_files(&config.paths, &config.exclude, invocation_path);
@@ -131,10 +122,8 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             removable_above: (!config.quiet).then_some(config.max_complexity_allowed),
         },
     );
-    if !config.quiet {
-        for warning in run.skipped.iter().filter_map(skipped_path_warning) {
-            emit_error!("{} {}", label, escape_controls(&warning));
-        }
+    for warning in run.skipped.iter().filter_map(skipped_path_warning) {
+        emit_error!("{} {}", label, escape_controls(&warning));
     }
     if run.files.is_empty() && run.failed_paths.is_empty() {
         emit_error!("{} {}", label, nothing_selected_warning(&run.skipped));
@@ -302,30 +291,26 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         emit!("{}", invalid_paths_output);
     }
 
-    if !config.quiet
-        && let Some(run_diff) = &run_diff
-    {
+    if let Some(run_diff) = &run_diff {
         match &run_diff.report {
             Some(report) => {
-                emit!(
-                    "{}",
-                    format_diff(
-                        &report.entries,
-                        &run_diff.label,
-                        run_diff.verdicts.as_deref()
-                    )
-                );
-                for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
+                if !config.quiet {
                     emit!(
-                        "{} {}",
-                        "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
-                        escape_controls(&warning)
+                        "{}",
+                        format_diff(
+                            &report.entries,
+                            &run_diff.label,
+                            run_diff.verdicts.as_deref()
+                        )
                     );
                 }
+                for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
+                    emit_error!("{} {}", label, escape_controls(&warning));
+                }
             }
-            None => emit!(
+            None => emit_error!(
                 "{} --staged requires a git repository; skipping the staged diff, so the threshold does not decide the exit code.",
-                "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
+                label
             ),
         }
     }
