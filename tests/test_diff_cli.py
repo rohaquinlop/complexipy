@@ -78,6 +78,7 @@ def test_a_run_from_outside_the_repository_reads_the_files_history(
     assert exit_code == 0
     assert "Net: 1 regressed" in out
     assert "NEW" not in out
+    assert "Warning:" not in out
     assert "Warning:" not in strip_ansi(captured.err)
 
 
@@ -435,6 +436,7 @@ def test_a_staged_run_outside_a_repository_claims_no_baseline(
     out = strip_ansi(captured.out)
     assert exit_code == 0
     assert "--staged requires a git repository" in strip_ansi(captured.err)
+    assert "--staged requires a git repository" not in out
     assert "FAILED" in out
     assert "ALLOWED" not in out
     assert "baseline" not in out
@@ -452,16 +454,18 @@ def test_a_staged_run_outside_a_repository_claims_no_baseline(
         (["--select", "C999"], "Warning: No refactoring rule is active"),
     ],
 )
-def test_quiet_prints_warnings_on_stderr_only(
+@pytest.mark.parametrize("quiet", [[], ["--quiet"]])
+def test_warnings_print_on_stderr_only(
     repo: Path,
     capfd: pytest.CaptureFixture[str],
     arguments: list[str],
     warning: str,
+    quiet: list[str],
 ) -> None:
     commit(repo, PLAIN)
 
-    run_cli([str(repo / "pkg"), "--quiet", *arguments], str(repo))
+    run_cli([str(repo / "pkg"), *quiet, *arguments], str(repo))
 
     captured = capfd.readouterr()
     assert warning in strip_ansi(captured.err)
-    assert "Warning" not in captured.out
+    assert "Warning:" not in strip_ansi(captured.out)
