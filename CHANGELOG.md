@@ -19,6 +19,9 @@ release section links to its GitHub release notes for the full details.
   stdout to stderr, so they no longer mix with a report that another tool
   reads from a pipe
   ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
+- The docs state that `--diff`, `--diff-only`, and `--staged` require Git 2.30
+  or newer on `PATH`. Analysis without these options does not require Git
+  ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
 ## [8.3.0] - 2026-10-26
 
