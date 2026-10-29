@@ -91,6 +91,9 @@ Suppress analysis output (useful for CI pipelines):
 complexipy . --quiet
 ```
 
+`--quiet` hides the report only. Every warning still prints to stderr, so a CI
+log explains an unexpected result.
+
 ### Sorting Results
 
 Sort by complexity score:

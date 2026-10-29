@@ -12,6 +12,14 @@ release section links to its GitHub release notes for the full details.
   explicit file is analyzed as before. Pass it under pre-commit, which names
   each changed file, so the configured `exclude` applies there.
 
+### Changed
+
+- Every CLI warning prints to stderr, and `--quiet` no longer hides warnings:
+  it hides the report only. The `--diff` and `--staged` warnings moved from
+  stdout to stderr, so they no longer mix with a report that another tool
+  reads from a pipe
+  ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
+
 ## [8.3.0] - 2026-10-26
 
 ### Added
