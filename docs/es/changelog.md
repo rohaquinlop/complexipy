@@ -21,6 +21,9 @@ GitHub con todos los detalles.
   `--staged` pasaron de stdout a stderr, así que ya no se mezclan con un
   informe que otra herramienta lee desde una tubería
   ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
+- La documentación indica que `--diff`, `--diff-only` y `--staged` requieren
+  Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
+  Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
 ## [8.3.0] - 2026-10-26
 
