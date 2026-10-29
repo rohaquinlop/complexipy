@@ -25,6 +25,13 @@ GitHub con todos los detalles.
   Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
   Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
+### Corregido
+
+- La wheel musllinux de x86_64 se vuelve a importar. En 8.3.0 fallaba al
+  importarse con `initial-exec TLS resolves to dynamic definition`, porque
+  mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede
+  cargar desde una extensión de Python.
+
 ## [8.3.0] - 2026-10-26
 
 ### Añadido

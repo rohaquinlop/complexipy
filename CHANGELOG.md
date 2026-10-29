@@ -23,6 +23,12 @@ release section links to its GitHub release notes for the full details.
   or newer on `PATH`. Analysis without these options does not require Git
   ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
+### Fixed
+
+- The x86_64 musllinux wheel imports again. In 8.3.0 it failed on import with
+  `initial-exec TLS resolves to dynamic definition`, because mimalloc used a
+  thread-local storage model that musl cannot load from a Python extension.
+
 ## [8.3.0] - 2026-10-26
 
 ### Added
