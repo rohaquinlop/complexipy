@@ -5,7 +5,7 @@ use std::process::Command;
 use clap::Parser;
 use tempfile::tempdir;
 
-use super::analysis_options;
+use super::{analysis_options, without_excluded_files};
 use crate::args::CliArgs;
 use crate::output::render::color_lock;
 use crate::utils::config::resolve_config;
@@ -1066,5 +1066,16 @@ fn force_exclude_drops_an_excluded_file_argument() {
     assert_eq!(
         run_on_an_excluded_file(&["--force-exclude"]),
         std::process::ExitCode::SUCCESS
+    );
+}
+
+#[test]
+fn force_exclude_matches_a_relative_argument_from_a_relative_invocation() {
+    let paths = vec!["./src/run.rs".to_string()];
+
+    assert!(without_excluded_files(&paths, &["src/**".to_string()], ".").is_empty());
+    assert_eq!(
+        without_excluded_files(&paths, &["tests/**".to_string()], "."),
+        paths
     );
 }
