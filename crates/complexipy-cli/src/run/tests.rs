@@ -1036,3 +1036,35 @@ fn runs_that_show_passing_plans_build_every_plan() {
         );
     }
 }
+
+fn run_on_an_excluded_file(extra: &[&str]) -> std::process::ExitCode {
+    let dir = tempdir().expect("tempdir should work");
+    fs::write(
+        dir.path().join("complexipy.toml"),
+        "exclude = [\"migrations/**\"]\n",
+    )
+    .expect("should write");
+    fs::create_dir(dir.path().join("migrations")).expect("should create");
+    let file = dir.path().join("migrations").join("m1.py");
+    fs::write(&file, COMPLEX).expect("should write");
+    let mut args = vec![file.to_str().unwrap()];
+    args.extend_from_slice(extra);
+
+    run_at(parse(&args), dir.path().to_str().unwrap())
+}
+
+#[test]
+fn an_excluded_file_argument_is_analyzed_without_force_exclude() {
+    assert_eq!(
+        run_on_an_excluded_file(&[]),
+        std::process::ExitCode::FAILURE
+    );
+}
+
+#[test]
+fn force_exclude_drops_an_excluded_file_argument() {
+    assert_eq!(
+        run_on_an_excluded_file(&["--force-exclude"]),
+        std::process::ExitCode::SUCCESS
+    );
+}

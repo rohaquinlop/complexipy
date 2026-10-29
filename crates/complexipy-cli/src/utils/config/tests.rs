@@ -31,6 +31,7 @@ fn defaults_with_only_paths() {
     assert!(!config.check_script);
     assert!(!config.no_ignore);
     assert!(!config.report_ignored);
+    assert!(!config.force_exclude);
     assert!(!config.plain);
     assert!(!config.suggest_refactors);
     assert!(!config.fix);
@@ -256,13 +257,14 @@ fn toml_value_used_when_cli_absent() {
 fn toml_boolean_used_when_cli_absent() {
     let config = resolve(
         &["src"],
-        Some("quiet = true\nno-ignore = true\nreport-ignored = true"),
+        Some("quiet = true\nno-ignore = true\nreport-ignored = true\nforce-exclude = true"),
     )
     .expect("resolve should succeed");
 
     assert!(config.quiet);
     assert!(config.no_ignore);
     assert!(config.report_ignored);
+    assert!(config.force_exclude);
 }
 
 #[test]
