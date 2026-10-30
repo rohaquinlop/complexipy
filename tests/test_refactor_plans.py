@@ -34,8 +34,6 @@ def first_func(code: str):
 
 
 def predicate_text(plan) -> str:
-    """The C005 helper and call text, whether the helper is an insertion or
-    part of the replacement snippet."""
     insertions = "".join(
         insertion.text for insertion in plan.suggestion.insertions
     )
@@ -43,7 +41,6 @@ def predicate_text(plan) -> str:
 
 
 def applied_source(source: str, plan) -> str:
-    """The source with the plan's replacement and insertions in place."""
     lines = source.splitlines(keepends=True)
     edits = [
         (
@@ -793,9 +790,6 @@ def test_walrus_condition_keeps_its_assignment_in_the_merge() -> None:
 
 
 def assert_suggestion_parses(name: str, source: str, plan) -> None:
-    """A spliceable suggestion with insertions must leave the whole source
-    parseable once applied; any other replacement must parse on its own and
-    keep comments out of its generated conditions."""
     if plan.suggestion.insertions:
         ast.parse(applied_source(source, plan))
         return
@@ -1036,8 +1030,6 @@ def test_reduction_is_measured_flag_marks_spliced_and_estimated_plans() -> None:
     assert not flatten.reduction_is_measured
     assert flatten.suggestion is None
 
-    # C005 splices its header line when every name it reads is safe to pass
-    # to a module-level helper, so it is measured.
     func = first_func(load_source("extract_predicate_boolean.py"))
     predicate = next(
         p for p in func.refactor_plans if p.kind == "extract_predicate"
@@ -1046,7 +1038,6 @@ def test_reduction_is_measured_flag_marks_spliced_and_estimated_plans() -> None:
     assert predicate.suggestion.spliceable
     assert predicate.reduction_is_measured
 
-    # A C005 snippet over a local variable is not a splice and stays estimated.
     func = first_func(load_source("extract_predicate_while.py"))
     predicate = next(
         p for p in func.refactor_plans if p.kind == "extract_predicate"

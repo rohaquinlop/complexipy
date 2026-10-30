@@ -17,7 +17,8 @@ fn admits(source: &str, line: u64, names: &[&str], builtins: &[&str]) -> bool {
             _ => None,
         })
         .expect("fixture defines a function");
-    let bindings = FunctionBindings::new(&module, function, 1, &index);
+    let top_line = index.line_of(usize::from(function.range.start()));
+    let bindings = FunctionBindings::new(&module, function, top_line, &index);
     let owned = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
     bindings.admits(line, &owned(names), &owned(builtins))
 }
@@ -57,6 +58,22 @@ fn admits_only_names_bound_for_sure() {
             &["a"],
             &["len"],
             true,
+        ),
+        (
+            "parameter that shadows a builtin",
+            "def f(a, len):\n    if a and len(a):\n        pass\n",
+            2,
+            &["a"],
+            &["len"],
+            false,
+        ),
+        (
+            "global bound after the function",
+            "def f(a):\n    if a and LIMIT:\n        pass\nLIMIT = 1\n",
+            2,
+            &["a", "LIMIT"],
+            &[],
+            false,
         ),
         (
             "local assignment",

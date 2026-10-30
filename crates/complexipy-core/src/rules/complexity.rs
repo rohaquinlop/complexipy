@@ -850,20 +850,11 @@ fn detect_indent_step_from(source: &str, index: &LineIndex, start_line: u64) -> 
     4
 }
 
-/// Generate a concrete suggestion for extracting a complex boolean condition
-/// into a named predicate function. The helper is a module-level `def` with
-/// the condition's free variables as parameters, so it is importable and
-/// unit-testable; the call site passes the same names. When `bindings`
-/// shows that every name the condition reads keeps its value once moved
-/// (see `FunctionBindings::admits`), the suggestion is spliceable: the
-/// replacement is the rewritten header line and the helper is an insertion
-/// before the module-level statement that holds the function. Otherwise the
-/// replacement is a snippet for hand application: the helper, then the
-/// rewritten statement inside its enclosing headers, where `...` stands in
-/// for the caller's body. `elif` conditions return `None`: a `def` cannot
-/// sit inside an if-chain, so no faithful replacement exists. Conditions
-/// that bind a name (`:=`) or hold a nested scope (lambda, comprehension)
-/// also return `None`: the parameter list could not be trusted.
+/// Extracts a complex condition into a module-level predicate that takes the
+/// condition's free variables. When `bindings` admits every name, the
+/// replacement is the rewritten header line and the helper is an insertion;
+/// otherwise the replacement is a snippet for hand application. `elif`,
+/// `:=`, lambda, and comprehension conditions return `None`.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
@@ -1036,12 +1027,9 @@ const PYTHON_BUILTINS: &[&str] = &[
     "zip",
 ];
 
-/// The names a condition reads. `free` holds its free variables in
-/// first-use order, builtins excluded, and `builtins` the builtins it
-/// reads. `movable` is false when the condition holds a construct whose
-/// meaning depends on the enclosing function or class: zero-argument
-/// `super()` or `__class__`, a private `__name` (name mangling), `await`,
-/// or `yield`.
+/// `movable` is false when the condition holds a construct whose meaning
+/// depends on the enclosing scope: `super()`, `__class__`, a private
+/// `__name`, `await`, or `yield`.
 struct ConditionNames {
     free: Vec<String>,
     builtins: Vec<String>,

@@ -1,26 +1,30 @@
 use crate::syntax_tree::{Node, PreOrder};
 use crate::utils::LineIndex;
 use ruff_python_ast::{self as ast, Expr, ExprContext, Pattern, Stmt};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-/// What a module binds: `unconditional` holds the names a top-level
-/// statement outside any compound statement binds, minus the names a
-/// module-level `del` or a function's `global` declaration touches;
-/// `any` holds every name the module binds anywhere outside a function or
-/// class body, plus every name a function declares `global`.
+/// `unconditional` maps each name a top-level simple statement binds to the
+/// byte offset of its first such binding, minus the names a module-level
+/// `del` or any `global` declaration touches; `any` holds every name the
+/// module binds outside function and class bodies.
 #[derive(Debug, Default)]
 pub struct ModuleBindings {
-    unconditional: HashSet<String>,
+    unconditional: HashMap<String, usize>,
     any: HashSet<String>,
 }
 
 impl ModuleBindings {
     #[must_use]
     pub fn of(suite: &[Stmt]) -> Self {
-        let mut unconditional = HashSet::new();
+        let mut unconditional = HashMap::new();
         for stmt in suite {
-            if !is_compound(stmt) {
-                bind_statement(stmt, &mut unconditional);
+            let Some(start) = simple_statement_start(stmt) else {
+                continue;
+            };
+            let mut names = HashSet::new();
+            bind_statement(stmt, &mut names);
+            for name in names {
+                unconditional.entry(name).or_insert(start);
             }
         }
 
@@ -56,13 +60,11 @@ impl ModuleBindings {
             walk.descend(node);
         }
 
-        unconditional.retain(|name| !unsafe_names.contains(name));
+        unconditional.retain(|name, _| !unsafe_names.contains(name));
         Self { unconditional, any }
     }
 }
 
-/// The names a condition inside one function may pass to, or read from,
-/// a module-level helper without changing what the function does.
 #[derive(Debug)]
 pub struct FunctionBindings {
     pub insert_before_line: u64,
@@ -73,7 +75,8 @@ pub struct FunctionBindings {
 
 impl FunctionBindings {
     /// `insert_before_line` is the first line of the module-level statement
-    /// that holds the function, decorators included.
+    /// that holds the function, decorators included. A global is safe only
+    /// when it is bound before that line.
     #[must_use]
     pub fn new(
         module: &ModuleBindings,
@@ -112,13 +115,24 @@ impl FunctionBindings {
 
         let mut parameters = HashSet::new();
         bind_parameters(&function.parameters, &mut parameters);
+        let insert_at = index.byte_of_line(insert_before_line).unwrap_or(usize::MAX);
+        let globals = module
+            .unconditional
+            .iter()
+            .filter(|(_, start)| **start < insert_at)
+            .map(|(name, _)| name);
         let safe = parameters
             .iter()
-            .chain(module.unconditional.difference(&parameters))
+            .chain(globals)
             .filter(|name| !bound.contains(*name))
             .cloned()
             .collect();
-        let shadowed = bound.union(&module.any).cloned().collect();
+        let shadowed = bound
+            .iter()
+            .chain(&parameters)
+            .chain(&module.any)
+            .cloned()
+            .collect();
 
         Self {
             insert_before_line,
@@ -128,9 +142,8 @@ impl FunctionBindings {
         }
     }
 
-    /// Whether a condition on `line` that reads the free names `names`
-    /// and the builtins `builtins` reads the same values once moved into
-    /// a module-level helper that takes `names` as eager arguments.
+    /// Whether a condition on `line` reads the same values once moved into a
+    /// module-level helper that takes `names` as eager arguments.
     #[must_use]
     pub fn admits(&self, line: u64, names: &[String], builtins: &[String]) -> bool {
         !self
@@ -142,11 +155,18 @@ impl FunctionBindings {
     }
 }
 
-fn is_compound(stmt: &Stmt) -> bool {
-    matches!(
-        stmt,
-        Stmt::If(_) | Stmt::Try(_) | Stmt::For(_) | Stmt::While(_) | Stmt::With(_) | Stmt::Match(_)
-    )
+fn simple_statement_start(stmt: &Stmt) -> Option<usize> {
+    let range = match stmt {
+        Stmt::FunctionDef(def) => def.range,
+        Stmt::ClassDef(class) => class.range,
+        Stmt::Import(import) => import.range,
+        Stmt::ImportFrom(import) => import.range,
+        Stmt::Assign(assign) => assign.range,
+        Stmt::AnnAssign(assign) => assign.range,
+        Stmt::AugAssign(assign) => assign.range,
+        _ => return None,
+    };
+    Some(usize::from(range.start()))
 }
 
 fn collect_globals(node: Node<'_>, unsafe_names: &mut HashSet<String>, any: &mut HashSet<String>) {

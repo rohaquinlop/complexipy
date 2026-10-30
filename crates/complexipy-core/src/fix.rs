@@ -277,12 +277,9 @@ pub fn parses(source: &str) -> bool {
     parse_module(source).is_ok()
 }
 
-/// Applies the fixable plans to the source, parse-checking after each
-/// plan. A plan's edits are its span replacement and its insertions; every
-/// edit is placed by the byte offsets of the original text, so the edits of
-/// all accepted plans apply together in one rebuild. A plan whose edits
-/// break the parse is left out and recorded as skipped. The returned text
-/// always parses.
+/// Applies the fixable plans to the source. Every edit is placed by the byte
+/// offsets of the original text, and a plan whose edits break the parse is
+/// skipped, so the returned text always parses.
 #[must_use]
 pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
     let index = LineIndex::new(source);
@@ -364,15 +361,12 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
     report
 }
 
-/// A byte range of the original text and the text that takes its place.
 struct Edit {
     start: usize,
     end: usize,
     text: String,
 }
 
-/// The span replacement of the plan, then one zero-width edit per
-/// insertion. Returns `None` when a line lies outside the source.
 fn plan_edits(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
@@ -414,10 +408,8 @@ fn normalized(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
-/// The edit that replaces the plan's line range with the replacement. The
-/// replacement's line breaks become `newline`, the file's line break from
-/// `line_ending_of`, and its trailing line breaks collapse into the one
-/// terminator the replaced range carried.
+/// The replacement's line breaks become `newline`, and its trailing line
+/// breaks collapse into the one terminator the replaced range carried.
 fn span_edit(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
@@ -441,9 +433,8 @@ fn span_edit(
     Some(Edit { start, end, text })
 }
 
-/// Replaces the plan's line range in the source with the replacement, as
-/// `span_edit` builds it. Insertions take no part: the text of the
-/// function holding the plan scores the same without its helper.
+/// Replaces the plan's line range with the replacement. Insertions take no
+/// part: the function holding the plan scores the same without its helper.
 pub(crate) fn splice_plan(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
