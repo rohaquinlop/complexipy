@@ -7,6 +7,14 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- The language server answers `textDocument/codeAction` with one quick fix per
+  refactoring suggestion of each function over the threshold in the requested
+  range. A suggestion `--fix` would apply rewrites the buffer in one edit built
+  by the same fix engine; any other suggestion is listed disabled with its help
+  text and never edits. Each title states the reduction, or says it is not
+  measured. The threshold diagnostic now links to its documentation through
+  `codeDescription`
+  ([#254](https://github.com/rohaquinlop/complexipy/issues/254)).
 - `--select`, `--ignore`, and the `select` and `ignore` configuration keys
   accept a rule group: `complexity` or `readability`. A group stands for every
   refactoring rule of that category, and mixes with rule ids, as in

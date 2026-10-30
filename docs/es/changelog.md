@@ -8,6 +8,15 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- El servidor de lenguaje responde a `textDocument/codeAction` con una
+  corrección rápida por cada sugerencia de refactorización de cada función que
+  supere el umbral en el rango solicitado. Una sugerencia que `--fix` aplicaría
+  reescribe el búfer en una sola edición creada por el mismo motor de
+  correcciones; cualquier otra sugerencia aparece deshabilitada con su texto de
+  ayuda y nunca edita. Cada título indica la reducción, o dice que no está
+  medida. El diagnóstico del umbral ahora enlaza a su documentación mediante
+  `codeDescription`
+  ([#254](https://github.com/rohaquinlop/complexipy/issues/254)).
 - `--select`, `--ignore` y las claves de configuración `select` e `ignore`
   aceptan un grupo de reglas: `complexity` o `readability`. Un grupo
   representa todas las reglas de refactorización de esa categoría y se combina

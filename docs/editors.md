@@ -16,6 +16,9 @@ Inside the editor you get:
 - **Diagnostics** - one warning per function above `max-complexity-allowed`,
   with the message `cognitive complexity 18 exceeds the allowed 15` on the
   function name.
+- **Quick fixes** - every refactoring suggestion for a function above
+  `max-complexity-allowed`, as a code action. A suggestion that is safe to
+  apply rewrites the buffer in one undoable edit.
 
 Results refresh as you type. The server uses full document sync and analyzes
 only the documents you have open, so there is no workspace-wide scan and no
@@ -281,6 +284,24 @@ parent.
   hints and hover keep answering from the last text that parsed, so the file
   does not go blank while you type. The warning clears itself as soon as the
   document parses again.
+- Each warning links to
+  [Understanding Scores](https://complexipy.com/understanding-scores/), so the
+  entry in the Problems panel opens the explanation of the score.
+
+### Quick fixes
+
+Code actions answer for every function above `max-complexity-allowed` that the
+requested range touches, with one action per refactoring suggestion, up to
+five per function. The title names the rule and the reduction, as
+`C007: Merge nested if statements (-1)`. An estimated reduction reads
+`(~5, not measured)`.
+
+- A suggestion that `complexipy --fix` would apply is a quick fix. Applying it
+  sends one edit over the changed lines, so one undo reverts it. The first such
+  suggestion of a function is the preferred fix.
+- Any other suggestion, such as a help-only rule like C003, is listed but
+  disabled, and its help text is the reason. It never edits the buffer.
+- A document that does not parse offers no actions until it parses again.
 
 ### Ignores and exclusions
 
