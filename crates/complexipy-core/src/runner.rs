@@ -312,6 +312,36 @@ pub fn run_analysis_shared(
     Ok((analysis.files, analysis.failed_paths))
 }
 
+/// The Python files a run over `paths` would analyze, keyed by canonical path
+/// and without duplicates, with each argument that failed to resolve.
+pub fn discover_python_files(
+    paths: &[String],
+    exclude: &[String],
+    invocation_path: &str,
+) -> (Vec<String>, Vec<String>) {
+    let context = RunContext {
+        invocation: canonical(path::Path::new(invocation_path)),
+        analysis: AnalysisOptions::default(),
+        reports: LocationReports::default(),
+    };
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut files = Vec::new();
+    let mut failures = Vec::new();
+    for path in paths {
+        let discovery = discover_argument(path, exclude, &context);
+        failures.extend(discovery.failure);
+        files.extend(
+            discovery
+                .files
+                .into_iter()
+                .map(|file| file.key)
+                .filter(|key| seen.insert(key.clone())),
+        );
+    }
+
+    (files, failures)
+}
+
 fn hidden_files(paths: &[String], exclude: &[String], invocation: &path::Path) -> Vec<SkippedPath> {
     paths
         .iter()

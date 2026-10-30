@@ -94,6 +94,11 @@
           "default": false,
           "description": "Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped.",
           "type": "boolean"
+        },
+        "workspace-diagnostics": {
+          "default": false,
+          "description": "Also publish warnings for files that are not open, from a scan of the workspace folder.",
+          "type": "boolean"
         }
       },
       "type": "object"

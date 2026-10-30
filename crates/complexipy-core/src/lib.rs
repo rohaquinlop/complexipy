@@ -43,5 +43,5 @@ pub use rules::{
 pub use runner::{
     collect_all_ignored_locations_shared as collect_all_ignored_locations,
     collect_removable_ignored_locations_shared as collect_removable_ignored_locations,
-    run_analysis_shared,
+    discover_python_files, run_analysis_shared,
 };
