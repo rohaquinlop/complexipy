@@ -180,6 +180,7 @@ pub trait RefactorRule: Sync + Send {
         source: &str,
         index: &LineIndex,
         def_names: &HashSet<String>,
+        bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<crate::classes::RefactorPlan>;
 }

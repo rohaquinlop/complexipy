@@ -13,6 +13,14 @@ GitHub con todos los detalles.
   refactorización, y termina sin ejecutar un análisis. Un id de regla
   desconocido termina con un error que lista los ids válidos
   ([#207](https://github.com/rohaquinlop/complexipy/issues/207)).
+- `--fix` aplica C005 (extraer predicado). Inserta el helper encima del `def`
+  o `class` a nivel de módulo que contiene la función y reescribe la condición
+  como una llamada. Lo hace solo cuando cada nombre que lee la condición está
+  vinculado con seguridad; las demás condiciones conservan el fragmento para
+  aplicación manual. La reducción de C005 se mide cuando la corrección se
+  aplica. `CodeSuggestion` gana `insertions`, una lista del nuevo tipo
+  `CodeInsertion`, y la salida JSON gana la clave `insertions`
+  ([#263](https://github.com/rohaquinlop/complexipy/issues/263)).
 - `--force-exclude`, también `force-exclude = true` en la configuración, aplica
   los patrones de `exclude` a los archivos pasados explícitamente como
   argumentos. Sin él, un archivo explícito se analiza como antes. Úsalo con
@@ -21,6 +29,8 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- El helper de C005 ya no lleva la anotación `-> bool`, porque `and` y `or`
+  devuelven un operando, no un bool.
 - Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta
   las advertencias: solo oculta el informe. Las advertencias de `--diff` y
   `--staged` pasaron de stdout a stderr, así que ya no se mezclan con un

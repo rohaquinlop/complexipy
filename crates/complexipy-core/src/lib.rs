@@ -1,5 +1,6 @@
 #[cfg(feature = "runner")]
 pub mod api;
+mod bindings;
 pub mod classes;
 pub mod cognitive_complexity;
 #[cfg(feature = "config")]
@@ -24,8 +25,9 @@ pub use api::{code_complexity, file_complexity};
 /// Names here are a compatibility promise; do not move or rename them
 /// without a major release.
 pub use classes::{
-    Applicability, CodeComplexity, CodeSuggestion, FileComplexity, FunctionComplexity,
-    IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore, RuleCategory,
+    Applicability, CodeComplexity, CodeInsertion, CodeSuggestion, FileComplexity,
+    FunctionComplexity, IgnoredLocation, LineComplexity, RefactorPlan, RemovableIgnore,
+    RuleCategory,
 };
 pub use diff::{DiffEntry, DiffStatus, compute_diff, compute_staged_diff, has_regressions};
 #[cfg(feature = "runner")]

@@ -13,6 +13,7 @@ import complexipy._complexipy as _complexipy
 from complexipy._complexipy import (
     Applicability,
     CodeComplexity,
+    CodeInsertion,
     CodeSuggestion,
     DiffEntry,
     DiffStatus,
@@ -33,6 +34,7 @@ from complexipy._complexipy import (
 __all__ = [
     "Applicability",
     "CodeComplexity",
+    "CodeInsertion",
     "CodeSuggestion",
     "DiffEntry",
     "DiffStatus",

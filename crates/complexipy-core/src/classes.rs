@@ -20,11 +20,23 @@ pub struct LineComplexity {
     pyclass(module = "complexipy", get_all, from_py_object)
 )]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CodeInsertion {
+    pub before_line: u64,
+    pub text: String,
+}
+
+#[cfg_attr(
+    feature = "python",
+    pyclass(module = "complexipy", get_all, from_py_object)
+)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CodeSuggestion {
     pub replacement: String,
     pub applicability: Applicability,
     pub description: String,
     pub spliceable: bool,
+    #[serde(default)]
+    pub insertions: Vec<CodeInsertion>,
 }
 
 #[cfg_attr(

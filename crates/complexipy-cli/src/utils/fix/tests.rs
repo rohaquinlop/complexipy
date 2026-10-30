@@ -10,7 +10,7 @@ use super::{run_fix_pass, write_patched};
 
 const TWO_SPOTS: &str = "def f(a, b, c, d):\n    if a:\n        if b:\n            return 1\n    if c:\n        if d:\n            return 2\n    return 0\n";
 
-const MIXED: &str = "def one(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n\n\ndef two(a, b, c, d):\n    if (a and b) or (c and d):\n        return 2\n    return 0\n";
+const MIXED: &str = "def one(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n\n\ndef two(a, b, c):\n    d = c\n    if (a and b) or (c and d):\n        return 2\n    return 0\n";
 
 const LOW_AND_HIGH: &str = "def low(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n\n\ndef high(a, b, c):\n    for x in c:\n        if a:\n            if b:\n                return x\n    return 0\n";
 
@@ -267,7 +267,7 @@ fn non_fixable_plans_are_reported_once_each() {
         result.console.matches("not safe to auto-apply").count(),
         expected_skips
     );
-    assert!(result.console.contains("Skipped C005 at mixed.py:9-9"));
+    assert!(result.console.contains("Skipped C005 at mixed.py:10-10"));
     assert!(!result.console.contains("mixed.py:8-8"));
 }
 

@@ -61,7 +61,8 @@ MIXED = textwrap.dedent(
         return 0
 
 
-    def two(a, b, c, d):
+    def two(a, b, c):
+        d = c
         if (a and b) or (c and d):
             return 2
         return 0
@@ -295,6 +296,40 @@ def test_fix_reports_non_fixable_plans_as_skipped(tmp_path, capfd) -> None:
     assert "Fixed C007" in out
     assert "Skipped C005" in out
     assert out.count("not safe to auto-apply") == 1
+
+
+def test_fix_applies_extract_predicate(tmp_path, capfd) -> None:
+    target = tmp_path / "predicate.py"
+    target.write_text(
+        textwrap.dedent(
+            """\
+            def check(user, order):
+                if user.active and order.total > 10 or user.admin:
+                    return 1
+                return 0
+            """
+        )
+    )
+
+    exit_code = run_cli(
+        ["--fix", *FIX_EVERY_FUNCTION, str(target)], str(tmp_path)
+    )
+
+    assert exit_code == 0
+    fixed = target.read_text()
+    assert fixed.startswith(
+        "def _check_condition_L2(user, order):\n"
+        "    return user.active and order.total > 10 or user.admin\n"
+    )
+    assert "    if _check_condition_L2(user, order):\n" in fixed
+    ast.parse(fixed)
+    assert "Fixed C005" in strip_ansi(capfd.readouterr().out)
+    assert not [
+        plan
+        for function in code_complexity(fixed).functions
+        for plan in function.refactor_plans
+        if plan.rule_id == "C005"
+    ]
 
 
 def test_later_passes_report_original_file_lines(tmp_path, capfd) -> None:

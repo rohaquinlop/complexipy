@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason};
+use complexipy_core::fix::{AppliedFix, FixReport, LineEdit, LineMap, SkipReason};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::utils::split_lines;
 use owo_colors::OwoColorize;
@@ -34,10 +34,11 @@ pub fn format_fix_diff(path: &str, source: &str, report: &FixReport, colored: bo
 
     let old_lines = split_lines(source).count();
     let new_lines = split_lines(&report.patched).count();
-    let rows = diff_rows(report, old_lines, colored);
+    let edits = report.line_edits();
+    let rows = diff_rows(&edits, old_lines, colored);
     let (old_rendered, new_rendered) = if colored {
-        let removed = spans_of(&report.applied);
-        let added = added_spans(&report.applied);
+        let removed = spans_of(&edits);
+        let added = added_spans(&edits);
         let shown_old: HashSet<usize> = rows.iter().filter_map(old_text_index).collect();
         let shown_new: HashSet<usize> = rows.iter().filter_map(new_text_index).collect();
         (
@@ -111,25 +112,25 @@ fn new_text_index(row: &Row) -> Option<usize> {
     }
 }
 
-fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
+fn diff_rows(edits: &[LineEdit<'_>], old_lines: usize, colored: bool) -> Vec<Row> {
     let mut lines = Vec::new();
     let mut delta: i64 = 0;
     let mut emitted_to = 0usize;
-    for (index, applied) in report.applied.iter().enumerate() {
-        let old_start = applied.line_start as usize;
-        let old_end = applied.line_end as usize;
-        let removed_count = old_end - old_start + 1;
-        let added_count = applied.replacement.lines().count();
+    for (index, edit) in edits.iter().enumerate() {
+        let old_start = edit.line_start as usize;
+        let removed_count = edit.removed as usize;
+        let old_after = old_start + removed_count;
+        let added_count = edit.added as usize;
 
         let pre_start = (emitted_to + 1)
             .max(old_start.saturating_sub(1))
             .min(old_start);
         let pre_count = old_start - pre_start;
-        let mut post_end = (old_end + 1).min(old_lines);
-        if let Some(next) = report.applied.get(index + 1) {
-            post_end = post_end.min(next.line_start as usize - 1);
+        let mut post_last = old_after.min(old_lines);
+        if let Some(next) = edits.get(index + 1) {
+            post_last = post_last.min(next.line_start as usize - 1);
         }
-        let post_count = post_end.saturating_sub(old_end);
+        let post_count = (post_last + 1).saturating_sub(old_after);
 
         let old_hunk_start = old_start - pre_count;
         lines.push(Row::Header(hunk_header(
@@ -137,7 +138,7 @@ fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
             pre_count + removed_count + post_count,
             (old_hunk_start as i64 + delta) as usize,
             pre_count + added_count + post_count,
-            applied,
+            edit.fix,
             colored,
         )));
 
@@ -149,7 +150,7 @@ fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
                 text: Text::Old(line),
             });
         }
-        for line in old_start..=old_end {
+        for line in old_start..old_after {
             lines.push(Row::Code {
                 old: Some(line),
                 new: None,
@@ -168,7 +169,7 @@ fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
             });
         }
         let delta_after = delta + added_count as i64 - removed_count as i64;
-        for line in old_end + 1..=old_end + post_count {
+        for line in old_after..old_after + post_count {
             lines.push(Row::Code {
                 old: Some(line),
                 new: Some((line as i64 + delta_after) as usize),
@@ -178,27 +179,31 @@ fn diff_rows(report: &FixReport, old_lines: usize, colored: bool) -> Vec<Row> {
         }
 
         delta = delta_after;
-        emitted_to = old_end + post_count;
+        emitted_to = old_after - 1 + post_count;
     }
 
     lines
 }
 
-fn spans_of(applied: &[AppliedFix]) -> Vec<(usize, usize)> {
-    applied
+fn spans_of(edits: &[LineEdit<'_>]) -> Vec<(usize, usize)> {
+    edits
         .iter()
-        .map(|fix| (fix.line_start as usize, fix.line_end as usize))
+        .filter(|edit| edit.removed > 0)
+        .map(|edit| {
+            let start = edit.line_start as usize;
+            (start, start + edit.removed as usize - 1)
+        })
         .collect()
 }
 
-fn added_spans(applied: &[AppliedFix]) -> Vec<(usize, usize)> {
-    let mut spans = Vec::with_capacity(applied.len());
+fn added_spans(edits: &[LineEdit<'_>]) -> Vec<(usize, usize)> {
+    let mut spans = Vec::with_capacity(edits.len());
     let mut delta: i64 = 0;
-    for fix in applied {
-        let start = fix.line_start as i64 + delta;
-        let count = fix.replacement.lines().count() as i64;
+    for edit in edits {
+        let start = edit.line_start as i64 + delta;
+        let count = edit.added as i64;
         spans.push((start as usize, (start + count - 1) as usize));
-        delta += count - (fix.line_end - fix.line_start + 1) as i64;
+        delta += count - edit.removed as i64;
     }
     spans
 }

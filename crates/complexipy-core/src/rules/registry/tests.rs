@@ -217,6 +217,7 @@ fn every_registered_rule_produces_a_plan_consistent_with_its_own_metadata() {
                 &source,
                 &LineIndex::new(&source),
                 &Default::default(),
+                None,
                 10,
             )
             .unwrap_or_else(|| {
@@ -378,6 +379,7 @@ fn spliceable_plan_reports_the_measured_reduction() {
             is_module: true,
             active: &RuleSet::default(),
             function: None,
+            bindings: None,
             newline: "\n",
         },
     );
@@ -416,6 +418,7 @@ fn unparseable_splice_measures_to_none() {
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
 
     let index = LineIndex::new(source);
@@ -444,6 +447,7 @@ fn context<'a>(
         is_module: function.is_none(),
         active: ALL_RULES.get_or_init(RuleSet::default),
         function,
+        bindings: None,
         newline: "\n",
     }
 }
@@ -456,6 +460,7 @@ fn function_plan(line_start: u64, line_end: u64, current: u64, replacement: &str
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
     plan
 }
@@ -567,6 +572,7 @@ fn no_op_splice_measures_zero() {
         applicability: Applicability::MachineApplicable,
         description: String::new(),
         spliceable: true,
+        insertions: Vec::new(),
     });
 
     let index = LineIndex::new(source);
@@ -604,6 +610,7 @@ fn inactive_rules_never_produce_plans() {
                         is_module: true,
                         active,
                         function: None,
+                        bindings: None,
                         newline: "\n",
                     },
                 )
@@ -644,6 +651,7 @@ fn inactive_rule_never_shadows_an_active_rule() {
                     is_module: true,
                     active,
                     function: None,
+                    bindings: None,
                     newline: "\n",
                 },
             )

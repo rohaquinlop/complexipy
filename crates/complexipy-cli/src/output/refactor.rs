@@ -252,6 +252,19 @@ fn output_suggestion(
         }
     }
 
+    for insertion in &suggestion.insertions {
+        sections.push(format!(
+            "\n          {}",
+            format!("Insert before line {}:", insertion.before_line)
+                .if_supports_color(Stream::Stdout, |text| text.dimmed())
+        ));
+        sections.push(output_code_snippet(
+            insertion.text.trim_end_matches('\n'),
+            insertion.before_line as usize,
+            color,
+        ));
+    }
+
     if !suggestion.replacement.is_empty() {
         sections.push(format!(
             "\n          {}",
