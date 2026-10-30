@@ -172,5 +172,5 @@ fn groups_mix_with_rule_ids() {
 fn ignored_group_wins_over_selected_rule() {
     let (rules, _) = RuleSet::resolve(&ids(&["C007"]), &ids(&["readability"]), &categorized());
 
-    assert!(!rules.has_active_rule(&ids(&["C001", "C002", "C007"])));
+    assert!(!rules.is_active("C007"));
 }
