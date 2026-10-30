@@ -887,6 +887,7 @@ fn a_help_only_plan_is_a_disabled_action_without_an_edit() {
     let action = &actions[help_only];
 
     assert_eq!(actions.len(), plans.len());
+    assert_eq!(action.kind, Some(CodeActionKind::REFACTOR));
     assert!(action.edit.is_none());
     assert_eq!(
         action

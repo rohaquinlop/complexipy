@@ -172,9 +172,10 @@ impl DocumentAnalysis {
             .collect()
     }
 
-    /// One quick fix per built plan of each function over the threshold that
-    /// `range` touches. A plan no fix applies is offered disabled, with its
-    /// help as the reason, and never carries an edit.
+    /// One action per built plan of each function over the threshold that
+    /// `range` touches. A plan a fix applies is a quick fix. Any other plan is
+    /// a disabled refactor, with its help as the reason, and never carries an
+    /// edit.
     pub fn code_actions(
         &self,
         uri: &Uri,
@@ -515,6 +516,10 @@ fn code_action(plan: &RefactorPlan, edit: Option<WorkspaceEdit>, preferred: bool
     } else {
         format!("~{}, not measured", plan.estimated_reduction)
     };
+    let kind = match edit {
+        Some(_) => CodeActionKind::QUICKFIX,
+        None => CodeActionKind::REFACTOR,
+    };
     let disabled = edit.is_none().then(|| CodeActionDisabled {
         reason: plan
             .help
@@ -530,7 +535,7 @@ fn code_action(plan: &RefactorPlan, edit: Option<WorkspaceEdit>, preferred: bool
 
     CodeAction {
         title: format!("{}: {} ({})", plan.rule_id, plan.title, reduction),
-        kind: Some(CodeActionKind::QUICKFIX),
+        kind: Some(kind),
         edit,
         disabled,
         is_preferred: preferred.then_some(true),

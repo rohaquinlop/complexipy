@@ -259,7 +259,7 @@ def test_full_session_keeps_stdout_protocol_only(tmp_path: Path) -> None:
         assert result["capabilities"]["inlayHintProvider"] is True
         assert result["capabilities"]["hoverProvider"] is True
         assert result["capabilities"]["codeActionProvider"] == {
-            "codeActionKinds": ["quickfix"]
+            "codeActionKinds": ["quickfix", "refactor"]
         }
         assert result["serverInfo"]["name"] == "complexipy-lsp"
 

@@ -400,7 +400,7 @@ fn advertises_full_sync_inlay_hints_and_hover() {
     );
     assert_eq!(
         capabilities["codeActionProvider"],
-        serde_json::json!({"codeActionKinds": ["quickfix"]})
+        serde_json::json!({"codeActionKinds": ["quickfix", "refactor"]})
     );
     assert_eq!(result["serverInfo"]["name"], serde_json::json!(SERVER_NAME));
 
