@@ -8,7 +8,7 @@ use complexipy_core::discover_python_files;
 use complexipy_core::encoding::decode_python_source;
 use complexipy_core::fs_guard::{MAX_SOURCE_BYTES, read_bounded};
 use complexipy_core::sanitize::escape_controls;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, select};
 use lsp_types::{Diagnostic, Uri};
 
 use crate::analysis;
@@ -54,36 +54,51 @@ pub enum ScanOutcome {
     },
 }
 
-/// Starts the scan thread. It runs each job against `current`, and stops a
+/// Starts the scan thread and returns its two queues: workspace scans, and
+/// file rescans, which run between the files of a workspace scan instead of
+/// waiting for it to end. It runs each job against `current`, and stops a
 /// job as soon as `current` moves past the job's generation. With a `gate`,
-/// it waits for one message on it before each file.
+/// it waits for one message on it before each file of a workspace scan.
 pub fn spawn_scanner(
     current: Arc<AtomicU64>,
     done: Sender<ScanOutcome>,
     gate: Option<Receiver<()>>,
-) -> Sender<ScanJob> {
+) -> (Sender<ScanJob>, Sender<ScanJob>) {
     let (jobs, queued) = crossbeam_channel::unbounded::<ScanJob>();
+    let (rescans, urgent) = crossbeam_channel::unbounded::<ScanJob>();
     spawn_with_large_stack("scan", || {
         let scanner = Scanner {
             current: Arc::clone(&current),
             done: done.clone(),
             gate: gate.clone(),
+            urgent: urgent.clone(),
         };
         let queued = queued.clone();
         move || {
-            for job in queued {
-                scanner.run(job);
+            loop {
+                let job = match scanner.urgent.try_recv() {
+                    Ok(job) => Ok(job),
+                    Err(_) => select! {
+                        recv(scanner.urgent) -> job => job,
+                        recv(queued) -> job => job,
+                    },
+                };
+                match job {
+                    Ok(job) => scanner.run(job),
+                    Err(_) => return,
+                }
             }
         }
     });
 
-    jobs
+    (jobs, rescans)
 }
 
 struct Scanner {
     current: Arc<AtomicU64>,
     done: Sender<ScanOutcome>,
     gate: Option<Receiver<()>>,
+    urgent: Receiver<ScanJob>,
 }
 
 impl Scanner {
@@ -135,6 +150,12 @@ impl Scanner {
                 paths: files.iter().map(|file| file.path.clone()).collect(),
             });
             for file in files {
+                if let Some(gate) = &self.gate {
+                    let _ = gate.recv();
+                }
+                while let Ok(job) = self.urgent.try_recv() {
+                    self.run(job);
+                }
                 if !self.scan_file(generation, file) {
                     return false;
                 }
@@ -145,9 +166,6 @@ impl Scanner {
     }
 
     fn scan_file(&self, generation: u64, file: ScanFile) -> bool {
-        if let Some(gate) = &self.gate {
-            let _ = gate.recv();
-        }
         if !self.is_current(generation) {
             return false;
         }

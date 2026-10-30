@@ -336,6 +336,7 @@ struct Server {
     refresh_due: bool,
     flushing: VecDeque<String>,
     scanner: Sender<ScanJob>,
+    rescanner: Sender<ScanJob>,
     scan_outcomes: Receiver<ScanOutcome>,
     scan_done: Sender<ScanOutcome>,
     scan_generation: Arc<AtomicU64>,
@@ -358,7 +359,8 @@ impl Server {
         let (worker, outcomes) = spawn_worker();
         let (scan_done, scan_outcomes) = crossbeam_channel::unbounded::<ScanOutcome>();
         let scan_generation = Arc::new(AtomicU64::new(0));
-        let scanner = spawn_scanner(Arc::clone(&scan_generation), scan_done.clone(), gate);
+        let (scanner, rescanner) =
+            spawn_scanner(Arc::clone(&scan_generation), scan_done.clone(), gate);
 
         Self {
             connection,
@@ -379,6 +381,7 @@ impl Server {
             refresh_due: false,
             flushing: VecDeque::new(),
             scanner,
+            rescanner,
             scan_outcomes,
             scan_done,
             scan_generation,
@@ -783,7 +786,7 @@ impl Server {
     }
 
     fn scan_files(&self, files: Vec<ScanFile>) {
-        let _ = self.scanner.send(ScanJob::Files {
+        let _ = self.rescanner.send(ScanJob::Files {
             generation: self.scan_generation.load(Ordering::SeqCst),
             files,
         });

@@ -190,6 +190,7 @@ fn a_newer_generation_stops_the_scan() {
         current,
         done,
         gate: None,
+        urgent: crossbeam_channel::never(),
     };
 
     scanner.run(ScanJob::Workspace {
@@ -198,4 +199,81 @@ fn a_newer_generation_stops_the_scan() {
     });
 
     assert!(outcomes.try_recv().is_err());
+}
+
+#[test]
+fn a_newer_generation_stops_the_scan_between_files() {
+    let dir = tree(&[("a.py", HEAVY.as_bytes()), ("b.py", HEAVY.as_bytes())]);
+    let root = root_of(&dir);
+    let current = Arc::new(AtomicU64::new(1));
+    let (done, outcomes) = crossbeam_channel::unbounded();
+    let (gate, held) = crossbeam_channel::unbounded();
+    let (jobs, _rescans) = spawn_scanner(Arc::clone(&current), done, Some(held));
+
+    jobs.send(ScanJob::Workspace {
+        generation: 1,
+        workspace: Workspace::new(vec![Folder::new(root.clone(), strict())], root),
+    })
+    .unwrap();
+    gate.send(()).unwrap();
+    let timeout = std::time::Duration::from_secs(10);
+    assert!(matches!(
+        outcomes.recv_timeout(timeout).unwrap(),
+        ScanOutcome::Discovered { .. }
+    ));
+    assert!(matches!(
+        outcomes.recv_timeout(timeout).unwrap(),
+        ScanOutcome::Scanned { .. }
+    ));
+
+    current.store(2, Ordering::SeqCst);
+    gate.send(()).unwrap();
+    assert!(
+        outcomes
+            .recv_timeout(std::time::Duration::from_millis(200))
+            .is_err()
+    );
+}
+
+#[test]
+fn file_rescans_run_before_the_rest_of_a_workspace_scan() {
+    let dir = tree(&[("a.py", HEAVY.as_bytes()), ("b.py", HEAVY.as_bytes())]);
+    let root = root_of(&dir);
+    let current = Arc::new(AtomicU64::new(1));
+    let (done, outcomes) = crossbeam_channel::unbounded();
+    let (gate, held) = crossbeam_channel::unbounded();
+    let (jobs, rescans) = spawn_scanner(current, done, Some(held));
+    let timeout = std::time::Duration::from_secs(10);
+
+    jobs.send(ScanJob::Workspace {
+        generation: 1,
+        workspace: Workspace::new(vec![Folder::new(root.clone(), strict())], root.clone()),
+    })
+    .unwrap();
+    assert!(matches!(
+        outcomes.recv_timeout(timeout).unwrap(),
+        ScanOutcome::Discovered { .. }
+    ));
+    let closed = format!("{}/b.py", root);
+    rescans
+        .send(ScanJob::Files {
+            generation: 1,
+            files: vec![ScanFile {
+                uri: path_to_uri(&closed).unwrap(),
+                path: closed.clone(),
+                root,
+                config: strict(),
+                force: true,
+            }],
+        })
+        .unwrap();
+    gate.send(()).unwrap();
+
+    match outcomes.recv_timeout(timeout).unwrap() {
+        ScanOutcome::Scanned { path, force, .. } => {
+            assert_eq!(path, closed);
+            assert!(force);
+        }
+        _ => panic!("expected the rescan first"),
+    }
 }
