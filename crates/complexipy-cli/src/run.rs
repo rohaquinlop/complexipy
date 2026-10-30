@@ -18,10 +18,11 @@ use owo_colors::OwoColorize;
 use crate::args::CliArgs;
 use crate::output::diff::format_diff;
 use crate::output::messages::{
-    config_gate_change_warning, diff_flags_warning, handle_snapshot_console,
+    config_gate_change_warning, diff_flags_warning, explain_output, handle_snapshot_console,
     ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
-    nothing_selected_warning, removable_ignores_output, skipped_path_warning, unknown_rule_warning,
-    unmatchable_exclude_warning, unresolved_diff_warnings,
+    nothing_selected_warning, removable_ignores_output, skipped_path_warning,
+    unknown_explain_error, unknown_rule_warning, unmatchable_exclude_warning,
+    unresolved_diff_warnings,
 };
 use crate::output::render::{
     color_enabled_for, handle_console_settings, print_invalid_paths, rule,
@@ -42,10 +43,14 @@ use complexipy_core::diff::{
 use complexipy_core::runner::{Analysis, ArgumentCoverage, LocationReports};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
-    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, unmatchable_exclude_patterns,
+    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, rule_metadata,
+    unmatchable_exclude_patterns,
 };
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
+    if let Some(rule_id) = &cli.explain {
+        return explain_rule(rule_id);
+    }
     let source = match load_run_config(&cli, invocation_path) {
         Ok(source) => source,
         Err(error) => {
@@ -339,6 +344,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     } else {
         ExitCode::FAILURE
     }
+}
+
+fn explain_rule(rule_id: &str) -> ExitCode {
+    let Some(meta) = rule_metadata(rule_id) else {
+        emit_error!("{}", unknown_explain_error(rule_id, &registered_rule_ids()));
+        return ExitCode::FAILURE;
+    };
+    emit!("{}", explain_output(meta));
+    ExitCode::SUCCESS
 }
 
 fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {

@@ -90,6 +90,9 @@ pub struct CliArgs {
 
     #[arg(long, value_name = "PATH")]
     pub config: Option<String>,
+
+    #[arg(long, value_name = "RULE")]
+    pub explain: Option<String>,
 }
 
 #[cfg(test)]

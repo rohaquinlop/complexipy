@@ -225,3 +225,35 @@ def test_the_console_script_runs_from_a_thread(monkeypatch) -> None:
 
     assert outcome == {"arguments": ["."], "exit": 0}
     assert signal.getsignal(signal.SIGINT) == previous
+
+
+def test_explain_prints_the_rule_without_reading_config_or_paths(
+    tmp_path,
+) -> None:
+    (tmp_path / "complexipy.toml").write_text("not = [valid toml\n")
+    result = run_console(
+        ["--explain", "c007", "missing.py"],
+        tmp_path,
+        stdout=subprocess.PIPE,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.startswith("C007: collapsible_if\n")
+    assert (
+        "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
+        in result.stdout
+    )
+
+
+def test_explain_rejects_an_unknown_rule_and_lists_the_valid_ids(
+    tmp_path,
+) -> None:
+    result = run_console(
+        ["--explain", "C999"], tmp_path, stdout=subprocess.PIPE
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "'C999'" in result.stderr
+    assert "C001, C002, C003, C004, C005, C007, C011" in result.stderr

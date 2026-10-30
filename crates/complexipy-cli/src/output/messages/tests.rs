@@ -1,12 +1,13 @@
 use crate::output::messages::{
-    config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
-    ignored_summary_output, removable_ignores_output, unknown_rule_warning,
-    unmatchable_exclude_warning, unresolved_diff_warnings,
+    config_gate_change_warning, diff_flags_warning, explain_output, handle_snapshot_console,
+    ignored_saved_output, ignored_summary_output, removable_ignores_output, unknown_explain_error,
+    unknown_rule_warning, unmatchable_exclude_warning, unresolved_diff_warnings,
 };
 use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
 use complexipy_core::diff::{UnresolvedFile, UnresolvedReason};
+use complexipy_core::{registered_rule_ids, rule_metadata};
 
 fn evaluation(should_run: bool, messages: Vec<String>) -> SnapshotEvaluation {
     SnapshotEvaluation {
@@ -213,4 +214,40 @@ fn unmatchable_pattern_warning_names_the_pattern_and_a_fix() {
 
     assert!(warning.contains("\"./legacy/**\""));
     assert!(warning.contains("legacy/**`"));
+}
+
+#[test]
+fn explain_output_prints_the_rule_metadata() {
+    let meta = rule_metadata("C007").expect("C007 is registered");
+
+    assert_eq!(
+        explain_output(meta),
+        "C007: collapsible_if\n\
+         Category: Readability\n\
+         Applicability: Safe to apply\n\
+         Description: Merge nested if statements into a single if with combined conditions\n\
+         Documentation: https://complexipy.com/refactoring-rules/#c007-collapsible-if"
+    );
+}
+
+#[test]
+fn explain_output_links_every_registered_rule_to_its_doc_section() {
+    for id in registered_rule_ids() {
+        let output = explain_output(rule_metadata(&id).expect("registered id has metadata"));
+        let anchor = format!(
+            "Documentation: https://complexipy.com/refactoring-rules/#{}-",
+            id.to_ascii_lowercase()
+        );
+
+        assert!(output.starts_with(&format!("{id}: ")), "{output}");
+        assert!(output.contains(&anchor), "{output}");
+    }
+}
+
+#[test]
+fn unknown_explain_error_lists_the_valid_ids_and_escapes_the_input() {
+    let error = unknown_explain_error("C\u{1b}[31m9", &registered_rule_ids());
+
+    assert!(!error.contains('\u{1b}'));
+    assert!(error.ends_with("valid rule ids: C001, C002, C003, C004, C005, C007, C011"));
 }

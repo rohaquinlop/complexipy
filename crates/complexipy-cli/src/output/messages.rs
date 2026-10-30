@@ -1,7 +1,9 @@
 use owo_colors::{OwoColorize, Stream, Style};
 
+use crate::output::refactor::{get_applicability_name, get_category_name};
 use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
+use complexipy_core::RuleMetadata;
 use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
 use complexipy_core::diff::{UnresolvedFile, UnresolvedReason};
 use complexipy_core::runner::{SkipReason, SkippedPath};
@@ -71,6 +73,28 @@ pub fn removable_ignores_output(removable: &[RemovableIgnore]) -> String {
         ));
     }
     lines.join("\n")
+}
+
+pub fn explain_output(meta: &RuleMetadata) -> String {
+    format!(
+        "{}: {}\nCategory: {}\nApplicability: {}\nDescription: {}\nDocumentation: {}",
+        meta.id,
+        meta.name,
+        get_category_name(&meta.category),
+        get_applicability_name(&meta.applicability),
+        meta.description,
+        meta.doc_url
+    )
+}
+
+pub fn unknown_explain_error(rule_id: &str, known_ids: &[String]) -> String {
+    let mut known_ids = known_ids.to_vec();
+    known_ids.sort();
+    format!(
+        "Unknown rule id '{}'; valid rule ids: {}",
+        escape_controls(rule_id),
+        known_ids.join(", ")
+    )
 }
 
 pub fn unmatchable_exclude_warning(pattern: &str) -> String {
