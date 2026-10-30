@@ -7,11 +7,6 @@ use pyo3::types::{PyAny, PyAnyMethods, PyDict, PyDictMethods, PyTypeMethods};
 
 use crate::{Applicability, DiffStatus, RuleCategory};
 
-const RULE_CATEGORY_MEMBERS: [(&str, RuleCategory); 2] = [
-    ("Complexity", RuleCategory::Complexity),
-    ("Readability", RuleCategory::Readability),
-];
-
 const APPLICABILITY_MEMBERS: [(&str, Applicability); 3] = [
     ("MachineApplicable", Applicability::MachineApplicable),
     ("MaybeIncorrect", Applicability::MaybeIncorrect),
@@ -29,15 +24,6 @@ const DIFF_STATUS_MEMBERS: [(&str, DiffStatus); 5] = [
 static RULE_CATEGORY: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static APPLICABILITY: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static DIFF_STATUS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
-
-impl RuleCategory {
-    pub(crate) fn python_name(&self) -> &'static str {
-        match self {
-            Self::Complexity => "Complexity",
-            Self::Readability => "Readability",
-        }
-    }
-}
 
 impl Applicability {
     pub(crate) fn python_name(&self) -> &'static str {
@@ -62,7 +48,7 @@ impl DiffStatus {
 }
 
 pub fn rule_category_class(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
-    enum_class(py, &RULE_CATEGORY, "RuleCategory", &RULE_CATEGORY_MEMBERS)
+    enum_class(py, &RULE_CATEGORY, "RuleCategory", &RuleCategory::ALL)
 }
 
 pub fn applicability_class(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
@@ -112,7 +98,7 @@ impl<'py> IntoPyObject<'py> for RuleCategory {
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        rule_category_class(py)?.getattr(self.python_name())
+        rule_category_class(py)?.getattr(self.name())
     }
 }
 
@@ -149,7 +135,7 @@ impl FromPyObject<'_, '_> for RuleCategory {
 
         let name: String = obj.getattr("name")?.extract()?;
 
-        RULE_CATEGORY_MEMBERS
+        RuleCategory::ALL
             .iter()
             .find(|(member, _)| *member == name)
             .map(|(_, value)| value.clone())

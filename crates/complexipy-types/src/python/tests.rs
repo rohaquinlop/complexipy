@@ -4,9 +4,9 @@ use super::*;
 fn python_names_cover_every_declared_member() {
     for value in [RuleCategory::Complexity, RuleCategory::Readability] {
         assert!(
-            RULE_CATEGORY_MEMBERS
+            RuleCategory::ALL
                 .iter()
-                .any(|(name, member)| *name == value.python_name() && *member == value)
+                .any(|(name, member)| *name == value.name() && *member == value)
         );
     }
 
