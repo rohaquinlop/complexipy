@@ -631,3 +631,34 @@ fn a_closed_document_is_cleared_by_a_later_scan() {
     assert_eq!(cleared[0].uri, uri());
     assert!(cleared[0].diagnostics.is_empty());
 }
+
+#[test]
+fn scan_results_keep_the_uri_the_client_closed() {
+    let (mut server, client) = server(scanning());
+    let closed: Uri = "file:///repo/a%2Epy".parse().unwrap();
+    server.scannable.insert("/repo/a.py".to_string());
+    server
+        .documents
+        .open(closed.clone(), SAMPLE.to_string(), 1, "python".to_string());
+    server.close_document(DidCloseTextDocumentParams {
+        text_document: TextDocumentIdentifier {
+            uri: closed.clone(),
+        },
+    });
+    server.scan_generation.store(5, Ordering::SeqCst);
+
+    server.accept_scan(scanned(5, "/repo/a.py"));
+    server.accept_scan(ScanOutcome::Scanned {
+        generation: 5,
+        path: "/repo/a.py".to_string(),
+        uri: path_to_uri("/repo/a.py").unwrap(),
+        diagnostics: Vec::new(),
+        force: false,
+    });
+
+    let uris: Vec<Uri> = published(&client)
+        .into_iter()
+        .map(|params| params.uri)
+        .collect();
+    assert_eq!(uris, vec![closed.clone(), closed]);
+}

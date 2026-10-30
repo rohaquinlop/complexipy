@@ -829,6 +829,7 @@ impl Server {
         }
 
         if !diagnostics.is_empty() {
+            let uri = self.scanned.get(&path).cloned().unwrap_or(uri);
             self.scanned.insert(path, uri.clone());
             self.send_diagnostics(uri, diagnostics, None);
         } else if let Some(published) = self.scanned.remove(&path) {
