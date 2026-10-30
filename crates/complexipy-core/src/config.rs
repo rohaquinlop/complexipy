@@ -141,6 +141,14 @@ pub struct LspSection {
         )
     )]
     pub hover: HoverScope,
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(
+            description = "Also publish warnings for files that are not open, from a scan of the workspace folder."
+        )
+    )]
+    pub workspace_diagnostics: bool,
 }
 
 impl Default for LspSection {
@@ -151,6 +159,7 @@ impl Default for LspSection {
             diagnostics: true,
             diagnostic_range: DiagnosticRange::default(),
             hover: HoverScope::default(),
+            workspace_diagnostics: false,
         }
     }
 }

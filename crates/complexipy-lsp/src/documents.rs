@@ -67,6 +67,12 @@ impl Documents {
             .map(|document| document.version)
     }
 
+    pub fn by_path(&self, path: &str) -> Option<&Document> {
+        self.open
+            .values()
+            .find(|document| uri_to_path(&document.uri).as_deref() == Some(path))
+    }
+
     pub fn keys(&self) -> Vec<String> {
         self.open.keys().cloned().collect()
     }
@@ -170,4 +176,28 @@ fn hex(byte: u8) -> Option<u8> {
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
     }
+}
+
+/// A `file` URI for a local path, with every byte outside the unreserved
+/// set, `/` and `:` percent-encoded.
+pub fn path_to_uri(path: &str) -> Option<Uri> {
+    let slashed = path.replace('\\', "/");
+    let encoded: String = slashed
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
+                (byte as char).to_string()
+            }
+            other => format!("%{:02X}", other),
+        })
+        .collect();
+    let uri = if encoded.starts_with("//") {
+        format!("file:{}", encoded)
+    } else if encoded.starts_with('/') {
+        format!("file://{}", encoded)
+    } else {
+        format!("file:///{}", encoded)
+    };
+
+    uri.parse().ok()
 }

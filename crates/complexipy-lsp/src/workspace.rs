@@ -100,6 +100,17 @@ impl Folder {
                 .any(|anchor| self.exclude.is_excluded_inside(path, anchor))
     }
 
+    pub fn scans(&self) -> bool {
+        self.config.lsp.workspace_diagnostics
+    }
+
+    fn snapshot(&self) -> Self {
+        Self {
+            has_config: self.has_config,
+            ..Self::new(self.root.clone(), self.config.clone())
+        }
+    }
+
     fn contains(&self, path: &Path) -> bool {
         path.starts_with(&self.root)
     }
@@ -203,6 +214,23 @@ impl Workspace {
                 .folders
                 .iter()
                 .any(|folder| Path::new(&folder.root) == parent)
+    }
+
+    pub fn folders(&self) -> &[Folder] {
+        &self.folders
+    }
+
+    pub fn scans(&self) -> bool {
+        self.folders.iter().any(Folder::scans)
+    }
+
+    /// A copy of the folders and their configuration, without the warnings.
+    pub fn snapshot(&self) -> Self {
+        Self {
+            folders: self.folders.iter().map(Folder::snapshot).collect(),
+            fallback_root: self.fallback_root.clone(),
+            warnings: Vec::new(),
+        }
     }
 
     pub fn take_warnings(&mut self) -> Vec<String> {

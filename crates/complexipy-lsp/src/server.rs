@@ -1,5 +1,6 @@
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -11,9 +12,9 @@ use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestI
 use lsp_types::{
     CancelParams, Diagnostic, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
     DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern, Hover,
-    HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams, MessageType,
-    NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileChangeType, FileSystemWatcher,
+    GlobPattern, Hover, HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams,
+    MessageType, NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
     RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentIdentifier,
     TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
     WorkspaceServerCapabilities,
@@ -21,7 +22,8 @@ use lsp_types::{
 use serde::Deserialize;
 
 use crate::analysis::{self, DocumentAnalysis, ParseFailure};
-use crate::documents::{Documents, uri_to_path};
+use crate::documents::{Documents, PYTHON_EXTENSION, is_python_path, path_to_uri, uri_to_path};
+use crate::scan::{ScanFile, ScanJob, ScanOutcome, spawn_scanner};
 use crate::workspace::Workspace;
 
 pub const SERVER_NAME: &str = "complexipy-lsp";
@@ -236,32 +238,45 @@ impl Job {
     }
 }
 
-/// Starts the analysis thread, with a large stack where the platform can
-/// reserve one and the default stack otherwise.
+/// Starts the analysis thread.
 fn spawn_worker() -> (Sender<Job>, Receiver<Outcome>) {
     let (jobs, queued) = crossbeam_channel::unbounded::<Job>();
     let (done, outcomes) = crossbeam_channel::unbounded::<Outcome>();
-    let spawn = |stack_size: Option<usize>| {
+    spawn_with_large_stack("analysis", || {
         let queued = queued.clone();
         let done = done.clone();
-        let builder = thread::Builder::new().name(format!("{}-analysis", SERVER_NAME));
-        let builder = match stack_size {
-            Some(size) => builder.stack_size(size),
-            None => builder,
-        };
-        builder.spawn(move || {
+        move || {
             for job in queued {
                 if done.send(job.run()).is_err() {
                     break;
                 }
             }
-        })
-    };
-    spawn(Some(WORKER_STACK_SIZE))
-        .or_else(|_| spawn(None))
-        .expect("failed to start the analysis thread");
+        }
+    });
 
     (jobs, outcomes)
+}
+
+/// Starts the thread `body` builds, with a large stack where the platform
+/// can reserve one and the default stack otherwise.
+pub(crate) fn spawn_with_large_stack<F>(name: &str, body: impl Fn() -> F)
+where
+    F: FnOnce() + Send + 'static,
+{
+    let spawn = |stack_size: Option<usize>| {
+        let builder = thread::Builder::new().name(format!("{}-{}", SERVER_NAME, name));
+        let builder = match stack_size {
+            Some(size) => builder.stack_size(size),
+            None => builder,
+        };
+        builder.spawn(body())
+    };
+    if spawn(Some(WORKER_STACK_SIZE))
+        .or_else(|_| spawn(None))
+        .is_err()
+    {
+        panic!("failed to start the {} thread", name);
+    }
 }
 
 /// An analysis the worker runs for one version of a document: whether the
@@ -297,6 +312,7 @@ impl PendingRequest {
 enum Event {
     Message(Message),
     Outcome(Outcome),
+    Scan(ScanOutcome),
     Due,
     Disconnected,
 }
@@ -319,11 +335,32 @@ struct Server {
     requests: HashMap<RequestId, PendingRequest>,
     refresh_due: bool,
     flushing: VecDeque<String>,
+    scanner: Sender<ScanJob>,
+    rescanner: Sender<ScanJob>,
+    scan_outcomes: Receiver<ScanOutcome>,
+    scan_done: Sender<ScanOutcome>,
+    scan_generation: Arc<AtomicU64>,
+    scan_due: Option<Instant>,
+    scannable: HashSet<String>,
+    scanned: HashMap<String, Uri>,
+    seen: HashSet<String>,
 }
 
 impl Server {
     fn new(connection: Connection, initialized: Initialized) -> Self {
+        Self::with_scan_gate(connection, initialized, None)
+    }
+
+    fn with_scan_gate(
+        connection: Connection,
+        initialized: Initialized,
+        gate: Option<Receiver<()>>,
+    ) -> Self {
         let (worker, outcomes) = spawn_worker();
+        let (scan_done, scan_outcomes) = crossbeam_channel::unbounded::<ScanOutcome>();
+        let scan_generation = Arc::new(AtomicU64::new(0));
+        let (scanner, rescanner) =
+            spawn_scanner(Arc::clone(&scan_generation), scan_done.clone(), gate);
 
         Self {
             connection,
@@ -343,6 +380,15 @@ impl Server {
             requests: HashMap::new(),
             refresh_due: false,
             flushing: VecDeque::new(),
+            scanner,
+            rescanner,
+            scan_outcomes,
+            scan_done,
+            scan_generation,
+            scan_due: None,
+            scannable: HashSet::new(),
+            scanned: HashMap::new(),
+            seen: HashSet::new(),
         }
     }
 
@@ -351,6 +397,7 @@ impl Server {
             self.register_config_watch();
         }
         self.report_warnings();
+        self.start_scan();
 
         loop {
             match self.next_event() {
@@ -370,7 +417,11 @@ impl Server {
                 }
                 Event::Message(Message::Response(_)) => {}
                 Event::Outcome(outcome) => self.accept(outcome),
-                Event::Due => self.flush_due(),
+                Event::Scan(outcome) => self.accept_scan(outcome),
+                Event::Due => {
+                    self.flush_due();
+                    self.scan_when_due();
+                }
                 Event::Disconnected => return EXIT_CODE_FAILURE,
             }
         }
@@ -408,16 +459,19 @@ impl Server {
     fn next_event(&self) -> Event {
         let receiver = &self.connection.receiver;
         let outcomes = &self.outcomes;
+        let scan_outcomes = &self.scan_outcomes;
 
-        match self.deadlines.values().min() {
+        match self.deadlines.values().copied().chain(self.scan_due).min() {
             Some(deadline) => select! {
                 recv(receiver) -> message => message.map_or(Event::Disconnected, Event::Message),
                 recv(outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Outcome),
+                recv(scan_outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Scan),
                 default(deadline.saturating_duration_since(Instant::now())) => Event::Due,
             },
             None => select! {
                 recv(receiver) -> message => message.map_or(Event::Disconnected, Event::Message),
                 recv(outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Outcome),
+                recv(scan_outcomes) -> outcome => outcome.map_or(Event::Disconnected, Event::Scan),
             },
         }
     }
@@ -483,6 +537,7 @@ impl Server {
                         item.version,
                         item.language_id,
                     );
+                    self.forget_scanned(&item.uri);
                     self.mark_dirty(item.uri);
                 }
             }
@@ -557,7 +612,31 @@ impl Server {
         self.analyses.remove(&key);
         self.failures.remove(&key);
         self.deadlines.remove(&key);
-        self.send_diagnostics(uri, Vec::new(), None);
+        match self.closed_file(&uri) {
+            Some(file) => {
+                self.scanned.insert(file.path.clone(), uri);
+                self.scan_files(vec![file]);
+            }
+            None => self.send_diagnostics(uri, Vec::new(), None),
+        }
+    }
+
+    /// The disk scan that replaces a closed document's diagnostics, when its
+    /// folder enables workspace diagnostics and the scan covers the file.
+    fn closed_file(&self, uri: &Uri) -> Option<ScanFile> {
+        let path = uri_to_path(uri)?;
+        let folder = self.workspace.for_path(&path);
+        if !folder.scans() || !self.scannable.contains(&path) {
+            return None;
+        }
+
+        Some(ScanFile {
+            uri: uri.clone(),
+            root: folder.root.clone(),
+            config: folder.config.clone(),
+            path,
+            force: true,
+        })
     }
 
     fn cancel(&mut self, params: CancelParams) {
@@ -579,17 +658,64 @@ impl Server {
         self.workspace.reload();
         self.report_warnings();
         self.reanalyze_all();
+        self.start_scan();
     }
 
     fn change_watched_files(&mut self, params: DidChangeWatchedFilesParams) {
-        if params
-            .changes
-            .iter()
-            .filter_map(|change| uri_to_path(&change.uri))
-            .any(|path| self.workspace.watches(&path))
-        {
-            self.reload_config();
+        let mut config_changed = false;
+        let mut files = Vec::new();
+        for change in params.changes {
+            let Some(path) = uri_to_path(&change.uri) else {
+                continue;
+            };
+            if self.workspace.watches(&path) {
+                config_changed = true;
+            } else if is_python_path(&path) {
+                files.extend(self.change_python_file(path, change.typ));
+            }
         }
+
+        if config_changed {
+            self.reload_config();
+        } else if !files.is_empty() {
+            self.scan_files(files);
+        }
+    }
+
+    /// Follows a change on disk to a Python file that is not open: a changed
+    /// file the scan covers is scanned again, a deleted one is cleared, and a
+    /// created one starts a new scan, since only discovery knows whether the
+    /// scan covers it.
+    fn change_python_file(&mut self, path: String, change: FileChangeType) -> Option<ScanFile> {
+        if self.documents.by_path(&path).is_some() || !self.workspace.for_path(&path).scans() {
+            return None;
+        }
+
+        if change == FileChangeType::CREATED {
+            self.scan_due = Some(Instant::now() + DEBOUNCE);
+        } else if change == FileChangeType::DELETED {
+            self.scannable.remove(&path);
+            if let Some(uri) = self.scanned.remove(&path) {
+                self.send_diagnostics(uri, Vec::new(), None);
+            }
+        } else if self.scannable.contains(&path) {
+            let uri = self
+                .scanned
+                .get(&path)
+                .cloned()
+                .or_else(|| path_to_uri(&path))?;
+            let folder = self.workspace.for_path(&path);
+
+            return Some(ScanFile {
+                uri,
+                root: folder.root.clone(),
+                config: folder.config.clone(),
+                path,
+                force: false,
+            });
+        }
+
+        None
     }
 
     fn register_config_watch(&mut self) {
@@ -598,6 +724,10 @@ impl Server {
                 glob_pattern: GlobPattern::String(format!("**/{}", file_name)),
                 kind: None,
             })
+            .chain(std::iter::once(FileSystemWatcher {
+                glob_pattern: GlobPattern::String(format!("**/*{}", PYTHON_EXTENSION)),
+                kind: None,
+            }))
             .collect();
         let registration = Registration {
             id: CONFIG_WATCH_ID.to_string(),
@@ -631,6 +761,109 @@ impl Server {
         }
         self.report_warnings();
         self.reanalyze_all();
+        self.start_scan();
+    }
+
+    /// Starts a scan of every folder that enables workspace diagnostics, and
+    /// drops the results of the previous one that are still in flight.
+    fn start_scan(&mut self) {
+        self.scan_due = None;
+        self.scannable.clear();
+        self.seen.clear();
+        let generation = self.scan_generation.fetch_add(1, Ordering::SeqCst) + 1;
+
+        if self.workspace.scans() {
+            let _ = self.scanner.send(ScanJob::Workspace {
+                generation,
+                workspace: self.workspace.snapshot(),
+            });
+        } else {
+            let _ = self.scan_done.send(ScanOutcome::Done { generation });
+        }
+    }
+
+    fn scan_when_due(&mut self) {
+        if self.scan_due.is_some_and(|due| due <= Instant::now()) {
+            self.start_scan();
+        }
+    }
+
+    fn scan_files(&self, files: Vec<ScanFile>) {
+        let _ = self.rescanner.send(ScanJob::Files {
+            generation: self.scan_generation.load(Ordering::SeqCst),
+            files,
+        });
+    }
+
+    fn accept_scan(&mut self, outcome: ScanOutcome) {
+        let current = self.scan_generation.load(Ordering::SeqCst);
+        match outcome {
+            ScanOutcome::Discovered { generation, paths } if generation == current => {
+                self.scannable.extend(paths);
+            }
+            ScanOutcome::Scanned {
+                generation,
+                path,
+                uri,
+                diagnostics,
+                force,
+            } if generation == current => self.accept_scanned(path, uri, diagnostics, force),
+            ScanOutcome::Done { generation } if generation == current => self.clear_unseen(),
+            _ => {}
+        }
+    }
+
+    /// Publishes a file's diagnostics from disk, unless the file is open: an
+    /// open document publishes its own. A file without diagnostics is cleared
+    /// only when the scan published it before, or when `force` asks for it.
+    fn accept_scanned(
+        &mut self,
+        path: String,
+        uri: Uri,
+        diagnostics: Vec<Diagnostic>,
+        force: bool,
+    ) {
+        self.seen.insert(path.clone());
+        if self.documents.by_path(&path).is_some() {
+            return;
+        }
+
+        if !diagnostics.is_empty() {
+            let uri = self.scanned.get(&path).cloned().unwrap_or(uri);
+            self.scanned.insert(path, uri.clone());
+            self.send_diagnostics(uri, diagnostics, None);
+        } else if let Some(published) = self.scanned.remove(&path) {
+            self.send_diagnostics(published, diagnostics, None);
+        } else if force {
+            self.send_diagnostics(uri, diagnostics, None);
+        }
+    }
+
+    /// Clears the files the scan published before that the finished scan did
+    /// not report again.
+    fn clear_unseen(&mut self) {
+        let unseen: Vec<String> = self
+            .scanned
+            .keys()
+            .filter(|path| !self.seen.contains(*path))
+            .cloned()
+            .collect();
+        for path in unseen {
+            if let Some(uri) = self.scanned.remove(&path) {
+                self.send_diagnostics(uri, Vec::new(), None);
+            }
+        }
+    }
+
+    /// Hands a file the scan published over to its open document, and clears
+    /// the scan's copy when it was published under another URI string.
+    fn forget_scanned(&mut self, uri: &Uri) {
+        let Some(published) = uri_to_path(uri).and_then(|path| self.scanned.remove(&path)) else {
+            return;
+        };
+        if published.as_str() != uri.as_str() {
+            self.send_diagnostics(published, Vec::new(), None);
+        }
     }
 
     /// Logs each configuration warning to stderr, and shows the editor one
@@ -1015,11 +1248,7 @@ impl Server {
     }
 
     fn failure_diagnostics(&self, uri: &Uri, failure: &ParseFailure) -> Vec<Diagnostic> {
-        if self.workspace.for_uri(uri).config.lsp.diagnostics {
-            vec![failure.diagnostic()]
-        } else {
-            Vec::new()
-        }
+        analysis::failure_diagnostics(failure, &self.workspace.for_uri(uri).config)
     }
 
     fn is_excluded(&self, uri: &Uri) -> bool {

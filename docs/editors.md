@@ -184,6 +184,7 @@ at the root of each workspace folder:
     diagnostics = true
     diagnostic-range = "name"   # "name" | "function"
     hover = "signature"         # "signature" | "function" | "never"
+    workspace-diagnostics = false
     ```
 
 === "pyproject.toml"
@@ -198,6 +199,7 @@ at the root of each workspace folder:
     diagnostics = true
     diagnostic-range = "name"   # "name" | "function"
     hover = "signature"         # "signature" | "function" | "never"
+    workspace-diagnostics = false
     ```
 
 | Key | Default | Description |
@@ -210,8 +212,9 @@ at the root of each workspace folder:
 | `lsp.diagnostics` | `true` | Publish warnings for functions above `max-complexity-allowed`. |
 | `lsp.diagnostic-range` | `"name"` | What the warning underlines: `"name"` the function name, or `"function"` the whole function. |
 | `lsp.hover` | `"signature"` | Where hover answers: `"signature"` on the `def` lines, `"function"` on any line of the function, or `"never"`. |
+| `lsp.workspace-diagnostics` | `false` | Also publish warnings for files that are not open. The server scans the workspace folder, or its `paths` entries, with the same file discovery as `complexipy`, and follows changes on disk when the editor watches files. |
 
-The server ignores every other key of the same file: `paths`, `quiet`,
+The server ignores every other key of the same file: `quiet`,
 `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
 `snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
 `report-ignored`, `force-exclude`, and `diff`. Run those keys through `complexipy <path>`.

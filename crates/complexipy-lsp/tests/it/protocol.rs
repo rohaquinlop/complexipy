@@ -876,7 +876,8 @@ fn registers_the_config_watch_when_the_client_supports_it() {
         vec![
             "**/complexipy.toml",
             "**/.complexipy.toml",
-            "**/pyproject.toml"
+            "**/pyproject.toml",
+            "**/*.py"
         ]
     );
 
@@ -964,6 +965,70 @@ fn a_link_in_the_config_never_reaches_the_editor() {
             .iter()
             .all(|message| message.message == CONFIG_WARNING_MESSAGE)
     );
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+const SCANNING: &str = "max-complexity-allowed = 2\n\n[lsp]\nworkspace-diagnostics = true\n";
+
+#[test]
+fn workspace_diagnostics_follow_the_disk_for_unopened_files() {
+    let mut session = start();
+    session.write_config(SCANNING);
+    let path = session.root.path().join("heavy.py");
+    std::fs::write(&path, SAMPLE).unwrap();
+    session.initialize_watching();
+    let uri = session.document_uri("heavy.py");
+
+    let scanned = session.diagnostics(&uri);
+    assert_eq!(scanned.len(), 1);
+
+    session.open(&uri, SAMPLE);
+    assert_eq!(session.diagnostics(&uri), scanned);
+    session.change(&uri, 2, CLEAN);
+    assert!(session.diagnostics(&uri).is_empty());
+    session.close(&uri);
+    assert_eq!(session.diagnostics(&uri), scanned);
+
+    std::fs::write(&path, CLEAN).unwrap();
+    session.files_changed(&["heavy.py"]);
+    assert!(session.diagnostics(&uri).is_empty());
+    std::fs::write(&path, SAMPLE).unwrap();
+    session.files_changed(&["heavy.py"]);
+    assert_eq!(session.diagnostics(&uri), scanned);
+
+    std::fs::remove_file(&path).unwrap();
+    session.notify(
+        DID_CHANGE_WATCHED_FILES,
+        DidChangeWatchedFilesParams {
+            changes: vec![FileEvent::new(uri.clone(), FileChangeType::DELETED)],
+        },
+    );
+    assert!(session.diagnostics(&uri).is_empty());
+
+    assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
+}
+
+#[test]
+fn unopened_files_stay_silent_by_default() {
+    let mut session = start();
+    session.write_config(STRICT);
+    std::fs::write(session.root.path().join("heavy.py"), SAMPLE).unwrap();
+    session.initialize();
+    let uri = session.document_uri("clean.py");
+    session.open(&uri, CLEAN);
+
+    let mut published: Vec<Uri> = Vec::new();
+    while published.last() != Some(&uri) {
+        if let Message::Notification(notification) = session.receive()
+            && notification.method == "textDocument/publishDiagnostics"
+        {
+            let params: PublishDiagnosticsParams =
+                serde_json::from_value(notification.params).unwrap();
+            published.push(params.uri);
+        }
+    }
+    assert_eq!(published, vec![uri]);
 
     assert_eq!(session.shutdown(), EXIT_CODE_CLEAN);
 }

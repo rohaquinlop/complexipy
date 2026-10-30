@@ -194,6 +194,7 @@ El servidor lee los mismos archivos de configuración que la CLI -
     diagnostics = true
     diagnostic-range = "name"   # "name" | "function"
     hover = "signature"         # "signature" | "function" | "never"
+    workspace-diagnostics = false
     ```
 
 === "pyproject.toml"
@@ -208,6 +209,7 @@ El servidor lee los mismos archivos de configuración que la CLI -
     diagnostics = true
     diagnostic-range = "name"   # "name" | "function"
     hover = "signature"         # "signature" | "function" | "never"
+    workspace-diagnostics = false
     ```
 
 | Clave | Predeterminado | Descripción |
@@ -220,8 +222,9 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | `lsp.diagnostics` | `true` | Publica advertencias para las funciones por encima de `max-complexity-allowed`. |
 | `lsp.diagnostic-range` | `"name"` | Qué subraya la advertencia: `"name"` el nombre de la función, o `"function"` toda la función. |
 | `lsp.hover` | `"signature"` | Dónde responde el hover: `"signature"` en las líneas `def`, `"function"` en cualquier línea de la función, o `"never"`. |
+| `lsp.workspace-diagnostics` | `false` | Publica también advertencias para los archivos que no están abiertos. El servidor recorre la carpeta del espacio de trabajo, o sus entradas de `paths`, con el mismo descubrimiento de archivos que `complexipy`, y sigue los cambios en disco cuando el editor vigila archivos. |
 
-El servidor ignora el resto de claves del mismo archivo: `paths`, `quiet`,
+El servidor ignora el resto de claves del mismo archivo: `quiet`,
 `failed`, `sort`, `color`, `output`, `output-format`, `cache-dir`,
 `snapshot-create`, `snapshot-ignore`, `ignore-complexity`, `check-script`,
 `report-ignored`, `force-exclude` y `diff`. Esas claves se usan con `complexipy <path>`.

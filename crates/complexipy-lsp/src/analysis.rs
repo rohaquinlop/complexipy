@@ -338,6 +338,15 @@ pub fn analyze(
     }
 }
 
+/// The diagnostics a parse failure publishes under `config`.
+pub fn failure_diagnostics(failure: &ParseFailure, config: &LspConfig) -> Vec<Diagnostic> {
+    if config.lsp.diagnostics {
+        vec![failure.diagnostic()]
+    } else {
+        Vec::new()
+    }
+}
+
 /// Builds the refactor plans of the function that starts on `line_start`.
 pub fn plans_for(source: &str, line_start: u64, config: &LspConfig) -> Vec<RefactorPlan> {
     plans_for_function(source, line_start, &analysis_options(config))
