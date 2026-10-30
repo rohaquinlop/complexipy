@@ -572,8 +572,8 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | Opción | Descripción | Predeterminado |
 | -- | -- | -- |
 | `--exclude` | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |  |
-| `--select <ids>` | Reporta solo las reglas de refactorización nombradas, por ejemplo `--select C001,C007`. Se puede repetir y acepta listas separadas por comas | todas las reglas |
-| `--ignore <ids>` | Nunca reporta las reglas de refactorización nombradas, por ejemplo `--ignore C007`. Gana sobre `--select`. Se puede repetir y acepta listas separadas por comas |  |
+| `--select <ids>` | Reporta solo las reglas de refactorización o los grupos de reglas nombrados, por ejemplo `--select C001,C007` o `--select complexity`. Se puede repetir y acepta listas separadas por comas | todas las reglas |
+| `--ignore <ids>` | Nunca reporta las reglas de refactorización o los grupos de reglas nombrados, por ejemplo `--ignore C007` o `--ignore readability`. Gana sobre `--select`. Se puede repetir y acepta listas separadas por comas |  |
 | `--max-complexity-allowed` | Umbral de complejidad | `15` |
 | `--snapshot-create` | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |

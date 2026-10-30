@@ -563,8 +563,8 @@ equals the threshold passes, as it does on the command line.
 | Flag | Description | Default |
 | -- | -- | -- |
 | `--exclude` | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |  |
-| `--select <ids>` | Report only the named refactoring rules, e.g. `--select C001,C007`. Repeatable and comma-separated | all rules |
-| `--ignore <ids>` | Never report the named refactoring rules, e.g. `--ignore C007`. Wins over `--select`. Repeatable and comma-separated |  |
+| `--select <ids>` | Report only the named refactoring rules or rule groups, e.g. `--select C001,C007` or `--select complexity`. Repeatable and comma-separated | all rules |
+| `--ignore <ids>` | Never report the named refactoring rules or rule groups, e.g. `--ignore C007` or `--ignore readability`. Wins over `--select`. Repeatable and comma-separated |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
 | `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |

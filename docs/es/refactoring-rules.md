@@ -33,7 +33,7 @@ Cada id de regla se puede desactivar para un proyecto o para una función. Usa
 `--ignore C007` (o `ignore = ["C007"]` en `complexipy.toml`) para un proyecto,
 y `# complexipy: ignore[C007]` junto a una función para una función.
 `--select C001,C007` conserva solo las reglas nombradas. Un nombre de
-categoría elige todas las reglas de esa categoría: `--ignore readability`
+grupo elige todas las reglas de esa categoría: `--ignore readability`
 oculta C005 y C007. Una regla inactiva
 nunca aparece en ninguna salida. Ver
 [Selección de Reglas](usage-guide.md#selecci%C3%B3n-de-reglas).
