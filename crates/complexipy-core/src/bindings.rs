@@ -119,7 +119,7 @@ impl FunctionBindings {
         let globals = module
             .unconditional
             .iter()
-            .filter(|(_, start)| **start < insert_at)
+            .filter(|(_, start)| **start <= insert_at)
             .map(|(name, _)| name);
         let safe = parameters
             .iter()

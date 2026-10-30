@@ -9,15 +9,19 @@ fn admits(source: &str, line: u64, names: &[&str], builtins: &[&str]) -> bool {
     let parsed = parse_module(source).expect("fixture parses");
     let index = LineIndex::new(source);
     let module = ModuleBindings::of(parsed.suite());
-    let function = parsed
+    let (function, top) = parsed
         .suite()
         .iter()
         .find_map(|stmt| match stmt {
-            Stmt::FunctionDef(function) => Some(function),
+            Stmt::FunctionDef(function) => Some((function, function.range)),
+            Stmt::ClassDef(class) => class.body.iter().find_map(|member| match member {
+                Stmt::FunctionDef(method) => Some((method, class.range)),
+                _ => None,
+            }),
             _ => None,
         })
         .expect("fixture defines a function");
-    let top_line = index.line_of(usize::from(function.range.start()));
+    let top_line = index.line_of(usize::from(top.start()));
     let bindings = FunctionBindings::new(&module, function, top_line, &index);
     let owned = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
     bindings.admits(line, &owned(names), &owned(builtins))
@@ -66,6 +70,22 @@ fn admits_only_names_bound_for_sure() {
             &["a"],
             &["len"],
             false,
+        ),
+        (
+            "recursive call",
+            "def f(a):\n    if a and f(a):\n        pass\n",
+            2,
+            &["a", "f"],
+            &[],
+            true,
+        ),
+        (
+            "method reading its own class",
+            "class C:\n    def m(self, a):\n        if a and isinstance(a, C):\n            pass\n",
+            3,
+            &["a", "C"],
+            &["isinstance"],
+            true,
         ),
         (
             "global bound after the function",
