@@ -300,7 +300,7 @@ función anidada se muestra su función padre.
   queda en blanco mientras escribes. La advertencia desaparece en cuanto el
   documento vuelve a analizarse.
 - Cada advertencia enlaza a
-  [Understanding Scores](https://complexipy.com/understanding-scores/), así que
+  [Qué Significan las Puntuaciones](https://complexipy.com/es/understanding-scores/), así que
   la entrada del panel de problemas abre la explicación de la puntuación.
 
 ### Correcciones rápidas
