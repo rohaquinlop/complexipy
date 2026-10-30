@@ -700,7 +700,7 @@ fn rule_applicability_tiers_are_pinned() {
 }
 
 #[test]
-fn metadata_finds_every_registered_rule_like_select_does() {
+fn metadata_matches_ids_trimmed_and_case_insensitively() {
     let registry = RuleRegistry::new();
 
     for id in registry.registered_ids() {
