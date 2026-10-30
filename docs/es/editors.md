@@ -315,9 +315,11 @@ reducción estimada se muestra como `(~5, not measured)`.
   aplicarla se envía una sola edición sobre las líneas cambiadas, así que un
   solo deshacer la revierte. La primera sugerencia de este tipo de una función
   es la corrección preferida.
-- Cualquier otra sugerencia, como una regla solo de ayuda como C003, aparece
-  en la lista pero deshabilitada, y su texto de ayuda es el motivo. Nunca edita
-  el búfer.
+- Cualquier otra sugerencia, como una regla solo de ayuda como C003, es una
+  acción de refactorización deshabilitada, y su texto de ayuda es el motivo.
+  Nunca edita el búfer. Los editores ocultan las acciones deshabilitadas del
+  menú automático de correcciones rápidas, así que búscala en el menú de
+  refactorización: **Refactor...** (`Ctrl+Shift+R`) en VS Code.
 - Un documento que no se puede analizar no ofrece acciones hasta que vuelva a
   analizarse.
 

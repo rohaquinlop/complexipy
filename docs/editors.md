@@ -299,8 +299,10 @@ five per function. The title names the rule and the reduction, as
 - A suggestion that `complexipy --fix` would apply is a quick fix. Applying it
   sends one edit over the changed lines, so one undo reverts it. The first such
   suggestion of a function is the preferred fix.
-- Any other suggestion, such as a help-only rule like C003, is listed but
-  disabled, and its help text is the reason. It never edits the buffer.
+- Any other suggestion, such as a help-only rule like C003, is a disabled
+  refactor action, and its help text is the reason. It never edits the buffer.
+  Editors hide disabled actions from the automatic quick fix menu, so look for
+  it in the refactor menu: **Refactor...** (`Ctrl+Shift+R`) in VS Code.
 - A document that does not parse offers no actions until it parses again.
 
 ### Ignores and exclusions

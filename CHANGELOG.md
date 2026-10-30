@@ -10,8 +10,8 @@ release section links to its GitHub release notes for the full details.
 - The language server answers `textDocument/codeAction` with one quick fix per
   refactoring suggestion of each function over the threshold in the requested
   range. A suggestion `--fix` would apply rewrites the buffer in one edit built
-  by the same fix engine; any other suggestion is listed disabled with its help
-  text and never edits. Each title states the reduction, or says it is not
+  by the same fix engine; any other suggestion is a disabled refactor action
+  with its help text as the reason, and never edits. Each title states the reduction, or says it is not
   measured. The threshold diagnostic now links to its documentation through
   `codeDescription`
   ([#254](https://github.com/rohaquinlop/complexipy/issues/254)).

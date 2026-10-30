@@ -12,8 +12,8 @@ GitHub con todos los detalles.
   corrección rápida por cada sugerencia de refactorización de cada función que
   supere el umbral en el rango solicitado. Una sugerencia que `--fix` aplicaría
   reescribe el búfer en una sola edición creada por el mismo motor de
-  correcciones; cualquier otra sugerencia aparece deshabilitada con su texto de
-  ayuda y nunca edita. Cada título indica la reducción, o dice que no está
+  correcciones; cualquier otra sugerencia es una acción de refactorización
+  deshabilitada con su texto de ayuda como motivo, y nunca edita. Cada título indica la reducción, o dice que no está
   medida. El diagnóstico del umbral ahora enlaza a su documentación mediante
   `codeDescription`
   ([#254](https://github.com/rohaquinlop/complexipy/issues/254)).
