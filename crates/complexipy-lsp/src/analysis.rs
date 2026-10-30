@@ -7,10 +7,14 @@ use complexipy_core::cognitive_complexity::{
     code_complexity_shared, plans_for_function, syntax_error,
 };
 use complexipy_core::config::{DiagnosticRange, HoverScope, InlayHints, LspConfig};
+use complexipy_core::fix::{apply_fixes, fixable};
 use complexipy_core::utils::{LineIndex, split_lines};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, Hover, HoverContents, InlayHint, InlayHintKind, InlayHintLabel,
-    MarkupContent, MarkupKind, NumberOrString, Position, Range,
+    CodeAction, CodeActionDisabled, CodeActionKind, CodeActionOrCommand, CodeDescription,
+    Diagnostic, DiagnosticSeverity, DocumentChanges, Hover, HoverContents, InlayHint,
+    InlayHintKind, InlayHintLabel, MarkupContent, MarkupKind, NumberOrString, OneOf,
+    OptionalVersionedTextDocumentIdentifier, Position, Range, TextDocumentEdit, TextEdit, Uri,
+    WorkspaceEdit,
 };
 use serde::Serialize;
 
@@ -19,6 +23,8 @@ pub const PARSE_ERROR_CODE: &str = "complexipy-parse-error";
 pub const DIAGNOSTIC_SOURCE: &str = "complexipy";
 pub const FUNCTION_HINT_LABEL: &str = "cognitive: ";
 pub const LINE_HINT_LABEL: &str = "+";
+pub const DIAGNOSTIC_HELP_URL: &str = "https://complexipy.com/understanding-scores/";
+pub const NO_AUTOMATIC_EDIT: &str = "complexipy has no safe automatic edit for this refactor.";
 
 const CONTINUATION_BYTES: &[u8] = b",([{\\";
 
@@ -100,6 +106,14 @@ pub struct LineIncrement {
     pub complexity: u64,
 }
 
+/// The refactor plans of one function, each with the text the document
+/// becomes when that plan alone is applied, or `None` when no fix applies it.
+#[derive(Clone, Debug, Default)]
+pub struct FunctionPlans {
+    pub plans: Vec<RefactorPlan>,
+    pub patched: Vec<Option<String>>,
+}
+
 #[derive(Clone)]
 pub struct DocumentAnalysis {
     pub version: i32,
@@ -107,7 +121,7 @@ pub struct DocumentAnalysis {
     bounds: LineBounds,
     declarations: Vec<Declaration>,
     source: Arc<str>,
-    plans: HashMap<u64, Vec<RefactorPlan>>,
+    plans: HashMap<u64, FunctionPlans>,
 }
 
 impl DocumentAnalysis {
@@ -145,8 +159,66 @@ impl DocumentAnalysis {
         (!self.plans.contains_key(&function.line_start)).then_some(function.line_start)
     }
 
-    pub fn insert_plans(&mut self, line_start: u64, plans: Vec<RefactorPlan>) {
+    pub fn insert_plans(&mut self, line_start: u64, plans: FunctionPlans) {
         self.plans.entry(line_start).or_insert(plans);
+    }
+
+    /// Returns the first line of each function over the threshold that
+    /// `range` touches and whose plans are not built yet.
+    pub fn plans_missing(&self, config: &LspConfig, range: Range) -> Vec<u64> {
+        self.fixable_functions(config, range)
+            .filter(|function| !self.plans.contains_key(&function.line_start))
+            .map(|function| function.line_start)
+            .collect()
+    }
+
+    /// One quick fix per built plan of each function over the threshold that
+    /// `range` touches. A plan no fix applies is offered disabled, with its
+    /// help as the reason, and never carries an edit.
+    pub fn code_actions(
+        &self,
+        uri: &Uri,
+        config: &LspConfig,
+        range: Range,
+        document_changes: bool,
+    ) -> Vec<CodeActionOrCommand> {
+        self.fixable_functions(config, range)
+            .filter_map(|function| self.plans.get(&function.line_start))
+            .flat_map(|planned| {
+                let preferred = planned.patched.iter().position(Option::is_some);
+                planned.plans.iter().zip(&planned.patched).enumerate().map(
+                    move |(index, (plan, patched))| {
+                        let edit = patched.as_ref().map(|patched| {
+                            workspace_edit(
+                                uri,
+                                self.version,
+                                text_edit(&self.source, patched),
+                                document_changes,
+                            )
+                        });
+                        CodeActionOrCommand::CodeAction(code_action(
+                            plan,
+                            edit,
+                            preferred == Some(index),
+                        ))
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn fixable_functions<'a>(
+        &'a self,
+        config: &'a LspConfig,
+        range: Range,
+    ) -> impl Iterator<Item = &'a FunctionComplexity> {
+        let first = u64::from(range.start.line) + 1;
+        let last = u64::from(range.end.line) + 1;
+        self.functions.iter().filter(move |function| {
+            is_over_threshold(function.complexity, config)
+                && function.line_start <= last
+                && first <= function.line_end
+        })
     }
 
     pub fn empty(version: i32) -> Self {
@@ -301,9 +373,11 @@ impl DocumentAnalysis {
     }
 
     pub fn plans(&mut self, line_start: u64, config: &LspConfig) -> &[RefactorPlan] {
-        self.plans
+        &self
+            .plans
             .entry(line_start)
             .or_insert_with(|| plans_for(&self.source, line_start, config))
+            .plans
     }
 
     fn declaration_position(&self, index: usize) -> Position {
@@ -347,13 +421,121 @@ pub fn failure_diagnostics(failure: &ParseFailure, config: &LspConfig) -> Vec<Di
     }
 }
 
-/// Builds the refactor plans of the function that starts on `line_start`.
-pub fn plans_for(source: &str, line_start: u64, config: &LspConfig) -> Vec<RefactorPlan> {
-    plans_for_function(source, line_start, &analysis_options(config))
+/// Builds the refactor plans of the function that starts on `line_start`,
+/// and applies each fixable plan alone to `source`.
+pub fn plans_for(source: &str, line_start: u64, config: &LspConfig) -> FunctionPlans {
+    let plans = plans_for_function(source, line_start, &analysis_options(config))
         .ok()
         .flatten()
         .map(|(plans, _)| plans)
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let patched = plans
+        .iter()
+        .map(|plan| {
+            fixable(plan)
+                .then(|| apply_fixes(source, std::slice::from_ref(plan)))
+                .filter(|report| !report.applied.is_empty())
+                .map(|report| report.patched)
+        })
+        .collect();
+    FunctionPlans { plans, patched }
+}
+
+/// The one edit that turns `source` into `patched`: the lines between their
+/// common prefix and common suffix.
+pub fn text_edit(source: &str, patched: &str) -> TextEdit {
+    let index = LineIndex::new(source);
+    let prefix = source
+        .bytes()
+        .zip(patched.bytes())
+        .take_while(|(left, right)| left == right)
+        .count();
+    let start = index.byte_of_line(index.line_of(prefix)).unwrap_or(0);
+    let suffix = source
+        .bytes()
+        .rev()
+        .zip(patched.bytes().rev())
+        .take(source.len().min(patched.len()) - prefix)
+        .take_while(|(left, right)| left == right)
+        .count();
+    let unchanged = source.len() - suffix;
+    let line = index.line_of(unchanged);
+    let end = match index.byte_of_line(line) {
+        Some(line_start) if line_start == unchanged => unchanged,
+        _ => index.byte_of_line(line + 1).unwrap_or(source.len()),
+    };
+
+    TextEdit {
+        range: Range::new(
+            utf16_position(source, &index, start),
+            utf16_position(source, &index, end),
+        ),
+        new_text: patched[start..patched.len() - (source.len() - end)].to_string(),
+    }
+}
+
+fn utf16_position(text: &str, index: &LineIndex, offset: usize) -> Position {
+    let line = index.line_of(offset);
+    let line_start = index.byte_of_line(line).unwrap_or(0);
+
+    Position::new(
+        line.saturating_sub(1) as u32,
+        text[line_start..offset].encode_utf16().count() as u32,
+    )
+}
+
+fn workspace_edit(
+    uri: &Uri,
+    version: i32,
+    edit: TextEdit,
+    document_changes: bool,
+) -> WorkspaceEdit {
+    if document_changes {
+        return WorkspaceEdit {
+            document_changes: Some(DocumentChanges::Edits(vec![TextDocumentEdit {
+                text_document: OptionalVersionedTextDocumentIdentifier {
+                    uri: uri.clone(),
+                    version: Some(version),
+                },
+                edits: vec![OneOf::Left(edit)],
+            }])),
+            ..WorkspaceEdit::default()
+        };
+    }
+
+    WorkspaceEdit {
+        changes: Some(HashMap::from([(uri.clone(), vec![edit])])),
+        ..WorkspaceEdit::default()
+    }
+}
+
+fn code_action(plan: &RefactorPlan, edit: Option<WorkspaceEdit>, preferred: bool) -> CodeAction {
+    let reduction = if plan.reduction_is_measured {
+        format!("-{}", plan.estimated_reduction)
+    } else {
+        format!("~{}, not measured", plan.estimated_reduction)
+    };
+    let disabled = edit.is_none().then(|| CodeActionDisabled {
+        reason: plan
+            .help
+            .clone()
+            .or_else(|| {
+                plan.suggestion
+                    .as_ref()
+                    .map(|suggestion| suggestion.description.clone())
+            })
+            .filter(|reason| !reason.is_empty())
+            .unwrap_or_else(|| NO_AUTOMATIC_EDIT.to_string()),
+    });
+
+    CodeAction {
+        title: format!("{}: {} ({})", plan.rule_id, plan.title, reduction),
+        kind: Some(CodeActionKind::QUICKFIX),
+        edit,
+        disabled,
+        is_preferred: preferred.then_some(true),
+        ..CodeAction::default()
+    }
 }
 
 fn parse_failure(text: &str, version: i32, fallback: String) -> ParseFailure {
@@ -559,7 +741,10 @@ fn diagnostic(range: Range, function: &FunctionComplexity, config: &LspConfig) -
         range,
         severity: Some(DiagnosticSeverity::WARNING),
         code: Some(NumberOrString::String(DIAGNOSTIC_CODE.to_string())),
-        code_description: None,
+        code_description: DIAGNOSTIC_HELP_URL
+            .parse()
+            .ok()
+            .map(|href| CodeDescription { href }),
         source: Some(DIAGNOSTIC_SOURCE.to_string()),
         message: format!(
             "cognitive complexity {} exceeds the allowed {}",

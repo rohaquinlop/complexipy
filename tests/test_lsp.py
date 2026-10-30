@@ -258,7 +258,9 @@ def test_full_session_keeps_stdout_protocol_only(tmp_path: Path) -> None:
         assert result["capabilities"]["textDocumentSync"] == 1
         assert result["capabilities"]["inlayHintProvider"] is True
         assert result["capabilities"]["hoverProvider"] is True
-        assert "codeActionProvider" not in result["capabilities"]
+        assert result["capabilities"]["codeActionProvider"] == {
+            "codeActionKinds": ["quickfix"]
+        }
         assert result["serverInfo"]["name"] == "complexipy-lsp"
 
         session.notify("textDocument/didOpen", document(heavy, HEAVY))

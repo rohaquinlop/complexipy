@@ -4,24 +4,24 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use complexipy_core::classes::RefactorPlan;
 use complexipy_core::config::{LspConfig, config_file_names};
 use complexipy_core::sanitize::escape_controls;
 use crossbeam_channel::{Receiver, Sender, select};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
-    CancelParams, Diagnostic, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
-    DidChangeWatchedFilesRegistrationOptions, DidChangeWorkspaceFoldersParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileChangeType, FileSystemWatcher,
-    GlobPattern, Hover, HoverParams, HoverProviderCapability, InitializeParams, InlayHintParams,
-    MessageType, NumberOrString, OneOf, Position, PublishDiagnosticsParams, Range, Registration,
-    RegistrationParams, ServerCapabilities, ShowMessageParams, TextDocumentIdentifier,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Uri, WorkspaceFoldersServerCapabilities,
-    WorkspaceServerCapabilities,
+    CancelParams, CodeActionKind, CodeActionOptions, CodeActionOrCommand, CodeActionParams,
+    CodeActionProviderCapability, Diagnostic, DidChangeTextDocumentParams,
+    DidChangeWatchedFilesParams, DidChangeWatchedFilesRegistrationOptions,
+    DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    FileChangeType, FileSystemWatcher, GlobPattern, Hover, HoverParams, HoverProviderCapability,
+    InitializeParams, InlayHintParams, MessageType, NumberOrString, OneOf, Position,
+    PublishDiagnosticsParams, Range, Registration, RegistrationParams, ServerCapabilities,
+    ShowMessageParams, TextDocumentIdentifier, TextDocumentSyncCapability, TextDocumentSyncKind,
+    Uri, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 use serde::Deserialize;
 
-use crate::analysis::{self, DocumentAnalysis, ParseFailure};
+use crate::analysis::{self, DocumentAnalysis, FunctionPlans, ParseFailure};
 use crate::documents::{Documents, PYTHON_EXTENSION, is_python_path, path_to_uri, uri_to_path};
 use crate::scan::{ScanFile, ScanJob, ScanOutcome, spawn_scanner};
 use crate::workspace::Workspace;
@@ -39,6 +39,7 @@ pub const DID_CHANGE_WATCHED_FILES: &str = "workspace/didChangeWatchedFiles";
 pub const CANCEL_REQUEST: &str = "$/cancelRequest";
 pub const INLAY_HINT: &str = "textDocument/inlayHint";
 pub const HOVER: &str = "textDocument/hover";
+pub const CODE_ACTION: &str = "textDocument/codeAction";
 pub const LINE_COMPLEXITIES: &str = "complexipy/lineComplexities";
 pub const INLAY_HINT_REFRESH: &str = "workspace/inlayHint/refresh";
 pub const SHOW_MESSAGE: &str = "window/showMessage";
@@ -76,6 +77,7 @@ struct Initialized {
     workspace: Workspace,
     refresh_support: bool,
     watch_support: bool,
+    document_changes: bool,
 }
 
 fn handshake(connection: &Connection) -> Result<Initialized, String> {
@@ -107,6 +109,11 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
         .and_then(|workspace| workspace.did_change_watched_files.as_ref())
         .and_then(|watched_files| watched_files.dynamic_registration)
         .unwrap_or(false);
+    let document_changes = workspace_capabilities
+        .as_ref()
+        .and_then(|workspace| workspace.workspace_edit.as_ref())
+        .and_then(|workspace_edit| workspace_edit.document_changes)
+        .unwrap_or(false);
 
     connection
         .initialize_finish(
@@ -125,6 +132,7 @@ fn handshake(connection: &Connection) -> Result<Initialized, String> {
         workspace: Workspace::load(roots, fallback_root),
         refresh_support,
         watch_support,
+        document_changes,
     })
 }
 
@@ -133,6 +141,10 @@ fn capabilities() -> ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
+            code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+            ..CodeActionOptions::default()
+        })),
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                 supported: Some(true),
@@ -199,7 +211,7 @@ enum Outcome {
         version: i32,
         line_start: u64,
         generation: u64,
-        plans: Vec<RefactorPlan>,
+        plans: FunctionPlans,
     },
 }
 
@@ -296,6 +308,7 @@ struct LineComplexitiesParams {
 enum PendingRequest {
     Hints { uri: Uri, range: Range },
     Hover { uri: Uri, position: Position },
+    CodeActions { uri: Uri, range: Range },
     LineComplexities { uri: Uri },
 }
 
@@ -304,6 +317,7 @@ impl PendingRequest {
         match self {
             PendingRequest::Hints { uri, .. }
             | PendingRequest::Hover { uri, .. }
+            | PendingRequest::CodeActions { uri, .. }
             | PendingRequest::LineComplexities { uri } => uri,
         }
     }
@@ -322,6 +336,7 @@ struct Server {
     workspace: Workspace,
     refresh_support: bool,
     watch_support: bool,
+    document_changes: bool,
     documents: Documents,
     analyses: HashMap<String, DocumentAnalysis>,
     failures: HashMap<String, ParseFailure>,
@@ -367,6 +382,7 @@ impl Server {
             workspace: initialized.workspace,
             refresh_support: initialized.refresh_support,
             watch_support: initialized.watch_support,
+            document_changes: initialized.document_changes,
             documents: Documents::default(),
             analyses: HashMap::new(),
             failures: HashMap::new(),
@@ -499,6 +515,19 @@ impl Server {
                         PendingRequest::Hover {
                             uri: params.text_document_position_params.text_document.uri,
                             position: params.text_document_position_params.position,
+                        },
+                    ),
+                    Err(_) => self.respond_invalid_params(id),
+                }
+            }
+            CODE_ACTION => {
+                let id = request.id.clone();
+                match request.extract::<CodeActionParams>(CODE_ACTION) {
+                    Ok((id, params)) => self.dispatch(
+                        id,
+                        PendingRequest::CodeActions {
+                            uri: params.text_document.uri,
+                            range: params.range,
                         },
                     ),
                     Err(_) => self.respond_invalid_params(id),
@@ -1106,7 +1135,7 @@ impl Server {
         version: i32,
         line_start: u64,
         generation: u64,
-        plans: Vec<RefactorPlan>,
+        plans: FunctionPlans,
     ) {
         let waiting = self
             .planning
@@ -1197,29 +1226,13 @@ impl Server {
                 if let Some(line_start) =
                     analysis.plans_needed(&self.workspace.for_uri(&uri).config, position)
                 {
-                    let slot = (key.to_string(), analysis.version, line_start);
-                    let source = analysis.source();
-                    let waiting = self.planning.entry(slot.clone()).or_default();
-                    let queued = !waiting.is_empty();
-                    waiting.push(id.clone());
-                    self.requests.insert(
+                    let slot = (key.to_string(), analysis.version, analysis.source());
+                    self.await_plans(
                         id,
-                        PendingRequest::Hover {
-                            uri: uri.clone(),
-                            position,
-                        },
+                        PendingRequest::Hover { uri, position },
+                        slot,
+                        &[line_start],
                     );
-                    if !queued {
-                        let (key, version, line_start) = slot;
-                        let _ = self.worker.send(Job::Plans {
-                            key,
-                            version,
-                            line_start,
-                            source,
-                            generation: self.generation,
-                            config: self.workspace.for_uri(&uri).config.clone(),
-                        });
-                    }
                     return;
                 }
 
@@ -1231,7 +1244,64 @@ impl Server {
 
                 self.send(Response::new_ok(id, hover));
             }
+            PendingRequest::CodeActions { uri, range } => {
+                let current = self.documents.version(&uri);
+                let Some(analysis) = self
+                    .analyses
+                    .get(key)
+                    .filter(|analysis| current == Some(analysis.version))
+                else {
+                    self.send(Response::new_ok(id, Vec::<CodeActionOrCommand>::new()));
+                    return;
+                };
+
+                let config = &self.workspace.for_uri(&uri).config;
+                let missing = analysis.plans_missing(config, range);
+                if !missing.is_empty() {
+                    let slot = (key.to_string(), analysis.version, analysis.source());
+                    self.await_plans(
+                        id,
+                        PendingRequest::CodeActions { uri, range },
+                        slot,
+                        &missing,
+                    );
+                    return;
+                }
+
+                let actions = analysis.code_actions(&uri, config, range, self.document_changes);
+                self.send(Response::new_ok(id, actions));
+            }
         }
+    }
+
+    /// Parks the request until the plans of every function that starts on
+    /// one of `line_starts` are built from `source`, version `version` of the
+    /// document `key`, and queues each build not yet queued.
+    fn await_plans(
+        &mut self,
+        id: RequestId,
+        request: PendingRequest,
+        (key, version, source): (String, i32, Arc<str>),
+        line_starts: &[u64],
+    ) {
+        let config = &self.workspace.for_uri(request.uri()).config;
+        for &line_start in line_starts {
+            let slot = (key.clone(), version, line_start);
+            let waiting = self.planning.entry(slot).or_default();
+            let queued = !waiting.is_empty();
+            waiting.push(id.clone());
+            if !queued {
+                let _ = self.worker.send(Job::Plans {
+                    key: key.clone(),
+                    version,
+                    line_start,
+                    source: Arc::clone(&source),
+                    generation: self.generation,
+                    config: config.clone(),
+                });
+            }
+        }
+        self.requests.insert(id, request);
     }
 
     fn handle_failure(&mut self, uri: &Uri, version: i32, failure: ParseFailure) {
