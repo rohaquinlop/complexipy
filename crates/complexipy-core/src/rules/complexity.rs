@@ -1,4 +1,4 @@
-use crate::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
+use crate::classes::{Applicability, CodeInsertion, CodeSuggestion, RefactorPlan, RuleCategory};
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::rules::types::{RefactorRule, RuleMetadata};
 use crate::syntax_tree::{Node, PreOrder, parse_expression};
@@ -33,6 +33,7 @@ impl RefactorRule for FlattenConditionRule {
         _source: &str,
         _index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::If || region.nesting < 2 || region.total < 4 {
@@ -84,6 +85,7 @@ impl RefactorRule for LoopGuardsRule {
         source: &str,
         index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::Loop || region.total < 5 {
@@ -167,6 +169,7 @@ impl RefactorRule for ExtractHelperRule {
         _source: &str,
         _index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         let line_count = region.line_end.saturating_sub(region.line_start) + 1;
@@ -222,6 +225,7 @@ impl RefactorRule for SplitDispatcherRule {
         source: &str,
         index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::ElifChain || region.elif_count < 3 {
@@ -379,13 +383,14 @@ impl RefactorRule for ExtractPredicateRule {
         source: &str,
         index: &LineIndex,
         def_names: &std::collections::HashSet<String>,
+        bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::BooleanCondition || region.boolean < 2 {
             return None;
         }
 
-        let suggestion = generate_predicate_suggestion(region, source, index, def_names);
+        let suggestion = generate_predicate_suggestion(region, source, index, def_names, bindings);
         let help = if suggestion.is_none() {
             Some(
                 "Extract this boolean condition into a small named function that returns \
@@ -438,6 +443,7 @@ impl RefactorRule for FlattenTryRule {
         _source: &str,
         _index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::Try {
@@ -506,6 +512,7 @@ impl RefactorRule for CollapsibleIfRule {
         source: &str,
         index: &LineIndex,
         _def_names: &std::collections::HashSet<String>,
+        _bindings: Option<&crate::bindings::FunctionBindings>,
         function_complexity: u64,
     ) -> Option<RefactorPlan> {
         if region.kind != RegionKind::If {
@@ -768,6 +775,7 @@ fn generate_loop_guard_suggestion(
         replacement: result.join("\n"),
         applicability: Applicability::MachineApplicable,
         spliceable: true,
+        insertions: Vec::new(),
         description: format!(
             "Convert {} nested conditions to continue guards",
             guards.len()
@@ -842,21 +850,17 @@ fn detect_indent_step_from(source: &str, index: &LineIndex, start_line: u64) -> 
     4
 }
 
-/// Generate a concrete suggestion for extracting a complex boolean condition
-/// into a named predicate function. The rewritten statement keeps the
-/// original keyword (`if` or `while`) and the `...` stands in for the
-/// caller's body, keeping the snippet parseable on its own. The helper is
-/// emitted at module level with the condition's free variables as
-/// parameters, so it is importable and unit-testable; the call site passes
-/// the same names. `elif` conditions return `None`: a `def` cannot sit
-/// inside an if-chain, so no faithful replacement exists. Conditions that
-/// bind a name (`:=`) or hold a nested scope (lambda, comprehension) also
-/// return `None`: the parameter list could not be trusted.
+/// Extracts a complex condition into a module-level predicate that takes the
+/// condition's free variables. When `bindings` admits every name, the
+/// replacement is the rewritten header line and the helper is an insertion;
+/// otherwise the replacement is a snippet for hand application. `elif`,
+/// `:=`, lambda, and comprehension conditions return `None`.
 fn generate_predicate_suggestion(
     region: &ComplexityRegion,
     source: &str,
     index: &LineIndex,
     def_names: &std::collections::HashSet<String>,
+    bindings: Option<&crate::bindings::FunctionBindings>,
 ) -> Option<CodeSuggestion> {
     let line = line_at(source, index, region.line_start)?;
     let trimmed = line.trim_start();
@@ -867,8 +871,8 @@ fn generate_predicate_suggestion(
     } else {
         return None;
     };
-    let condition = extract_condition_from_line(trimmed)?;
-    let parameters = collect_free_names(&condition)?;
+    let (condition, after_colon) = split_header(trimmed)?;
+    let names = collect_condition_names(condition)?;
     let indent_step = detect_indent_step_from(source, index, region.line_start);
 
     let helper_body_indent = " ".repeat(indent_step);
@@ -877,8 +881,33 @@ fn generate_predicate_suggestion(
         func_name.push('_');
     }
 
-    let parameters_text = parameters.join(", ");
+    let parameters_text = names.free.join(", ");
     let call_text = format!("{keyword} {func_name}({parameters_text}):");
+    let helper = format!(
+        "def {func_name}({parameters_text}):\n\
+         {helper_body_indent}return {condition}\n"
+    );
+    let description = format!("Extract condition into named predicate function `{func_name}`");
+
+    let movable_bindings = bindings.filter(|bindings| {
+        names.movable
+            && region.line_end == region.line_start
+            && bindings.admits(region.line_start, &names.free, &names.builtins)
+    });
+    if let Some(bindings) = movable_bindings {
+        let indent = &line[..line.len() - trimmed.len()];
+        return Some(CodeSuggestion {
+            replacement: format!("{indent}{call_text}{after_colon}"),
+            applicability: Applicability::MachineApplicable,
+            spliceable: true,
+            insertions: vec![CodeInsertion {
+                before_line: bindings.insert_before_line,
+                text: format!("{helper}\n\n"),
+            }],
+            description,
+        });
+    }
+
     let statement_context = match enclosing_header_indices(source, index, region.line_start) {
         Some(headers) => render_statement_context(
             &headers,
@@ -893,18 +922,12 @@ fn generate_predicate_suggestion(
              {helper_body_indent}..."
         ),
     };
-    let replacement = format!(
-        "def {func_name}({parameters_text}) -> bool:\n\
-         {helper_body_indent}return {condition}\n\
-         \n\
-         {statement_context}"
-    );
-
     Some(CodeSuggestion {
-        replacement,
+        replacement: format!("{helper}\n{statement_context}"),
         applicability: Applicability::MachineApplicable,
         spliceable: false,
-        description: format!("Extract condition into named predicate function `{func_name}`"),
+        insertions: Vec::new(),
+        description,
     })
 }
 
@@ -1004,13 +1027,25 @@ const PYTHON_BUILTINS: &[&str] = &[
     "zip",
 ];
 
-/// The condition's free variables, in first-use order, with builtins
-/// excluded. Returns `None` when the condition binds a name (`:=`) or holds
-/// a nested scope (lambda, comprehension) - the parameter list could not be
-/// trusted, so callers fall back to help text.
-fn collect_free_names(condition: &str) -> Option<Vec<String>> {
+/// `movable` is false when the condition holds a construct whose meaning
+/// depends on the enclosing scope: `super()`, `__class__`, a private
+/// `__name`, `await`, or `yield`.
+struct ConditionNames {
+    free: Vec<String>,
+    builtins: Vec<String>,
+    movable: bool,
+}
+
+/// Returns `None` when the condition binds a name (`:=`) or holds a nested
+/// scope (lambda, comprehension) - the parameter list could not be trusted,
+/// so callers fall back to help text.
+fn collect_condition_names(condition: &str) -> Option<ConditionNames> {
     let parsed = parse_expression(condition)?;
-    let mut names: Vec<String> = Vec::new();
+    let mut names = ConditionNames {
+        free: Vec::new(),
+        builtins: Vec::new(),
+        movable: true,
+    };
     let mut walk = PreOrder::new(std::iter::once(Node::Expr(parsed.expr())));
     while let Some(node) = walk.next() {
         match node {
@@ -1022,17 +1057,35 @@ fn collect_free_names(condition: &str) -> Option<Vec<String>> {
                 | Expr::DictComp(_)
                 | Expr::Generator(_),
             ) => return None,
-            Node::Expr(Expr::Name(name))
-                if !PYTHON_BUILTINS.contains(&name.id.as_str())
-                    && !names.iter().any(|known| known == name.id.as_str()) =>
-            {
-                names.push(name.id.to_string());
+            Node::Expr(Expr::Await(_) | Expr::Yield(_) | Expr::YieldFrom(_)) => {
+                names.movable = false;
+            }
+            Node::Expr(Expr::Attribute(attribute)) if is_private(attribute.attr.as_str()) => {
+                names.movable = false;
+            }
+            Node::Expr(Expr::Name(name)) => {
+                let id = name.id.as_str();
+                if matches!(id, "super" | "__class__") || is_private(id) {
+                    names.movable = false;
+                }
+                let group = if PYTHON_BUILTINS.contains(&id) {
+                    &mut names.builtins
+                } else {
+                    &mut names.free
+                };
+                if !group.iter().any(|known| known == id) {
+                    group.push(id.to_string());
+                }
             }
             _ => {}
         }
         walk.descend(node);
     }
     Some(names)
+}
+
+fn is_private(name: &str) -> bool {
+    name.starts_with("__") && !name.ends_with("__")
 }
 
 /// Line indices (outermost first) of the block headers enclosing the
@@ -1454,6 +1507,7 @@ fn generate_collapsible_if_suggestion_chain(
         replacement,
         applicability: Applicability::MachineApplicable,
         spliceable: true,
+        insertions: Vec::new(),
         description: format!("Merge nested conditions into `if {}:`", combined),
     })
 }

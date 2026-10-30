@@ -44,6 +44,7 @@ fn plan() -> RefactorPlan {
             applicability: Applicability::MachineApplicable,
             description: "Replace body".to_string(),
             spliceable: true,
+            insertions: Vec::new(),
         }),
         help: None,
         doc_url: "https://example.com/c001".to_string(),

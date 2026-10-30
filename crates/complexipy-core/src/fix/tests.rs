@@ -28,6 +28,7 @@ fn plan(rule_id: &str, line_start: u64, line_end: u64, replacement: &str) -> Ref
             applicability: Applicability::MachineApplicable,
             description: String::new(),
             spliceable: true,
+            insertions: Vec::new(),
         }),
         help: None,
         doc_url: String::new(),
@@ -237,4 +238,93 @@ fn fixable_gate_reads_metadata_only() {
 
     plan.suggestion = None;
     assert!(!fixable(&plan));
+}
+
+fn c005_plans(source: &str) -> Vec<RefactorPlan> {
+    let options = crate::rules::AnalysisOptions {
+        no_ignore: true,
+        with_plans: true,
+        ..Default::default()
+    };
+    crate::cognitive_complexity::code_complexity_shared(source, &options)
+        .expect("source parses")
+        .functions
+        .into_iter()
+        .flat_map(|function| function.refactor_plans)
+        .filter(|plan| plan.rule_id == "C005")
+        .collect()
+}
+
+#[test]
+fn c005_inserts_the_helper_and_rewrites_the_header() {
+    let cases = [
+        (
+            "plain function",
+            "import os\n\n\ndef f(a, b):\n    if a and b or a:  # gate\n        return 1\n    return 0\n",
+            "import os\n\n\ndef _check_condition_L5(a, b):\n    return a and b or a\n\n\ndef f(a, b):\n    if _check_condition_L5(a, b):  # gate\n        return 1\n    return 0\n",
+        ),
+        (
+            "decorated function",
+            "@cache\ndef f(a, b):\n    if a and b or a:\n        return 1\n",
+            "def _check_condition_L3(a, b):\n    return a and b or a\n\n\n@cache\ndef f(a, b):\n    if _check_condition_L3(a, b):\n        return 1\n",
+        ),
+        (
+            "method",
+            "class C:\n    def f(self, a):\n        if self.x and a or self.y:\n            return 1\n",
+            "def _check_condition_L3(self, a):\n    return self.x and a or self.y\n\n\nclass C:\n    def f(self, a):\n        if _check_condition_L3(self, a):\n            return 1\n",
+        ),
+        (
+            "crlf file",
+            "def f(a, b):\r\n    if a and b or a:\r\n        return 1\r\n",
+            "def _check_condition_L2(a, b):\r\n    return a and b or a\r\n\r\n\r\ndef f(a, b):\r\n    if _check_condition_L2(a, b):\r\n        return 1\r\n",
+        ),
+        (
+            "two conditions in one function",
+            "def f(a, b):\n    if a and b or a:\n        return 1\n    while b and a or b:\n        break\n",
+            "def _check_condition_L4(b, a):\n    return b and a or b\n\n\ndef _check_condition_L2(a, b):\n    return a and b or a\n\n\ndef f(a, b):\n    if _check_condition_L2(a, b):\n        return 1\n    while _check_condition_L4(b, a):\n        break\n",
+        ),
+    ];
+
+    for (label, source, expected) in cases {
+        let plans = c005_plans(source);
+        assert!(plans.iter().all(fixable), "case: {label}");
+        assert!(
+            plans.iter().all(|plan| plan.reduction_is_measured),
+            "case: {label}"
+        );
+
+        let report = apply_fixes(source, &plans);
+
+        assert_eq!(report.patched, expected, "case: {label}");
+        assert!(report.skipped.is_empty(), "case: {label}");
+        assert!(c005_plans(&report.patched).is_empty(), "case: {label}");
+    }
+}
+
+#[test]
+fn c005_over_an_unsafe_name_is_not_applied() {
+    let source = "def f(a):\n    b = a\n    if a and b or a:\n        return 1\n";
+    let plans = c005_plans(source);
+
+    let report = apply_fixes(source, &plans);
+
+    assert_eq!(plans.len(), 1);
+    assert_eq!(report.patched, source);
+    assert_eq!(report.skipped[0].reason, SkipReason::NotFixable);
+}
+
+#[test]
+fn line_map_maps_inserted_lines_to_the_line_they_precede() {
+    let source =
+        "import os\n\n\ndef f(a, b):\n    if a and b or a:\n        return 1\n    return 0\n";
+    let report = apply_fixes(source, &c005_plans(source));
+    let mut map = LineMap::new(7);
+    for edit in report.line_edits().iter().rev() {
+        map.register_edit(edit);
+    }
+
+    assert_eq!(map.original_span(3, 3), (3, 3));
+    assert_eq!(map.original_span(4, 8), (4, 4));
+    assert_eq!(map.original_span(9, 9), (5, 5));
+    assert_eq!(map.original_span(11, 11), (7, 7));
 }

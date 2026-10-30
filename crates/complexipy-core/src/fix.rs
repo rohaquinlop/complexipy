@@ -1,4 +1,4 @@
-use crate::classes::{Applicability, CodeSuggestion, RefactorPlan};
+use crate::classes::{Applicability, CodeInsertion, CodeSuggestion, RefactorPlan};
 use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
 
@@ -16,8 +16,20 @@ pub struct AppliedFix {
     pub line_start: u64,
     pub line_end: u64,
     pub replacement: String,
+    pub insertions: Vec<CodeInsertion>,
     pub reduction: u64,
     pub reduction_is_measured: bool,
+}
+
+/// One contiguous line change of an applied fix, in the lines of the text
+/// the pass started from: `removed` lines from `line_start` gave way to
+/// `added` lines. An insertion removes no line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LineEdit<'a> {
+    pub line_start: u64,
+    pub removed: u64,
+    pub added: u64,
+    pub fix: &'a AppliedFix,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,6 +56,36 @@ pub struct FixReport {
     pub patched: String,
     pub applied: Vec<AppliedFix>,
     pub skipped: Vec<SkippedFix>,
+}
+
+impl FixReport {
+    /// The line edits of the applied fixes, ordered by line, with an
+    /// insertion before a replacement that starts on the same line.
+    #[must_use]
+    pub fn line_edits(&self) -> Vec<LineEdit<'_>> {
+        let mut edits: Vec<LineEdit<'_>> = self
+            .applied
+            .iter()
+            .flat_map(|fix| {
+                fix.insertions
+                    .iter()
+                    .map(move |insertion| LineEdit {
+                        line_start: insertion.before_line,
+                        removed: 0,
+                        added: insertion.text.lines().count() as u64,
+                        fix,
+                    })
+                    .chain(std::iter::once(LineEdit {
+                        line_start: fix.line_start,
+                        removed: fix.line_end - fix.line_start + 1,
+                        added: fix.replacement.lines().count() as u64,
+                        fix,
+                    }))
+            })
+            .collect();
+        edits.sort_by_key(|edit| (edit.line_start, edit.removed));
+        edits
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -176,6 +218,21 @@ impl LineMap {
         self.segments = rebuilt;
     }
 
+    /// Registers one line edit like `register_fix`. An insertion counts as
+    /// a replacement of the line it goes in front of, so its lines map to
+    /// that line.
+    pub fn register_edit(&mut self, edit: &LineEdit<'_>) {
+        if edit.removed == 0 {
+            self.register_fix(edit.line_start, edit.line_start, edit.added + 1);
+        } else {
+            self.register_fix(
+                edit.line_start,
+                edit.line_start + edit.removed - 1,
+                edit.added,
+            );
+        }
+    }
+
     /// Returns the original span that covers the given current span.
     /// Lines in untouched text map exactly; lines inside a replaced span
     /// map to the original span of that replaced region.
@@ -220,13 +277,13 @@ pub fn parses(source: &str) -> bool {
     parse_module(source).is_ok()
 }
 
-/// Applies the fixable plans to the source, bottom-to-top so the pending
-/// spans stay valid, parse-checking after each splice. A splice that breaks
-/// the parse is reverted and recorded as skipped. The returned text always
-/// parses.
+/// Applies the fixable plans to the source. Every edit is placed by the byte
+/// offsets of the original text, and a plan whose edits break the parse is
+/// skipped, so the returned text always parses.
 #[must_use]
 pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
     let index = LineIndex::new(source);
+    let newline = line_ending_of(source);
     let mut ordered: Vec<&RefactorPlan> = plans.iter().collect();
     ordered.sort_by_key(|plan| (plan.line_start, plan.line_end));
     ordered.reverse();
@@ -237,6 +294,8 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
         skipped: Vec::new(),
     };
     let mut applied_spans: Vec<(u64, u64)> = Vec::new();
+    let mut applied_insertions: Vec<u64> = Vec::new();
+    let mut accepted: Vec<Edit> = Vec::new();
 
     for plan in ordered {
         let Some(suggestion) = plan.suggestion.as_ref().filter(|_| fixable(plan)) else {
@@ -246,9 +305,18 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
             continue;
         };
 
+        let inside = |line: u64, (start, end): (u64, u64)| start < line && line <= end;
         let overlaps_applied = applied_spans
             .iter()
-            .any(|(start, end)| plan.line_start <= *end && *start <= plan.line_end);
+            .any(|(start, end)| plan.line_start <= *end && *start <= plan.line_end)
+            || suggestion.insertions.iter().any(|insertion| {
+                applied_spans
+                    .iter()
+                    .any(|span| inside(insertion.before_line, *span))
+            })
+            || applied_insertions
+                .iter()
+                .any(|line| inside(*line, (plan.line_start, plan.line_end)));
         if overlaps_applied {
             report
                 .skipped
@@ -256,20 +324,24 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
             continue;
         }
 
-        let newline = line_ending_of(&report.patched);
-        let spliced = splice_plan(plan, suggestion, &report.patched, &index, newline)
-            .filter(|text| parse_module(text).is_ok());
+        let patched = plan_edits(plan, suggestion, source, &index, newline).and_then(|edits| {
+            let text = render_edits(source, accepted.iter().chain(edits.iter()));
+            parse_module(&text).is_ok().then_some((text, edits))
+        });
 
-        match spliced {
-            Some(patched) => {
-                report.patched = patched;
+        match patched {
+            Some((text, edits)) => {
+                report.patched = text;
+                accepted.extend(edits);
                 applied_spans.push((plan.line_start, plan.line_end));
+                applied_insertions.extend(suggestion.insertions.iter().map(|i| i.before_line));
                 report.applied.push(AppliedFix {
                     rule_id: plan.rule_id.clone(),
                     title: plan.title.clone(),
                     line_start: plan.line_start,
                     line_end: plan.line_end,
                     replacement: suggestion.replacement.clone(),
+                    insertions: suggestion.insertions.clone(),
                     reduction: plan.estimated_reduction,
                     reduction_is_measured: plan.reduction_is_measured,
                 });
@@ -289,12 +361,80 @@ pub fn apply_fixes(source: &str, plans: &[RefactorPlan]) -> FixReport {
     report
 }
 
-/// Replaces the plan's line range in the source with the replacement. The
-/// byte offsets come from the index of the original text; callers splice
-/// bottom-to-top so the offsets of a pending span stay valid in the
-/// progressively patched text. The replacement's line breaks become
-/// `newline`, the file's line break from `line_ending_of`, and its trailing
-/// line breaks collapse into the one terminator the replaced range carried.
+struct Edit {
+    start: usize,
+    end: usize,
+    text: String,
+}
+
+fn plan_edits(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    source: &str,
+    index: &LineIndex,
+    newline: &str,
+) -> Option<Vec<Edit>> {
+    let mut edits = vec![span_edit(plan, suggestion, source, index, newline)?];
+    for insertion in &suggestion.insertions {
+        let at = index.byte_of_line(insertion.before_line)?;
+        let mut text = normalized(&insertion.text);
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        edits.push(Edit {
+            start: at,
+            end: at,
+            text: text.replace('\n', newline),
+        });
+    }
+    Some(edits)
+}
+
+fn render_edits<'a>(source: &str, edits: impl Iterator<Item = &'a Edit>) -> String {
+    let mut ordered: Vec<&Edit> = edits.collect();
+    ordered.sort_by_key(|edit| (edit.start, edit.end));
+    let mut rendered = String::with_capacity(source.len());
+    let mut cursor = 0;
+    for edit in ordered {
+        rendered.push_str(&source[cursor..edit.start]);
+        rendered.push_str(&edit.text);
+        cursor = edit.end;
+    }
+    rendered.push_str(&source[cursor..]);
+    rendered
+}
+
+fn normalized(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+/// The replacement's line breaks become `newline`, and its trailing line
+/// breaks collapse into the one terminator the replaced range carried.
+fn span_edit(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    source: &str,
+    index: &LineIndex,
+    newline: &str,
+) -> Option<Edit> {
+    let start = index.byte_of_line(plan.line_start)?;
+    let end = index
+        .byte_of_line(plan.line_end + 1)
+        .unwrap_or(source.len());
+    if start > end {
+        return None;
+    }
+    let mut text = normalized(&suggestion.replacement)
+        .trim_end_matches('\n')
+        .replace('\n', newline);
+    if end < source.len() || source.ends_with(['\r', '\n']) {
+        text.push_str(newline);
+    }
+    Some(Edit { start, end, text })
+}
+
+/// Replaces the plan's line range with the replacement. Insertions take no
+/// part: the function holding the plan scores the same without its helper.
 pub(crate) fn splice_plan(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
@@ -317,25 +457,14 @@ pub(crate) fn splice_window(
     window: (usize, usize),
 ) -> Option<String> {
     let (window_start, window_end) = window;
-    let byte_start = index.byte_of_line(plan.line_start)?;
-    let byte_end = index
-        .byte_of_line(plan.line_end + 1)
-        .unwrap_or(source.len());
-    if byte_start > byte_end || byte_start < window_start || byte_end > window_end {
+    let edit = span_edit(plan, suggestion, source, index, newline)?;
+    if edit.start < window_start || edit.end > window_end {
         return None;
     }
-    let mut spliced =
-        String::with_capacity(window_end - window_start + suggestion.replacement.len());
-    spliced.push_str(&source[window_start..byte_start]);
-    let normalized = suggestion
-        .replacement
-        .replace("\r\n", "\n")
-        .replace('\r', "\n");
-    spliced.push_str(&normalized.trim_end_matches('\n').replace('\n', newline));
-    if byte_end < source.len() || source.ends_with(['\r', '\n']) {
-        spliced.push_str(newline);
-    }
-    spliced.push_str(&source[byte_end..window_end]);
+    let mut spliced = String::with_capacity(window_end - window_start + edit.text.len());
+    spliced.push_str(&source[window_start..edit.start]);
+    spliced.push_str(&edit.text);
+    spliced.push_str(&source[edit.end..window_end]);
     Some(spliced)
 }
 

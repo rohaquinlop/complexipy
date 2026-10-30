@@ -162,12 +162,8 @@ pub fn run_fix_pass(
                     parts.push(summary);
                 }
             }
-            for fix in report.applied.iter().rev() {
-                target.line_map.register_fix(
-                    fix.line_start,
-                    fix.line_end,
-                    fix.replacement.lines().count() as u64,
-                );
+            for edit in report.line_edits().iter().rev() {
+                target.line_map.register_edit(edit);
             }
             target.text = report.patched;
         }

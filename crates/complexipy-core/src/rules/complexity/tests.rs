@@ -4,14 +4,18 @@
 //! private helpers through `super::` without widening their visibility.
 
 use super::{
-    collect_free_names, collect_loop_if_chain, combine_conditions_chain, contains_multiline_string,
-    enclosing_header_indices, extract_condition_from_line, fallback_boolean_count,
-    generate_collapsible_if_suggestion_chain, generate_loop_guard_suggestion,
-    generate_predicate_suggestion, needs_parens_for_and, negate_condition, reindented,
-    render_statement_context,
+    collect_condition_names, collect_loop_if_chain, combine_conditions_chain,
+    contains_multiline_string, enclosing_header_indices, extract_condition_from_line,
+    fallback_boolean_count, generate_collapsible_if_suggestion_chain,
+    generate_loop_guard_suggestion, generate_predicate_suggestion, needs_parens_for_and,
+    negate_condition, reindented, render_statement_context,
 };
 use crate::refactor_plans::{ComplexityRegion, RegionKind};
 use crate::utils::LineIndex;
+
+fn free_names(condition: &str) -> Option<Vec<String>> {
+    collect_condition_names(condition).map(|names| names.free)
+}
 
 fn combine(parts: &[&str]) -> String {
     let owned: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
@@ -19,50 +23,47 @@ fn combine(parts: &[&str]) -> String {
 }
 
 #[test]
-fn collect_free_names_includes_attribute_bases_and_skips_builtins() {
+fn condition_names_includes_attribute_bases_and_skips_builtins() {
     assert_eq!(
-        collect_free_names("user.is_active and len(items) > 0"),
+        free_names("user.is_active and len(items) > 0"),
         Some(vec!["user".to_string(), "items".to_string()])
     );
 }
 
 #[test]
-fn collect_free_names_deduplicates_in_first_use_order() {
+fn condition_names_deduplicates_in_first_use_order() {
     assert_eq!(
-        collect_free_names("a > 1 and a < 2 or b"),
+        free_names("a > 1 and a < 2 or b"),
         Some(vec!["a".to_string(), "b".to_string()])
     );
 }
 
 #[test]
-fn collect_free_names_includes_self() {
+fn condition_names_includes_self() {
     assert_eq!(
-        collect_free_names("self.x > 0 and self.y < 1"),
+        free_names("self.x > 0 and self.y < 1"),
         Some(vec!["self".to_string()])
     );
 }
 
 #[test]
-fn collect_free_names_returns_none_for_walrus() {
-    assert_eq!(collect_free_names("(n := len(items)) > 3 and n < 10"), None);
+fn condition_names_returns_none_for_walrus() {
+    assert_eq!(free_names("(n := len(items)) > 3 and n < 10"), None);
 }
 
 #[test]
-fn collect_free_names_returns_none_for_lambda() {
-    assert_eq!(collect_free_names("(lambda x: x > 0)(v) and v < 10"), None);
+fn condition_names_returns_none_for_lambda() {
+    assert_eq!(free_names("(lambda x: x > 0)(v) and v < 10"), None);
 }
 
 #[test]
-fn collect_free_names_returns_none_for_comprehension() {
-    assert_eq!(
-        collect_free_names("all(x > 0 for x in items) and items"),
-        None
-    );
+fn condition_names_returns_none_for_comprehension() {
+    assert_eq!(free_names("all(x > 0 for x in items) and items"), None);
 }
 
 #[test]
-fn collect_free_names_returns_empty_for_literal_only_conditions() {
-    assert_eq!(collect_free_names("1 < 2 and 3 < 4"), Some(vec![]));
+fn condition_names_returns_empty_for_literal_only_conditions() {
+    assert_eq!(free_names("1 < 2 and 3 < 4"), Some(vec![]));
 }
 
 #[test]
@@ -138,11 +139,12 @@ fn predicate_suggestion_shows_the_enclosing_function_context() {
         source,
         &LineIndex::new(source),
         &Default::default(),
+        None,
     )
     .unwrap();
     assert_eq!(
         suggestion.replacement,
-        "def _check_condition_L2(a, b) -> bool:\n    return a and b or a\n\ndef sample(a, b):\n    if _check_condition_L2(a, b):\n        ...\n    ...\n"
+        "def _check_condition_L2(a, b):\n    return a and b or a\n\ndef sample(a, b):\n    if _check_condition_L2(a, b):\n        ...\n    ...\n"
     );
 }
 
@@ -161,11 +163,12 @@ fn predicate_suggestion_falls_back_to_a_bare_call_at_module_level() {
         source,
         &LineIndex::new(source),
         &Default::default(),
+        None,
     )
     .unwrap();
     assert_eq!(
         suggestion.replacement,
-        "def _check_condition_L1(a, b) -> bool:\n    return a and b or a\n\nif _check_condition_L1(a, b):\n    ..."
+        "def _check_condition_L1(a, b):\n    return a and b or a\n\nif _check_condition_L1(a, b):\n    ..."
     );
 }
 
@@ -983,4 +986,24 @@ fn loop_guard_suggestion_keeps_unextractable_members_in_the_survivor() {
         suggestion.replacement,
         "for x in y:\n    if not a:\n        continue\n    if (b and\n            c):\n        pass"
     );
+}
+
+#[test]
+fn condition_names_mark_constructs_that_change_meaning_once_moved() {
+    let cases = [
+        ("a and b or c", true),
+        ("a and self.__dict__ or c", true),
+        ("super().ready and a or b", false),
+        ("__class__.ready and a or b", false),
+        ("self.__secret and a or b", false),
+        ("__secret and a or b", false),
+        ("(await ready()) and a or b", false),
+        ("(yield) and a or b", false),
+        ("(yield from items) and a or b", false),
+    ];
+
+    for (condition, movable) in cases {
+        let names = collect_condition_names(condition).expect("condition parses");
+        assert_eq!(names.movable, movable, "condition: {condition}");
+    }
 }

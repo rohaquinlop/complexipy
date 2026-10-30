@@ -1,4 +1,5 @@
 use super::types::{AnalysisOptions, RefactorRule, RuleMetadata, RuleSet};
+use crate::bindings::FunctionBindings;
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::fix::{splice_plan, splice_window};
@@ -18,7 +19,8 @@ pub struct FunctionSpan {
 }
 
 /// Everything a rule needs about the function or module being planned.
-/// `function` is `None` for the module-level plans of `--check-script`, and
+/// `function` is `None` for the module-level plans of `--check-script`,
+/// `bindings` is `None` when no C005 helper insertion point is known, and
 /// `newline` is the file's line break.
 pub struct PlanContext<'a> {
     pub source: &'a str,
@@ -28,6 +30,7 @@ pub struct PlanContext<'a> {
     pub is_module: bool,
     pub active: &'a RuleSet,
     pub function: Option<FunctionSpan>,
+    pub bindings: Option<&'a FunctionBindings>,
     pub newline: &'a str,
 }
 
@@ -156,6 +159,7 @@ impl RuleRegistry {
                     ctx.source,
                     ctx.index,
                     ctx.def_names,
+                    ctx.bindings,
                     ctx.function_complexity,
                 ) {
                     plans.push(plan);

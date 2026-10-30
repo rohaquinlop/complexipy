@@ -33,6 +33,32 @@ def first_func(code: str):
     return code_complexity(code).functions[0]
 
 
+def predicate_text(plan) -> str:
+    insertions = "".join(
+        insertion.text for insertion in plan.suggestion.insertions
+    )
+    return insertions + plan.suggestion.replacement
+
+
+def applied_source(source: str, plan) -> str:
+    lines = source.splitlines(keepends=True)
+    edits = [
+        (
+            plan.line_start - 1,
+            plan.line_end,
+            plan.suggestion.replacement.rstrip("\n") + "\n",
+        )
+    ] + [
+        (insertion.before_line - 1, insertion.before_line - 1, insertion.text)
+        for insertion in plan.suggestion.insertions
+    ]
+    for start, end, text in sorted(
+        edits, key=lambda edit: edit[0], reverse=True
+    ):
+        lines[start:end] = [text]
+    return "".join(lines)
+
+
 def plan_kinds(func) -> set[str]:
     return {plan.kind for plan in func.refactor_plans}
 
@@ -204,7 +230,14 @@ def test_boolean_heavy_condition_creates_predicate_plan() -> None:
     assert plan.line_end == 2
     assert plan.applicability == Applicability.MachineApplicable
     assert plan.suggestion is not None
-    assert "def _check_condition_L" in plan.suggestion.replacement
+    assert plan.suggestion.spliceable
+    assert (
+        plan.suggestion.replacement == "    if _check_condition_L2(a, b, c, d):"
+    )
+    assert [
+        insertion.before_line for insertion in plan.suggestion.insertions
+    ] == [1]
+    assert "def _check_condition_L" in predicate_text(plan)
     assert plan.help is None
 
 
@@ -231,10 +264,10 @@ def test_predicate_uses_detected_indent_step() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    assert plan.suggestion.replacement.startswith(
+    assert predicate_text(plan).startswith(
         "def _check_condition_L2(user, order)"
     )
-    assert "\n  return " in plan.suggestion.replacement
+    assert "\n  return " in predicate_text(plan)
 
 
 def test_try_nested_through_with_creates_flatten_try_plan() -> None:
@@ -540,7 +573,7 @@ def test_predicate_name_collision_gets_a_suffix() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    replacement = plan.suggestion.replacement
+    replacement = predicate_text(plan)
     assert "def _check_condition_L2_(a, b)" in replacement
     assert "if _check_condition_L2_(a, b):" in replacement
 
@@ -551,8 +584,8 @@ def test_predicate_collects_parameters() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    replacement = plan.suggestion.replacement
-    assert "def _check_condition_L2(user, order) -> bool:" in replacement
+    replacement = predicate_text(plan)
+    assert "def _check_condition_L2(user, order):" in replacement
     assert "if _check_condition_L2(user, order):" in replacement
 
 
@@ -561,8 +594,8 @@ def test_predicate_passes_self_as_parameter() -> None:
     plan = next(p for p in func.refactor_plans if p.kind == "extract_predicate")
 
     assert plan.suggestion is not None
-    replacement = plan.suggestion.replacement
-    assert "def _check_condition_L3(self, limit) -> bool:" in replacement
+    replacement = predicate_text(plan)
+    assert "def _check_condition_L3(self, limit):" in replacement
     assert "if _check_condition_L3(self, limit):" in replacement
 
 
@@ -582,7 +615,7 @@ def test_predicate_shows_else_chain_context() -> None:
     replacement = plan.suggestion.replacement
     assert "if x > 0:" in replacement
     assert "else:" in replacement
-    assert "if _check_condition_L5(y):" in replacement
+    assert "if _check_condition_L9(y, LIMIT):" in replacement
     ast.parse(textwrap.dedent(replacement))
 
 
@@ -756,6 +789,35 @@ def test_walrus_condition_keeps_its_assignment_in_the_merge() -> None:
         assert plan.help is not None
 
 
+def assert_suggestion_parses(name: str, source: str, plan) -> None:
+    if plan.suggestion.insertions:
+        ast.parse(applied_source(source, plan))
+        return
+
+    replacement = plan.suggestion.replacement
+    try:
+        ast.parse(textwrap.dedent(replacement))
+    except SyntaxError as exc:
+        raise AssertionError(
+            f"{name}: plan {plan.rule_id} ({plan.kind}) "
+            f"produced a suggestion.replacement that is not valid "
+            f"Python after dedenting: {exc}\n--- replacement ---\n"
+            f"{replacement}\n--------------------"
+        ) from exc
+
+    dedented = textwrap.dedent(replacement)
+    for node in ast.walk(ast.parse(dedented)):
+        if isinstance(node, (ast.If, ast.While)):
+            condition = ast.get_source_segment(dedented, node.test)
+            assert condition is not None
+            assert "#" not in condition, (
+                f"{name}: plan {plan.rule_id} "
+                f"({plan.kind}) leaked a comment into a generated "
+                f"condition\n--- replacement ---\n"
+                f"{replacement}\n--------------------"
+            )
+
+
 def test_all_refactor_plan_suggestions_are_parseable_python() -> None:
     """Global safety net over every fixture: a `suggestion.replacement` must be
     valid Python, and must never carry a `#` comment.
@@ -787,29 +849,8 @@ def test_all_refactor_plan_suggestions_are_parseable_python() -> None:
                     )
                     continue
 
-                replacement = plan.suggestion.replacement
                 checked += 1
-                try:
-                    ast.parse(textwrap.dedent(replacement))
-                except SyntaxError as exc:
-                    raise AssertionError(
-                        f"{fixture_path.name}: plan {plan.rule_id} ({plan.kind}) "
-                        f"produced a suggestion.replacement that is not valid "
-                        f"Python after dedenting: {exc}\n--- replacement ---\n"
-                        f"{replacement}\n--------------------"
-                    ) from exc
-
-                dedented = textwrap.dedent(replacement)
-                for node in ast.walk(ast.parse(dedented)):
-                    if isinstance(node, (ast.If, ast.While)):
-                        condition = ast.get_source_segment(dedented, node.test)
-                        assert condition is not None
-                        assert "#" not in condition, (
-                            f"{fixture_path.name}: plan {plan.rule_id} "
-                            f"({plan.kind}) leaked a comment into a generated "
-                            f"condition\n--- replacement ---\n"
-                            f"{replacement}\n--------------------"
-                        )
+                assert_suggestion_parses(fixture_path.name, source, plan)
 
     assert checked > 0, "expected at least one fixture to produce a suggestion"
 
@@ -989,9 +1030,15 @@ def test_reduction_is_measured_flag_marks_spliced_and_estimated_plans() -> None:
     assert not flatten.reduction_is_measured
     assert flatten.suggestion is None
 
-    # C005 carries a suggestion but it is a snippet with a placeholder body,
-    # not a faithful splice -- it stays estimated.
     func = first_func(load_source("extract_predicate_boolean.py"))
+    predicate = next(
+        p for p in func.refactor_plans if p.kind == "extract_predicate"
+    )
+    assert predicate.suggestion is not None
+    assert predicate.suggestion.spliceable
+    assert predicate.reduction_is_measured
+
+    func = first_func(load_source("extract_predicate_while.py"))
     predicate = next(
         p for p in func.refactor_plans if p.kind == "extract_predicate"
     )

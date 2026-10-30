@@ -15,6 +15,7 @@ mod shared_deps {
 
 use std::borrow::Cow;
 
+use crate::bindings::{FunctionBindings, ModuleBindings};
 use crate::classes::CodeComplexity;
 
 use shared_deps::*;
@@ -27,17 +28,20 @@ use std::collections::HashSet;
 /// cannot hold a directive.
 struct FileContext<'a> {
     code: &'a str,
+    suite: &'a [Stmt],
     index: LineIndex,
     opts: &'a AnalysisOptions,
     comments: CommentRanges,
     def_names: OnceCell<HashSet<String>>,
+    module_bindings: OnceCell<ModuleBindings>,
     newline: OnceCell<&'static str>,
 }
 
 impl<'a> FileContext<'a> {
-    fn new(code: &'a str, opts: &'a AnalysisOptions) -> Self {
+    fn new(code: &'a str, suite: &'a [Stmt], opts: &'a AnalysisOptions) -> Self {
         Self {
             code,
+            suite,
             index: LineIndex::new(code),
             opts,
             comments: if !opts.no_ignore && may_contain_marker(code) {
@@ -46,8 +50,29 @@ impl<'a> FileContext<'a> {
                 CommentRanges::default()
             },
             def_names: OnceCell::new(),
+            module_bindings: OnceCell::new(),
             newline: OnceCell::new(),
         }
+    }
+
+    /// The names a C005 helper may take from `f`, or `None` when the
+    /// module-level statement `top` that holds `f` is not a `def` or a
+    /// `class`, so no insertion point is known.
+    fn bindings_for(&self, top: &Stmt, f: &ast::StmtFunctionDef) -> Option<FunctionBindings> {
+        let range = match top {
+            Stmt::FunctionDef(def) => def.range,
+            Stmt::ClassDef(class) => class.range,
+            _ => return None,
+        };
+        let module = self
+            .module_bindings
+            .get_or_init(|| ModuleBindings::of(self.suite));
+        Some(FunctionBindings::new(
+            module,
+            f,
+            self.index.line_of(usize::from(range.start())),
+            &self.index,
+        ))
     }
 
     fn is_ignored(&self, f: &ast::StmtFunctionDef) -> bool {
@@ -69,6 +94,7 @@ impl<'a> FileContext<'a> {
         complexity: u64,
         regions: &[ComplexityRegion],
         function: Option<FunctionSpan>,
+        bindings: Option<&FunctionBindings>,
         active: &RuleSet,
     ) -> (Vec<crate::classes::RefactorPlan>, u64) {
         build_refactor_plans(
@@ -83,6 +109,7 @@ impl<'a> FileContext<'a> {
                 is_module: function.is_none(),
                 active,
                 function,
+                bindings,
                 newline: self
                     .newline
                     .get_or_init(|| crate::fix::line_ending_of(self.code)),
@@ -129,7 +156,7 @@ pub fn function_level_cognitive_complexity_shared(
     code: &str,
     opts: &AnalysisOptions,
 ) -> (Vec<FunctionComplexity>, u64) {
-    let file = FileContext::new(code, opts);
+    let file = FileContext::new(code, ast_body, opts);
     let mut functions: Vec<FunctionComplexity> = Vec::new();
     let mut complexity: u64 = 0;
     let mut module_complexity: u64 = 0;
@@ -141,7 +168,7 @@ pub fn function_level_cognitive_complexity_shared(
         let has_defs = !defs.is_empty();
         for (def_node, f, name) in defs {
             if !file.is_ignored(f) {
-                functions.push(analyze_function(def_node, f, name, &file));
+                functions.push(analyze_function(node, def_node, f, name, &file));
             }
         }
         if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
@@ -167,7 +194,7 @@ pub fn function_level_cognitive_complexity_shared(
         let total_lines = crate::utils::split_lines(code).count() as u64;
         let (refactor_plans, additional_refactor_plans) =
             if opts.builds_plans_for(module_complexity) {
-                file.plans(module_complexity, &module_regions, None, &opts.rules)
+                file.plans(module_complexity, &module_regions, None, None, &opts.rules)
             } else {
                 (Vec::new(), 0)
             };
@@ -202,19 +229,19 @@ pub fn plans_for_function(
         plans_above: None,
         ..opts.clone()
     };
-    let file = FileContext::new(code, &opts);
+    let file = FileContext::new(code, parsed.suite(), &opts);
 
-    let Some((node, f, name)) = parsed
+    let Some((top, (node, f, name))) = parsed
         .suite()
         .iter()
-        .flat_map(named_functions)
-        .filter(|(_, f, _)| !file.is_ignored(f))
-        .find(|(_, f, _)| file.index.line_of(usize::from(f.range.start())) == line_start)
+        .flat_map(|top| named_functions(top).into_iter().map(move |def| (top, def)))
+        .filter(|(_, (_, f, _))| !file.is_ignored(f))
+        .find(|(_, (_, f, _))| file.index.line_of(usize::from(f.range.start())) == line_start)
     else {
         return Ok(None);
     };
 
-    let function = analyze_function(node, f, name, &file);
+    let function = analyze_function(top, node, f, name, &file);
 
     Ok(Some((
         function.refactor_plans,
@@ -238,7 +265,7 @@ pub(crate) fn defined_functions<'a>(
     code: &str,
 ) -> Vec<DefinedFunction<'a>> {
     let opts = AnalysisOptions::default();
-    let file = FileContext::new(code, &opts);
+    let file = FileContext::new(code, ast_body, &opts);
     ast_body
         .iter()
         .flat_map(named_functions)
@@ -372,6 +399,7 @@ fn strip_definitions(node: &mut Stmt) {
 }
 
 fn analyze_function(
+    top: &Stmt,
     node: &Stmt,
     f: &ast::StmtFunctionDef,
     name: String,
@@ -397,6 +425,7 @@ fn analyze_function(
                 result.complexity,
                 &result.regions,
                 Some(span),
+                file.bindings_for(top, f).as_ref(),
                 file.active_rules_for(f).as_ref(),
             )
         } else {

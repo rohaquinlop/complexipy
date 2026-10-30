@@ -76,6 +76,15 @@ class DiffEntry:
         """Comparison status derived from old and new complexity."""
         ...
 
+class CodeInsertion:
+    """Text a suggestion inserts outside the plan's own line range."""
+
+    before_line: int
+    """The 1-based line of the original source the text goes in front of."""
+
+    text: str
+    """The inserted text, ending with a line break."""
+
 class CodeSuggestion:
     """A concrete code suggestion with replacement text and applicability."""
 
@@ -90,6 +99,9 @@ class CodeSuggestion:
 
     spliceable: bool
     """Whether the replacement is a faithful source splice that can be measured."""
+
+    insertions: List[CodeInsertion]
+    """Text to insert before other lines of the source when the suggestion is applied."""
 
 class LineComplexity:
     """

@@ -1,3 +1,4 @@
+use complexipy_core::CodeInsertion;
 use complexipy_core::fix::{AppliedFix, FixReport, LineMap, SkipReason, SkippedFix};
 
 use super::{format_fix_diff, format_fix_summary, no_fixes_output, pass_label};
@@ -15,6 +16,7 @@ fn applied_fix(line_start: u64, line_end: u64, replacement: &str) -> AppliedFix 
         line_start,
         line_end,
         replacement: replacement.to_string(),
+        insertions: Vec::new(),
         reduction: 2,
         reduction_is_measured: true,
     }
@@ -195,4 +197,39 @@ fn diff_escapes_terminal_controls_from_the_source_with_and_without_color() {
         assert!(!rendered.contains("\u{1b}]0;"), "colored = {colored}");
         assert!(!rendered.contains("\u{1b}[2J"), "colored = {colored}");
     }
+}
+
+#[test]
+fn diff_renders_an_insertion_as_its_own_hunk() {
+    let source = "def f(a, b):\n    if a and b or a:\n        return 1\n";
+    let mut fix = applied_fix(2, 2, "    if _check(a, b):");
+    fix.insertions = vec![CodeInsertion {
+        before_line: 1,
+        text: "def _check(a, b):\n    return a and b or a\n\n\n".to_string(),
+    }];
+    let report = FixReport {
+        patched: "def _check(a, b):\n    return a and b or a\n\n\ndef f(a, b):\n    if _check(a, b):\n        return 1\n".to_string(),
+        applied: vec![fix],
+        skipped: vec![],
+    };
+
+    let rendered = format_fix_diff("a.py", source, &report, false);
+
+    assert_eq!(
+        rendered,
+        concat!(
+            "--- a/a.py\n",
+            "+++ b/a.py\n",
+            "@@ -1,1 +1,5 @@ C007 Merge nested if statements\n",
+            "  1 +def _check(a, b):\n",
+            "  2 +    return a and b or a\n",
+            "  3 +\n",
+            "  4 +\n",
+            "1 5  def f(a, b):\n",
+            "@@ -2,2 +6,2 @@ C007 Merge nested if statements\n",
+            "2   -    if a and b or a:\n",
+            "  6 +    if _check(a, b):\n",
+            "3 7          return 1",
+        )
+    );
 }
