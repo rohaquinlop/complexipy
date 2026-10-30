@@ -1,14 +1,17 @@
-//! Tests for document analysis: diagnostics, inlay hints, and hover.
+//! Tests for document analysis: diagnostics, inlay hints, hover, and code actions.
 
 use complexipy_core::config::{
     DiagnosticRange, HoverScope, InlayHints, LspConfig, LspSection, StringOrList,
 };
+use complexipy_core::fix::{apply_fixes, fixable};
 use complexipy_lsp::analysis::{
-    DIAGNOSTIC_CODE, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, FunctionLines, LineBounds,
-    LineIncrement, analyze, is_stale, is_within,
+    DIAGNOSTIC_CODE, DIAGNOSTIC_HELP_URL, DIAGNOSTIC_SOURCE, FUNCTION_HINT_LABEL, FunctionLines,
+    LineBounds, LineIncrement, analyze, is_stale, is_within, plans_for, text_edit,
 };
 use lsp_types::{
-    DiagnosticSeverity, HoverContents, InlayHint, InlayHintLabel, NumberOrString, Position, Range,
+    CodeAction, CodeActionKind, CodeActionOrCommand, DiagnosticSeverity, DocumentChanges,
+    HoverContents, InlayHint, InlayHintLabel, NumberOrString, OneOf, Position, Range, TextEdit,
+    Uri,
 };
 
 const SAMPLE: &str = "def light():\n    return 1\n\n\ndef heavy(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n";
@@ -25,7 +28,18 @@ const TRAILING_COMMENT: &str =
 const DECORATOR_STRING: &str = "@wraps(\n    \"\"\"\ndef fake():\n\"\"\"\n)\ndef heavy(a, b):\n    if a:\n        if b:\n            return 1\n    return 0\n";
 const ONE_LINER: &str = "def heavy(a, b): return 1 if a and b else 0\n";
 const NESTED: &str = "def outer(a, b):\n    if a and b:\n        def inner(x):\n            if x:\n                if x:\n                    return 1\n            return 0\n        return inner(a)\n    return 0\n";
+const HELP_ONLY: &str = "def process_data(data):\n    if data:\n        if data.is_valid():\n            if data.is_ready():\n                return process(data)\n            else:\n                log(1)\n        else:\n            log(2)\n    return None\n";
 const WIDE_FUNCTIONS: usize = 2000;
+const EVERY_LINE: Range = Range {
+    start: Position {
+        line: 0,
+        character: 0,
+    },
+    end: Position {
+        line: u32::MAX,
+        character: u32::MAX,
+    },
+};
 
 fn config(max_complexity_allowed: u64) -> LspConfig {
     LspConfig {
@@ -736,5 +750,193 @@ fn a_comma_separated_ignore_string_drops_each_rule() {
         plans
             .iter()
             .all(|plan| plan.rule_id != "C007" && plan.rule_id != "C001")
+    );
+}
+
+fn byte_offset(text: &str, position: Position) -> usize {
+    let mut offset = 0;
+    for _ in 0..position.line {
+        offset += text[offset..]
+            .find('\n')
+            .map_or(text.len() - offset, |end| end + 1);
+    }
+    let line = &text[offset..];
+    let mut units = 0;
+    for (index, character) in line.char_indices() {
+        if units >= position.character as usize {
+            return offset + index;
+        }
+        units += character.len_utf16();
+    }
+    offset + line.len()
+}
+
+fn applied(text: &str, edit: &TextEdit) -> String {
+    let start = byte_offset(text, edit.range.start);
+    let end = byte_offset(text, edit.range.end);
+    format!("{}{}{}", &text[..start], edit.new_text, &text[end..])
+}
+
+fn uri() -> Uri {
+    "file:///repo/sample.py".parse().unwrap()
+}
+
+fn actions(source: &str, config: &LspConfig, document_changes: bool) -> Vec<CodeAction> {
+    let mut analysis = analyze(source, 7, config).unwrap();
+    for line_start in analysis.plans_missing(config, EVERY_LINE) {
+        analysis.insert_plans(line_start, plans_for(source, line_start, config));
+    }
+    assert!(analysis.plans_missing(config, EVERY_LINE).is_empty());
+
+    analysis
+        .code_actions(&uri(), config, EVERY_LINE, document_changes)
+        .into_iter()
+        .map(|action| match action {
+            CodeActionOrCommand::CodeAction(action) => action,
+            CodeActionOrCommand::Command(_) => panic!("expected a code action"),
+        })
+        .collect()
+}
+
+fn only_edit(action: &CodeAction) -> TextEdit {
+    let edit = action.edit.as_ref().expect("expected an edit");
+    match (&edit.changes, &edit.document_changes) {
+        (Some(changes), None) => changes[&uri()][0].clone(),
+        (None, Some(DocumentChanges::Edits(edits))) => {
+            assert_eq!(edits[0].text_document.version, Some(7));
+            match &edits[0].edits[0] {
+                OneOf::Left(edit) => edit.clone(),
+                OneOf::Right(_) => panic!("expected a plain text edit"),
+            }
+        }
+        _ => panic!("expected exactly one kind of change"),
+    }
+}
+
+#[test]
+fn text_edit_rebuilds_the_patched_text() {
+    let cases = [
+        ("a = 1\nb = 2\nc = 3\n", "a = 1\nb = 20\nc = 3\n"),
+        (
+            "a = 1\r\nb = 2\r\nc = 3\r\n",
+            "a = 1\r\nb = 2\r\nx = 0\r\nc = 3\r\n",
+        ),
+        ("a = 1\nb = 2", "a = 1\nb = 3"),
+        ("a = 1\nb = 2\n", "a = 1\nb = 3\n"),
+        ("a = 1\nb = 2\n\n\n", "a = 1\nb = 3\n\n\n"),
+        ("a = 1\nb = 2\n", "a = 1\nb = 2\n\n"),
+        (
+            "s = \"\u{e9}\u{1f600}\"\nb = 2\n",
+            "s = \"\u{e9}\u{1f600}\"\nb = 3\n",
+        ),
+        ("s = \"\u{1f600}\"; b = 2\n", "s = \"\u{1f600}\"; b = 3\n"),
+        ("a = 1\n", "a = 1\n"),
+    ];
+
+    for (source, patched) in cases {
+        let edit = text_edit(source, patched);
+        assert_eq!(applied(source, &edit), patched, "{:?}", source);
+    }
+}
+
+#[test]
+fn text_edit_covers_only_the_changed_lines() {
+    let edit = text_edit("a = 1\nb = 2\nc = 3\n", "a = 1\nb = 20\nc = 3\n");
+
+    assert_eq!(
+        edit.range,
+        Range::new(Position::new(1, 0), Position::new(2, 0))
+    );
+    assert_eq!(edit.new_text, "b = 20\n");
+}
+
+#[test]
+fn a_fixable_plan_becomes_a_preferred_quick_fix() {
+    let config = config(2);
+    let plans = plans_for(SAMPLE, 5, &config).plans;
+    let patched = apply_fixes(SAMPLE, &plans).patched;
+
+    for document_changes in [false, true] {
+        let actions = actions(SAMPLE, &config, document_changes);
+
+        assert_eq!(actions.len(), plans.len());
+        assert_eq!(actions[0].title, "C007: Merge nested if statements (-1)");
+        assert_eq!(actions[0].kind, Some(CodeActionKind::QUICKFIX));
+        assert_eq!(actions[0].is_preferred, Some(true));
+        assert!(actions[0].disabled.is_none());
+        let edited = applied(SAMPLE, &only_edit(&actions[0]));
+        assert_eq!(edited, patched);
+        assert_eq!(
+            analyze(edited, 8, &config).unwrap().functions[1].complexity,
+            plans[0].current_complexity - plans[0].estimated_reduction
+        );
+    }
+}
+
+#[test]
+fn a_help_only_plan_is_a_disabled_action_without_an_edit() {
+    let config = config(2);
+    let plans = plans_for(HELP_ONLY, 1, &config).plans;
+    let help_only = plans
+        .iter()
+        .position(|plan| plan.rule_id == "C003")
+        .expect("expected a C003 plan");
+    assert!(!fixable(&plans[help_only]));
+
+    let actions = actions(HELP_ONLY, &config, false);
+    let action = &actions[help_only];
+
+    assert_eq!(actions.len(), plans.len());
+    assert_eq!(action.kind, Some(CodeActionKind::REFACTOR));
+    assert!(action.edit.is_none());
+    assert_eq!(
+        action
+            .disabled
+            .as_ref()
+            .map(|disabled| disabled.reason.as_str()),
+        plans[help_only].help.as_deref()
+    );
+    assert!(
+        action.title.ends_with("(~5, not measured)"),
+        "{}",
+        action.title
+    );
+}
+
+#[test]
+fn functions_within_the_limit_offer_no_actions() {
+    let config = config(15);
+    let analysis = analyze(SAMPLE, 1, &config).unwrap();
+
+    assert!(analysis.plans_missing(&config, EVERY_LINE).is_empty());
+    assert!(actions(SAMPLE, &config, false).is_empty());
+}
+
+#[test]
+fn actions_follow_the_requested_range() {
+    let config = config(2);
+    let mut analysis = analyze(SAMPLE, 1, &config).unwrap();
+    let outside = Range::new(Position::new(0, 0), Position::new(2, 0));
+
+    assert!(analysis.plans_missing(&config, outside).is_empty());
+    analysis.insert_plans(5, plans_for(SAMPLE, 5, &config));
+    assert!(
+        analysis
+            .code_actions(&uri(), &config, outside, false)
+            .is_empty()
+    );
+}
+
+#[test]
+fn the_threshold_diagnostic_links_to_its_documentation() {
+    let analysis = analyze(SAMPLE, 1, &config(2)).unwrap();
+    let diagnostics = analysis.diagnostics(&config(2));
+
+    assert_eq!(
+        diagnostics[0]
+            .code_description
+            .as_ref()
+            .map(|description| description.href.as_str()),
+        Some(DIAGNOSTIC_HELP_URL)
     );
 }

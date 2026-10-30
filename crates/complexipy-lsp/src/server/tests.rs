@@ -24,6 +24,7 @@ fn server_at(root: &str, config: LspConfig, gate: Option<Receiver<()>>) -> (Serv
             ),
             refresh_support: false,
             watch_support: false,
+            document_changes: false,
         },
         gate,
     );

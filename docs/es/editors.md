@@ -18,6 +18,11 @@ En el editor obtienes:
   `max-complexity-allowed`, con el mensaje
   `cognitive complexity 18 exceeds the allowed 15` sobre el nombre de la
   función.
+- **Acciones de código** - cada sugerencia de refactorización de una función
+  que supere `max-complexity-allowed`. Una sugerencia segura de aplicar es una
+  corrección rápida que reescribe el búfer en una sola edición que se puede
+  deshacer. Las demás aparecen en el menú de refactorización con su texto de
+  ayuda.
 
 Los resultados se actualizan mientras escribes. El servidor usa sincronización
 completa del documento y analiza solo los documentos que tienes abiertos, así
@@ -295,6 +300,29 @@ función anidada se muestra su función padre.
   respondiendo con el último texto que sí se analizó, así que el archivo no se
   queda en blanco mientras escribes. La advertencia desaparece en cuanto el
   documento vuelve a analizarse.
+- Cada advertencia enlaza a
+  [Qué Significan las Puntuaciones](https://complexipy.com/es/understanding-scores/), así que
+  la entrada del panel de problemas abre la explicación de la puntuación.
+
+### Correcciones rápidas
+
+Las acciones de código responden para cada función que supere
+`max-complexity-allowed` y que toque el rango solicitado, con una acción por
+sugerencia de refactorización, hasta cinco por función. El título nombra la
+regla y la reducción, como `C007: Merge nested if statements (-1)`. Una
+reducción estimada se muestra como `(~5, not measured)`.
+
+- Una sugerencia que `complexipy --fix` aplicaría es una corrección rápida. Al
+  aplicarla se envía una sola edición sobre las líneas cambiadas, así que un
+  solo deshacer la revierte. La primera sugerencia de este tipo de una función
+  es la corrección preferida.
+- Cualquier otra sugerencia, como una regla solo de ayuda como C003, es una
+  acción de refactorización deshabilitada, y su texto de ayuda es el motivo.
+  Nunca edita el búfer. Los editores ocultan las acciones deshabilitadas del
+  menú automático de correcciones rápidas, así que búscala en el menú de
+  refactorización: **Refactor...** (`Ctrl+Shift+R`) en VS Code.
+- Un documento que no se puede analizar no ofrece acciones hasta que vuelva a
+  analizarse.
 
 ### Ignorados y exclusiones
 
