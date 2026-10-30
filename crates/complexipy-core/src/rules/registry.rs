@@ -1,4 +1,4 @@
-use super::types::{AnalysisOptions, RefactorRule, RuleSet};
+use super::types::{AnalysisOptions, RefactorRule, RuleMetadata, RuleSet};
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 use crate::fix::{splice_plan, splice_window};
@@ -63,6 +63,16 @@ impl RuleRegistry {
             .iter()
             .map(|rule| rule.metadata().id.clone())
             .collect()
+    }
+
+    /// The metadata of the registered rule whose id equals `rule_id`,
+    /// compared like `--select`: trimmed and case-insensitive.
+    pub fn metadata(&self, rule_id: &str) -> Option<&'static RuleMetadata> {
+        let rule_id = rule_id.trim();
+        self.rules
+            .iter()
+            .map(|rule| rule.metadata())
+            .find(|meta| meta.id.eq_ignore_ascii_case(rule_id))
     }
 
     /// Build a `rule_id -> effectiveness` lookup from the currently registered

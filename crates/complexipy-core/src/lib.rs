@@ -34,7 +34,8 @@ pub use helpers::exclude::{
     unmatchable_exclude_patterns,
 };
 pub use rules::{
-    AnalysisOptions, RuleSet, no_active_rule_warning, registered_rule_ids, unknown_rule_warning,
+    AnalysisOptions, RuleMetadata, RuleSet, no_active_rule_warning, registered_rule_ids,
+    rule_metadata, unknown_rule_warning,
 };
 #[cfg(feature = "runner")]
 pub use runner::{

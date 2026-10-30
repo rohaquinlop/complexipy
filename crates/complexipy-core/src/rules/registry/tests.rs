@@ -698,3 +698,18 @@ fn rule_applicability_tiers_are_pinned() {
     seen.sort();
     assert_eq!(seen, pinned_ids);
 }
+
+#[test]
+fn metadata_matches_ids_trimmed_and_case_insensitively() {
+    let registry = RuleRegistry::new();
+
+    for id in registry.registered_ids() {
+        let spelled = format!(" {} ", id.to_ascii_lowercase());
+        let meta = registry
+            .metadata(&spelled)
+            .unwrap_or_else(|| panic!("no metadata for {spelled:?}"));
+        assert_eq!(meta.id, id);
+    }
+    assert!(registry.metadata("C999").is_none());
+    assert!(registry.metadata("").is_none());
+}

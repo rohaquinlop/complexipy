@@ -587,6 +587,7 @@ equals the threshold passes, as it does on the command line.
 | `--force-exclude` | Apply `exclude` to files passed explicitly as arguments, such as the file names pre-commit passes | `false` |
 | `--isolated` | Ignore every configuration file. Cannot be combined with `--config` | `false` |
 | `--config <path>` | Read the configuration from this file only, instead of the invocation directory's files | - |
+| `--explain <rule>` | Print a refactoring rule's id, name, category, applicability, description, and documentation link, then exit without analyzing anything. An unknown id exits with an error that lists the valid ids | - |
 
 Boolean flags take an explicit value only in the attached form
 `--flag=<true|false>`. A bare flag means `true`, and the following

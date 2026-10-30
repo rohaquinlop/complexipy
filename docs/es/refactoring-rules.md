@@ -36,6 +36,8 @@ y `# complexipy: ignore[C007]` junto a una función para una función.
 nunca aparece en ninguna salida. Ver
 [Selección de Reglas](usage-guide.md#selecci%C3%B3n-de-reglas).
 
+Ejecuta `complexipy --explain C007` para imprimir la categoría, la aplicabilidad, la descripción y el enlace a la sección de una regla en esta página.
+
 ______________________________________________________________________
 
 ## Reglas de Complejidad

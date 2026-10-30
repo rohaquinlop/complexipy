@@ -596,6 +596,7 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | `--force-exclude` | Aplica `exclude` a los archivos pasados explícitamente como argumentos, como los nombres de archivo que pasa pre-commit | `false` |
 | `--isolated` | Ignora todos los archivos de configuración. No se puede combinar con `--config` | `false` |
 | `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
+| `--explain <regla>` | Imprime el id, el nombre, la categoría, la aplicabilidad, la descripción y el enlace a la documentación de una regla de refactorización, y termina sin analizar nada. Un id desconocido termina con un error que lista los ids válidos | - |
 
 Las banderas booleanas aceptan un valor explícito solo en la forma
 adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
