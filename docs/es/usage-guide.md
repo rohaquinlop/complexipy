@@ -1179,7 +1179,7 @@ Agrega a `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v8.1.0
+      rev: v8.3.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

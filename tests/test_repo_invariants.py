@@ -11,6 +11,9 @@ import ast
 import re
 import subprocess
 from pathlib import Path
+from typing import Callable
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES_DIR = ROOT / "crates" / "complexipy-core" / "src" / "rules"
@@ -25,6 +28,7 @@ AGENTS_MAX_WORDS = 1300
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 LICENSE = ROOT / "LICENSE"
+CARGO_TOML = ROOT / "Cargo.toml"
 ZED_LICENSE = ROOT / "zed" / "LICENSE"
 
 LONG_DASHES = re.compile(
@@ -43,6 +47,14 @@ REQUIRES_PYTHON_CAP = re.compile(
 PYTHON_VERSION_CLASSIFIER = re.compile(
     r'"Programming Language :: Python :: (\d+)\.(\d+)"'
 )
+WORKSPACE_VERSION = re.compile(
+    r'^\[workspace\.package\]$(?:\n(?!\[).*)*?\nversion = "([^"]+)"',
+    re.MULTILINE,
+)
+PRE_COMMIT_REV = re.compile(
+    r"repo: https://github\.com/rohaquinlop/complexipy-pre-commit\s*\n\s*rev: (\S+)"
+)
+ACTION_REF = re.compile(r"uses: rohaquinlop/complexipy-action@(\S+)")
 
 
 def tracked_files() -> list[Path]:
@@ -256,4 +268,46 @@ def test_zed_license_matches_the_root_license() -> None:
     ), (
         f"{ZED_LICENSE.relative_to(ROOT)} differs from "
         f"{LICENSE.relative_to(ROOT)}: copy the root license into zed/"
+    )
+
+
+def documentation_files() -> list[Path]:
+    return [
+        path
+        for path in tracked_files()
+        if path.suffix == ".md"
+        and (path == ROOT / "README.md" or ROOT / "docs" in path.parents)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("snippet", "pattern", "pin"),
+    [
+        ("pre-commit", PRE_COMMIT_REV, lambda version: f"v{version}"),
+        (
+            "GitHub Action",
+            ACTION_REF,
+            lambda version: f"v{version.split('.')[0]}",
+        ),
+    ],
+)
+def test_downstream_snippets_pin_the_current_release(
+    snippet: str, pattern: re.Pattern[str], pin: Callable[[str], str]
+) -> None:
+    version = WORKSPACE_VERSION.search(CARGO_TOML.read_text(encoding="utf-8"))
+
+    assert version, "Cargo.toml has no [workspace.package] version"
+
+    expected = pin(version.group(1))
+    refs = [
+        (path.relative_to(ROOT).as_posix(), ref)
+        for path in documentation_files()
+        for ref in pattern.findall(tracked_text(path) or "")
+    ]
+
+    assert refs, f"no complexipy {snippet} snippet in README.md or docs/"
+    stale = [f"{name}: {ref}" for name, ref in refs if ref != expected]
+    assert not stale, (
+        f"{snippet} snippets must pin {expected}, from the workspace "
+        f"version in Cargo.toml: {stale}"
     )

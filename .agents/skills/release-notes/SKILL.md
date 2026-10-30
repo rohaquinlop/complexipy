@@ -224,6 +224,13 @@ numbers are consistent - this catches issues before they reach PyPI/npm.
   `Cargo.toml` (and any other version file - docs, `__init__.py`, etc.) and
   matches the version being released. A mismatch means a bump was missed.
 
+- **Downstream snippets**: in the same PR as the version bump, update the
+  snippets in `README.md` and `docs/` (English and Spanish). Bump the `rev:` of
+  every `rohaquinlop/complexipy-pre-commit` snippet to `v<version>`, and on a
+  major release bump every `rohaquinlop/complexipy-action@v<major>`.
+  `test_downstream_snippets_pin_the_current_release` in
+  `tests/test_repo_invariants.py` fails until they match.
+
 - **Sdist contents**: build the sdist and confirm required files (LICENSE,
   README) are actually included - a packaging config regression (e.g.
   `[tool.maturin] include` losing an entry) silently drops them without

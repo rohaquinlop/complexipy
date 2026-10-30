@@ -115,7 +115,7 @@ for func in result.functions:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v8.1.0
+      rev: v8.3.0
       hooks:
           - id: complexipy
 ```
