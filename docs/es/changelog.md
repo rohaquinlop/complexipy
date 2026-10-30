@@ -8,6 +8,12 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- El servidor de lenguaje publica diagnósticos para los archivos que no están
+  abiertos con `[lsp] workspace-diagnostics = true`. Recorre cada carpeta del
+  espacio de trabajo con el mismo descubrimiento de archivos y las mismas
+  exclusiones que `complexipy`, y actualiza un archivo cuando se cierra o cambia
+  en disco. La opción está desactivada por defecto
+  ([#256](https://github.com/rohaquinlop/complexipy/issues/256)).
 - `--explain <regla>` imprime el id, el nombre, la categoría, la
   aplicabilidad, la descripción y el enlace a la documentación de una regla de
   refactorización, y termina sin ejecutar un análisis. Un id de regla
