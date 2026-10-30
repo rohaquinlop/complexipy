@@ -354,8 +354,8 @@ The fix makes two edits. It inserts the helper before the module-level `def` or 
 The call passes every free variable eagerly, while the original condition may skip some of them by short-circuit. So `--fix` applies C005 only when each name is sure to be bound:
 
 - a parameter that the function never binds again;
-- a builtin that neither the function nor the module binds;
-- a global that a module-level statement binds outside any `if`, `try`, `for`, `while`, `with`, or `match`, that no module-level `del` removes, and that no function declares `global`.
+- a builtin that neither the function, its parameters, nor the module binds;
+- a global that a module-level statement binds above the function, outside any `if`, `try`, `for`, `while`, `with`, or `match`, that no module-level `del` removes, and that no function declares `global`.
 
 Any other name keeps the snippet for hand application, with `spliceable: false`. So do a condition inside a nested function or class, a function under a module-level compound statement, a header that spans several lines, and a condition that holds `super()`, `__class__`, a private `__name`, `await`, or `yield`.
 
