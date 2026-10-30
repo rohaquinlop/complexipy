@@ -2,6 +2,7 @@ use std::io::{BufReader, BufWriter};
 
 pub mod analysis;
 pub mod documents;
+mod scan;
 pub mod server;
 pub mod transport;
 mod workspace;

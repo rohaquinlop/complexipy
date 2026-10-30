@@ -1,4 +1,5 @@
 use super::*;
+use crate::documents::path_to_uri;
 use crate::workspace::Folder;
 use complexipy_core::config::LspConfig;
 use lsp_types::{
@@ -9,17 +10,22 @@ const SAMPLE: &str = "def light():\n    return 1\n\n\ndef heavy(a, b):\n    if a
 const BROKEN: &str = "def broken(:\n";
 
 fn server(config: LspConfig) -> (Server, Connection) {
+    server_at("/repo", config, None)
+}
+
+fn server_at(root: &str, config: LspConfig, gate: Option<Receiver<()>>) -> (Server, Connection) {
     let (connection, client) = Connection::memory();
-    let server = Server::new(
+    let server = Server::with_scan_gate(
         connection,
         Initialized {
             workspace: Workspace::new(
-                vec![Folder::new("/repo".to_string(), config)],
-                "/repo".to_string(),
+                vec![Folder::new(root.to_string(), config)],
+                root.to_string(),
             ),
             refresh_support: false,
             watch_support: false,
         },
+        gate,
     );
 
     (server, client)
@@ -444,4 +450,158 @@ fn concurrent_requests_share_one_analysis() {
         .collect();
     ids.sort_by_key(|id| id.to_string());
     assert_eq!(ids, vec![RequestId::from(1), RequestId::from(2)]);
+}
+
+fn scanning() -> LspConfig {
+    let mut config = strict();
+    config.lsp.workspace_diagnostics = true;
+    config
+}
+
+fn warnings() -> Vec<Diagnostic> {
+    analysis::analyze(SAMPLE, 0, &strict())
+        .unwrap()
+        .diagnostics(&strict())
+}
+
+fn scanned(generation: u64, path: &str) -> ScanOutcome {
+    ScanOutcome::Scanned {
+        generation,
+        path: path.to_string(),
+        uri: path_to_uri(path).unwrap(),
+        diagnostics: warnings(),
+        force: false,
+    }
+}
+
+fn published(client: &Connection) -> Vec<PublishDiagnosticsParams> {
+    drain(client)
+        .into_iter()
+        .filter_map(|message| match message {
+            Message::Notification(notification) => serde_json::from_value(notification.params).ok(),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn scan_results_of_an_older_generation_are_dropped() {
+    let (mut server, client) = server(scanning());
+    server.scan_generation.store(2, Ordering::SeqCst);
+
+    server.accept_scan(scanned(1, "/repo/a.py"));
+    assert!(published(&client).is_empty());
+
+    server.accept_scan(scanned(2, "/repo/a.py"));
+    assert_eq!(published(&client)[0].diagnostics, warnings());
+}
+
+#[test]
+fn an_open_document_keeps_its_own_diagnostics() {
+    let (mut server, client) = server(scanning());
+    let open: Uri = "file:///repo/a%20b.py".parse().unwrap();
+    server
+        .documents
+        .open(open, SAMPLE.to_string(), 1, "python".to_string());
+
+    server.accept_scan(scanned(0, "/repo/a b.py"));
+
+    assert!(published(&client).is_empty());
+    assert!(server.scanned.is_empty());
+}
+
+#[test]
+fn turning_the_scan_off_clears_what_it_published() {
+    let (mut server, client) = server(strict());
+    server.accept_scan(scanned(0, "/repo/a.py"));
+    drain(&client);
+
+    server.start_scan();
+    let done = server
+        .scan_outcomes
+        .recv_timeout(Duration::from_secs(10))
+        .unwrap();
+    server.accept_scan(done);
+
+    let cleared = published(&client);
+    assert_eq!(cleared.len(), 1);
+    assert_eq!(cleared[0].uri.as_str(), "file:///repo/a.py");
+    assert!(cleared[0].diagnostics.is_empty());
+    assert!(server.scanned.is_empty());
+}
+
+#[test]
+fn closing_a_document_clears_it_when_its_folder_does_not_scan() {
+    let (mut server, client) = server(strict());
+    server.scannable.insert("/repo/sample.py".to_string());
+    server
+        .documents
+        .open(uri(), SAMPLE.to_string(), 1, "python".to_string());
+
+    server.close_document(DidCloseTextDocumentParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+    });
+
+    let cleared = published(&client);
+    assert_eq!(cleared.len(), 1);
+    assert!(cleared[0].diagnostics.is_empty());
+}
+
+#[test]
+fn created_files_start_one_scan_after_the_debounce() {
+    let (mut server, _client) = server(scanning());
+    let changes = (0..3)
+        .map(|index| {
+            lsp_types::FileEvent::new(
+                format!("file:///repo/new{}.py", index).parse().unwrap(),
+                FileChangeType::CREATED,
+            )
+        })
+        .collect();
+
+    server.change_watched_files(DidChangeWatchedFilesParams { changes });
+    assert_eq!(server.scan_generation.load(Ordering::SeqCst), 0);
+    assert!(server.scan_due.is_some());
+
+    server.scan_due = Some(Instant::now());
+    server.scan_when_due();
+    assert_eq!(server.scan_generation.load(Ordering::SeqCst), 1);
+    assert!(server.scan_due.is_none());
+}
+
+#[test]
+fn hover_answers_while_a_scan_is_held() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("heavy.py"), SAMPLE).unwrap();
+    let root = dir.path().to_string_lossy().replace('\\', "/");
+    let (gate, held) = crossbeam_channel::unbounded();
+    let (mut server, client) = server_at(&root, scanning(), Some(held));
+    let open = path_to_uri(&format!("{}/sample.py", root)).unwrap();
+    server
+        .documents
+        .open(open.clone(), SAMPLE.to_string(), 1, "python".to_string());
+
+    server.start_scan();
+    server.handle_request(Request::new(
+        RequestId::from(1),
+        HOVER.to_string(),
+        HoverParams {
+            text_document_position_params: lsp_types::TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier { uri: open },
+                position: Position::new(4, 0),
+            },
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        },
+    ));
+    settle(&mut server);
+
+    let responses = responses_of(&client);
+    assert_eq!(responses.len(), 1);
+    assert!(
+        responses[0]
+            .response_result
+            .as_ref()
+            .is_ok_and(|hover| !hover.is_null())
+    );
+    drop(gate);
 }

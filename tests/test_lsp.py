@@ -719,3 +719,32 @@ def test_a_failed_handshake_ends_the_process(tmp_path: Path) -> None:
 
         assert response["error"]["code"] == -32602
         assert session.process.wait(timeout=TIMEOUT) == 1
+
+
+def test_workspace_diagnostics_match_the_cli_for_unopened_files(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "complexipy.toml").write_text(
+        STRICT_CONFIG + "\n[lsp]\nworkspace-diagnostics = true\n"
+    )
+    path = tmp_path / "heavy.py"
+    path.write_text(HEAVY)
+    over = [
+        function.complexity
+        for function in complexipy.file_complexity(str(path)).functions
+        if function.complexity > 2
+    ]
+
+    with LspSession(tmp_path) as session:
+        session.handshake(tmp_path)
+        diagnostics = session.await_notification(
+            "textDocument/publishDiagnostics"
+        )
+
+        assert diagnostics is not None
+        assert diagnostics["uri"] == path.as_uri()
+        assert [item["message"] for item in diagnostics["diagnostics"]] == [
+            f"cognitive complexity {complexity} exceeds the allowed 2"
+            for complexity in over
+        ]
+        assert session.shutdown() == 0
