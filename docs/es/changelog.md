@@ -8,6 +8,11 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- `--explain <regla>` imprime el id, el nombre, la categoría, la
+  aplicabilidad, la descripción y el enlace a la documentación de una regla de
+  refactorización, y termina sin ejecutar un análisis. Un id de regla
+  desconocido termina con un error que lista los ids válidos
+  ([#207](https://github.com/rohaquinlop/complexipy/issues/207)).
 - `--force-exclude`, también `force-exclude = true` en la configuración, aplica
   los patrones de `exclude` a los archivos pasados explícitamente como
   argumentos. Sin él, un archivo explícito se analiza como antes. Úsalo con

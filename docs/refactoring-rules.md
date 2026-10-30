@@ -35,6 +35,8 @@ and `# complexipy: ignore[C007]` next to a function for one function.
 `--select C001,C007` keeps only the listed rules. An inactive rule never
 appears in any output. See [Rule Selection](usage-guide.md#rule-selection).
 
+Run `complexipy --explain C007` to print a rule's category, applicability, description, and link to its section here.
+
 ______________________________________________________________________
 
 ## Complexity Rules

@@ -7,6 +7,10 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- `--explain <rule>` prints a refactoring rule's id, name, category,
+  applicability, description, and documentation link, and exits without
+  running an analysis. An unknown rule id exits with an error that lists the
+  valid ids ([#207](https://github.com/rohaquinlop/complexipy/issues/207)).
 - `--force-exclude`, also `force-exclude = true` in the configuration, applies
   `exclude` patterns to files passed explicitly as arguments. Without it, an
   explicit file is analyzed as before. Pass it under pre-commit, which names
