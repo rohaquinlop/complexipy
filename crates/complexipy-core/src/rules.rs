@@ -3,7 +3,7 @@ pub mod registry;
 pub mod types;
 
 pub use registry::RuleRegistry;
-pub use types::{AnalysisOptions, RuleMetadata, RuleSet};
+pub use types::{AnalysisOptions, RuleCategory, RuleMetadata, RuleSet};
 
 use std::sync::OnceLock;
 
@@ -14,6 +14,10 @@ pub fn default_registry() -> &'static RuleRegistry {
 
 pub fn registered_rule_ids() -> Vec<String> {
     default_registry().registered_ids()
+}
+
+pub fn registered_rules() -> Vec<(String, RuleCategory)> {
+    default_registry().registered_rules()
 }
 
 pub fn rule_metadata(rule_id: &str) -> Option<&'static RuleMetadata> {

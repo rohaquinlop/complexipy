@@ -28,14 +28,16 @@ pub struct Config {
     #[serde(default)]
     #[cfg_attr(
         test,
-        schemars(description = "Report only these refactoring rules, such as `C001`.")
+        schemars(
+            description = "Report only these refactoring rules or rule groups, such as `C001` or `complexity`."
+        )
     )]
     pub select: StringOrList<String>,
     #[serde(default)]
     #[cfg_attr(
         test,
         schemars(
-            description = "Never report these refactoring rules, such as `C007`. Wins over `select`."
+            description = "Never report these refactoring rules or rule groups, such as `C007` or `readability`. Wins over `select`."
         )
     )]
     pub ignore: StringOrList<String>,

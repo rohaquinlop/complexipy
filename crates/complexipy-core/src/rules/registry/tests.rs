@@ -593,6 +593,7 @@ fn no_op_splice_measures_zero() {
 fn inactive_rules_never_produce_plans() {
     let registry = RuleRegistry::new();
     let ids = registry.registered_ids();
+    let known = registry.registered_rules();
 
     for rule_id in ids.iter() {
         let (region, source) = fixture_for(rule_id);
@@ -617,8 +618,8 @@ fn inactive_rules_never_produce_plans() {
                 .0
         };
 
-        let all = build(&RuleSet::resolve(&[], &[], &ids).0);
-        let without = build(&RuleSet::resolve(&[], std::slice::from_ref(rule_id), &ids).0);
+        let all = build(&RuleSet::resolve(&[], &[], &known).0);
+        let without = build(&RuleSet::resolve(&[], std::slice::from_ref(rule_id), &known).0);
 
         assert!(
             all.iter().any(|plan| plan.rule_id == *rule_id),
@@ -634,7 +635,7 @@ fn inactive_rules_never_produce_plans() {
 #[test]
 fn inactive_rule_never_shadows_an_active_rule() {
     let registry = RuleRegistry::new();
-    let ids = registry.registered_ids();
+    let known = registry.registered_rules();
     let (c001_region, source) = fixture_for("C001");
     let (c007_region, _) = fixture_for("C007");
     let regions = vec![c001_region, c007_region];
@@ -658,11 +659,11 @@ fn inactive_rule_never_shadows_an_active_rule() {
             .0
     };
 
-    let all = build(&RuleSet::resolve(&[], &[], &ids).0);
+    let all = build(&RuleSet::resolve(&[], &[], &known).0);
     assert!(all.iter().any(|plan| plan.rule_id == "C007"));
     assert!(!all.iter().any(|plan| plan.rule_id == "C001"));
 
-    let without = build(&RuleSet::resolve(&[], &["C007".to_string()], &ids).0);
+    let without = build(&RuleSet::resolve(&[], &["C007".to_string()], &known).0);
     assert!(!without.iter().any(|plan| plan.rule_id == "C007"));
     assert!(
         without.iter().any(|plan| plan.rule_id == "C001"),

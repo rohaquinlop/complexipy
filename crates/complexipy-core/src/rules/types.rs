@@ -68,21 +68,26 @@ pub struct RuleSet {
 
 impl RuleSet {
     /// Builds the set from a select list and an ignore list, and returns the
-    /// ids that no registered rule owns so the caller can warn about them.
-    /// Each entry may hold several comma-separated ids. An empty select list
-    /// means every registered rule is active; a select list with no valid id
-    /// selects nothing.
+    /// entries that name no registered rule and no group so the caller can
+    /// warn about them. Each entry may hold several comma-separated ids. A
+    /// group name, such as `readability`, stands for every registered rule of
+    /// that `RuleCategory`. An empty select list means every registered rule
+    /// is active; a select list with no valid id selects nothing.
     #[must_use]
     pub fn resolve(
         select: &[String],
         ignore: &[String],
-        known_ids: &[String],
+        known_rules: &[(String, RuleCategory)],
     ) -> (Self, Vec<String>) {
-        let known: HashSet<String> = known_ids.iter().map(|id| id.to_ascii_uppercase()).collect();
+        let known: HashSet<String> = known_rules
+            .iter()
+            .map(|(id, _)| id.to_ascii_uppercase())
+            .chain(group_names())
+            .collect();
         let select = split_ids(select);
         let ignore = split_ids(ignore);
-        let select_ids = normalize_ids(&select);
-        let ignore_ids = normalize_ids(&ignore);
+        let select_ids = expand_groups(normalize_ids(&select), known_rules);
+        let ignore_ids = expand_groups(normalize_ids(&ignore), known_rules);
         let mut unknown: Vec<String> = select
             .iter()
             .chain(ignore.iter())
@@ -148,6 +153,30 @@ fn normalize_ids(ids: &[String]) -> Vec<String> {
     ids.iter()
         .map(|id| id.trim().to_ascii_uppercase())
         .filter(|id| !id.is_empty())
+        .collect()
+}
+
+fn group_names() -> impl Iterator<Item = String> {
+    RuleCategory::ALL
+        .iter()
+        .map(|(name, _)| name.to_ascii_uppercase())
+}
+
+fn expand_groups(ids: Vec<String>, known_rules: &[(String, RuleCategory)]) -> Vec<String> {
+    ids.into_iter()
+        .flat_map(|id| {
+            match RuleCategory::ALL
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(&id))
+            {
+                Some((_, category)) => known_rules
+                    .iter()
+                    .filter(|(_, rule_category)| rule_category == category)
+                    .map(|(rule_id, _)| rule_id.to_ascii_uppercase())
+                    .collect(),
+                None => vec![id],
+            }
+        })
         .collect()
 }
 

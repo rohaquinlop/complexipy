@@ -1,4 +1,4 @@
-use super::types::{AnalysisOptions, RefactorRule, RuleMetadata, RuleSet};
+use super::types::{AnalysisOptions, RefactorRule, RuleCategory, RuleMetadata, RuleSet};
 use crate::bindings::FunctionBindings;
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
@@ -65,6 +65,13 @@ impl RuleRegistry {
         self.rules
             .iter()
             .map(|rule| rule.metadata().id.clone())
+            .collect()
+    }
+
+    pub fn registered_rules(&self) -> Vec<(String, RuleCategory)> {
+        self.rules
+            .iter()
+            .map(|rule| (rule.metadata().id.clone(), rule.metadata().category.clone()))
             .collect()
     }
 

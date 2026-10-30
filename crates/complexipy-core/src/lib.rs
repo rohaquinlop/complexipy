@@ -37,7 +37,7 @@ pub use helpers::exclude::{
 };
 pub use rules::{
     AnalysisOptions, RuleMetadata, RuleSet, no_active_rule_warning, registered_rule_ids,
-    rule_metadata, unknown_rule_warning,
+    registered_rules, rule_metadata, unknown_rule_warning,
 };
 #[cfg(feature = "runner")]
 pub use runner::{

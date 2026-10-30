@@ -194,7 +194,7 @@
         }
       ],
       "default": [],
-      "description": "Never report these refactoring rules, such as `C007`. Wins over `select`."
+      "description": "Never report these refactoring rules or rule groups, such as `C007` or `readability`. Wins over `select`."
     },
     "ignore-complexity": {
       "default": false,
@@ -276,7 +276,7 @@
         }
       ],
       "default": [],
-      "description": "Report only these refactoring rules, such as `C001`."
+      "description": "Report only these refactoring rules or rule groups, such as `C001` or `complexity`."
     },
     "snapshot-create": {
       "default": false,

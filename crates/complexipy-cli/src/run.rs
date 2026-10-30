@@ -43,7 +43,7 @@ use complexipy_core::diff::{
 use complexipy_core::runner::{Analysis, ArgumentCoverage, LocationReports};
 use complexipy_core::sanitize::escape_controls;
 use complexipy_core::{
-    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, rule_metadata,
+    AnalysisOptions, ExcludeMatcher, RuleSet, registered_rule_ids, registered_rules, rule_metadata,
     unmatchable_exclude_patterns,
 };
 
@@ -95,13 +95,13 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let (diff, diff_only) =
         resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
 
-    let known_rules = registered_rule_ids();
+    let known_rules = registered_rules();
     let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
     let mut warnings: Vec<String> = unknown_rules
         .iter()
         .map(|rule_id| unknown_rule_warning(rule_id))
         .collect();
-    if !rules.has_active_rule(&known_rules) {
+    if !rules.has_active_rule(&registered_rule_ids()) {
         warnings.push(no_active_rule_warning());
     }
     warnings.extend(
