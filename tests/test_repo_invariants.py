@@ -11,6 +11,9 @@ import ast
 import re
 import subprocess
 from pathlib import Path
+from typing import Callable
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES_DIR = ROOT / "crates" / "complexipy-core" / "src" / "rules"
@@ -51,6 +54,7 @@ WORKSPACE_VERSION = re.compile(
 PRE_COMMIT_REV = re.compile(
     r"repo: https://github\.com/rohaquinlop/complexipy-pre-commit\s*\n\s*rev: (\S+)"
 )
+ACTION_REF = re.compile(r"uses: rohaquinlop/complexipy-action@(\S+)")
 
 
 def tracked_files() -> list[Path]:
@@ -276,21 +280,34 @@ def documentation_files() -> list[Path]:
     ]
 
 
-def test_pre_commit_snippets_pin_the_current_release() -> None:
+@pytest.mark.parametrize(
+    ("snippet", "pattern", "pin"),
+    [
+        ("pre-commit", PRE_COMMIT_REV, lambda version: f"v{version}"),
+        (
+            "GitHub Action",
+            ACTION_REF,
+            lambda version: f"v{version.split('.')[0]}",
+        ),
+    ],
+)
+def test_downstream_snippets_pin_the_current_release(
+    snippet: str, pattern: re.Pattern[str], pin: Callable[[str], str]
+) -> None:
     version = WORKSPACE_VERSION.search(CARGO_TOML.read_text(encoding="utf-8"))
 
     assert version, "Cargo.toml has no [workspace.package] version"
 
-    expected = f"v{version.group(1)}"
-    revs = [
-        (path.relative_to(ROOT).as_posix(), rev)
+    expected = pin(version.group(1))
+    refs = [
+        (path.relative_to(ROOT).as_posix(), ref)
         for path in documentation_files()
-        for rev in PRE_COMMIT_REV.findall(tracked_text(path) or "")
+        for ref in pattern.findall(tracked_text(path) or "")
     ]
 
-    assert revs, "no complexipy pre-commit snippet in README.md or docs/"
-    stale = [f"{name}: {rev}" for name, rev in revs if rev != expected]
+    assert refs, f"no complexipy {snippet} snippet in README.md or docs/"
+    stale = [f"{name}: {ref}" for name, ref in refs if ref != expected]
     assert not stale, (
-        f"pre-commit snippets must pin rev: {expected}, the workspace "
+        f"{snippet} snippets must pin {expected}, from the workspace "
         f"version in Cargo.toml: {stale}"
     )
