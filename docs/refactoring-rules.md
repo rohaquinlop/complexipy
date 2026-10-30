@@ -32,7 +32,8 @@ No rule uses **Needs review** today. The level is reserved for a suggestion that
 Every rule id can be turned off for a project or for one function. Use
 `--ignore C007` (or `ignore = ["C007"]` in `complexipy.toml`) for a project,
 and `# complexipy: ignore[C007]` next to a function for one function.
-`--select C001,C007` keeps only the listed rules. An inactive rule never
+`--select C001,C007` keeps only the listed rules. A group name selects
+every rule of that category: `--ignore readability` hides C005 and C007. An inactive rule never
 appears in any output. See [Rule Selection](usage-guide.md#rule-selection).
 
 Run `complexipy --explain C007` to print a rule's category, applicability, description, and link to its section here.

@@ -487,6 +487,31 @@ def test_toml_select_string_splits_on_commas(tmp_path, capfd) -> None:
     assert "C007" in strip_ansi(captured.out)
 
 
+@pytest.mark.parametrize(
+    ("selection", "reports_c007"),
+    [
+        (["--select", "readability"], True),
+        (["--select", "Complexity"], False),
+        (["--ignore", "READABILITY"], False),
+    ],
+)
+def test_rule_group_selects_its_rules(
+    tmp_path, capfd, selection: list[str], reports_c007: bool
+) -> None:
+    source = load_source("collapsible_if_simple.py")
+    target = tmp_path / "collapsible_if_simple.py"
+    target.write_text(source)
+
+    run_cli(
+        ["--dry-run", *selection, *FIX_EVERY_FUNCTION, str(target)],
+        str(tmp_path),
+    )
+
+    captured = capfd.readouterr()
+    assert "Unknown rule id" not in captured.err
+    assert ("C007" in strip_ansi(captured.out)) is reports_c007
+
+
 def test_select_without_a_known_rule_warns_that_none_is_active(
     tmp_path, capfd
 ) -> None:

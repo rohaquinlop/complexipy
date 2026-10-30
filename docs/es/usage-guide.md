@@ -572,8 +572,8 @@ cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 | Opción | Descripción | Predeterminado |
 | -- | -- | -- |
 | `--exclude` | Excluye patrones glob relativos a cada ruta proporcionada. Usa patrones como `tests/**` para directorios o `src/legacy/file.py` para archivos específicos. |  |
-| `--select <ids>` | Reporta solo las reglas de refactorización nombradas, por ejemplo `--select C001,C007`. Se puede repetir y acepta listas separadas por comas | todas las reglas |
-| `--ignore <ids>` | Nunca reporta las reglas de refactorización nombradas, por ejemplo `--ignore C007`. Gana sobre `--select`. Se puede repetir y acepta listas separadas por comas |  |
+| `--select <ids>` | Reporta solo las reglas de refactorización o los grupos de reglas nombrados, por ejemplo `--select C001,C007` o `--select complexity`. Se puede repetir y acepta listas separadas por comas | todas las reglas |
+| `--ignore <ids>` | Nunca reporta las reglas de refactorización o los grupos de reglas nombrados, por ejemplo `--ignore C007` o `--ignore readability`. Gana sobre `--select`. Se puede repetir y acepta listas separadas por comas |  |
 | `--max-complexity-allowed` | Umbral de complejidad | `15` |
 | `--snapshot-create` | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
@@ -961,10 +961,17 @@ están activas, y ambas aceptan listas separadas por comas y se pueden repetir:
 | -- | -- |
 | `--select C001,C007` | Reporta solo las reglas nombradas |
 | `--ignore C007` | Nunca reporta las reglas nombradas |
+| `--select complexity` | Reporta solo las reglas de un grupo |
+| `--ignore readability` | Nunca reporta las reglas de un grupo |
+
+Un nombre de grupo representa todas las reglas de esa categoría, como se
+listan en [Reglas de Refactorización](refactoring-rules.md#referencia-de-ids-de-reglas):
+`complexity` o `readability`. Los nombres de grupo se combinan con ids de
+reglas, como en `--select complexity,C007`.
 
 Sin ninguna flag, todas las reglas están activas. Cuando ambas flags nombran la
-misma regla, `--ignore` gana. Los ids de reglas no distinguen mayúsculas de
-minúsculas. Un id desconocido imprime una advertencia en stderr de que no
+misma regla, `--ignore` gana. Los ids de reglas y los nombres de grupo no
+distinguen mayúsculas de minúsculas. Un id desconocido imprime una advertencia en stderr de que no
 coincide con ninguna regla registrada. Una lista `select` sigue limitando el
 conjunto activo aunque uno de sus ids sea desconocido, y un segundo aviso lo
 indica cuando `select` e `ignore` no dejan ninguna regla activa.
@@ -1031,7 +1038,8 @@ nombradas para esa función. Separa varios ids con comas:
 comporta igual. Un marcador sin lista sigue suprimiendo la función completa.
 Un texto entre corchetes que no es una lista de ids de reglas es un motivo, así
 que `# complexipy: ignore [technical debt]` sigue suprimiendo la función
-completa.
+completa. Aquí los nombres de grupo no son ids de reglas:
+`# complexipy: ignore[readability]` también suprime la función completa.
 
 !!! note "Sintaxis Obsoleta"
 

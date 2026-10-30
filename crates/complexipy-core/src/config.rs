@@ -192,7 +192,7 @@ impl LspConfig {
         RuleSet::resolve(
             &self.select.clone().into_vec(),
             &self.ignore.clone().into_vec(),
-            &crate::rules::registered_rule_ids(),
+            &crate::rules::registered_rules(),
         )
     }
 }

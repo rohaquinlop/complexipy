@@ -563,8 +563,8 @@ equals the threshold passes, as it does on the command line.
 | Flag | Description | Default |
 | -- | -- | -- |
 | `--exclude` | Exclude glob patterns relative to each provided path. Use patterns like `tests/**` for directories or `src/legacy/file.py` for specific files. |  |
-| `--select <ids>` | Report only the named refactoring rules, e.g. `--select C001,C007`. Repeatable and comma-separated | all rules |
-| `--ignore <ids>` | Never report the named refactoring rules, e.g. `--ignore C007`. Wins over `--select`. Repeatable and comma-separated |  |
+| `--select <ids>` | Report only the named refactoring rules or rule groups, e.g. `--select C001,C007` or `--select complexity`. Repeatable and comma-separated | all rules |
+| `--ignore <ids>` | Never report the named refactoring rules or rule groups, e.g. `--ignore C007` or `--ignore readability`. Wins over `--select`. Repeatable and comma-separated |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
 | `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
@@ -949,9 +949,16 @@ active, and both accept comma-separated lists and repeat:
 | -- | -- |
 | `--select C001,C007` | Report only the listed rules |
 | `--ignore C007` | Never report the listed rules |
+| `--select complexity` | Report only the rules of one group |
+| `--ignore readability` | Never report the rules of one group |
+
+A group name stands for every rule of that category, as listed in
+[Refactoring Rules](refactoring-rules.md#rule-id-reference): `complexity` or
+`readability`. Group names mix with rule ids, as in
+`--select complexity,C007`.
 
 With no flag every rule is active. When both flags name the same rule,
-`--ignore` wins. Rule ids are case-insensitive. An unknown id prints a warning
+`--ignore` wins. Rule ids and group names are case-insensitive. An unknown id prints a warning
 on stderr that it matches no registered rule. A `select` list keeps narrowing
 the active set even when one of its ids is unknown, and a second warning says
 so when `select` and `ignore` leave no rule active.
@@ -1016,6 +1023,8 @@ suppressed for it. Separate several ids with commas:
 the same way. A bare marker keeps suppressing the whole function. Bracketed
 text that is not a list of rule ids is a reason, so
 `# complexipy: ignore [technical debt]` keeps suppressing the whole function.
+Group names are not rule ids here: `# complexipy: ignore[readability]` also
+suppresses the whole function.
 
 !!! note "Deprecated Syntax"
 

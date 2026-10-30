@@ -167,10 +167,7 @@ pub fn get_category_icon(category: &RuleCategory) -> &'static str {
 }
 
 pub fn get_category_name(category: &RuleCategory) -> &'static str {
-    match category {
-        RuleCategory::Complexity => "Complexity",
-        RuleCategory::Readability => "Readability",
-    }
+    category.name()
 }
 
 pub fn get_applicability_icon(applicability: &Applicability) -> &'static str {
