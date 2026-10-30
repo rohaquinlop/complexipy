@@ -613,7 +613,10 @@ impl Server {
         self.failures.remove(&key);
         self.deadlines.remove(&key);
         match self.closed_file(&uri) {
-            Some(file) => self.scan_files(vec![file]),
+            Some(file) => {
+                self.scanned.insert(file.path.clone(), uri);
+                self.scan_files(vec![file]);
+            }
             None => self.send_diagnostics(uri, Vec::new(), None),
         }
     }

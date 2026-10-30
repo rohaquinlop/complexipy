@@ -605,3 +605,29 @@ fn hover_answers_while_a_scan_is_held() {
     );
     drop(gate);
 }
+
+#[test]
+fn a_closed_document_is_cleared_by_a_later_scan() {
+    let (mut server, client) = server(scanning());
+    server.scannable.insert("/repo/sample.py".to_string());
+    server
+        .documents
+        .open(uri(), SAMPLE.to_string(), 1, "python".to_string());
+    server.close_document(DidCloseTextDocumentParams {
+        text_document: TextDocumentIdentifier { uri: uri() },
+    });
+    server.scan_generation.store(5, Ordering::SeqCst);
+
+    server.accept_scan(ScanOutcome::Scanned {
+        generation: 5,
+        path: "/repo/sample.py".to_string(),
+        uri: uri(),
+        diagnostics: Vec::new(),
+        force: false,
+    });
+
+    let cleared = published(&client);
+    assert_eq!(cleared.len(), 1);
+    assert_eq!(cleared[0].uri, uri());
+    assert!(cleared[0].diagnostics.is_empty());
+}
