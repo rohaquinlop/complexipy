@@ -16,9 +16,10 @@ Inside the editor you get:
 - **Diagnostics** - one warning per function above `max-complexity-allowed`,
   with the message `cognitive complexity 18 exceeds the allowed 15` on the
   function name.
-- **Quick fixes** - every refactoring suggestion for a function above
-  `max-complexity-allowed`, as a code action. A suggestion that is safe to
-  apply rewrites the buffer in one undoable edit.
+- **Code actions** - every refactoring suggestion for a function above
+  `max-complexity-allowed`. A suggestion that is safe to apply is a quick fix
+  that rewrites the buffer in one undoable edit. The others appear in the
+  refactor menu with their help text.
 
 Results refresh as you type. The server uses full document sync and analyzes
 only the documents you have open, so there is no workspace-wide scan and no

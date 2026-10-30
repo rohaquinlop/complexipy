@@ -18,10 +18,11 @@ En el editor obtienes:
   `max-complexity-allowed`, con el mensaje
   `cognitive complexity 18 exceeds the allowed 15` sobre el nombre de la
   función.
-- **Correcciones rápidas** - cada sugerencia de refactorización de una función
-  que supere `max-complexity-allowed`, como una acción de código. Una
-  sugerencia segura de aplicar reescribe el búfer en una sola edición que se
-  puede deshacer.
+- **Acciones de código** - cada sugerencia de refactorización de una función
+  que supere `max-complexity-allowed`. Una sugerencia segura de aplicar es una
+  corrección rápida que reescribe el búfer en una sola edición que se puede
+  deshacer. Las demás aparecen en el menú de refactorización con su texto de
+  ayuda.
 
 Los resultados se actualizan mientras escribes. El servidor usa sincronización
 completa del documento y analiza solo los documentos que tienes abiertos, así
