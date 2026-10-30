@@ -39,7 +39,9 @@ pub struct CodeSuggestion {
 
 - `replacement` becomes the rewritten header line only: `<indent>if _check_condition_L<n>(<params>):`, plus whatever followed the colon on that line (a trailing comment or an inline body). The span is that one header line. Conditions are read from one line today (`split_header`), so a multi-line header still returns `None`.
 - `insertions` holds one entry: the helper `def` plus two blank lines, inserted before the first line of the top-level statement that contains the condition (the module-level `def`, `class`, or decorator line). The helper lands at module level, as the current snippet already documents.
-- `spliceable` becomes `true`. Applicability stays `MachineApplicable`. The fix gate in `fix::fixable` does not change.
+- The generated `def` drops the `-> bool` annotation. `and` and `or` return an operand, not a bool, so the annotation is wrong. The call site's truthiness does not change.
+- `spliceable` becomes `true` only when every free name of the condition is bound for sure before the statement: a parameter of the enclosing function, or a name the function never assigns (a global, builtin, or closure name). The call passes every free name eagerly, so a local that short-circuit would skip (`if flag or value > 0:`, where `value` is bound on some paths only) would raise `UnboundLocalError`. Any other condition keeps today's snippet with `spliceable: false` for hand application.
+- Applicability stays `MachineApplicable`. The fix gate in `fix::fixable` does not change.
 - Cases that return `None` today (`elif`, `:=`, lambda, comprehension) still return `None` and keep `help` text.
 - The CLI display (`output/refactor.rs`) renders the insertion above the replacement, so the printed snippet stays readable for hand application.
 
@@ -59,6 +61,7 @@ pub struct CodeSuggestion {
 ## Tests
 
 - `crates/complexipy-core/src/fix/tests.rs`: C005 on a plain function, on a method, under a decorator, and two C005 plans in one function. Each patched text parses, holds the helper at module level, and re-analysis yields no C005 plan for the fixed function.
+- `crates/complexipy-core/src/rules/complexity/tests.rs`: a condition over a local assigned in the function stays `spliceable: false`; a condition over parameters and globals is `spliceable: true`; the helper has no `-> bool`.
 - `crates/complexipy-core/src/rules/registry/tests.rs`: C005 reduction is measured (`reduction_is_measured == true`).
 - `tests/test_fix.py`: replace the "Skipped C005" assertion with an end-to-end `--fix` run that applies C005.
 - `tests/test_stubs.py`: covers `CodeInsertion` and the new field.
