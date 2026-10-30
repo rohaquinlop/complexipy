@@ -25,6 +25,7 @@ AGENTS_MAX_WORDS = 1300
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 LICENSE = ROOT / "LICENSE"
+CARGO_TOML = ROOT / "Cargo.toml"
 ZED_LICENSE = ROOT / "zed" / "LICENSE"
 
 LONG_DASHES = re.compile(
@@ -42,6 +43,13 @@ REQUIRES_PYTHON_CAP = re.compile(
 )
 PYTHON_VERSION_CLASSIFIER = re.compile(
     r'"Programming Language :: Python :: (\d+)\.(\d+)"'
+)
+WORKSPACE_VERSION = re.compile(
+    r'^\[workspace\.package\]$(?:\n(?!\[).*)*?\nversion = "([^"]+)"',
+    re.MULTILINE,
+)
+PRE_COMMIT_REV = re.compile(
+    r"repo: https://github\.com/rohaquinlop/complexipy-pre-commit\s*\n\s*rev: (\S+)"
 )
 
 
@@ -256,4 +264,33 @@ def test_zed_license_matches_the_root_license() -> None:
     ), (
         f"{ZED_LICENSE.relative_to(ROOT)} differs from "
         f"{LICENSE.relative_to(ROOT)}: copy the root license into zed/"
+    )
+
+
+def documentation_files() -> list[Path]:
+    return [
+        path
+        for path in tracked_files()
+        if path.suffix == ".md"
+        and (path == ROOT / "README.md" or ROOT / "docs" in path.parents)
+    ]
+
+
+def test_pre_commit_snippets_pin_the_current_release() -> None:
+    version = WORKSPACE_VERSION.search(CARGO_TOML.read_text(encoding="utf-8"))
+
+    assert version, "Cargo.toml has no [workspace.package] version"
+
+    expected = f"v{version.group(1)}"
+    revs = [
+        (path.relative_to(ROOT).as_posix(), rev)
+        for path in documentation_files()
+        for rev in PRE_COMMIT_REV.findall(tracked_text(path) or "")
+    ]
+
+    assert revs, "no complexipy pre-commit snippet in README.md or docs/"
+    stale = [f"{name}: {rev}" for name, rev in revs if rev != expected]
+    assert not stale, (
+        f"pre-commit snippets must pin rev: {expected}, the workspace "
+        f"version in Cargo.toml: {stale}"
     )
