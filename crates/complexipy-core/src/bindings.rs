@@ -76,7 +76,7 @@ pub struct FunctionBindings {
 impl FunctionBindings {
     /// `insert_before_line` is the first line of the module-level statement
     /// that holds the function, decorators included. A global is safe only
-    /// when it is bound before that line.
+    /// when it is bound before that line or by that statement itself.
     #[must_use]
     pub fn new(
         module: &ModuleBindings,

@@ -357,7 +357,7 @@ La llamada pasa cada variable libre de forma inmediata, mientras que la condici�
 
 - un parámetro que la función nunca vuelve a vincular;
 - un builtin que ni la función, ni sus parámetros, ni el módulo vinculan;
-- un global que una sentencia a nivel de módulo vincula encima de la función, fuera de todo `if`, `try`, `for`, `while`, `with` o `match`, que ningún `del` a nivel de módulo elimina, y que ninguna función declara `global`.
+- el nombre del `def` o `class` a nivel de módulo que contiene la función, o un global que una sentencia a nivel de módulo vincula encima de la función, fuera de todo `if`, `try`, `for`, `while`, `with` o `match`, que ningún `del` a nivel de módulo elimina, y que ninguna función declara `global`.
 
 Cualquier otro nombre conserva el fragmento para aplicación manual, con `spliceable: false`. Lo mismo ocurre con una condición dentro de una función o clase anidada, una función bajo una sentencia compuesta a nivel de módulo, una cabecera que ocupa varias líneas, y una condición que contiene `super()`, `__class__`, un `__nombre` privado, `await` o `yield`.
 

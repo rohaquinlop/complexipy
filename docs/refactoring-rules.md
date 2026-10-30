@@ -355,7 +355,7 @@ The call passes every free variable eagerly, while the original condition may sk
 
 - a parameter that the function never binds again;
 - a builtin that neither the function, its parameters, nor the module binds;
-- a global that a module-level statement binds above the function, outside any `if`, `try`, `for`, `while`, `with`, or `match`, that no module-level `del` removes, and that no function declares `global`.
+- the name of the module-level `def` or `class` that holds the function, or a global that a module-level statement binds above the function, outside any `if`, `try`, `for`, `while`, `with`, or `match`, that no module-level `del` removes, and that no function declares `global`.
 
 Any other name keeps the snippet for hand application, with `spliceable: false`. So do a condition inside a nested function or class, a function under a module-level compound statement, a header that spans several lines, and a condition that holds `super()`, `__class__`, a private `__name`, `await`, or `yield`.
 
