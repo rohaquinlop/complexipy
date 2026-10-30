@@ -551,8 +551,8 @@ editor shows:
 | `diagnostics` | Publish a warning for every function above `max-complexity-allowed` | `true` |
 | `workspace-diagnostics` | Also publish warnings for files that are not open, from a scan of the workspace folder | `false` |
 
-The server reads the top-level `max-complexity-allowed`, `exclude`, `select`,
-`ignore`, and `no-ignore` keys, and it ignores every other key of the same
+The server reads the top-level `max-complexity-allowed`, `paths`, `exclude`,
+`select`, `ignore`, and `no-ignore` keys, and it ignores every other key of the same
 file: `quiet`, `failed`, `sort`, `color`, `output`, `output-format`,
 `cache-dir`, `snapshot-create`, `snapshot-ignore`, `ignore-complexity`,
 `check-script`, `report-ignored`, and `diff`. A function whose complexity

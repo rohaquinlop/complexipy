@@ -12,7 +12,10 @@ GitHub con todos los detalles.
   abiertos con `[lsp] workspace-diagnostics = true`. Recorre cada carpeta del
   espacio de trabajo con el mismo descubrimiento de archivos y las mismas
   exclusiones que `complexipy`, y actualiza un archivo cuando se cierra o cambia
-  en disco. La opción está desactivada por defecto
+  en disco. La opción está desactivada por defecto. Un cliente que
+  admite la vigilancia dinámica de archivos ahora también informa al servidor
+  de los cambios en archivos `.py`, que los ignora mientras la opción está
+  desactivada
   ([#256](https://github.com/rohaquinlop/complexipy/issues/256)).
 - `--explain <regla>` imprime el id, el nombre, la categoría, la
   aplicabilidad, la descripción y el enlace a la documentación de una regla de

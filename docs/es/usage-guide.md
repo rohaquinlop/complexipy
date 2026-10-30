@@ -561,7 +561,7 @@ controla lo que muestra el editor:
 | `workspace-diagnostics` | Publica también advertencias para los archivos que no están abiertos, a partir de un recorrido de la carpeta del espacio de trabajo | `false` |
 
 El servidor lee las claves de nivel superior `max-complexity-allowed`,
-`exclude`, `select`, `ignore` y `no-ignore`, e ignora el resto de claves del
+`paths`, `exclude`, `select`, `ignore` y `no-ignore`, e ignora el resto de claves del
 mismo archivo: `quiet`, `failed`, `sort`, `color`, `output`,
 `output-format`, `cache-dir`, `snapshot-create`, `snapshot-ignore`,
 `ignore-complexity`, `check-script`, `report-ignored` y `diff`. Una función

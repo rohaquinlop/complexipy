@@ -10,7 +10,9 @@ release section links to its GitHub release notes for the full details.
 - The language server publishes diagnostics for files that are not open when
   `[lsp] workspace-diagnostics = true`. It scans each workspace folder with the
   same file discovery and exclusion as `complexipy`, and refreshes a file when
-  it is closed or changes on disk. The setting is off by default
+  it is closed or changes on disk. The setting is off by default. A client
+  that supports dynamic file watching now also reports `.py` changes to the
+  server, which ignores them while the setting is off
   ([#256](https://github.com/rohaquinlop/complexipy/issues/256)).
 - `--explain <rule>` prints a refactoring rule's id, name, category,
   applicability, description, and documentation link, and exits without
