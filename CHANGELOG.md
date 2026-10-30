@@ -7,6 +7,11 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- `--select`, `--ignore`, and the `select` and `ignore` configuration keys
+  accept a rule group: `complexity` or `readability`. A group stands for every
+  refactoring rule of that category, and mixes with rule ids, as in
+  `--select complexity,C007`. A group name prints no unknown-rule warning
+  ([#205](https://github.com/rohaquinlop/complexipy/issues/205)).
 - The language server publishes diagnostics for files that are not open when
   `[lsp] workspace-diagnostics = true`. It scans each workspace folder with the
   same file discovery and exclusion as `complexipy`, and refreshes a file when

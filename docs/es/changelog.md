@@ -8,6 +8,12 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- `--select`, `--ignore` y las claves de configuración `select` e `ignore`
+  aceptan un grupo de reglas: `complexity` o `readability`. Un grupo
+  representa todas las reglas de refactorización de esa categoría y se combina
+  con ids de reglas, como en `--select complexity,C007`. Un nombre de grupo no
+  imprime la advertencia de regla desconocida
+  ([#205](https://github.com/rohaquinlop/complexipy/issues/205)).
 - El servidor de lenguaje publica diagnósticos para los archivos que no están
   abiertos con `[lsp] workspace-diagnostics = true`. Recorre cada carpeta del
   espacio de trabajo con el mismo descubrimiento de archivos y las mismas
