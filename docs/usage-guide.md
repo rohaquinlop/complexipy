@@ -311,7 +311,7 @@ Plans are based on the Rust AST analysis only; no AI is used and no code is rewr
 
 ### Applying Fixable Suggestions
 
-Use `--fix` to write the fixable suggestions to the source files. A suggestion is fixable when its applicability is **Safe to apply** and its replacement is a faithful splice (`"spliceable": true` in the JSON output). That covers C002 (loop guards) and C007 (collapsible if) today. C005 is safe to apply but its replacement contains a placeholder body and a second edit at the call site, so `--fix` skips it.
+Use `--fix` to write the fixable suggestions to the source files. A suggestion is fixable when its applicability is **Safe to apply** and its replacement is a faithful splice (`"spliceable": true` in the JSON output). That covers C002 (loop guards), C007 (collapsible if), and C005 (extract predicate) when every name its condition reads keeps its value inside a module-level helper. For C005 the fix also inserts the helper above the function (see [How `--fix` applies C005](refactoring-rules.md#how-fix-applies-c005)).
 
 ```bash
 complexipy . --fix

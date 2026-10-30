@@ -313,7 +313,7 @@ Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reesc
 
 ### Aplicar Sugerencias Aplicables
 
-Usa `--fix` para escribir las sugerencias aplicables en los archivos fuente. Una sugerencia es aplicable cuando su aplicabilidad es **Seguro de aplicar** y su reemplazo es un empalme fiel (`"spliceable": true` en la salida JSON). Hoy eso cubre C002 (guardas de bucle) y C007 (if plegable). C005 es seguro de aplicar, pero su reemplazo contiene un cuerpo de marcador de posición y una segunda edición en la llamada, así que `--fix` lo salta.
+Usa `--fix` para escribir las sugerencias aplicables en los archivos fuente. Una sugerencia es aplicable cuando su aplicabilidad es **Seguro de aplicar** y su reemplazo es un empalme fiel (`"spliceable": true` en la salida JSON). Eso cubre C002 (guardas de bucle), C007 (if plegable) y C005 (extraer predicado) cuando cada nombre que lee su condición conserva su valor dentro de un helper a nivel de módulo. Para C005 la corrección también inserta el helper encima de la función (ver [Cómo aplica `--fix` C005](refactoring-rules.md#como-aplica-fix-c005)).
 
 ```bash
 complexipy . --fix

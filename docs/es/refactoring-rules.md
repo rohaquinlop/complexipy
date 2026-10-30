@@ -25,7 +25,7 @@ El nivel decide cómo una herramienta puede aplicar la sugerencia:
 
 Hoy ninguna regla usa **Necesita revisión**. El nivel queda reservado para una sugerencia que suele ser correcta pero cambia el comportamiento en una forma de entrada conocida, y una regla solo puede usarlo con pruebas para cada forma de fallo conocida.
 
-`--fix` aplica una sugerencia solo en **Seguro de aplicar** y solo cuando el reemplazo es un empalme fiel. C005 es seguro de aplicar, pero su reemplazo contiene un cuerpo de marcador de posición y necesita una segunda edición en la llamada, así que `--fix` lo salta y la sugerencia queda para aplicación manual.
+`--fix` aplica una sugerencia solo en **Seguro de aplicar** y solo cuando el reemplazo es un empalme fiel. C005 es un empalme solo cuando cada nombre que lee su condición conserva su valor dentro de un helper a nivel de módulo (ver [Cómo aplica `--fix` C005](#como-aplica-fix-c005)); si no, su sugerencia queda para aplicación manual.
 
 ## Suprimir una Regla
 
@@ -349,6 +349,18 @@ La sugerencia conserva la palabra clave de la sentencia: una condición `if` sig
 
 El helper extraído se emite a nivel de módulo con las variables libres de la condición como parámetros (bases de atributos incluidas, builtins excluidas), de modo que es testeable por unidad. El fragmento muestra el contexto que lo rodea en la indentación real de la sentencia, con marcadores `...` para las sentencias omitidas. Las condiciones que vinculan un nombre con `:=` o contienen un lambda/comprensión reciben solo texto de ayuda.
 
+#### Cómo aplica `--fix` C005
+
+La corrección hace dos ediciones. Inserta el helper antes del `def` o `class` a nivel de módulo que contiene la función, decoradores incluidos, y reescribe la línea de cabecera de la condición como una llamada al helper. La sugerencia lleva el helper en `insertions` y la línea de cabecera en `replacement`, y su reducción se mide.
+
+La llamada pasa cada variable libre de forma inmediata, mientras que la condición original puede saltarse algunas por cortocircuito. Por eso `--fix` aplica C005 solo cuando cada nombre está vinculado con seguridad:
+
+- un parámetro que la función nunca vuelve a vincular;
+- un builtin que ni la función ni el módulo vinculan;
+- un global que una sentencia a nivel de módulo vincula fuera de todo `if`, `try`, `for`, `while`, `with` o `match`, que ningún `del` a nivel de módulo elimina, y que ninguna función declara `global`.
+
+Cualquier otro nombre conserva el fragmento para aplicación manual, con `spliceable: false`. Lo mismo ocurre con una condición dentro de una función o clase anidada, una función bajo una sentencia compuesta a nivel de módulo, una cabecera que ocupa varias líneas, y una condición que contiene `super()`, `__class__`, un `__nombre` privado, `await` o `yield`.
+
 #### Ejemplo
 
 **Antes:**
@@ -487,6 +499,7 @@ La salida JSON incluye todos los metadatos de las reglas para consumo programát
     "replacement": "    if data and data.is_valid():\n        return process(data)",
     "applicability": "MachineApplicable",
     "spliceable": true,
+    "insertions": [],
     "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
   "help": null,

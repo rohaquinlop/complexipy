@@ -50,7 +50,12 @@ RefactorPlan:
 CodeSuggestion:
   ├─ replacement: str
   ├─ applicability: Applicability
-  └─ description: str
+  ├─ description: str
+  └─ insertions: List[CodeInsertion]
+
+CodeInsertion:
+  ├─ before_line: int
+  └─ text: str
 
 RuleCategory: Complexity | Readability
 Applicability: MachineApplicable | MaybeIncorrect | Informational

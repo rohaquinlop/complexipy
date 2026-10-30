@@ -25,7 +25,7 @@ The level decides how a tool may apply the suggestion:
 
 No rule uses **Needs review** today. The level is reserved for a suggestion that is usually right but changes behavior in a known input shape, and a rule may use it only with tests for each known failure shape.
 
-`--fix` applies a suggestion only at **Safe to apply** and only when the replacement is a faithful splice. C005 is safe to apply, but its replacement holds a placeholder body and needs a second edit at the call site, so `--fix` skips it and the suggestion stays for hand application.
+`--fix` applies a suggestion only at **Safe to apply** and only when the replacement is a faithful splice. C005 is a splice only when every name its condition reads keeps its value inside a module-level helper (see [How `--fix` applies C005](#how-fix-applies-c005)); otherwise its suggestion stays for hand application.
 
 ## Suppressing a Rule
 
@@ -347,6 +347,18 @@ The suggestion keeps the statement keyword: an `if` condition stays an `if`, a `
 
 The extracted helper is emitted at module level with the condition's free variables as parameters (attribute bases included, builtins excluded), so it is unit-testable. The snippet shows the enclosing context at the statement's real indentation, with `...` placeholders for skipped statements. Conditions that bind a name with `:=` or contain a lambda/comprehension get help text only.
 
+#### How `--fix` applies C005
+
+The fix makes two edits. It inserts the helper before the module-level `def` or `class` that holds the function, decorators included, and it rewrites the condition's header line into a call to the helper. The suggestion carries the helper in `insertions` and the header line in `replacement`, and its reduction is measured.
+
+The call passes every free variable eagerly, while the original condition may skip some of them by short-circuit. So `--fix` applies C005 only when each name is sure to be bound:
+
+- a parameter that the function never binds again;
+- a builtin that neither the function nor the module binds;
+- a global that a module-level statement binds outside any `if`, `try`, `for`, `while`, `with`, or `match`, that no module-level `del` removes, and that no function declares `global`.
+
+Any other name keeps the snippet for hand application, with `spliceable: false`. So do a condition inside a nested function or class, a function under a module-level compound statement, a header that spans several lines, and a condition that holds `super()`, `__class__`, a private `__name`, `await`, or `yield`.
+
 #### Example
 
 **Before:**
@@ -485,6 +497,7 @@ The JSON output includes all rule metadata for programmatic consumption:
     "replacement": "    if data and data.is_valid():\n        return process(data)",
     "applicability": "MachineApplicable",
     "spliceable": true,
+    "insertions": [],
     "description": "Merge nested conditions into `if data and data.is_valid():`"
   },
   "help": null,
