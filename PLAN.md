@@ -43,15 +43,15 @@ pub struct CodeSuggestion {
 - `spliceable` becomes `true` only when every free name of the condition is bound for sure before the statement. The call passes every free name eagerly, so a name that short-circuit would skip (`if flag or value > 0:`, where `value` is bound on some paths only) would raise `UnboundLocalError` or `NameError`. A free name is safe when it is one of:
     - a parameter of the enclosing function that the function never binds again;
     - a builtin that neither the function nor the module rebinds;
-    - a module global bound unconditionally at module top level (a top-level `def`, `class`, `import`, or assignment that is not inside `if`, `try`, `for`, `while`, or `with`), and not bound in the function.
-- Closure names (bound in an enclosing function) are not safe.
+    - a module global bound unconditionally at module top level (a top-level `def`, `class`, `import`, or assignment that is not inside `if`, `try`, `for`, `async for`, `while`, `with`, `async with`, or `match`), and not bound in the function. A module-level `del` of the name, or a `global` declaration of it in any function, makes it unsafe.
+- Closure names (bound in an enclosing function) are not safe. This holds when a closure name shadows a builtin or a module global.
 - "Binds" means every binding form: assignment, augmented and annotated assignment, `for` target, `with ... as`, `except ... as`, `import`, `def`, `class`, `del`, `global`, and `nonlocal`.
 - The plan also stays `spliceable: false` when the condition holds any of these, because they change meaning once moved into a module-level plain `def`:
     - zero-argument `super()` or `__class__` inside a method;
     - a private `__name` identifier or attribute inside a class body (name mangling);
     - `await`, `yield`, or `yield from`.
 - Any condition that is not safe keeps today's snippet with `spliceable: false` for hand application.
-- The rule must not re-parse source (AGENTS.md invariant). The analysis pass computes the module's unconditional top-level bindings once per file and each function's parameters and bound names once per function, and hands them to the rules next to `def_names`.
+- The rule must not re-parse source (AGENTS.md invariant). The analysis pass computes the module's unconditional top-level bindings once per file (minus names that a module-level `del` or any function's `global` touches), each function's parameters and bound names once per function, and the union of names bound by every enclosing function scope, and hands them to the rules next to `def_names`.
 - Applicability stays `MachineApplicable`. The fix gate in `fix::fixable` does not change.
 - Cases that return `None` today (`elif`, `:=`, lambda, comprehension) still return `None` and keep `help` text.
 - The CLI display (`output/refactor.rs`) renders the insertion above the replacement, so the printed snippet stays readable for hand application.
@@ -72,7 +72,7 @@ pub struct CodeSuggestion {
 ## Tests
 
 - `crates/complexipy-core/src/fix/tests.rs`: C005 on a plain function, on a method, under a decorator, and two C005 plans in one function. Each patched text parses, holds the helper at module level, and re-analysis yields no C005 plan for the fixed function.
-- `crates/complexipy-core/src/rules/complexity/tests.rs`: a condition over a local assigned in the function stays `spliceable: false`; a condition over parameters, builtins, and unconditional globals is `spliceable: true`; a conditionally bound global, a closure name, a `del`-ed parameter, a shadowed builtin, `super()`, a private `__name`, and `await`/`yield` each stay `spliceable: false`; the helper has no `-> bool`.
+- `crates/complexipy-core/src/rules/complexity/tests.rs`: a condition over a local assigned in the function stays `spliceable: false`; a condition over parameters, builtins, and unconditional globals is `spliceable: true`; a conditionally bound global (including inside `match`), a global that is `del`-ed at module level or declared `global` in a function, a closure name, a closure name that shadows a builtin or global, a `del`-ed parameter, a shadowed builtin, `super()`, a private `__name`, and `await`/`yield` each stay `spliceable: false`; the helper has no `-> bool`.
 - `crates/complexipy-core/src/rules/registry/tests.rs`: C005 reduction is measured (`reduction_is_measured == true`).
 - `tests/test_fix.py`: replace the "Skipped C005" assertion with an end-to-end `--fix` run that applies C005.
 - `tests/test_stubs.py`: covers `CodeInsertion` and the new field.
