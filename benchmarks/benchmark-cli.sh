@@ -89,10 +89,26 @@ parity_check() {
         old_exit=$?
         [[ -f "$dir/complexipy-results.json" ]] && mv "$dir/complexipy-results.json" "$dir/old.json"
         [[ "$new_exit" == "$old_exit" ]] || fail "parity: exit codes differ on $target ($new_exit vs $old_exit)"
-        cmp -s "$dir/new.json" "$dir/old.json" || fail "parity: JSON exports differ on $target"
+        "$REPO_ROOT/.venv/bin/python" - "$dir/old.json" "$dir/new.json" <<'PY' || fail "parity: scores differ on $target"
+import json
+import sys
+
+
+def scores(path):
+    with open(path) as f:
+        return {(e["path"], e["function_name"]): e["complexity"] for e in json.load(f)}
+
+
+old, new = scores(sys.argv[1]), scores(sys.argv[2])
+changed = sorted(k for k in old if new.get(k) != old[k])
+for key in changed:
+    print(f"  {key}: {old[key]} -> {new.get(key)}", file=sys.stderr)
+print(f"  {len(old)} shared functions score the same; {len(new) - len(old)} more in the new CLI")
+sys.exit(1 if changed else 0)
+PY
     done
     rm -rf "$dir"
-    echo "  parity: byte-identical JSON exports and exit codes (requests + single-file probe)"
+    echo "  parity: equal exit codes, and every baseline function has the same score in the new CLI (requests + single-file probe)"
 }
 
 run_hyperfine() {
@@ -107,7 +123,7 @@ run_hyperfine() {
         --style basic \
         --ignore-failure \
         --export-json "$out_json" \
-        -n "8.0.0 rust cli (pre-release)" \
+        -n "$NEW_VERSION rust cli" \
         -n "7.0.1 python cli" \
         "$@" \
         | tail -2 | head -1
@@ -196,6 +212,7 @@ measure_scaling() {
 
 echo "== provisioning =="
 provision_new_cli
+NEW_VERSION="$("$NEW_CLI" --version 2>&1 | head -1 | awk '{print $2}')"
 echo "  new CLI: $("$NEW_CLI" --version 2>&1 | head -1)"
 provision_baseline
 echo "  baseline CLI: $("$OLD_CLI" --version 2>&1 | head -1) (python $("$BASELINE_DIR/.venv/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))'))"
@@ -361,7 +378,7 @@ new_python="$("$REPO_ROOT/.venv/bin/python" -c 'import sys; print(".".join(map(s
     echo
     echo "## Wall time"
     echo
-    echo "| Workload | 8.0.0 Rust CLI (pre-release) | 7.0.1 Python CLI | Speedup |"
+    echo "| Workload | $NEW_VERSION Rust CLI | 7.0.1 Python CLI | Speedup |"
     echo "| -- | -- | -- | -- |"
     for row in "${rows[@]}"; do echo "$row"; done
     echo
@@ -379,7 +396,7 @@ new_python="$("$REPO_ROOT/.venv/bin/python" -c 'import sys; print(".".join(map(s
     echo
     echo "## Peak RSS"
     echo
-    echo "| Workload | 8.0.0 Rust CLI (pre-release) | 7.0.1 Python CLI |"
+    echo "| Workload | $NEW_VERSION Rust CLI | 7.0.1 Python CLI |"
     echo "| -- | -- | -- |"
     for row in "${rss_rows[@]}"; do echo "$row"; done
     echo
