@@ -5,8 +5,6 @@
 
 <p><em>Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.</em></p>
 
-<p>Puntúa los 2.929 archivos de Django en unos 0,2 s en un Apple M1 Pro. <a href="benchmarks/">Puntos de referencia</a></p>
-
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
     <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
@@ -24,8 +22,11 @@
 </div>
 
 <p align="center">
-  <img src="img/demo.gif" alt="complexipy puntúa cada función de checkout.py, marca apply_discount como fallida con 14 frente a un límite de 10 y sugiere extraer una función auxiliar">
+  <img src="img/competitors-light.svg#only-light" alt="Gráfico de barras del tiempo de pared para puntuar la complejidad cognitiva del código de Django con complexipy, flake8-cognitive-complexity y pylint-cognitive-complexity">
+  <img src="img/competitors-dark.svg#only-dark" alt="Gráfico de barras del tiempo de pared para puntuar la complejidad cognitiva del código de Django con complexipy, flake8-cognitive-complexity y pylint-cognitive-complexity">
 </p>
+
+<p align="center"><i>Puntuando la complejidad cognitiva del código de Django (2.929 archivos). <a href="benchmarks/">Puntos de referencia</a></i></p>
 
 ## Instalación
 
@@ -86,6 +87,10 @@ Estas dos funciones tienen la misma complejidad ciclomática, 4. Su complejidad 
 El código anidado obliga a quien lo lee a mantener más contexto, así que cada nivel de anidamiento suma a la puntuación. complexipy implementa para Python la métrica de [Complejidad Cognitiva](https://www.sonarsource.com/resources/cognitive-complexity/) de G. Ann Campbell. [Cómo se calculan las puntuaciones](understanding-scores.md)
 
 ## Inicio Rápido
+
+<p align="center">
+  <img src="img/demo.gif" alt="complexipy puntúa cada función de checkout.py, marca apply_discount como fallida con 14 frente a un límite de 10 y sugiere extraer una función auxiliar">
+</p>
 
 ### Línea de Comandos
 

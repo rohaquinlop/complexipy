@@ -5,8 +5,6 @@
 
 <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
-<p>Scores all 2,929 files of Django in about 0.2 s on an Apple M1 Pro. <a href="benchmarks/">Benchmarks</a></p>
-
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
     <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
@@ -24,8 +22,11 @@
 </div>
 
 <p align="center">
-  <img src="img/demo.gif" alt="complexipy scores each function in checkout.py, fails apply_discount at 14 against a limit of 10, and suggests extracting a helper function">
+  <img src="img/competitors-light.svg#only-light" alt="Bar chart of the wall time to score cognitive complexity of the Django codebase with complexipy, flake8-cognitive-complexity, and pylint-cognitive-complexity">
+  <img src="img/competitors-dark.svg#only-dark" alt="Bar chart of the wall time to score cognitive complexity of the Django codebase with complexipy, flake8-cognitive-complexity, and pylint-cognitive-complexity">
 </p>
+
+<p align="center"><i>Scoring cognitive complexity of the Django codebase (2,929 files). <a href="benchmarks/">Benchmarks</a></i></p>
 
 ## Installation
 
@@ -86,6 +87,10 @@ These two functions have the same cyclomatic complexity, 4. Their cognitive comp
 Nested code makes the reader hold more context, so each nesting level adds to the score. complexipy implements the [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/) metric by G. Ann Campbell for Python. [How scores are calculated](understanding-scores.md)
 
 ## Quick Start
+
+<p align="center">
+  <img src="img/demo.gif" alt="complexipy scores each function in checkout.py, fails apply_discount at 14 against a limit of 10, and suggests extracting a helper function">
+</p>
 
 ### Command Line
 
