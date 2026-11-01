@@ -171,7 +171,12 @@ Every editor uses `complexipy lsp`, a language server with inlay hints, hover, a
 
 ## Learn More
 
-- [Usage Guide](https://complexipy.com/usage-guide/) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
+- [Usage Guide](https://complexipy.com/usage-guide/) - installation, the basic CLI workflow, and troubleshooting
+- [Adopting in an Existing Codebase](https://complexipy.com/adoption/) - baseline, gate new code, then lower the threshold
+- [Configuration](https://complexipy.com/configuration/) - configuration files and the cache
+- [Diff and Snapshots](https://complexipy.com/diff-and-snapshots/) - complexity diff and snapshot baselines
+- [Ignores and Rule Selection](https://complexipy.com/ignores/) - inline ignores and rule selection
+- [CLI Options](https://complexipy.com/cli-reference/) - every CLI flag
 - [Editor Integration](https://complexipy.com/editors/) - the language server, inlay hints, and the VS Code, Neovim, and Zed setup
 - [API Reference](https://complexipy.com/api-reference/) - the complete Python API
 - [Understanding Scores](https://complexipy.com/understanding-scores/) - how the scoring algorithm works

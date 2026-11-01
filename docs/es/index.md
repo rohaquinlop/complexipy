@@ -217,7 +217,12 @@ No. complexipy es un proyecto independiente inspirado en la investigación de G.
 
 ## Aprende Más
 
-- [Guía de Uso](usage-guide.md) - todas las flags de CLI, archivos de configuración, snapshots, diff de complejidad e ignores en línea
+- [Guía de Uso](usage-guide.md) - instalación, el flujo básico de la CLI y solución de problemas
+- [Adoptar en una Base de Código Existente](adoption.md) - línea base, bloquear código nuevo y luego bajar el umbral
+- [Configuración](configuration.md) - archivos de configuración y la caché
+- [Diff y Snapshots](diff-and-snapshots.md) - diff de complejidad y snapshots base
+- [Ignorados y Selección de Reglas](ignores.md) - ignorados en línea y selección de reglas
+- [Opciones de CLI](cli-reference.md) - todas las flags de CLI
 - [Integración con Editores](editors.md) - el servidor de lenguaje, los inlay hints y la configuración de VS Code, Neovim y Zed
 - [Referencia de la API](api-reference.md) - la API completa de Python
 - [Qué Significan las Puntuaciones](understanding-scores.md) - cómo funciona el algoritmo de puntuación

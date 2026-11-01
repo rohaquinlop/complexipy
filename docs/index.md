@@ -217,7 +217,12 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 
 ## Learn More
 
-- [Usage Guide](usage-guide.md) - every CLI flag, configuration files, snapshots, complexity diff, and inline ignores
+- [Usage Guide](usage-guide.md) - installation, the basic CLI workflow, and troubleshooting
+- [Adopting in an Existing Codebase](adoption.md) - baseline, gate new code, then lower the threshold
+- [Configuration](configuration.md) - configuration files and the cache
+- [Diff and Snapshots](diff-and-snapshots.md) - complexity diff and snapshot baselines
+- [Ignores and Rule Selection](ignores.md) - inline ignores and rule selection
+- [CLI Options](cli-reference.md) - every CLI flag
 - [Editor Integration](editors.md) - the language server, inlay hints, and the VS Code, Neovim, and Zed setup
 - [API Reference](api-reference.md) - the complete Python API
 - [Understanding Scores](understanding-scores.md) - how the scoring algorithm works
