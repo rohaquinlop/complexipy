@@ -113,8 +113,8 @@ for func in result.functions:
 ## Features
 
 - **Cognitive complexity scores** that follow G. Ann Campbell's paper. [How scores work](https://complexipy.com/understanding-scores/)
-- **Gate only what a change makes worse**: `--diff` and `--staged` compare each function with a git reference. [Complexity diff](https://complexipy.com/usage-guide/#complexity-diff)
-- **Snapshot baselines**: record the current state of an existing codebase, then fail only on new or worse functions. [Snapshots](https://complexipy.com/usage-guide/#snapshot-baselines)
+- **Gate only what a change makes worse**: `--diff` and `--staged` compare each function with a git reference. [Complexity diff](https://complexipy.com/diff-and-snapshots/#complexity-diff)
+- **Snapshot baselines**: record the current state of an existing codebase, then fail only on new or worse functions. [Snapshots](https://complexipy.com/diff-and-snapshots/#snapshot-baselines)
 - **Refactor suggestions and `--fix`**: rules such as guard clauses and extract helper, and automatic fixes where they are safe. [Refactoring rules](https://complexipy.com/refactoring-rules/)
 - **Output formats**: JSON, CSV, SARIF for GitHub code scanning, and GitLab Code Quality. [Output formats](https://complexipy.com/usage-guide/#output-formats)
 - **Language server**: inlay hints, hover, and warnings in VS Code, Neovim, and Zed. [Editor integration](https://complexipy.com/editors/)

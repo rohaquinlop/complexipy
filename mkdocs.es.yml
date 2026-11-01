@@ -12,19 +12,25 @@ site_dir: site/es
 nav:
   - Inicio: index.md
   - Primeros Pasos:
-      - Guía de Uso: usage-guide.md
+      - Instalación e Inicio Rápido: usage-guide.md
+  - Guías:
+      - Configuración: configuration.md
+      - Diff y Snapshots: diff-and-snapshots.md
+      - Ignorados y Selección de Reglas: ignores.md
+      - Sugerencias de Refactorización y --fix: refactoring-rules.md
+      - CI/CD: ci.md
       - Integración con Editores: editors.md
-      - Referencia de la API: api-reference.md
-      - Guía de Migración: migracion.md
-  - Registro de Cambios: changelog.md
-  - Entendiendo la Complejidad:
+  - Referencia:
+      - Opciones de CLI: cli-reference.md
+      - API de Python: api-reference.md
+  - Conceptos:
       - Qué Significan las Puntuaciones: understanding-scores.md
       - Comparación con Ruff: comparison-with-ruff.md
-  - Refactorización:
-      - Reglas de Refactorización: refactoring-rules.md
   - Acerca de:
       - Acerca de complexipy: about.md
       - Puntos de Referencia: benchmarks.md
+      - Guía de Migración: migracion.md
+      - Registro de Cambios: changelog.md
 
 theme:
   name: material

@@ -34,7 +34,7 @@ Every rule id can be turned off for a project or for one function. Use
 and `# complexipy: ignore[C007]` next to a function for one function.
 `--select C001,C007` keeps only the listed rules. A group name selects
 every rule of that category: `--ignore readability` hides C005 and C007. An inactive rule never
-appears in any output. See [Rule Selection](usage-guide.md#rule-selection).
+appears in any output. See [Rule Selection](ignores.md#rule-selection).
 
 Run `complexipy --explain C007` to print a rule's category, applicability, description, and link to its section here.
 
@@ -434,6 +434,82 @@ Nested if statements with a single body can be merged into a single if with comb
 ______________________________________________________________________
 
 ## Using Refactoring Rules
+
+### Refactor Suggestions
+
+Use `--suggest-refactors` to print a small, ranked set of deterministic refactor plans next to rich CLI results:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Sample output (abbreviated -- the real output also shows a caret-underlined span, the surrounding source, and a documentation link):
+
+```text
+      [1] C007 Merge nested if statements
+          --> sample.py:4:9
+          Category: ◆ Readability | Applicability: * Safe to apply
+          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
+
+          Suggestion: * Safe to apply
+          Merge nested conditions into `if item.active and item.ready:`
+```
+
+Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
+
+### Applying Fixable Suggestions
+
+Use `--fix` to write the fixable suggestions to the source files. A suggestion is fixable when its applicability is **Safe to apply** and its replacement is a faithful splice (`"spliceable": true` in the JSON output). That covers C002 (loop guards), C007 (collapsible if), and C005 (extract predicate) when every name its condition reads keeps its value inside a module-level helper. For C005 the fix also inserts the helper above the function (see [How `--fix` applies C005](refactoring-rules.md#how-fix-applies-c005)).
+
+```bash
+complexipy . --fix
+```
+
+`--fix` changes only functions whose complexity is above `max-complexity-allowed`, the same rule the gate uses. Every pass checks the threshold again, so a function stops changing once it passes. A function at or under the threshold keeps its suggestions in the report and is never rewritten. One run applies every fixable plan of those functions in every analyzed file and repeats pass by pass, up to 8 passes, until no fixable plan remains; a later pass labels its diff `pass 2:`. For each fixed file the run prints a syntax-highlighted unified diff of the applied changes, with line numbers, one context line per hunk, and the rule that fired, and then a summary of fixed and skipped fixes. The summary shows the reduction per fix as `(-3 complexity)`, with a tilde before the number (`(- ~3 complexity)`) when the number is estimated. Summary lines use the file's line numbers from before the run, in every pass; a fix inside a region that an earlier pass rewrote reports that region's lines. When nothing is fixable the run prints `No fixes to apply.` The report and every gate measure the state after the fixes. Re-analyzing a fixed file shows the finding is gone and the complexity dropped by the plan's measured reduction.
+
+`--fix --dry-run` previews the same changes: it prints only the unified diff and writes nothing, not even the cache or the snapshot. `--fix` runs wherever you are: uncommitted changes, untracked files, and a missing git repository never block it, and no extra flag is needed. A fix keeps the file's line endings and its trailing newline. Per-rule filtering rides on `--select` and `--ignore`.
+
+`--fix` rewrites only regular files inside the directory it runs from. It skips a symlink, and a file that changed on disk after complexipy read it. It writes a new file next to the original and renames it into place, keeping the permission bits and the group but not setuid, setgid, extended attributes, or ACLs.
+
+**JSON Output Structure:**
+
+```json
+[
+    {
+        "path": "src",
+        "file_name": "main.py",
+        "function_name": "process_data",
+        "complexity": 6,
+        "refactor_plans": [
+            {
+                "rule_id": "C007",
+                "kind": "collapsible_if",
+                "title": "Merge nested if statements",
+                "line_start": 4,
+                "line_end": 6,
+                "column_start": 9,
+                "current_complexity": 6,
+                "estimated_reduction": 2,
+                "estimated_complexity_after": 4,
+                "category": "Readability",
+                "applicability": "MachineApplicable",
+                "description": "Merge nested if statements into a single if with combined conditions",
+                "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
+                "references": [],
+                "suggestion": {
+                    "replacement": "        if item.active and item.ready:\n            total += item.value",
+                    "applicability": "MachineApplicable",
+                    "description": "Merge nested conditions into `if item.active and item.ready:`"
+                },
+                "help": null,
+                "doc_url": "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
+            }
+        ]
+    }
+]
+```
+
+JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output does not include plans, and a cell that a spreadsheet would run as a formula (one that starts with `=`, `+`, `-`, or `@`) is written with a leading `'`. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
 
 ### Command Line
 

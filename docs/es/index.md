@@ -140,7 +140,7 @@ for func in result.functions:
 
     `--diff` y `--staged` comparan cada función con una referencia de git.
 
-    [:octicons-arrow-right-24: Diff de complejidad](usage-guide.md#diff-de-complejidad)
+    [:octicons-arrow-right-24: Diff de complejidad](diff-and-snapshots.md#diff-de-complejidad)
 
 - :material-camera: **Snapshots base**
 
@@ -148,7 +148,7 @@ for func in result.functions:
 
     Registra el estado actual de una base de código existente y falla solo con funciones nuevas o que empeoran.
 
-    [:octicons-arrow-right-24: Snapshots](usage-guide.md#snapshots-base)
+    [:octicons-arrow-right-24: Snapshots](diff-and-snapshots.md#snapshots-base)
 
 - :material-auto-fix: **Sugerencias de refactorización y `--fix`**
 
