@@ -49,7 +49,7 @@ for analysis without these options.
 
 ## What is Cognitive Complexity?
 
-> Cognitive complexity measures how hard code is to understand by humans, not machines.
+> Cognitive complexity measures how hard a function's control flow is to follow. Use it to keep code easy to review and change, whether a person or an AI agent wrote it.
 
 These two functions have the same cyclomatic complexity, 4. Their cognitive complexity is different:
 

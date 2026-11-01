@@ -56,7 +56,7 @@
 
 ## ¿Qué es la Complejidad Cognitiva?
 
-> La complejidad cognitiva mide qué tan difícil es entender el código para los seres humanos, no para las máquinas.
+> La complejidad cognitiva mide qué tan difícil es seguir el flujo de control de una función. Úsala para mantener el código fácil de revisar y de cambiar, sin importar si lo escribió una persona o un agente de IA.
 
 Estas dos funciones tienen la misma complejidad ciclomática, 4. Su complejidad cognitiva es diferente:
 
