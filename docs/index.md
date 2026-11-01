@@ -27,6 +27,32 @@
   <img src="img/demo.gif" alt="complexipy scores each function in checkout.py, fails apply_discount at 14 against a limit of 10, and suggests extracting a helper function">
 </p>
 
+## Installation
+
+=== "uv tool"
+
+    ```bash
+    uv tool install complexipy
+    ```
+
+=== "uv add"
+
+    ```bash
+    uv add complexipy
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install complexipy
+    ```
+
+!!! note "Git for the diff options"
+
+    The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+    on your `PATH`. Check your version with `git --version`. Git is not required
+    for analysis without these options.
+
 ## What is Cognitive Complexity?
 
 > Cognitive complexity measures how hard code is to understand by humans, not machines.
@@ -58,32 +84,6 @@ These two functions have the same cyclomatic complexity, 4. Their cognitive comp
     ```
 
 Nested code makes the reader hold more context, so each nesting level adds to the score. complexipy implements the [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/) metric by G. Ann Campbell for Python. [How scores are calculated](understanding-scores.md)
-
-## Installation
-
-=== "uv tool"
-
-    ```bash
-    uv tool install complexipy
-    ```
-
-=== "uv add"
-
-    ```bash
-    uv add complexipy
-    ```
-
-=== "pip"
-
-    ```bash
-    pip install complexipy
-    ```
-
-!!! note "Git for the diff options"
-
-    The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
-    on your `PATH`. Check your version with `git --version`. Git is not required
-    for analysis without these options.
 
 ## Quick Start
 
@@ -173,6 +173,14 @@ for func in result.functions:
     Inlay hints, hover, and warnings in VS Code, Neovim, and Zed.
 
     [:octicons-arrow-right-24: Editor integration](editors.md)
+
+- :material-check-decagram: **GitHub Action and pre-commit hook**
+
+    ______________________________________________________________________
+
+    Run the same gate in CI and before each commit.
+
+    [:octicons-arrow-right-24: CI/CD integration](ci.md)
 
 </div>
 

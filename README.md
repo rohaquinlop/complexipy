@@ -29,6 +29,20 @@
   <img src="https://raw.githubusercontent.com/rohaquinlop/complexipy/refs/heads/main/docs/img/demo.gif" alt="complexipy scores each function in checkout.py, fails apply_discount at 14 against a limit of 10, and suggests extracting a helper function">
 </p>
 
+## Installation
+
+```bash
+uv tool install complexipy
+# or
+uv add complexipy
+# or
+pip install complexipy
+```
+
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
+
 ## What is Cognitive Complexity?
 
 > Cognitive complexity measures how hard code is to understand by humans, not machines.
@@ -58,20 +72,6 @@ def example2(a, b, c):
 ```
 
 Nested code makes the reader hold more context, so each nesting level adds to the score. complexipy implements the [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/) metric by G. Ann Campbell for Python. [How scores are calculated](https://complexipy.com/understanding-scores/)
-
-## Installation
-
-```bash
-uv tool install complexipy
-# or
-uv add complexipy
-# or
-pip install complexipy
-```
-
-The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
-on your `PATH`. Check your version with `git --version`. Git is not required
-for analysis without these options.
 
 ## Quick Start
 

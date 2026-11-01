@@ -27,6 +27,32 @@
   <img src="img/demo.gif" alt="complexipy puntúa cada función de checkout.py, marca apply_discount como fallida con 14 frente a un límite de 10 y sugiere extraer una función auxiliar">
 </p>
 
+## Instalación
+
+=== "uv tool"
+
+    ```bash
+    uv tool install complexipy
+    ```
+
+=== "uv add"
+
+    ```bash
+    uv add complexipy
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install complexipy
+    ```
+
+!!! note "Git para las opciones de diff"
+
+    Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+    en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+    para el análisis sin estas opciones.
+
 ## ¿Qué es la Complejidad Cognitiva?
 
 > La complejidad cognitiva mide qué tan difícil es entender el código para los seres humanos, no para las máquinas.
@@ -58,32 +84,6 @@ Estas dos funciones tienen la misma complejidad ciclomática, 4. Su complejidad 
     ```
 
 El código anidado obliga a quien lo lee a mantener más contexto, así que cada nivel de anidamiento suma a la puntuación. complexipy implementa para Python la métrica de [Complejidad Cognitiva](https://www.sonarsource.com/resources/cognitive-complexity/) de G. Ann Campbell. [Cómo se calculan las puntuaciones](understanding-scores.md)
-
-## Instalación
-
-=== "uv tool"
-
-    ```bash
-    uv tool install complexipy
-    ```
-
-=== "uv add"
-
-    ```bash
-    uv add complexipy
-    ```
-
-=== "pip"
-
-    ```bash
-    pip install complexipy
-    ```
-
-!!! note "Git para las opciones de diff"
-
-    Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
-    en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
-    para el análisis sin estas opciones.
 
 ## Inicio Rápido
 
@@ -173,6 +173,14 @@ for func in result.functions:
     Inlay hints, hover y advertencias en VS Code, Neovim y Zed.
 
     [:octicons-arrow-right-24: Integración con editores](editors.md)
+
+- :material-check-decagram: **GitHub Action y hook de pre-commit**
+
+    ______________________________________________________________________
+
+    Ejecuta el mismo control en CI y antes de cada commit.
+
+    [:octicons-arrow-right-24: Integración con CI/CD](ci.md)
 
 </div>
 
