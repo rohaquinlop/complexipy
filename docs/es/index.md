@@ -20,6 +20,10 @@
   </p>
 </div>
 
+<p align="center">
+  <img src="img/demo.gif" alt="complexipy puntúa cada función de checkout.py, marca apply_discount como fallida con 14 frente a un límite de 10 y sugiere extraer una función auxiliar">
+</p>
+
 ## ¿Qué es la Complejidad Cognitiva?
 
 > La complejidad cognitiva mide qué tan difícil es entender el código para los seres humanos, no para las máquinas.

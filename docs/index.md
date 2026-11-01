@@ -20,6 +20,10 @@
   </p>
 </div>
 
+<p align="center">
+  <img src="img/demo.gif" alt="complexipy scores each function in checkout.py, fails apply_discount at 14 against a limit of 10, and suggests extracting a helper function">
+</p>
+
 ## What is Cognitive Complexity?
 
 > Cognitive complexity measures how hard code is to understand by humans, not machines.
