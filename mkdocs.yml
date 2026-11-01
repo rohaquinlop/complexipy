@@ -11,6 +11,7 @@ nav:
   - Home: index.md
   - Get Started:
       - Installation and Quick Start: usage-guide.md
+      - Adopting in an Existing Codebase: adoption.md
   - Guides:
       - Configuration: configuration.md
       - Diff and Snapshots: diff-and-snapshots.md

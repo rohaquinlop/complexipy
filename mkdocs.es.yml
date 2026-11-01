@@ -13,6 +13,7 @@ nav:
   - Inicio: index.md
   - Primeros Pasos:
       - Instalación e Inicio Rápido: usage-guide.md
+      - Adoptar en una Base de Código Existente: adoption.md
   - Guías:
       - Configuración: configuration.md
       - Diff y Snapshots: diff-and-snapshots.md
