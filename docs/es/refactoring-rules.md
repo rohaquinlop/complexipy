@@ -36,7 +36,7 @@ y `# complexipy: ignore[C007]` junto a una función para una función.
 grupo elige todas las reglas de esa categoría: `--ignore readability`
 oculta C005 y C007. Una regla inactiva
 nunca aparece en ninguna salida. Ver
-[Selección de Reglas](usage-guide.md#selecci%C3%B3n-de-reglas).
+[Selección de Reglas](ignores.md#seleccion-de-reglas).
 
 Ejecuta `complexipy --explain C007` para imprimir la categoría, la aplicabilidad, la descripción y el enlace a la sección de una regla en esta página.
 
@@ -437,6 +437,82 @@ Las sentencias `if` anidadas con un único cuerpo pueden combinarse en un único
 ______________________________________________________________________
 
 ## Uso de las Reglas de Refactorización
+
+### Sugerencias de Refactorización
+
+Usa `--suggest-refactors` para imprimir un conjunto pequeño y ordenado de planes deterministas de refactorización junto a los resultados enriquecidos de la CLI:
+
+```bash
+complexipy . --failed --suggest-refactors
+```
+
+Salida de ejemplo (abreviada -- la salida real también muestra un tramo subrayado con acentos circunflejos, el código fuente circundante y un enlace a la documentación):
+
+```text
+      [1] C007 Merge nested if statements
+          --> sample.py:4:9
+          Category: ◆ Readability | Applicability: * Safe to apply
+          Lines 4-6 -> Estimated reduction: -2 complexity (6 -> 4)
+
+          Suggestion: * Safe to apply
+          Merge nested conditions into `if item.active and item.ready:`
+```
+
+Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
+
+### Aplicar Sugerencias Aplicables
+
+Usa `--fix` para escribir las sugerencias aplicables en los archivos fuente. Una sugerencia es aplicable cuando su aplicabilidad es **Seguro de aplicar** y su reemplazo es un empalme fiel (`"spliceable": true` en la salida JSON). Eso cubre C002 (guardas de bucle), C007 (if plegable) y C005 (extraer predicado) cuando cada nombre que lee su condición conserva su valor dentro de un helper a nivel de módulo. Para C005 la corrección también inserta el helper encima de la función (ver [Cómo aplica `--fix` C005](refactoring-rules.md#como-aplica-fix-c005)).
+
+```bash
+complexipy . --fix
+```
+
+`--fix` solo cambia funciones cuya complejidad supera `max-complexity-allowed`, la misma regla que usa el control. Cada paso vuelve a comprobar el umbral, así que una función deja de cambiar en cuanto lo cumple. Una función en el umbral o por debajo conserva sus sugerencias en el informe y nunca se reescribe. Una ejecución aplica cada plan aplicable de esas funciones en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde delante del número (`(- ~3 complexity)`) cuando el número es estimado. Las líneas del resumen usan los números de línea del archivo anteriores a la ejecución, en cada paso; una corrección dentro de una región que un paso anterior reescribió informa las líneas de esa región. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El informe y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
+
+`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada, ni siquiera la caché o el snapshot. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
+
+`--fix` reescribe solo archivos regulares dentro del directorio desde el que se ejecuta. Omite un enlace simbólico y un archivo que cambió en disco después de que complexipy lo leyera. Escribe un archivo nuevo junto al original y lo renombra en su lugar, conservando los bits de permisos y el grupo, pero no setuid, setgid, los atributos extendidos ni las ACL.
+
+**Estructura de Salida JSON:**
+
+```json
+[
+    {
+        "path": "src",
+        "file_name": "main.py",
+        "function_name": "process_items",
+        "complexity": 6,
+        "refactor_plans": [
+            {
+                "rule_id": "C007",
+                "kind": "collapsible_if",
+                "title": "Merge nested if statements",
+                "line_start": 4,
+                "line_end": 6,
+                "column_start": 9,
+                "current_complexity": 6,
+                "estimated_reduction": 2,
+                "estimated_complexity_after": 4,
+                "category": "Readability",
+                "applicability": "MachineApplicable",
+                "description": "Merge nested if statements into a single if with combined conditions",
+                "explanation": "Nested if statements with a single body can be merged into a single if with combined conditions using 'and'. This reduces nesting and improves readability.",
+                "references": [],
+                "suggestion": {
+                    "replacement": "        if item.active and item.ready:\n            total += item.value",
+                    "applicability": "MachineApplicable",
+                    "description": "Merge nested conditions into `if item.active and item.ready:`"
+                },
+                "help": null,
+                "doc_url": "https://complexipy.com/refactoring-rules/#c007-collapsible-if"
+            }
+        ]
+    }
+]
+```
+
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
 
 ### Línea de Comandos
 

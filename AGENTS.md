@@ -22,7 +22,7 @@ cargo check -p complexipy-core --no-default-features
 cargo check -p complexipy-wasm --target wasm32-unknown-unknown
 cargo clippy --manifest-path zed/Cargo.toml --target wasm32-wasip2  # Zed extension
 uv run complexipy . --diff main --max-complexity-allowed 15  # run the tool
-./benchmarks/benchmark-cli.sh                       # corpus and scaling guard
+./benchmarks/benchmark-cli.sh; ./benchmarks/benchmark-competitors.sh  # timing, README chart
 ./build-wasm.sh                                     # wasm-pack -> web/wasm/
 ./serve-web-version.sh                              # serve web/ on :8080
 complexipy lsp                                      # stdio LSP server

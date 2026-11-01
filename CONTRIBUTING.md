@@ -44,6 +44,17 @@ uv run ruff check .
 uv run ruff format .
 ```
 
+## Regenerating the Demo GIF
+
+`docs/img/demo.tape` is a [VHS](https://github.com/charmbracelet/vhs) script that records `docs/img/demo.gif` and `docs/es/img/demo.gif` from `tests/fixtures/demo/`. Rebuild the extension, then run it from the repository root:
+
+```bash
+uv run maturin develop
+vhs docs/img/demo.tape
+```
+
+Without VHS installed, `nix shell nixpkgs#vhs -c vhs docs/img/demo.tape` runs it once.
+
 ## Pull Requests
 
 - PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description` (e.g., `fix(diff): resolve path for nested invocation`). This is enforced by CI.

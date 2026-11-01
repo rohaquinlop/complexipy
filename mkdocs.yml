@@ -9,20 +9,27 @@ edit_uri: edit/main/docs/
 # Navigation structure
 nav:
   - Home: index.md
-  - Getting Started:
-      - Usage Guide: usage-guide.md
+  - Get Started:
+      - Installation and Quick Start: usage-guide.md
+      - Adopting in an Existing Codebase: adoption.md
+  - Guides:
+      - Configuration: configuration.md
+      - Diff and Snapshots: diff-and-snapshots.md
+      - Ignores and Rule Selection: ignores.md
+      - Refactor Suggestions and --fix: refactoring-rules.md
+      - CI/CD: ci.md
       - Editor Integration: editors.md
-      - API Reference: api-reference.md
-      - Migration Guide: migration.md
-  - Changelog: changelog.md
-  - Understanding Complexity:
+  - Reference:
+      - CLI Options: cli-reference.md
+      - Python API: api-reference.md
+  - Concepts:
       - What Scores Mean: understanding-scores.md
       - Comparison with Ruff: comparison-with-ruff.md
-  - Refactoring:
-      - Refactoring Rules: refactoring-rules.md
   - About:
       - About complexipy: about.md
       - Benchmarks: benchmarks.md
+      - Migration Guide: migration.md
+      - Changelog: changelog.md
 
 theme:
   name: material
