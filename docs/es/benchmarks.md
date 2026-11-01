@@ -70,3 +70,22 @@ bash benchmarks/benchmark-cli.sh
   Python y sus bibliotecas de presentación ya no están en el proceso. En
   django alcanza unos 60 MB más: analiza los archivos en paralelo y
   reserva memoria con mimalloc, que cambian memoria por velocidad.
+
+## Comparación con otras herramientas de complejidad cognitiva
+
+<p align="center">
+  <img src="../img/competitors-light.svg#only-light" alt="Gráfico de barras del tiempo de pared para puntuar la complejidad cognitiva del código de Django con complexipy, flake8-cognitive-complexity y pylint-cognitive-complexity">
+  <img src="../img/competitors-dark.svg#only-dark" alt="Gráfico de barras del tiempo de pared para puntuar la complejidad cognitiva del código de Django con complexipy, flake8-cognitive-complexity y pylint-cognitive-complexity">
+</p>
+
+Esta comparación mide las herramientas de Python que calculan la misma métrica, la complejidad cognitiva, sobre el árbol completo de django. Las herramientas que calculan la complejidad ciclomática, como radon o la regla `C901` de Ruff, miden otra métrica y no se incluyen.
+
+- **flake8-cognitive-complexity** se ejecuta como plugin de flake8 con solo `CCR001` seleccionada.
+- **pylint-cognitive-complexity** se ejecuta como plugin de pylint con todas las demás comprobaciones desactivadas. pylint usa un solo núcleo por defecto.
+- Cada herramienta usa un umbral de 15, se ejecuta con su paralelismo por defecto e ignora cualquier configuración del proyecto. Todas las implementaciones siguen el mismo artículo, pero no reportan la misma puntuación para cada función.
+
+```bash
+bash benchmarks/benchmark-competitors.sh
+```
+
+--8<-- "benchmarks/competitors.md"

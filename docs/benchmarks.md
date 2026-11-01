@@ -62,3 +62,22 @@ bash benchmarks/benchmark-cli.sh
   libraries are gone from the process. On django it peaks about 60 MB
   higher: it analyzes files in parallel and allocates with mimalloc, which
   trade memory for speed.
+
+## Compared with other cognitive complexity tools
+
+<p align="center">
+  <img src="../img/competitors-light.svg#only-light" alt="Bar chart of the wall time to score cognitive complexity of the Django codebase with complexipy, flake8-cognitive-complexity, and pylint-cognitive-complexity">
+  <img src="../img/competitors-dark.svg#only-dark" alt="Bar chart of the wall time to score cognitive complexity of the Django codebase with complexipy, flake8-cognitive-complexity, and pylint-cognitive-complexity">
+</p>
+
+This comparison times the Python tools that compute the same metric, cognitive complexity, on the full django tree. Tools that compute cyclomatic complexity, such as radon or Ruff's `C901`, measure a different metric and are not included.
+
+- **flake8-cognitive-complexity** runs as a flake8 plugin with only `CCR001` selected.
+- **pylint-cognitive-complexity** runs as a pylint plugin with every other check disabled. pylint uses one core by default.
+- Every tool uses a threshold of 15, runs with its default parallelism, and ignores any project configuration. Each implementation follows the same paper, but they do not report the same score for every function.
+
+```bash
+bash benchmarks/benchmark-competitors.sh
+```
+
+--8<-- "benchmarks/competitors.md"
