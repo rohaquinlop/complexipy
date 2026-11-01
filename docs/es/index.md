@@ -5,6 +5,8 @@
 
 <p><em>Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.</em></p>
 
+<p>Puntúa los 2.929 archivos de Django en unos 0,45 s en un Apple M1 Pro. <a href="benchmarks/">Puntos de referencia</a></p>
+
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
     <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
@@ -14,6 +16,7 @@
 <p>
     <a href="#instalación">Instalación</a> •
     <a href="#inicio-rápido">Inicio Rápido</a> •
+    <a href="#funcionalidades">Funcionalidades</a> •
     <a href="#integraciones">Integraciones</a> •
     <a href="#aprende-más">Aprende Más</a> •
     <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
@@ -28,38 +31,59 @@
 
 > La complejidad cognitiva mide qué tan difícil es entender el código para los seres humanos, no para las máquinas.
 
-A diferencia de métricas tradicionales como la complejidad ciclomática, la complejidad cognitiva tiene en cuenta la profundidad de anidamiento y los patrones de flujo de control que afectan la comprensión humana. Inspirado en la [investigación de G. Ann Campbell](https://www.sonarsource.com/resources/cognitive-complexity/) en SonarSource, complexipy ofrece una implementación rápida y precisa para Python.
+Estas dos funciones tienen la misma complejidad ciclomática, 4. Su complejidad cognitiva es diferente:
 
-**Beneficios clave:**
+=== "Plana: puntuación 3"
 
-- **Orientado al ser humano** - Penaliza el anidamiento, las interrupciones de flujo y la lógica difícil de comprender
-- **Perspectivas accionables** - Identifica código genuinamente difícil de mantener
-- **Diferente a la ciclomática** - Mide la legibilidad mientras que la ciclomática mide la densidad estructural, de pruebas y de ramas
+    ```python
+    def example1(a, b, c):
+        if a:        # +1
+            return 1
+        if b:        # +1
+            return 2
+        if c:        # +1
+            return 3
+        return 4
+    ```
 
-## Preguntas Frecuentes
+=== "Anidada: puntuación 6"
 
-**[¿Cómo se calcula la complejidad?](understanding-scores.md)**
-Aprende sobre el algoritmo de puntuación, qué aporta cada estructura de control y cómo afecta el anidamiento a la puntuación final.
+    ```python
+    def example2(a, b, c):
+        if a:        # +1
+            if b:    # +2 (1 + nesting_level)
+                if c:  # +3 (1 + nesting_level)
+                    return 1
+        return 4
+    ```
 
-**[¿Cómo se compara esto con PLR0912 de Ruff?](comparison-with-ruff.md)**
-Comprende las diferencias clave entre la complejidad ciclomática (Ruff) y la complejidad cognitiva (complexipy), y por qué podrías querer usar ambas.
-
-**[¿Es esto un producto de SonarSource/Sonar?](about.md)**
-No. complexipy es un proyecto independiente inspirado en la investigación de G. Ann Campbell, pero no está afiliado ni respaldado por SonarSource.
+El código anidado obliga a quien lo lee a mantener más contexto, así que cada nivel de anidamiento suma a la puntuación. complexipy implementa para Python la métrica de [Complejidad Cognitiva](https://www.sonarsource.com/resources/cognitive-complexity/) de G. Ann Campbell. [Cómo se calculan las puntuaciones](understanding-scores.md)
 
 ## Instalación
 
-```bash
-pip install complexipy
-# o
-uv add complexipy
-# o
-uv tool install complexipy
-```
+=== "uv tool"
 
-Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
-en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
-para el análisis sin estas opciones.
+    ```bash
+    uv tool install complexipy
+    ```
+
+=== "uv add"
+
+    ```bash
+    uv add complexipy
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install complexipy
+    ```
+
+!!! note "Git para las opciones de diff"
+
+    Las opciones `--diff`, `--diff-only` y `--staged` requieren Git 2.30 o posterior
+    en tu `PATH`. Comprueba tu versión con `git --version`. Git no es necesario
+    para el análisis sin estas opciones.
 
 ## Inicio Rápido
 
@@ -91,54 +115,105 @@ complexipy . --exclude "tests/**"
 from complexipy import file_complexity
 
 # Analiza un archivo
-result = file_complexity("app.py", check_script=True)
+result = file_complexity("app.py")
 print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
 ```
 
+## Funcionalidades
+
+<div class="grid cards" markdown>
+
+- :material-brain: **Puntuaciones de complejidad cognitiva**
+
+    ______________________________________________________________________
+
+    Puntuaciones que siguen el artículo de G. Ann Campbell: anidamiento, interrupciones de flujo y secuencias booleanas.
+
+    [:octicons-arrow-right-24: Cómo funcionan las puntuaciones](understanding-scores.md)
+
+- :material-source-branch: **Bloquea solo lo que un cambio empeora**
+
+    ______________________________________________________________________
+
+    `--diff` y `--staged` comparan cada función con una referencia de git.
+
+    [:octicons-arrow-right-24: Diff de complejidad](usage-guide.md#diff-de-complejidad)
+
+- :material-camera: **Snapshots base**
+
+    ______________________________________________________________________
+
+    Registra el estado actual de una base de código existente y falla solo con funciones nuevas o que empeoran.
+
+    [:octicons-arrow-right-24: Snapshots](usage-guide.md#snapshots-base)
+
+- :material-auto-fix: **Sugerencias de refactorización y `--fix`**
+
+    ______________________________________________________________________
+
+    Reglas como cláusulas de guarda y extraer función auxiliar, y correcciones automáticas donde son seguras.
+
+    [:octicons-arrow-right-24: Reglas de refactorización](refactoring-rules.md)
+
+- :material-file-export: **Formatos de salida**
+
+    ______________________________________________________________________
+
+    JSON, CSV, SARIF para GitHub code scanning y GitLab Code Quality.
+
+    [:octicons-arrow-right-24: Formatos de salida](usage-guide.md#formatos-de-salida)
+
+- :material-code-braces: **Servidor de lenguaje**
+
+    ______________________________________________________________________
+
+    Inlay hints, hover y advertencias en VS Code, Neovim y Zed.
+
+    [:octicons-arrow-right-24: Integración con editores](editors.md)
+
+</div>
+
+## Preguntas Frecuentes
+
+**[¿Cómo se calcula la complejidad?](understanding-scores.md)**
+Aprende sobre el algoritmo de puntuación, qué aporta cada estructura de control y cómo afecta el anidamiento a la puntuación final.
+
+**[¿Cómo se compara esto con PLR0912 de Ruff?](comparison-with-ruff.md)**
+Comprende las diferencias clave entre la complejidad ciclomática (Ruff) y la complejidad cognitiva (complexipy), y por qué podrías querer usar ambas.
+
+**[¿Es esto un producto de SonarSource/Sonar?](about.md)**
+No. complexipy es un proyecto independiente inspirado en la investigación de G. Ann Campbell, pero no está afiliado ni respaldado por SonarSource.
+
 ## Integraciones
 
-<details markdown="1">
-<summary><strong>🔧 GitHub Actions</strong></summary>
+=== "GitHub Actions"
 
-```yaml
-- uses: rohaquinlop/complexipy-action@v8
-  with:
-      paths: .
-      max_complexity_allowed: 10
-      output_json: true
-```
+    ```yaml
+    - uses: rohaquinlop/complexipy-action@v8
+      with:
+          paths: .
+          max_complexity_allowed: 10
+          output_json: true
+    ```
 
-</details>
+=== "Hook de Pre-commit"
 
-<details markdown="1">
-<summary><strong>🪝 Hook de Pre-commit</strong></summary>
+    ```yaml
+    repos:
+        - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+          rev: v8.3.0
+          hooks:
+              - id: complexipy
+    ```
 
-```yaml
-repos:
-    - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v8.3.0
-      hooks:
-          - id: complexipy
-```
+=== "Editores"
 
-</details>
+    Todos los editores usan `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias que se actualizan mientras escribes. Instala `complexipy` primero (`uv tool install complexipy`).
 
-<details markdown="1">
-<summary><strong>🔌 Extensión de VS Code</strong></summary>
-
-Instálala desde el [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) o desde [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). Ejecuta el servidor de lenguaje de complexipy, así que instala `complexipy` también (`uv tool install complexipy`). Los inlay hints, el hover y las advertencias se actualizan mientras escribes.
-
-</details>
-
-<details markdown="1">
-<summary><strong>🧩 Integración con Editores</strong></summary>
-
-Todos los editores usan `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias. Consulta [Integración con Editores](editors.md) para la configuración de VS Code, Neovim y Zed.
-
-</details>
+    Para VS Code, instala la extensión desde el [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) o desde [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). Para Neovim y Zed, consulta [Integración con Editores](editors.md).
 
 ## Aprende Más
 
@@ -156,7 +231,6 @@ ______________________________________________________________________
 
 <p style="margin: 0.25rem 0"><sub>Inspirado en la investigación de <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Complejidad Cognitiva</a> de G. Ann Campbell</sub></p>
 <p style="margin: 0.25rem 0"><sub>complexipy es un proyecto independiente y no está afiliado ni respaldado por SonarSource</sub></p>
-<p style="margin: 0.25rem 0"><strong><a href="https://complexipy.com/">Documentación</a> • <a href="https://pypi.org/project/complexipy/">PyPI</a> • <a href="https://github.com/rohaquinlop/complexipy">GitHub</a></strong></p>
 <p style="margin: 0.25rem 0"><sub>Desarrollado con ❤️ por <a href="https://github.com/rohaquinlop">@rohaquinlop</a> y <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">colaboradores</a></sub></p>
 
 </div>

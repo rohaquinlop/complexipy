@@ -5,6 +5,8 @@
 
 <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
+<p>Scores all 2,929 files of Django in about 0.45 s on an Apple M1 Pro. <a href="https://complexipy.com/benchmarks/">Benchmarks</a></p>
+
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
     <a href="https://pepy.tech/project/complexipy"><img src="https://static.pepy.tech/badge/complexipy" alt="Downloads"></a>
@@ -14,6 +16,7 @@
 <p>
     <a href="#installation">Installation</a> •
     <a href="#quick-start">Quick Start</a> •
+    <a href="#features">Features</a> •
     <a href="#integrations">Integrations</a> •
     <a href="#learn-more">Learn More</a> •
     <a href="https://complexipy.com/">Documentation</a> •
@@ -30,33 +33,40 @@
 
 > Cognitive complexity measures how hard code is to understand by humans, not machines.
 
-Unlike traditional metrics like cyclomatic complexity, cognitive complexity accounts for nesting depth and control flow patterns that affect human comprehension. Inspired by [G. Ann Campbell's research](https://www.sonarsource.com/resources/cognitive-complexity/) at SonarSource, complexipy provides a fast, accurate implementation for Python.
+These two functions have the same cyclomatic complexity, 4. Their cognitive complexity is different:
 
-**Key benefits:**
+```python
+# Cognitive complexity: 3
+def example1(a, b, c):
+    if a:        # +1
+        return 1
+    if b:        # +1
+        return 2
+    if c:        # +1
+        return 3
+    return 4
+```
 
-- **Human-focused** - Penalizes nesting, flow breaks, and human-unfriendly logic
-- **Actionable insights** - Identifies genuinely hard-to-maintain code
-- **Different from cyclomatic** - Measures readability while cyclomatic measures structural, testing, and branch density
+```python
+# Cognitive complexity: 6
+def example2(a, b, c):
+    if a:        # +1
+        if b:    # +2 (1 + nesting_level)
+            if c:  # +3 (1 + nesting_level)
+                return 1
+    return 4
+```
 
-## Common Questions
-
-**[How is complexity calculated?](https://complexipy.com/understanding-scores/)**
-Learn about the scoring algorithm, what each control structure contributes, and how nesting affects the final score.
-
-**[How does this compare to Ruff's PLR0912?](https://complexipy.com/comparison-with-ruff/)**
-Understand the key differences between cyclomatic complexity (Ruff) and cognitive complexity (complexipy), and why you might want to use both.
-
-**[Is this a SonarSource/Sonar product?](https://complexipy.com/about/)**
-No. complexipy is an independent project inspired by G. Ann Campbell's research, but it's not affiliated with or endorsed by SonarSource.
+Nested code makes the reader hold more context, so each nesting level adds to the score. complexipy implements the [Cognitive Complexity](https://www.sonarsource.com/resources/cognitive-complexity/) metric by G. Ann Campbell for Python. [How scores are calculated](https://complexipy.com/understanding-scores/)
 
 ## Installation
 
 ```bash
-pip install complexipy
+uv tool install complexipy
 # or
 uv add complexipy
 # or
-uv tool install complexipy
+pip install complexipy
 ```
 
 The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
@@ -93,12 +103,33 @@ complexipy . --exclude "tests/**"
 from complexipy import file_complexity
 
 # Analyze a file
-result = file_complexity("app.py", check_script=True)
+result = file_complexity("app.py")
 print(f"File complexity: {result.complexity}")
 
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
 ```
+
+## Features
+
+- **Cognitive complexity scores** that follow G. Ann Campbell's paper. [How scores work](https://complexipy.com/understanding-scores/)
+- **Gate only what a change makes worse**: `--diff` and `--staged` compare each function with a git reference. [Complexity diff](https://complexipy.com/usage-guide/#complexity-diff)
+- **Snapshot baselines**: record the current state of an existing codebase, then fail only on new or worse functions. [Snapshots](https://complexipy.com/usage-guide/#snapshot-baselines)
+- **Refactor suggestions and `--fix`**: rules such as guard clauses and extract helper, and automatic fixes where they are safe. [Refactoring rules](https://complexipy.com/refactoring-rules/)
+- **Output formats**: JSON, CSV, SARIF for GitHub code scanning, and GitLab Code Quality. [Output formats](https://complexipy.com/usage-guide/#output-formats)
+- **Language server**: inlay hints, hover, and warnings in VS Code, Neovim, and Zed. [Editor integration](https://complexipy.com/editors/)
+- **GitHub Action and pre-commit hook** for CI. [Integrations](#integrations)
+
+## Common Questions
+
+**[How is complexity calculated?](https://complexipy.com/understanding-scores/)**
+Learn about the scoring algorithm, what each control structure contributes, and how nesting affects the final score.
+
+**[How does this compare to Ruff's PLR0912?](https://complexipy.com/comparison-with-ruff/)**
+Understand the key differences between cyclomatic complexity (Ruff) and cognitive complexity (complexipy), and why you might want to use both.
+
+**[Is this a SonarSource/Sonar product?](https://complexipy.com/about/)**
+No. complexipy is an independent project inspired by G. Ann Campbell's research, but it's not affiliated with or endorsed by SonarSource.
 
 ## Integrations
 
@@ -129,16 +160,12 @@ repos:
 </details>
 
 <details>
-<summary><strong>🔌 VS Code Extension</strong></summary>
+<summary><strong>🧩 Editors</strong></summary>
 
-Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) or [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). It runs the complexipy language server, so install `complexipy` too (`uv tool install complexipy`). Inlay hints, hover, and warnings update as you type.
+Every editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings that update as you type. Install `complexipy` first (`uv tool install complexipy`).
 
-</details>
-
-<details>
-<summary><strong>🧩 Editor Integration</strong></summary>
-
-Every editor uses `complexipy lsp`, a language server with inlay hints, hover, and warnings. See [Editor Integration](https://complexipy.com/editors/) for the VS Code, Neovim, and Zed setup.
+- **VS Code**: install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) or [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy).
+- **Neovim and Zed**: see [Editor Integration](https://complexipy.com/editors/).
 
 </details>
 
