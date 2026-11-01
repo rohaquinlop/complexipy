@@ -70,7 +70,7 @@ See [CI/CD Integration](ci.md) for the GitHub Action, the pre-commit hook, and G
 
 ## 4. Show scores in the editor
 
-The language server shows each function's score as you type, so a function gets attention before it reaches CI. See [Editor Integration](editors.md) for VS Code, Neovim, and Zed.
+The language server shows the score of each function above the threshold as you type, so a function gets attention before it reaches CI. Set `inlay-hints = "always"` in the [language server settings](configuration.md#language-server-settings) to show the score of every function. See [Editor Integration](editors.md) for VS Code, Neovim, and Zed.
 
 ## 5. Reduce the backlog
 

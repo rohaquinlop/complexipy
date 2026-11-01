@@ -70,7 +70,7 @@ Consulta [Integración con CI/CD](ci.md) para la GitHub Action, el hook de pre-c
 
 ## 4. Ver las puntuaciones en el editor
 
-El servidor de lenguaje muestra la puntuación de cada función mientras escribes, así una función recibe atención antes de llegar a CI. Consulta [Integración con Editores](editors.md) para VS Code, Neovim y Zed.
+El servidor de lenguaje muestra la puntuación de cada función por encima del umbral mientras escribes, así una función recibe atención antes de llegar a CI. Establece `inlay-hints = "always"` en la [configuración del servidor de lenguaje](configuration.md#configuracion-del-servidor-de-lenguaje) para mostrar la puntuación de todas las funciones. Consulta [Integración con Editores](editors.md) para VS Code, Neovim y Zed.
 
 ## 5. Reducir el pendiente
 
