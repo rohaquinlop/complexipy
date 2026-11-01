@@ -6,14 +6,14 @@
 - OS: macOS 26.5.1
 - CPU: Apple M1 Pro
 - RAM: 16 GB
-- New CLI: complexipy 7.0.1 (built from 1699696, python 3.12.12)
+- New CLI: complexipy 8.3.0 (built from 83fbd1d, python 3.12.12)
 - Baseline CLI: 7.0.1 (PyPI, python 3.12.12)
 - uv: uv 0.10.3 (c75a0c625 2026-02-16)
 - hyperfine: hyperfine 1.20.0
 - Runs: hyperfine warmup=3 runs=5 (probe warmup=5 runs=20); RSS via /usr/bin/time -l, 3 runs, maximum
 - Modes: default, --quiet, --failed, and render (full output written to a file)
 - Scaling fixture: 285 base functions, sizes 1x/2x/4x, 5 runs each
-- Date: 2026-08-31
+- Date: 2026-11-01
 
 Corpus (shallow clones at pinned commits):
 
@@ -24,32 +24,32 @@ Corpus (shallow clones at pinned commits):
 
 ## Wall time
 
-| Workload | 8.0.0 Rust CLI | 7.0.1 Python CLI | Speedup |
+| Workload | 8.3.0 Rust CLI | 7.0.1 Python CLI | Speedup |
 | -- | -- | -- | -- |
-| requests (37 files) [default] | 0.067 s ± 0.001 s | 0.373 s ± 0.002 s | 5.56x |
-| requests (37 files) [quiet] | 0.064 s ± 0.002 s | 0.331 s ± 0.001 s | 5.16x |
-| requests (37 files) [failed] | 0.065 s ± 0.001 s | 0.343 s ± 0.002 s | 5.24x |
-| requests (37 files) [render] | 0.067 s ± 0.002 s | 0.376 s ± 0.005 s | 5.62x |
-| flask (83 files) [default] | 0.074 s ± 0.001 s | 0.474 s ± 0.002 s | 6.42x |
-| flask (83 files) [quiet] | 0.070 s ± 0.003 s | 0.406 s ± 0.002 s | 5.76x |
-| flask (83 files) [failed] | 0.073 s ± 0.001 s | 0.424 s ± 0.004 s | 5.80x |
-| flask (83 files) [render] | 0.076 s ± 0.002 s | 0.477 s ± 0.002 s | 6.32x |
-| django (2929 files) [default] | 0.445 s ± 0.002 s | 8.069 s ± 0.022 s | 18.12x |
-| django (2929 files) [quiet] | 0.272 s ± 0.003 s | 6.486 s ± 0.011 s | 23.82x |
-| django (2929 files) [failed] | 0.440 s ± 0.003 s | 6.920 s ± 0.011 s | 15.71x |
-| django (2929 files) [render] | 0.452 s ± 0.004 s | 8.115 s ± 0.026 s | 17.95x |
-| single-file probe [default] | 57.5 ms ± 1.0 ms | 231.4 ms ± 1.9 ms | 4.02x |
-| single-file probe [quiet] | 57.9 ms ± 1.3 ms | 228.2 ms ± 1.1 ms | 3.94x |
-| single-file probe [failed] | 57.6 ms ± 1.1 ms | 234.8 ms ± 6.6 ms | 4.08x |
-| single-file probe [render] | 59.9 ms ± 4.4 ms | 234.0 ms ± 4.3 ms | 3.91x |
+| requests (37 files) [default] | 0.031 s ± 0.001 s | 0.420 s ± 0.003 s | 13.40x |
+| requests (37 files) [quiet] | 0.031 s ± 0.001 s | 0.302 s ± 0.003 s | 9.62x |
+| requests (37 files) [failed] | 0.033 s ± 0.001 s | 0.338 s ± 0.004 s | 10.17x |
+| requests (37 files) [render] | 0.033 s ± 0.001 s | 0.425 s ± 0.003 s | 12.77x |
+| flask (83 files) [default] | 0.033 s ± 0.000 s | 0.479 s ± 0.006 s | 14.70x |
+| flask (83 files) [quiet] | 0.034 s ± 0.003 s | 0.318 s ± 0.005 s | 9.33x |
+| flask (83 files) [failed] | 0.038 s ± 0.001 s | 0.365 s ± 0.002 s | 9.69x |
+| flask (83 files) [render] | 0.034 s ± 0.001 s | 0.480 s ± 0.003 s | 13.96x |
+| django (2929 files) [default] | 0.202 s ± 0.002 s | 18.374 s ± 0.087 s | 90.97x |
+| django (2929 files) [quiet] | 0.186 s ± 0.002 s | 12.636 s ± 0.061 s | 68.11x |
+| django (2929 files) [failed] | 0.195 s ± 0.001 s | 13.928 s ± 0.023 s | 71.60x |
+| django (2929 files) [render] | 0.212 s ± 0.009 s | 18.585 s ± 0.061 s | 87.85x |
+| single-file probe [default] | 26.5 ms ± 1.5 ms | 87.2 ms ± 3.2 ms | 3.28x |
+| single-file probe [quiet] | 25.1 ms ± 1.2 ms | 84.7 ms ± 2.2 ms | 3.38x |
+| single-file probe [failed] | 27.4 ms ± 1.0 ms | 87.4 ms ± 2.3 ms | 3.19x |
+| single-file probe [render] | 26.3 ms ± 1.1 ms | 88.6 ms ± 1.9 ms | 3.37x |
 
 ## Scaling (synthetic fixture)
 
 | Size | Mean | Ratio | --quiet mean | Ratio | Peak RSS |
 | -- | -- | -- | -- | -- | -- |
-| 1x (3995 lines) | 62.0 ms | - | 64.7 ms | - | 69 MB |
-| 2x (7990 lines) | 68.7 ms | 1.11 | 67.7 ms | 1.05 | 73 MB |
-| 4x (15980 lines) | 82.0 ms | 1.19 | 81.6 ms | 1.21 | 82 MB |
+| 1x (3995 lines) | 28.9 ms | - | 28.9 ms | - | 26 MB |
+| 2x (7990 lines) | 29.5 ms | 1.02 | 31.3 ms | 1.08 | 29 MB |
+| 4x (15980 lines) | 36.5 ms | 1.24 | 35.0 ms | 1.12 | 37 MB |
 
 The fixture is generated deterministically by
 benchmarks/generate_scaling_fixture.py (285 base functions,
@@ -59,24 +59,24 @@ quadratic behavior.
 
 ## Peak RSS
 
-| Workload | 8.0.0 Rust CLI | 7.0.1 Python CLI |
+| Workload | 8.3.0 Rust CLI | 7.0.1 Python CLI |
 | -- | -- | -- |
-| requests (37 files) [default] | 70 MB | 106 MB |
-| requests (37 files) [quiet] | 69 MB | 105 MB |
-| requests (37 files) [failed] | 70 MB | 106 MB |
-| requests (37 files) [render] | 69 MB | 107 MB |
-| flask (83 files) [default] | 70 MB | 106 MB |
-| flask (83 files) [quiet] | 70 MB | 105 MB |
-| flask (83 files) [failed] | 70 MB | 106 MB |
-| flask (83 files) [render] | 70 MB | 106 MB |
-| django (2929 files) [default] | 106 MB | 120 MB |
-| django (2929 files) [quiet] | 107 MB | 119 MB |
-| django (2929 files) [failed] | 108 MB | 120 MB |
-| django (2929 files) [render] | 107 MB | 120 MB |
-| single-file probe [default] | 65 MB | 104 MB |
-| single-file probe [quiet] | 65 MB | 103 MB |
-| single-file probe [failed] | 65 MB | 104 MB |
-| single-file probe [render] | 65 MB | 104 MB |
+| requests (37 files) [default] | 35 MB | 39 MB |
+| requests (37 files) [quiet] | 34 MB | 38 MB |
+| requests (37 files) [failed] | 35 MB | 38 MB |
+| requests (37 files) [render] | 34 MB | 39 MB |
+| flask (83 files) [default] | 35 MB | 39 MB |
+| flask (83 files) [quiet] | 36 MB | 38 MB |
+| flask (83 files) [failed] | 35 MB | 38 MB |
+| flask (83 files) [render] | 36 MB | 39 MB |
+| django (2929 files) [default] | 198 MB | 139 MB |
+| django (2929 files) [quiet] | 198 MB | 137 MB |
+| django (2929 files) [failed] | 201 MB | 137 MB |
+| django (2929 files) [render] | 199 MB | 139 MB |
+| single-file probe [default] | 22 MB | 35 MB |
+| single-file probe [quiet] | 22 MB | 34 MB |
+| single-file probe [failed] | 22 MB | 35 MB |
+| single-file probe [render] | 22 MB | 35 MB |
 
 Notes: stdout is discarded during timing except the [render] mode,
 which writes the full output to a file; both CLIs run as bare console

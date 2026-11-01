@@ -5,7 +5,7 @@
 
 <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
-<p>Scores all 2,929 files of Django in about 0.45 s on an Apple M1 Pro. <a href="https://complexipy.com/benchmarks/">Benchmarks</a></p>
+<p>Scores all 2,929 files of Django in about 0.2 s on an Apple M1 Pro. <a href="https://complexipy.com/benchmarks/">Benchmarks</a></p>
 
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>

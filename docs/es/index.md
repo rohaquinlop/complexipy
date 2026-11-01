@@ -5,7 +5,7 @@
 
 <p><em>Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.</em></p>
 
-<p>Puntúa los 2.929 archivos de Django en unos 0,45 s en un Apple M1 Pro. <a href="benchmarks/">Puntos de referencia</a></p>
+<p>Puntúa los 2.929 archivos de Django en unos 0,2 s en un Apple M1 Pro. <a href="benchmarks/">Puntos de referencia</a></p>
 
 <p>
     <a href="https://pypi.org/project/complexipy"><img src="https://img.shields.io/pypi/v/complexipy?color=blue&style=flat-square" alt="PyPI"></a>
