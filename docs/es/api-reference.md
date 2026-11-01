@@ -2,7 +2,7 @@
 
 La API completa de Python que expone complexipy. Importa todo desde el paquete
 `complexipy`. Para ejemplos de uso, consulta la sección
-[API de Python](#api-de-python) de la guía de uso.
+[API de Python](#api-de-python) más abajo.
 
 ```text
 # Funciones principales

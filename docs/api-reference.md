@@ -2,7 +2,7 @@
 
 The complete Python API exposed by complexipy. Import everything from the
 `complexipy` package. For usage examples, see the
-[Python API](#python-api) section of the usage guide.
+[Python API](#python-api) section below.
 
 ```text
 # Core functions
