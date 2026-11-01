@@ -55,6 +55,9 @@ PRE_COMMIT_REV = re.compile(
     r"repo: https://github\.com/rohaquinlop/complexipy-pre-commit\s*\n\s*rev: (\S+)"
 )
 ACTION_REF = re.compile(r"uses: rohaquinlop/complexipy-action@(\S+)")
+MKDOCS_CONFIGS = (ROOT / "mkdocs.yml", ROOT / "mkdocs.es.yml")
+MD_IN_HTML = re.compile(r"^\s*- md_in_html\s*$", re.MULTILINE)
+DETAILS_TAG = re.compile(r"<details\b[^>]*>")
 
 
 def tracked_files() -> list[Path]:
@@ -310,4 +313,25 @@ def test_downstream_snippets_pin_the_current_release(
     assert not stale, (
         f"{snippet} snippets must pin {expected}, from the workspace "
         f"version in Cargo.toml: {stale}"
+    )
+
+
+@pytest.mark.parametrize("config", MKDOCS_CONFIGS, ids=lambda path: path.name)
+def test_docs_sites_parse_markdown_inside_html(config: Path) -> None:
+    assert MD_IN_HTML.search(config.read_text(encoding="utf-8")), (
+        f"{config.name}: enable md_in_html so Markdown inside <details> renders"
+    )
+
+
+def test_docs_details_blocks_opt_into_markdown() -> None:
+    unmarked = [
+        f"{path.relative_to(ROOT).as_posix()}: {tag}"
+        for path in documentation_files()
+        if ROOT / "docs" in path.parents
+        for tag in DETAILS_TAG.findall(tracked_text(path) or "")
+        if 'markdown="1"' not in tag
+    ]
+
+    assert not unmarked, (
+        f'<details> in docs/ needs markdown="1" to render its Markdown: {unmarked}'
     )
