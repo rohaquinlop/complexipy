@@ -96,7 +96,7 @@ for func in result.functions:
 
 ## Integraciones
 
-<details>
+<details markdown="1">
 <summary><strong>🔧 GitHub Actions</strong></summary>
 
 ```yaml
@@ -109,7 +109,7 @@ for func in result.functions:
 
 </details>
 
-<details>
+<details markdown="1">
 <summary><strong>🪝 Hook de Pre-commit</strong></summary>
 
 ```yaml
@@ -122,14 +122,14 @@ repos:
 
 </details>
 
-<details>
+<details markdown="1">
 <summary><strong>🔌 Extensión de VS Code</strong></summary>
 
 Instálala desde el [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=rohaquinlop.complexipy) o desde [OpenVSX](https://open-vsx.org/extension/rohaquinlop/complexipy). Ejecuta el servidor de lenguaje de complexipy, así que instala `complexipy` también (`uv tool install complexipy`). Los inlay hints, el hover y las advertencias se actualizan mientras escribes.
 
 </details>
 
-<details>
+<details markdown="1">
 <summary><strong>🧩 Integración con Editores</strong></summary>
 
 Todos los editores usan `complexipy lsp`, un servidor de lenguaje con inlay hints, hover y advertencias. Consulta [Integración con Editores](editors.md) para la configuración de VS Code, Neovim y Zed.
