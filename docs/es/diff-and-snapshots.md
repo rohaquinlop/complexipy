@@ -43,6 +43,8 @@ Un renombrado o un movimiento pasa el control mientras el cuerpo de la función 
 
 Cuando `--diff` o `--staged` decide el código de salida, el reporte muestra el veredicto del control. Una función que hace fallar la ejecución, REGRESSED o NEW por encima del umbral, aparece como `FAILED` y se marca `FAILS` en la columna `Gate` de la tabla del diff, y la tabla termina con una línea `Gate:` que las cuenta. Una función por encima del umbral que el control deja pasar aparece como `ALLOWED`, y `--failed` lista solo las funciones que hacen fallar la ejecución. Una ejecución con snapshot también lista como `ALLOWED` las funciones que su snapshot deja pasar.
 
+Debajo de la tabla del diff, el reporte lista cada función que un comentario de ignorado oculta ahora pero no ocultaba en la referencia: un comentario añadido a una función existente, o una función nueva añadida con uno. Cada línea da `ruta:línea`, la función y su puntuación sin tener en cuenta el comentario. La lista informa a quien revisa y nunca cambia el código de salida. Una función renombrada o movida que conservó su comentario también aparece, porque el nombre bajo el que se oculta es nuevo. `--quiet` oculta la lista, como oculta la tabla.
+
 Esto requiere `git` y una ruta dentro de un repositorio. `--diff` y
 `--diff-only` leen cada archivo del repositorio que lo contiene, así que
 una ejecución desde fuera del repositorio compara contra el mismo historial

@@ -8,6 +8,11 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- `--diff`, `--diff-only` y `--staged` listan, debajo de la tabla del diff,
+  cada función que un comentario de ignorado oculta ahora pero no ocultaba en
+  la referencia, como `ruta:línea función puntuación`, con la puntuación
+  tomada sin tener en cuenta el comentario. La lista nunca cambia el código de
+  salida, y `--quiet` la oculta.
 - Cada entrada JSON incluye `line_start`, `line_end` y `line_complexities`: las
   líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos
   valores de `complexity` suman la `complexity` de la función. Dos funciones
