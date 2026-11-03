@@ -301,6 +301,7 @@ impl DiffBaseline {
 pub struct FunctionRow {
     pub name: String,
     pub complexity: u64,
+    pub line_start: u64,
     pub passed: bool,
     pub path: String,
     pub file_name: String,

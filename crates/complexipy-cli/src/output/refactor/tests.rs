@@ -2,7 +2,8 @@ use crate::output::refactor::{
     get_applicability_icon, get_applicability_name, get_category_icon, get_category_name,
     output_refactor_plans,
 };
-use crate::types::FunctionRow;
+use crate::output::render::output_plain;
+use crate::types::{FileEntry, FunctionRow};
 use complexipy_core::classes::{Applicability, CodeSuggestion, RefactorPlan, RuleCategory};
 
 fn strip_ansi(input: &str) -> String {
@@ -55,12 +56,33 @@ fn row_with_plans() -> FunctionRow {
     FunctionRow {
         name: "f".to_string(),
         complexity: 5,
+        line_start: 1,
         passed: false,
         path: "src/a.py".to_string(),
         file_name: "a.py".to_string(),
         refactor_plans: vec![plan()],
         additional_refactor_plans: 1,
     }
+}
+
+#[test]
+fn plain_output_lists_one_line_per_plan() {
+    let mut function = row_with_plans();
+    let mut estimated = plan();
+    estimated.rule_id = "C007".to_string();
+    estimated.title = "Merge\u{1b}[2K ifs".to_string();
+    estimated.reduction_is_measured = false;
+    function.refactor_plans.push(estimated);
+    let entries = vec![FileEntry {
+        path: "src/a.py".to_string(),
+        functions: vec![function],
+    }];
+
+    assert_eq!(output_plain(&entries, false), "src/a.py:1 f 5");
+    assert_eq!(
+        output_plain(&entries, true),
+        "src/a.py:1 f 5\n  C001 Extract method (-2)\n  C007 Merge\\u{1b}[2K ifs (-~2)\n  ... and 1 more suggestion"
+    );
 }
 
 #[test]

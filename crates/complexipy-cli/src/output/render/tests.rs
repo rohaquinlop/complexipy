@@ -28,6 +28,7 @@ fn row(name: &str, complexity: u64, passed: bool, path: &str) -> FunctionRow {
     FunctionRow {
         name: name.to_string(),
         complexity,
+        line_start: 3,
         passed,
         path: path.to_string(),
         file_name: path.split('/').next_back().unwrap_or(path).to_string(),
@@ -107,9 +108,9 @@ fn plain_output_lines() {
         functions: vec![row("f", 5, true, "src/a.py")],
     }];
 
-    let output = output_plain(&entries);
+    let output = output_plain(&entries, false);
 
-    assert_eq!(output, "src/a.py f 5");
+    assert_eq!(output, "src/a.py:3 f 5");
 }
 
 #[test]
@@ -120,7 +121,7 @@ fn plain_output_escapes_terminal_controls_and_line_breaks() {
         functions: vec![row("f", 5, true, path)],
     }];
 
-    let output = output_plain(&entries);
+    let output = output_plain(&entries, false);
 
     assert!(!output.contains('\u{1b}'));
     assert_eq!(output.lines().count(), 1);
