@@ -1186,11 +1186,12 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
 }
 
 /// The functions an ignore marker hides in `now` that it does not hide in
-/// `at_ref`, in source order, each scored with its marker disregarded. For
-/// each name, as many are listed as `now` hides beyond `at_ref`; among the
-/// functions of that name, those whose rank `at_ref` does not hide are
-/// chosen first, so a marker on one of two same-named functions names the
-/// right one.
+/// `at_ref`, in source order, each scored with its marker disregarded. A
+/// function is known by its name and its rank among the functions of that
+/// name. When the change keeps the number of functions of a name, ranks are
+/// stable and each hidden rank `at_ref` did not hide is listed. Otherwise,
+/// as many are listed as `now` hides beyond `at_ref`, choosing first the
+/// ranks `at_ref` did not hide.
 fn ignored_by_change(
     file_path: &str,
     now: Option<&str>,
@@ -1199,12 +1200,14 @@ fn ignored_by_change(
     let Some(now) = now.filter(|now| crate::utils::has_marker_text(now)) else {
         return Vec::new();
     };
-    let mut hidden_at_ref: HashMap<String, HashSet<usize>> = HashMap::new();
-    for (rank, function) in at_ref.map(hidden_functions).unwrap_or_default() {
-        hidden_at_ref.entry(function.name).or_default().insert(rank);
+    let (hidden_now, totals_now) = hidden_functions(now);
+    let (hidden_ref, totals_ref) = at_ref.map(hidden_functions).unwrap_or_default();
+    let mut ranks_at_ref: HashMap<String, HashSet<usize>> = HashMap::new();
+    for (rank, function) in hidden_ref {
+        ranks_at_ref.entry(function.name).or_default().insert(rank);
     }
     let mut by_name: BTreeMap<String, Vec<(usize, FunctionComplexity)>> = BTreeMap::new();
-    for (rank, function) in hidden_functions(now) {
+    for (rank, function) in hidden_now {
         by_name
             .entry(function.name.clone())
             .or_default()
@@ -1212,9 +1215,14 @@ fn ignored_by_change(
     }
     let mut listed: Vec<FunctionComplexity> = Vec::new();
     for (name, mut functions) in by_name {
-        let ranks_at_ref = hidden_at_ref.remove(&name).unwrap_or_default();
-        let added = functions.len().saturating_sub(ranks_at_ref.len());
-        functions.sort_by_key(|(rank, _)| ranks_at_ref.contains(rank));
+        let ranks = ranks_at_ref.remove(&name).unwrap_or_default();
+        let added = if totals_now.get(&name) == totals_ref.get(&name) {
+            functions.retain(|(rank, _)| !ranks.contains(rank));
+            functions.len()
+        } else {
+            functions.sort_by_key(|(rank, _)| ranks.contains(rank));
+            functions.len().saturating_sub(ranks.len())
+        };
         listed.extend(
             functions
                 .into_iter()
@@ -1236,30 +1244,30 @@ fn ignored_by_change(
 
 /// The functions of `content` that an ignore marker hides, in source order,
 /// each with its rank among the functions of its name and scored with the
-/// marker disregarded.
-fn hidden_functions(content: &str) -> Vec<(usize, FunctionComplexity)> {
+/// marker disregarded, and how many functions each name has.
+fn hidden_functions(content: &str) -> (Vec<(usize, FunctionComplexity)>, HashMap<String, usize>) {
     if !crate::utils::has_marker_text(content) {
-        return Vec::new();
+        return Default::default();
     }
     let (Some(mut unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
-        return Vec::new();
+        return Default::default();
     };
     unmarked.sort_by_key(|function| function.line_start);
     let visible: HashSet<(&str, u64)> = marked
         .iter()
         .map(|function| (function.name.as_str(), function.line_start))
         .collect();
-    let mut ranks: HashMap<String, usize> = HashMap::new();
+    let mut totals: HashMap<String, usize> = HashMap::new();
     let mut hidden = Vec::new();
     for function in unmarked {
-        let rank = ranks.entry(function.name.clone()).or_default();
-        let current = *rank;
-        *rank += 1;
+        let total = totals.entry(function.name.clone()).or_default();
+        let rank = *total;
+        *total += 1;
         if !visible.contains(&(function.name.as_str(), function.line_start)) {
-            hidden.push((current, function));
+            hidden.push((rank, function));
         }
     }
-    hidden
+    (hidden, totals)
 }
 
 fn scored(content: &str, no_ignore: bool) -> Option<Vec<FunctionComplexity>> {
