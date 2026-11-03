@@ -57,9 +57,15 @@ fn no_output_uses_invocation_path_with_default_filenames() {
 fn stdout_destination_rejected() {
     let dir = tempdir().expect("tempdir should work");
 
-    let result = resolve_output_paths(&[OutputFormat::Csv], Some("-"), dir.path());
+    for formats in [
+        vec![OutputFormat::Csv],
+        vec![OutputFormat::Csv, OutputFormat::Json],
+    ] {
+        let result = resolve_output_paths(&formats, Some("-"), dir.path());
 
-    assert_eq!(result, Err(PathsError::StdoutNotSupported));
+        assert_eq!(result, Err(PathsError::StdoutMultiFormat));
+    }
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
 }
 
 #[test]

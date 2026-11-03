@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -257,3 +258,137 @@ def test_explain_rejects_an_unknown_rule_and_lists_the_valid_ids(
     assert result.stdout == ""
     assert "'C999'" in result.stderr
     assert "C001, C002, C003, C004, C005, C007, C011" in result.stderr
+
+
+def run_binary(arguments: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-c", RUN_CLI, *arguments],
+        cwd=cwd,
+        capture_output=True,
+        timeout=120,
+        env={**environment_without_color_overrides(), "NO_COLOR": "1"},
+    )
+
+
+def assert_stdout_matches_file_report(
+    arguments: list[str], root: Path
+) -> subprocess.CompletedProcess:
+    report = root.parent / "report.out"
+    to_file = run_binary([*arguments, "--output", str(report)], root)
+    to_stdout = run_binary([*arguments, "--output", "-"], root)
+
+    assert to_stdout.stdout == report.read_bytes()
+    assert to_stdout.returncode == to_file.returncode
+    return to_stdout
+
+
+@pytest.mark.parametrize("threshold", ["15", "0"])
+@pytest.mark.parametrize(
+    "output_format, refactors",
+    [
+        ("json", []),
+        ("json", ["--suggest-refactors"]),
+        ("csv", []),
+        ("gitlab", ["--suggest-refactors"]),
+        ("sarif", ["--suggest-refactors"]),
+    ],
+)
+def test_output_dash_writes_only_the_report_to_stdout(
+    tmp_path, output_format, refactors, threshold
+) -> None:
+    root = project(tmp_path, files=3)
+    result = assert_stdout_matches_file_report(
+        [
+            ".",
+            f"--output-format={output_format}",
+            f"--max-complexity-allowed={threshold}",
+            *refactors,
+        ],
+        root,
+    )
+
+    if output_format != "csv":
+        json.loads(result.stdout)
+
+
+def test_output_dash_from_config_writes_the_report_to_stdout(tmp_path) -> None:
+    root = project(tmp_path, files=3)
+    (root / "complexipy.toml").write_text(
+        'output = "-"\noutput-format = ["json"]\n'
+    )
+    report = tmp_path / "report.out"
+
+    to_stdout = run_binary(["."], root)
+    run_binary([".", "--output", str(report)], root)
+
+    assert to_stdout.stdout == report.read_bytes()
+
+
+def test_output_dash_with_two_formats_fails_before_writing(tmp_path) -> None:
+    root = project(tmp_path, files=3)
+    result = run_binary(
+        [".", "--output-format=json,csv", "--output", "-", "--snapshot-create"],
+        root,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == b""
+    assert b"select exactly one --output-format" in result.stderr
+    assert not (root / "complexipy-snapshot.json").exists()
+
+
+def test_output_dash_without_a_format_keeps_the_console_report(
+    tmp_path,
+) -> None:
+    root = project(tmp_path, files=3)
+    plain = run_binary([".", "--max-complexity-allowed=0"], root)
+    dashed = run_binary(
+        [".", "--max-complexity-allowed=0", "--output", "-"], root
+    )
+
+    assert dashed.returncode == plain.returncode == 1
+    assert b"nested" in dashed.stdout
+    assert dashed.stderr == plain.stderr
+
+
+def test_output_dash_sends_invalid_paths_to_stderr(tmp_path) -> None:
+    root = project(tmp_path, files=3)
+    result = run_binary(
+        [".", "missing.py", "--output-format=json", "--output", "-"], root
+    )
+
+    assert result.returncode == 1
+    assert len(json.loads(result.stdout)) == 3
+    assert b"Failed to process missing.py" in result.stderr
+
+
+def test_output_dash_with_report_ignored_writes_the_ignored_file(
+    tmp_path,
+) -> None:
+    root = project(tmp_path, files=1)
+    (root / "skipped.py").write_text(
+        "def skipped():  # complexipy: ignore\n    return 1\n"
+    )
+    result = assert_stdout_matches_file_report(
+        [".", "--output-format=json", "--report-ignored"], root
+    )
+
+    json.loads(result.stdout)
+    assert (root / "complexipy-ignored.json").exists()
+    assert b"complexipy-ignored.json" in result.stderr
+
+
+def test_output_dash_survives_a_closed_stdout(tmp_path) -> None:
+    root = project(tmp_path)
+    reader, writer = os.pipe()
+    os.close(reader)
+    try:
+        result = run_console(
+            [".", "--output-format=json", "--output", "-"], root, stdout=writer
+        )
+    finally:
+        os.close(writer)
+
+    assert "panicked" not in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.returncode == 0
