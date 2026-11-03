@@ -125,7 +125,7 @@ complexipy . --report-ignored
 complexipy . --report-ignored --no-ignore
 ```
 
-Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos.
+Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos. Con `--output -`, el archivo se escribe en el directorio desde el que se ejecuta complexipy.
 
 Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
 

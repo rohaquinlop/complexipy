@@ -31,7 +31,7 @@ Los valores leídos de un archivo de configuración se validan antes de usarse:
 `paths`, `output` y `cache-dir` deben quedar dentro del directorio desde el
 que se ejecuta complexipy, incluidos los enlaces simbólicos, y una `branch` de
 diff no puede empezar con `-`. Pasa una ruta fuera del proyecto en la línea de
-comandos.
+comandos. `output = "-"` escribe el único formato seleccionado en stdout.
 
 ### Configuraciones de Ejemplo
 
