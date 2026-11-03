@@ -66,6 +66,13 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- `--plain` imprime cada función como `<path>:<line> <function> <complexity>`,
+  así que los editores y las terminales pueden enlazar la línea. Con
+  `--suggest-refactors`, cada plan agrega una línea con sangría con su id de
+  regla, su título y su reducción, por ejemplo
+  `  C007 Merge 3 nested if statements (-4)`; un `~` marca una reducción
+  estimada. Los scripts que leen el primer campo de una línea `--plain` ahora
+  reciben `:<line>` después de la ruta.
 - El helper de C005 ya no lleva la anotación `-> bool`, porque `and` y `or`
   devuelven un operando, no un bool.
 - Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta

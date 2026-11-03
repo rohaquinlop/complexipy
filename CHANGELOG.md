@@ -57,6 +57,12 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- `--plain` prints each function as `<path>:<line> <function> <complexity>`,
+  so editors and terminals can link to the line. With `--suggest-refactors`,
+  each plan adds an indented line with its rule id, title, and reduction, for
+  example `  C007 Merge 3 nested if statements (-4)`; a `~` marks an estimated
+  reduction. Scripts that parse the first field of a `--plain` line now get
+  `:<line>` after the path.
 - The C005 helper no longer carries a `-> bool` annotation, because `and` and
   `or` return an operand, not a bool.
 - Every CLI warning prints to stderr, and `--quiet` no longer hides warnings:

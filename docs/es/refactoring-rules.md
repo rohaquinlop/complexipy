@@ -458,7 +458,7 @@ Salida de ejemplo (abreviada -- la salida real también muestra un tramo subraya
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
-Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
+Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` imprime una línea por plan: id de regla, título y reducción.
 
 ### Aplicar Sugerencias Aplicables
 

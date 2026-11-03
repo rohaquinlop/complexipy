@@ -455,7 +455,7 @@ Sample output (abbreviated -- the real output also shows a caret-underlined span
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
-Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` keeps plain output unchanged.
+Plans are based on the Rust AST analysis only; no AI is used and no code is rewritten automatically. Estimated reductions are approximate, ranked, and limited, so treat them as guidance rather than exact future scores. `--plain --suggest-refactors` prints one line per plan: rule id, title, and reduction.
 
 ### Applying Fixable Suggestions
 
