@@ -33,6 +33,7 @@ use crate::types::{DiffBaseline, ExitReport, OutputFormat, RunConfig};
 use crate::utils::config::resolve_config;
 use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::handle_report_ignored;
+use crate::utils::paths::{PathsError, STDOUT_OUTPUT};
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::load_run_config;
 use complexipy_core::classes::FileComplexity;
@@ -68,6 +69,21 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             emit_error!("{}", escape_controls(&error.to_string()));
             return ExitCode::FAILURE;
         }
+    };
+
+    let to_stdout =
+        config.output.as_deref() == Some(STDOUT_OUTPUT) && !config.output_format.is_empty();
+    if to_stdout {
+        if config.output_format.len() > 1 {
+            emit_error!("{}", PathsError::StdoutMultiFormat);
+            return ExitCode::FAILURE;
+        }
+        config.quiet = true;
+    }
+    let emit_notice = if to_stdout {
+        crate::output::emit_error
+    } else {
+        crate::output::emit
     };
 
     let settings = handle_console_settings(&config.color, config.quiet, config.plain);
@@ -248,7 +264,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         config.report_ignored,
         &run,
         &config.output_format,
-        config.output.as_deref(),
+        config.output.as_deref().filter(|_| !to_stdout),
         invocation_path,
     ) {
         Ok(result) => result,
@@ -266,7 +282,10 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
             emit!("{}", ignore_rule_skips_output(&skipped));
         }
         if let Some(path) = ignored_json_path {
-            emit!("{}", escape_controls(&ignored_saved_output(&path)));
+            emit_notice(format_args!(
+                "{}",
+                escape_controls(&ignored_saved_output(&path))
+            ));
         }
     }
 
@@ -291,9 +310,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         snap.watermark_success
     };
 
-    let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths);
+    let invalid_paths_color = if to_stdout {
+        color_enabled_for(&config.color, config.plain, supports_color::Stream::Stderr)
+    } else {
+        settings.color_enabled
+    };
+    let (paths_ok, invalid_paths_output) = print_invalid_paths(&failed_paths, invalid_paths_color);
     if !invalid_paths_output.is_empty() {
-        emit!("{}", invalid_paths_output);
+        emit_notice(format_args!("{}", invalid_paths_output));
     }
 
     if let Some(run_diff) = &run_diff {

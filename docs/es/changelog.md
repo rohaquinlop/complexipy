@@ -8,6 +8,13 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- `--output -` escribe el reporte en stdout cuando se selecciona exactamente
+  un `--output-format`, así que
+  `complexipy . --output-format json --output - | jq .` funciona. stdout
+  contiene entonces solo el reporte: la salida de consola se suprime como con
+  `--quiet`, y las advertencias y los errores van a stderr. El código de salida
+  es el mismo que con un archivo. Con dos o más formatos, `--output -` falla
+  antes de que corra el análisis.
 - El servidor de lenguaje responde a `textDocument/codeAction` con una acción
   de código por cada sugerencia de refactorización de cada función que supere
   el umbral en el rango solicitado. Una sugerencia que `--fix` aplicaría es una

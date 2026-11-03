@@ -28,7 +28,8 @@ key, and never repeats the file's contents.
 Values read from a configuration file are checked before use: `paths`,
 `output`, and `cache-dir` must stay inside the directory complexipy runs
 from, symlinks included, and a diff `branch` cannot start with `-`. Pass a
-path outside the project on the command line instead.
+path outside the project on the command line instead. `output = "-"` writes
+the single selected format to stdout.
 
 ### Example Configurations
 

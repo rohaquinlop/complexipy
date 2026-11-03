@@ -377,15 +377,21 @@ pub fn colorize_complexity(complexity: u64, max_complexity: u64) -> String {
     }
 }
 
-pub fn print_invalid_paths(invalid_paths: &[String]) -> (bool, String) {
+pub fn print_invalid_paths(invalid_paths: &[String], color: bool) -> (bool, String) {
     let has_success = invalid_paths.is_empty();
+    let paint = |text: &str, style: Style| {
+        if color {
+            text.style(style).to_string()
+        } else {
+            text.to_string()
+        }
+    };
     let mut lines = Vec::new();
     for failed_path in invalid_paths {
         lines.push(format!(
             "{}: Failed to process {} - Please check file/folder exists or check syntax",
-            "error".if_supports_color(Stream::Stdout, |text| text.style(Style::new().bold().red())),
-            escape_controls(failed_path).if_supports_color(Stream::Stdout, |text| text
-                .style(Style::new().bold().white()))
+            paint("error", Style::new().bold().red()),
+            paint(&escape_controls(failed_path), Style::new().bold().white())
         ));
     }
     (has_success, lines.join("\n"))

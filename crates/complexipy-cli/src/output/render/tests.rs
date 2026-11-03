@@ -129,7 +129,7 @@ fn plain_output_escapes_terminal_controls_and_line_breaks() {
 
 #[test]
 fn invalid_paths_escape_terminal_controls() {
-    let (_, raw) = print_invalid_paths(&["bad_\u{1b}]0;TITLE\u{7}.py".to_string()]);
+    let (_, raw) = print_invalid_paths(&["bad_\u{1b}]0;TITLE\u{7}.py".to_string()], true);
 
     assert!(!strip_ansi(&raw).contains('\u{7}'));
     assert!(strip_ansi(&raw).contains("bad_\\u{1b}]0;TITLE\\u{7}.py"));
@@ -222,7 +222,7 @@ fn summary_plain_mode_skips_messages() {
 
 #[test]
 fn invalid_paths_rendering() {
-    let (has_success, raw) = print_invalid_paths(&["nope.py".to_string()]);
+    let (has_success, raw) = print_invalid_paths(&["nope.py".to_string()], true);
     let output = strip_ansi(&raw);
 
     assert!(!has_success);
@@ -230,7 +230,7 @@ fn invalid_paths_rendering() {
     assert!(output.contains("Failed to process nope.py"));
     assert!(output.contains("Please check file/folder exists or check syntax"));
 
-    let (has_success, output) = print_invalid_paths(&[]);
+    let (has_success, output) = print_invalid_paths(&[], true);
     assert!(has_success);
     assert_eq!(output, "");
 }

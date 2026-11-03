@@ -12,12 +12,14 @@ use crate::output::render::{SummaryOptions, output_summary};
 use crate::output::rows::{DiffFailures, has_success_functions};
 use crate::types::{DiffBaseline, OutputFormat, Sort};
 use crate::utils::cache::remember_previous_functions;
-use crate::utils::gitlab::store_gitlab;
-use crate::utils::paths::resolve_output_paths;
-use crate::utils::sarif::store_sarif;
+use crate::utils::gitlab::{render_gitlab, store_gitlab};
+use crate::utils::paths::{STDOUT_OUTPUT, resolve_output_paths};
+use crate::utils::sarif::{render_sarif, store_sarif};
 use complexipy_core::classes::FileComplexity;
 use complexipy_core::sanitize::escape_controls;
-use complexipy_core::utils::{ExportError, output_csv_shared, output_json_shared};
+use complexipy_core::utils::{
+    ExportError, output_csv_shared, output_json_shared, render_csv, render_json,
+};
 
 /// Writes one line to stdout. A closed stdout, such as a pipe whose reader
 /// exited, ends the output instead of the run. Test builds print through
@@ -138,6 +140,37 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
         diff_baseline,
     } = options;
 
+    if let (Some(STDOUT_OUTPUT), [output_format]) = (output, output_formats) {
+        let report = match output_format {
+            OutputFormat::Csv => render_csv(
+                files_complexities.to_vec(),
+                sort_value(&sort),
+                show_details,
+                max_complexity,
+            )?,
+            OutputFormat::Json => render_json(
+                files_complexities.to_vec(),
+                show_details,
+                max_complexity,
+                suggest_refactors,
+            )?,
+            OutputFormat::Gitlab => render_gitlab(
+                files_complexities,
+                max_complexity,
+                suggest_refactors,
+                diff_baseline,
+            )?,
+            OutputFormat::Sarif => render_sarif(
+                files_complexities,
+                max_complexity,
+                suggest_refactors,
+                diff_baseline,
+            )?,
+        };
+        write_stdout(&report)?;
+        return Ok(Vec::new());
+    }
+
     let output_paths = resolve_output_paths(
         output_formats,
         output,
@@ -184,6 +217,18 @@ pub fn handle_results_storage(options: StorageOptions) -> Result<Vec<String>, Ex
     }
 
     Ok(saved_lines)
+}
+
+/// Writes the report to stdout. A reader that exited, such as `head`, ends
+/// the report like `emit` does; any other write failure fails the run.
+fn write_stdout(report: &[u8]) -> Result<(), ExportError> {
+    let mut stdout = std::io::stdout().lock();
+    match stdout.write_all(report).and_then(|()| stdout.flush()) {
+        Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => Err(ExportError::Io(
+            format!("Failed to write the report to stdout: {}", error),
+        )),
+        _ => Ok(()),
+    }
 }
 
 fn sort_value(sort: &Sort) -> &'static str {

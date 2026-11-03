@@ -4,9 +4,11 @@ use std::path::Path;
 
 use crate::types::OutputFormat;
 
+pub const STDOUT_OUTPUT: &str = "-";
+
 #[derive(Debug, PartialEq)]
 pub enum PathsError {
-    StdoutNotSupported,
+    StdoutMultiFormat,
     MultiFormatNotDirectory,
     MultiFormatNoTrailingSeparator,
     Io(String),
@@ -15,9 +17,9 @@ pub enum PathsError {
 impl fmt::Display for PathsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::StdoutNotSupported => write!(
+            Self::StdoutMultiFormat => write!(
                 f,
-                "Writing machine-readable output to stdout is not supported."
+                "--output - writes one report to stdout, so select exactly one --output-format."
             ),
             Self::MultiFormatNotDirectory => write!(
                 f,
@@ -47,8 +49,8 @@ pub fn resolve_output_paths(
         return Ok(build_output_paths(invocation_path, output_formats));
     };
 
-    if output == "-" {
-        return Err(PathsError::StdoutNotSupported);
+    if output == STDOUT_OUTPUT {
+        return Err(PathsError::StdoutMultiFormat);
     }
 
     let destination = std::path::absolute(output).map_err(|e| PathsError::Io(e.to_string()))?;

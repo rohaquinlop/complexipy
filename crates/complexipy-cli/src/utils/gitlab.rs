@@ -23,6 +23,21 @@ pub fn store_gitlab(
     suggest_refactors: bool,
     baseline: Option<&DiffBaseline>,
 ) -> Result<(), ExportError> {
+    let bytes = render_gitlab(files, max_complexity, suggest_refactors, baseline)?;
+    write_atomic(Path::new(output_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to write GitLab report to {}: {}",
+            output_path, e
+        ))
+    })
+}
+
+pub fn render_gitlab(
+    files: &[FileComplexity],
+    max_complexity: u64,
+    suggest_refactors: bool,
+    baseline: Option<&DiffBaseline>,
+) -> Result<Vec<u8>, ExportError> {
     let mut report = Vec::new();
 
     for file in files {
@@ -75,16 +90,7 @@ pub fn store_gitlab(
 
     let serialized = serde_json::to_string_pretty(&report)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize GitLab report: {}", e)))?;
-    write_atomic(
-        Path::new(output_path),
-        format!("{}\n", serialized).as_bytes(),
-    )
-    .map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write GitLab report to {}: {}",
-            output_path, e
-        ))
-    })
+    Ok(format!("{}\n", serialized).into_bytes())
 }
 
 fn complexity_severity(baseline: Option<&DiffBaseline>, path: &str, key: &str) -> &'static str {

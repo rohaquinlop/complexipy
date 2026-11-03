@@ -20,7 +20,7 @@
 | `--top <n>` | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente | - |
 | `--plain` | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
 | `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | - |
-| `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos | - |
+| `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos. Usa `-` para escribir un solo formato en stdout: la salida de consola se suprime como con `--quiet`, y las advertencias y los errores van a stderr | - |
 | `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | - |
 | `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | - |
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | `false` |

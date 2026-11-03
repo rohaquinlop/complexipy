@@ -41,6 +41,26 @@ pub fn output_csv_shared(
     show_detailed_results: bool,
     max_complexity: u64,
 ) -> Result<(), ExportError> {
+    let bytes = render_csv(
+        functions_complexity,
+        sort,
+        show_detailed_results,
+        max_complexity,
+    )?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to create CSV at {}: {}",
+            invocation_path, e
+        ))
+    })
+}
+
+pub fn render_csv(
+    functions_complexity: Vec<FileComplexity>,
+    sort: &str,
+    show_detailed_results: bool,
+    max_complexity: u64,
+) -> Result<Vec<u8>, ExportError> {
     match sort {
         "asc" | "desc" | "name" | "file_name" => {}
         other => return Err(ExportError::InvalidSort(other.to_string())),
@@ -50,12 +70,7 @@ pub fn output_csv_shared(
 
     writer
         .write_record(["Path", "File Name", "Function Name", "Cognitive Complexity"])
-        .map_err(|e| {
-            ExportError::Io(format!(
-                "Failed to write CSV header at {}: {}",
-                invocation_path, e
-            ))
-        })?;
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV header: {}", e)))?;
 
     let mut all_functions: Vec<(String, String, FunctionComplexity)> = vec![];
     for file in functions_complexity {
@@ -89,15 +104,9 @@ pub fn output_csv_shared(
             .map_err(|e| ExportError::Io(format!("Failed to write CSV row: {}", e)))?;
     }
 
-    let bytes = writer
+    writer
         .into_inner()
-        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))?;
-    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to create CSV at {}: {}",
-            invocation_path, e
-        ))
-    })
+        .map_err(|e| ExportError::Io(format!("Failed to write CSV: {}", e)))
 }
 
 pub fn output_json_shared(
@@ -107,6 +116,26 @@ pub fn output_json_shared(
     max_complexity: u64,
     suggest_refactors: bool,
 ) -> Result<(), ExportError> {
+    let bytes = render_json(
+        functions_complexity,
+        show_detailed_results,
+        max_complexity,
+        suggest_refactors,
+    )?;
+    write_atomic(Path::new(invocation_path), &bytes).map_err(|e| {
+        ExportError::Io(format!(
+            "Failed to write JSON to {}: {}",
+            invocation_path, e
+        ))
+    })
+}
+
+pub fn render_json(
+    functions_complexity: Vec<FileComplexity>,
+    show_detailed_results: bool,
+    max_complexity: u64,
+    suggest_refactors: bool,
+) -> Result<Vec<u8>, ExportError> {
     let mut json_data = Vec::new();
 
     for file in functions_complexity {
@@ -131,16 +160,7 @@ pub fn output_json_shared(
 
     let json_string = serde_json::to_string_pretty(&json_data)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize JSON: {}", e)))?;
-    write_atomic(
-        Path::new(invocation_path),
-        format!("{}\n", json_string).as_bytes(),
-    )
-    .map_err(|e| {
-        ExportError::Io(format!(
-            "Failed to write JSON to {}: {}",
-            invocation_path, e
-        ))
-    })
+    Ok(format!("{}\n", json_string).into_bytes())
 }
 
 pub fn create_snapshot_file_shared(
