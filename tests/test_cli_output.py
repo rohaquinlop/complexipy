@@ -437,7 +437,7 @@ def test_json_entries_carry_function_lines_and_scoring_lines(tmp_path) -> None:
         for function in file_complexity(str(root / "sample.py")).functions
     }
 
-    assert sorted(key for key in expected) == sorted(
+    assert sorted(expected) == sorted(
         (entry["function_name"], entry["line_start"]) for entry in entries
     )
     for entry in entries:
