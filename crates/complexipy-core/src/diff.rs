@@ -1188,9 +1188,10 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
 /// The functions an ignore marker hides in `now` that it does not hide in
 /// `at_ref`, in source order, each scored with its marker disregarded.
 /// Among the hidden functions of one name, a function of `now` pairs first
-/// with one of `at_ref` whose source text is the same, then with one of the
-/// same rank among the functions of that name. Each function of `now` left
-/// without a pair is listed.
+/// with one of `at_ref` whose source text is the same. A function of
+/// `at_ref` left over whose text `now` still holds without a marker lost its
+/// marker, so it pairs with nothing. The rest pair in source order, and
+/// each function of `now` left without a pair is listed.
 fn ignored_by_change(
     file_path: &str,
     now: Option<&str>,
@@ -1200,14 +1201,18 @@ fn ignored_by_change(
         return Vec::new();
     };
     let mut at_ref_by_name: HashMap<String, Vec<Hidden>> = HashMap::new();
-    for hidden in at_ref.map(hidden_functions).unwrap_or_default() {
+    for hidden in at_ref
+        .map(|at_ref| marked_functions(at_ref).hidden)
+        .unwrap_or_default()
+    {
         at_ref_by_name
             .entry(hidden.function.name.clone())
             .or_default()
             .push(hidden);
     }
+    let marked_now = marked_functions(now);
     let mut now_by_name: BTreeMap<String, Vec<Hidden>> = BTreeMap::new();
-    for hidden in hidden_functions(now) {
+    for hidden in marked_now.hidden {
         now_by_name
             .entry(hidden.function.name.clone())
             .or_default()
@@ -1216,13 +1221,29 @@ fn ignored_by_change(
     let mut listed: Vec<FunctionComplexity> = Vec::new();
     for (name, mut hidden_now) in now_by_name {
         let mut hidden_at_ref = at_ref_by_name.remove(&name).unwrap_or_default();
-        unpair(&mut hidden_now, &mut hidden_at_ref, |left, right| {
-            left.text == right.text
+        hidden_now.retain(|hidden| {
+            match hidden_at_ref
+                .iter()
+                .position(|other| other.text == hidden.text)
+            {
+                Some(index) => {
+                    hidden_at_ref.remove(index);
+                    false
+                }
+                None => true,
+            }
         });
-        unpair(&mut hidden_now, &mut hidden_at_ref, |left, right| {
-            left.rank == right.rank
+        hidden_at_ref.retain(|hidden| {
+            !marked_now
+                .visible
+                .contains(&(name.clone(), hidden.text.clone()))
         });
-        listed.extend(hidden_now.into_iter().map(|hidden| hidden.function));
+        listed.extend(
+            hidden_now
+                .into_iter()
+                .skip(hidden_at_ref.len())
+                .map(|hidden| hidden.function),
+        );
     }
     listed.sort_by_key(|function| function.line_start);
     listed
@@ -1236,66 +1257,51 @@ fn ignored_by_change(
         .collect()
 }
 
-/// A function an ignore marker hides: its rank among the functions of its
-/// name, its source text, and its score with the marker disregarded.
+/// A function an ignore marker hides: its source text without markers and
+/// its score with the marker disregarded.
 struct Hidden {
-    rank: usize,
     text: String,
     function: FunctionComplexity,
 }
 
-/// Removes from `left` and `right` each pair that `same` matches, every
-/// function in at most one pair, in source order.
-fn unpair(
-    left: &mut Vec<Hidden>,
-    right: &mut Vec<Hidden>,
-    same: impl Fn(&Hidden, &Hidden) -> bool,
-) {
-    left.retain(
-        |hidden| match right.iter().position(|other| same(hidden, other)) {
-            Some(index) => {
-                right.remove(index);
-                false
-            }
-            None => true,
-        },
-    );
+/// The functions of a source split by ignore markers: those a marker hides,
+/// in source order, and the name and text of each one it leaves visible.
+#[derive(Default)]
+struct MarkedFunctions {
+    hidden: Vec<Hidden>,
+    visible: HashSet<(String, String)>,
 }
 
-/// The functions of `content` that an ignore marker hides, in source order.
-fn hidden_functions(content: &str) -> Vec<Hidden> {
+fn marked_functions(content: &str) -> MarkedFunctions {
     if !crate::utils::has_marker_text(content) {
-        return Vec::new();
+        return MarkedFunctions::default();
     }
     let (Some(mut unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
-        return Vec::new();
+        return MarkedFunctions::default();
     };
     unmarked.sort_by_key(|function| function.line_start);
-    let visible: HashSet<(&str, u64)> = marked
+    let shown: HashSet<(&str, u64)> = marked
         .iter()
         .map(|function| (function.name.as_str(), function.line_start))
         .collect();
     let lines: Vec<&str> = content.lines().collect();
-    let mut ranks: HashMap<String, usize> = HashMap::new();
-    let mut hidden = Vec::new();
-    for function in unmarked {
-        let next = ranks.entry(function.name.clone()).or_default();
-        let rank = *next;
-        *next += 1;
-        if visible.contains(&(function.name.as_str(), function.line_start)) {
-            continue;
-        }
+    let text_of = |function: &FunctionComplexity| {
         let first = (function.line_start as usize)
             .saturating_sub(1)
             .min(lines.len());
         let last = (function.line_end as usize).clamp(first, lines.len());
-        hidden.push(Hidden {
-            rank,
-            text: lines[first..last].join("\n"),
-            function,
-        });
+        crate::utils::without_markers(&lines[first..last].join("\n"))
+    };
+    let mut functions = MarkedFunctions::default();
+    for function in unmarked {
+        let text = text_of(&function);
+        if shown.contains(&(function.name.as_str(), function.line_start)) {
+            functions.visible.insert((function.name, text));
+        } else {
+            functions.hidden.push(Hidden { text, function });
+        }
     }
-    hidden
+    functions
 }
 
 fn scored(content: &str, no_ignore: bool) -> Option<Vec<FunctionComplexity>> {

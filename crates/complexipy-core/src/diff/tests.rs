@@ -1479,6 +1479,11 @@ fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
     let edited = marked_alone.replace("return 1", "return 2");
     let edited_marked = crate::diff::ignored_by_change("m.py", Some(&edited), Some(marked_alone));
     assert!(edited_marked.is_empty());
+
+    let stub_above_edited = format!("def f(b):\n    return b\n\n\n{}", edited);
+    let shifted =
+        crate::diff::ignored_by_change("m.py", Some(&stub_above_edited), Some(marked_alone));
+    assert!(shifted.is_empty());
 }
 
 #[test]
