@@ -522,6 +522,11 @@ fn noqa_re() -> &'static Regex {
     })
 }
 
+/// Whether `code` holds ignore marker text anywhere, comment or not.
+pub fn has_marker_text(code: &str) -> bool {
+    ignore_re().is_match(code) || noqa_re().is_match(code)
+}
+
 /// Extract an ignore directive from a line.
 ///
 /// Returns `Some(..)` for `# complexipy: ignore` and `# noqa: complexipy`,
@@ -549,7 +554,7 @@ impl CommentRanges {
     /// Tokenizes `code` only when it holds marker text somewhere, so a file
     /// without markers costs one scan.
     pub fn of(code: &str) -> Self {
-        if !ignore_re().is_match(code) && !noqa_re().is_match(code) {
+        if !has_marker_text(code) {
             return Self::default();
         }
         Self(crate::syntax_tree::comment_ranges(code))

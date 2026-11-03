@@ -1393,3 +1393,81 @@ fn compute_staged_diff_reads_a_staged_name_that_starts_like_a_stage_number() {
 
     assert_eq!(entries, vec![entry("0:new.py", "with_if", None, Some(1))]);
 }
+
+const MARKED_BASE: &str = "def nested(a, b, c):\n    if a:\n        if b:\n            if c:\n                return 1\n    return 0\n\n\ndef small(a):\n    if a:\n        return 1\n    return 0\n\n\ndef kept(a):  # complexipy: ignore\n    if a:\n        return 1\n    return 0\n";
+
+fn marked_change() -> String {
+    MARKED_BASE
+        .replace(
+            "def nested(a, b, c):",
+            "def nested(a, b, c):  # complexipy: ignore",
+        )
+        .replace("def small(a):", "def small(a):  # noqa: complexipy")
+        + "\n\ndef fresh(a, b):  # complexipy: ignore\n    if a:\n        if b:\n            return 1\n    return 0\n"
+}
+
+fn hidden(ignored: &[crate::diff::IgnoredByChange]) -> Vec<(&str, u64, u64)> {
+    ignored
+        .iter()
+        .map(|function| {
+            (
+                function.func_name.as_str(),
+                function.line_start,
+                function.complexity,
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn ignored_by_change_lists_the_markers_a_change_adds() {
+    let change = marked_change();
+
+    let ignored = crate::diff::ignored_by_change("m.py", Some(&change), Some(MARKED_BASE));
+
+    assert_eq!(
+        hidden(&ignored),
+        vec![("nested", 1, 6), ("small", 9, 1), ("fresh", 21, 3)]
+    );
+    assert!(ignored.iter().all(|function| function.file_path == "m.py"));
+}
+
+#[test]
+fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
+    let at_ref =
+        "def f(a):\n    if a:\n        return 1\n    return 0\n\n\ndef f(b):\n    return b\n";
+    let now = at_ref.replacen("def f(a):", "def f(a):  # complexipy: ignore", 1);
+    let getter = PROPERTY_PAIR.replacen(
+        "    def value(self):",
+        "    def value(self):  # complexipy: ignore",
+        1,
+    );
+
+    let first = crate::diff::ignored_by_change("m.py", Some(&now), Some(at_ref));
+    let property = crate::diff::ignored_by_change("svc.py", Some(&getter), Some(PROPERTY_PAIR));
+
+    assert_eq!(hidden(&first), vec![("f", 1, 1)]);
+    assert_eq!(hidden(&property), vec![("Svc::value", 2, 6)]);
+}
+
+#[test]
+fn a_diff_and_a_staged_diff_list_the_markers_a_change_adds() {
+    let dir = tempdir().unwrap();
+    init_repo(dir.path());
+    fs::write(dir.path().join("m.py"), MARKED_BASE).unwrap();
+    fs::write(dir.path().join("gone.py"), MARKED_BASE).unwrap();
+    commit_all(dir.path(), "initial");
+    fs::write(dir.path().join("m.py"), marked_change()).unwrap();
+    fs::remove_file(dir.path().join("gone.py")).unwrap();
+    git(dir.path(), &["add", "-A"]);
+    let invocation = dir.path().to_str().unwrap();
+    let current = vec![file_complexity("m.py", "m.py", &[])];
+    let expected = vec![("nested", 1, 6), ("small", 9, 1), ("fresh", 21, 3)];
+
+    let report = compute_diff_report(&current, "HEAD", invocation, &|_| true, None);
+    let staged =
+        compute_staged_diff(&current, "HEAD", invocation, &|_| true, None).expect("should diff");
+
+    assert_eq!(hidden(&report.ignored_by_change), expected);
+    assert_eq!(hidden(&staged.ignored_by_change), expected);
+}

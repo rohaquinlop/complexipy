@@ -76,11 +76,22 @@ pub struct UnresolvedFile {
     pub reason: UnresolvedReason,
 }
 
+/// A function an ignore marker hides now and did not hide at the ref, with
+/// the score it has when the marker is disregarded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IgnoredByChange {
+    pub file_path: String,
+    pub func_name: String,
+    pub line_start: u64,
+    pub complexity: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DiffReport {
     pub entries: Vec<DiffEntry>,
     pub unresolved: Vec<UnresolvedFile>,
     pub bodies: Bodies,
+    pub ignored_by_change: Vec<IgnoredByChange>,
 }
 
 /// What the gate knows of function bodies, compared structurally, with
@@ -264,7 +275,17 @@ pub fn compute_diff_report(
     let mut old_functions = analyse_contents(&objects).into_iter();
     let mut ranges: Vec<Range<usize>> = Vec::with_capacity(objects.len());
 
-    for (file, old_functions) in current_files.iter().zip(old_functions.by_ref()) {
+    for (index, (file, old_functions)) in
+        current_files.iter().zip(old_functions.by_ref()).enumerate()
+    {
+        if repository_of[index].is_some() && (changed[index] || objects[index].text().is_none()) {
+            let now = source_on_disk(&Path::new(invocation_path).join(&file.path));
+            report.ignored_by_change.extend(ignored_by_change(
+                &file.path,
+                now.as_deref(),
+                objects[index].text(),
+            ));
+        }
         let start = report.entries.len();
         let current_map = keyed_complexities(&file.functions);
         let mut old_map = old_functions.flatten().unwrap_or_default();
@@ -406,6 +427,11 @@ pub fn compute_staged_diff(
     let mut contents = analyse_contents(&objects).into_iter();
     let mut ranges: Vec<Range<usize>> = Vec::with_capacity(compared.len());
     for ((_, _, display), sides) in compared.into_iter().zip(objects.chunks(2)) {
+        report.ignored_by_change.extend(ignored_by_change(
+            &display,
+            sides[1].text(),
+            sides[0].text(),
+        ));
         let start = report.entries.len();
         let mut old_map = contents.next().flatten().flatten().unwrap_or_default();
         let new_map = contents.next().flatten().flatten().unwrap_or_default();
@@ -1156,6 +1182,65 @@ fn analyse_object(object: &GitObject) -> Option<Option<HashMap<String, u64>>> {
 /// Scores each function of `content`, honoring ignore markers unless
 /// `no_ignore` is set.
 fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<String, u64>> {
+    Some(keyed_complexities(&scored(content, no_ignore)?))
+}
+
+/// The functions an ignore marker hides in `now` beyond those it hides, by
+/// name, in `at_ref`, in source order, each scored with its marker
+/// disregarded. A function is matched by name and start line, since a key
+/// counts only the functions a marker leaves visible.
+fn ignored_by_change(
+    file_path: &str,
+    now: Option<&str>,
+    at_ref: Option<&str>,
+) -> Vec<IgnoredByChange> {
+    let Some(now) = now else {
+        return Vec::new();
+    };
+    let mut hidden_at_ref: HashMap<String, usize> = HashMap::new();
+    for function in at_ref.map(hidden_functions).unwrap_or_default() {
+        *hidden_at_ref.entry(function.name).or_default() += 1;
+    }
+    let mut hidden_now = hidden_functions(now);
+    hidden_now.sort_by_key(|function| function.line_start);
+    hidden_now
+        .into_iter()
+        .filter(|function| match hidden_at_ref.get_mut(&function.name) {
+            Some(count) if *count > 0 => {
+                *count -= 1;
+                false
+            }
+            _ => true,
+        })
+        .map(|function| IgnoredByChange {
+            file_path: file_path.to_string(),
+            func_name: function.name,
+            line_start: function.line_start,
+            complexity: function.complexity,
+        })
+        .collect()
+}
+
+/// The functions of `content` that an ignore marker hides, scored with the
+/// marker disregarded.
+fn hidden_functions(content: &str) -> Vec<FunctionComplexity> {
+    if !crate::utils::has_marker_text(content) {
+        return Vec::new();
+    }
+    let (Some(unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
+        return Vec::new();
+    };
+    let visible: HashSet<(&str, u64)> = marked
+        .iter()
+        .map(|function| (function.name.as_str(), function.line_start))
+        .collect();
+    unmarked
+        .into_iter()
+        .filter(|function| !visible.contains(&(function.name.as_str(), function.line_start)))
+        .collect()
+}
+
+fn scored(content: &str, no_ignore: bool) -> Option<Vec<FunctionComplexity>> {
     let parsed = crate::syntax_tree::parse_module(content).ok()?;
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
         parsed.suite(),
@@ -1165,7 +1250,7 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
             ..Default::default()
         },
     );
-    Some(keyed_complexities(&functions))
+    Some(functions)
 }
 
 fn source_on_disk(path: &Path) -> Option<String> {

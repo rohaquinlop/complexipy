@@ -16,7 +16,7 @@ macro_rules! emit_error {
 use owo_colors::OwoColorize;
 
 use crate::args::CliArgs;
-use crate::output::diff::format_diff;
+use crate::output::diff::{format_diff, format_ignored_by_change};
 use crate::output::messages::{
     config_gate_change_warning, diff_flags_warning, explain_output, handle_snapshot_console,
     ignore_rule_skips_output, ignored_saved_output, ignored_summary_output, no_active_rule_warning,
@@ -332,6 +332,11 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                             run_diff.verdicts.as_deref()
                         )
                     );
+                    let ignored =
+                        format_ignored_by_change(&report.ignored_by_change, &run_diff.label);
+                    if !ignored.is_empty() {
+                        emit!("{}", ignored);
+                    }
                 }
                 for warning in unresolved_diff_warnings(&report.unresolved, &run_diff.git_ref) {
                     emit_error!("{} {}", label, escape_controls(&warning));
