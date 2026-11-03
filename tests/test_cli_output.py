@@ -57,10 +57,7 @@ def run_console(
     return subprocess.run(
         [sys.executable, "-c", RUN_CLI, *arguments],
         cwd=cwd,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=120,
-        **options,
+        **{"stderr": subprocess.PIPE, "text": True, "timeout": 120, **options},
     )
 
 
@@ -261,11 +258,11 @@ def test_explain_rejects_an_unknown_rule_and_lists_the_valid_ids(
 
 
 def run_binary(arguments: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "-c", RUN_CLI, *arguments],
-        cwd=cwd,
-        capture_output=True,
-        timeout=120,
+    return run_console(
+        arguments,
+        cwd,
+        stdout=subprocess.PIPE,
+        text=False,
         env={**environment_without_color_overrides(), "NO_COLOR": "1"},
     )
 
@@ -309,6 +306,42 @@ def test_output_dash_writes_only_the_report_to_stdout(
 
     if output_format != "csv":
         json.loads(result.stdout)
+
+
+@pytest.mark.parametrize("diff_flag", ["--diff", "--diff-only"])
+def test_output_dash_keeps_the_diff_table_off_stdout(
+    tmp_path, diff_flag
+) -> None:
+    root = project(tmp_path, files=3)
+    for arguments in (
+        ["init", "-q"],
+        ["add", "-A"],
+        [
+            "-c",
+            "user.name=T",
+            "-c",
+            "user.email=t@example.com",
+            "commit",
+            "-qm",
+            "base",
+        ],
+    ):
+        subprocess.run(["git", *arguments], cwd=root, check=True)
+    (root / "module_0.py").write_text(
+        NESTED + "\n\n" + NESTED.replace("nested", "added")
+    )
+
+    result = assert_stdout_matches_file_report(
+        [
+            ".",
+            "--output-format=sarif",
+            f"{diff_flag}=HEAD",
+            "--max-complexity-allowed=0",
+        ],
+        root,
+    )
+
+    json.loads(result.stdout)
 
 
 def test_output_dash_from_config_writes_the_report_to_stdout(tmp_path) -> None:
