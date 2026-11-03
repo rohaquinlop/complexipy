@@ -474,6 +474,6 @@ def test_plain_lines_carry_the_line_and_one_line_per_plan(
     )
 
     assert result.stdout.splitlines() == [
-        f"module_0.py:{function.line_start} nested {function.complexity}",
+        f"module_0.py:{function.line_start} {function.name} {function.complexity}",
         "  C007 Merge 3 nested if statements (-4)",
     ]
