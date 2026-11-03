@@ -20,31 +20,35 @@ se mantiene pequeño.
 
 Las recetas revisan el diff en lugar de todo el repositorio:
 
-- `complexipy . --diff HEAD` revisa los cambios sin confirmar después de cada
+- `complexipy <archivo> --diff HEAD` revisa el archivo editado después de cada
   edición.
 - `complexipy . --diff main` revisa la rama cuando termina el turno.
 
-`--quiet` conserva el código de salida y descarta el reporte de la terminal,
-porque el hook imprime su propio mensaje. Si prefieres la lista de funciones en
-la retroalimentación, `--failed --plain` imprime una línea por cada función que
-supera el límite:
+Cada hook pasa el reporte al agente como retroalimentación.
+`--failed --plain --suggest-refactors` lo mantiene corto: una línea
+`ruta:línea función complejidad` por cada función que supera el límite, y una
+línea por cada plan de refactorización con su id de regla, su título y su
+reducción:
 
 ```bash
-complexipy src/app.py --failed --plain --max-complexity-allowed 15
+complexipy src/app.py --diff HEAD --failed --plain --suggest-refactors --max-complexity-allowed 15
 ```
-
-La salida es una línea por cada función que supera el límite:
 
 ```text
-src/app.py handle_order 22
+src/app.py:3 nested 6
+  C007 Merge 3 nested if statements (-4)
 ```
+
+Después vienen la tabla del diff y la lista de funciones que oculta ahora un
+comentario de ignorado que añadió el cambio, así que un agente no puede pasar
+la revisión añadiendo `# complexipy: ignore`.
 
 Los scripts son `sh` POSIX y esperan `complexipy` en el `PATH`. Funcionan en
 repositorios git, porque `--diff` necesita una referencia con la que comparar.
 
-Ambos hooks comparan una referencia de git, no el archivo que acaba de
-cambiar: el hook de edición revisa todos los cambios sin confirmar y el hook
-Stop revisa toda la rama contra `main`. Empieza con un árbol limpio, o confirma
+Ambos hooks comparan con una referencia de git: el hook de edición revisa los
+cambios sin confirmar del archivo que editó el agente y el hook Stop revisa
+toda la rama contra `main`. Empieza con un árbol limpio, o confirma
 o guarda tu propio trabajo, para que la retroalimentación trate sobre los
 cambios del agente.
 
@@ -55,28 +59,36 @@ ejecución:
 
 ```sh
 #!/bin/sh
-# Reports the functions above the cognitive complexity limit that the working
-# tree adds or worsens, so the agent fixes them before the turn continues.
+# Reports the functions above the cognitive complexity limit that an edit adds
+# or worsens, so the agent fixes them before the turn continues.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_EDIT_DIFF_REF:-HEAD}
+file=$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+case "$file" in
+    "") target=. ;;
+    *.py) target=$file ;;
+    *) exit 0 ;;
+esac
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
-complexipy . --diff "$ref" --max-complexity-allowed "$limit" --quiet
+report=$(complexipy "$target" --diff "$ref" --failed --plain --suggest-refactors \
+    --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
 if [ "$status" -eq 0 ]; then
     exit 0
 fi
 if [ "$status" -ne 1 ]; then
-    printf '%s\n' "complexipy could not check the working tree (exit $status)." >&2
+    printf '%s\n' "complexipy could not check the edit (exit $status):" "$report" >&2
     exit 1
 fi
-printf '%s\n' "complexipy: the working tree adds or worsens a function above the cognitive complexity limit of $limit." >&2
-printf '%s\n' "Run 'complexipy . --diff $ref --failed' to list those functions, then refactor them." >&2
+printf '%s\n' "complexipy: the edit adds or worsens a function above the cognitive complexity limit of $limit." "$report" "Refactor the functions listed above." >&2
 exit 2
 ```
 
-El script se ejecuta después de cada edición, así que `--diff HEAD` limita el
-análisis a las funciones que las ediciones introdujeron o empeoraron. El estado
+El script lee `tool_input.file_path` de la entrada del hook en stdin, omite un
+archivo que no es de Python y revisa solo ese archivo. Cuando la entrada no
+nombra un archivo, como en una edición `apply_patch` de Codex, revisa todos los
+cambios sin confirmar. El estado
 de salida 2 es la señal de retroalimentación para ambos agentes: Claude Code
 muestra el texto de stderr al modelo y Codex CLI reemplaza el resultado de la
 herramienta con él.
@@ -91,23 +103,22 @@ Guarda este script junto al hook de edición:
 # adds or worsens, so the agent keeps working instead of stopping.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_DIFF_REF:-main}
-input=$(cat)
-if printf '%s' "$input" | grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+if grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
     exit 0
 fi
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
-complexipy . --diff "$ref" --max-complexity-allowed "$limit" --quiet
+report=$(complexipy . --diff "$ref" --failed --plain --suggest-refactors \
+    --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
 if [ "$status" -eq 0 ]; then
     exit 0
 fi
 if [ "$status" -ne 1 ]; then
-    printf '%s\n' "complexipy could not check the branch (exit $status)." >&2
+    printf '%s\n' "complexipy could not check the branch (exit $status):" "$report" >&2
     exit 1
 fi
-printf '%s\n' "complexipy: the branch adds or worsens a function above the cognitive complexity limit of $limit." >&2
-printf '%s\n' "Run 'complexipy . --diff $ref --failed' to list those functions, then refactor them." >&2
+printf '%s\n' "complexipy: the branch adds or worsens a function above the cognitive complexity limit of $limit." "$report" "Refactor the functions listed above before you finish." >&2
 exit 2
 ```
 
@@ -147,7 +158,7 @@ existentes:
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|MultiEdit|Write",
         "hooks": [
           {
             "type": "command",
@@ -255,16 +266,19 @@ El mismo veredicto funciona fuera del bucle del agente:
 
 ## Notas
 
-- `--plain` imprime `<path> <function> <complexity>` sin números de línea
-  ([#326](https://github.com/rohaquinlop/complexipy/issues/326) sigue abierto).
-  La salida legible por máquina en stdout no forma parte de 8.3.0;
-  `--output -` ya está en `main` y llega en la próxima versión. Los hooks de
-  esta página usan solo el código de salida, así que funcionan con 8.3.0 y
-  posteriores.
+- La forma `ruta:línea`, las líneas de planes de refactorización en `--plain` y
+  la lista de comentarios de ignorado que añade un cambio llegan después de
+  8.3.0. Con 8.3.0, los hooks dan los mismos códigos de salida, y la
+  retroalimentación muestra líneas `ruta función complejidad` y la tabla del
+  diff.
+- Cuando una herramienta necesita datos estructurados en lugar de texto,
+  `--output-format json --output -` (después de 8.3.0) escribe el reporte en
+  stdout. Cada entrada incluye `line_start`, `line_end` y las líneas que suman a
+  la puntuación.
 - Los hooks tratan el estado 1 como incumplimiento del límite, y complexipy
   también termina con 1 ante algunos errores de configuración. Cuando la
-  retroalimentación no corresponda a una función del diff, ejecuta el mismo
-  comando sin `--quiet` para leer el mensaje.
+  retroalimentación no corresponda a una función del diff, lee el mensaje al
+  final de la retroalimentación.
 - `--diff` necesita Git 2.30 o posterior. Si la referencia no existe, por
   ejemplo cuando la rama por defecto es `master`, complexipy trata todas las
   funciones como nuevas y el hook informa un fallo; configura la referencia en
