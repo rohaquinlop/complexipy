@@ -7,6 +7,11 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- Each JSON entry carries `line_start`, `line_end`, and `line_complexities`:
+  the lines that add to the score, one entry per line in line order, whose
+  `complexity` values sum to the function's `complexity`. Two functions with
+  one name in one file are now told apart by their lines. CSV, GitLab, and
+  SARIF output do not change.
 - `--output -` writes the report to stdout when exactly one `--output-format`
   is selected, so `complexipy . --output-format json --output - | jq .` works.
   stdout then holds only the report: the console output is suppressed as with

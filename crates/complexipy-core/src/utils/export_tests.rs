@@ -3,7 +3,8 @@ use std::fs;
 use tempfile::tempdir;
 
 use crate::classes::{
-    Applicability, CodeSuggestion, FileComplexity, FunctionComplexity, RefactorPlan, RuleCategory,
+    Applicability, CodeSuggestion, FileComplexity, FunctionComplexity, LineComplexity,
+    RefactorPlan, RuleCategory,
 };
 use crate::utils::{ExportError, output_csv_shared, output_json_shared};
 
@@ -228,6 +229,34 @@ fn json_writes_entries_with_trailing_newline() {
     assert_eq!(entry["function_name"], "f");
     assert_eq!(entry["complexity"], 5);
     assert_eq!(entry["refactor_plans"], serde_json::json!([]));
+}
+
+#[test]
+fn json_lists_function_lines_and_merged_scoring_lines() {
+    let dir = tempdir().expect("tempdir should work");
+    let output = dir.path().join("results.json");
+    let line = |line, complexity| LineComplexity { line, complexity };
+    let files = vec![file_complexity(
+        "src/a.py",
+        "a.py",
+        vec![FunctionComplexity {
+            line_start: 1,
+            line_end: 4,
+            line_complexities: vec![line(3, 1), line(2, 1), line(2, 1), line(4, 0)],
+            ..function_complexity("f", 3)
+        }],
+    )];
+
+    output_json_shared(output.to_str().unwrap(), files, true, 0, false).expect("should write");
+
+    let content = fs::read_to_string(&output).expect("should read");
+    let parsed: serde_json::Value = serde_json::from_str(&content).expect("should parse");
+    assert_eq!(parsed[0]["line_start"], 1);
+    assert_eq!(parsed[0]["line_end"], 4);
+    assert_eq!(
+        parsed[0]["line_complexities"],
+        serde_json::json!([{"line": 2, "complexity": 2}, {"line": 3, "complexity": 1}])
+    );
 }
 
 #[test]
