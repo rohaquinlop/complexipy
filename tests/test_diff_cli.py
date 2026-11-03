@@ -469,3 +469,33 @@ def test_warnings_print_on_stderr_only(
     captured = capfd.readouterr()
     assert warning in strip_ansi(captured.err)
     assert "Warning:" not in strip_ansi(captured.out)
+
+
+@pytest.mark.parametrize("flags", [["--diff", "v1"], ["--staged"]])
+@pytest.mark.parametrize("added, exit_code", [("", 0), ("\n\n" + DEEPER, 1)])
+def test_a_diff_lists_the_ignore_comments_a_change_adds_without_gating_them(
+    repo: Path, capfd: pytest.CaptureFixture[str], flags, added, exit_code
+) -> None:
+    commit(repo, NESTED)
+    marked = NESTED.replace(
+        "def f(a, b):", "def f(a, b):  # complexipy: ignore"
+    )
+    (repo / "pkg" / "mod.py").write_text(marked + added)
+    git(repo, "add", "-A")
+    arguments = [
+        str(repo),
+        *flags,
+        "--max-complexity-allowed",
+        "2",
+        "--color",
+        "no",
+    ]
+
+    loud = run_cli(arguments, str(repo))
+    out = capfd.readouterr().out
+    quiet = run_cli([*arguments, "--quiet"], str(repo))
+
+    assert loud == quiet == exit_code
+    assert "Hidden by an ignore comment now and not at" in out
+    assert "mod.py:1 f 3" in out
+    assert "Hidden by an ignore comment" not in capfd.readouterr().out

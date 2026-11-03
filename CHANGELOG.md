@@ -7,6 +7,10 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- `--diff`, `--diff-only`, and `--staged` list, below the diff table, each
+  function that an ignore comment hides now but did not hide at the
+  reference, as `path:line function score`, the score taken with the comment
+  disregarded. The list never changes the exit code, and `--quiet` hides it.
 - Each JSON entry carries `line_start`, `line_end`, and `line_complexities`:
   the lines that add to the score, one entry per line in line order, whose
   `complexity` values sum to the function's `complexity`. Two functions with
