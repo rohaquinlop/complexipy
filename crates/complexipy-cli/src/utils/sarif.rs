@@ -29,6 +29,17 @@ pub fn store_sarif(
     suggest_refactors: bool,
     baseline: Option<&DiffBaseline>,
 ) -> Result<(), ExportError> {
+    let bytes = render_sarif(files, max_complexity, suggest_refactors, baseline)?;
+    write_atomic(Path::new(output_path), &bytes)
+        .map_err(|e| ExportError::Io(format!("Failed to write SARIF to {}: {}", output_path, e)))
+}
+
+pub fn render_sarif(
+    files: &[FileComplexity],
+    max_complexity: u64,
+    suggest_refactors: bool,
+    baseline: Option<&DiffBaseline>,
+) -> Result<Vec<u8>, ExportError> {
     let (results, refactor_rule_definitions) =
         collect_results(files, max_complexity, suggest_refactors, baseline);
 
@@ -53,9 +64,7 @@ pub fn store_sarif(
 
     let serialized = serde_json::to_string_pretty(&sarif_doc)
         .map_err(|e| ExportError::Serialize(format!("Failed to serialize SARIF: {}", e)))?;
-    write_atomic(Path::new(output_path), serialized.as_bytes())
-        .map_err(|e| ExportError::Io(format!("Failed to write SARIF to {}: {}", output_path, e)))?;
-    Ok(())
+    Ok(serialized.into_bytes())
 }
 
 fn collect_results(
