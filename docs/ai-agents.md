@@ -190,9 +190,9 @@ echo '{"hook_event_name":"Stop","stop_hook_active":false}' | .claude/hooks/compl
 ```
 
 Exit 0 lets the turn end, and exit 2 blocks the stop and passes the message to
-the agent.
-See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
-for the event fields and the exit code rules, and the
+the agent. See the
+[Claude Code hooks reference](https://code.claude.com/docs/en/hooks) for the
+event fields and the exit code rules, and the
 [hooks guide](https://code.claude.com/docs/en/hooks-guide) for more examples.
 
 ## Codex CLI

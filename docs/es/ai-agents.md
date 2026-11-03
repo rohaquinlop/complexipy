@@ -48,9 +48,9 @@ repositorios git, porque `--diff` necesita una referencia con la que comparar.
 
 Ambos hooks comparan con una referencia de git: el hook de edición revisa los
 cambios sin confirmar del archivo que editó el agente y el hook Stop revisa
-toda la rama contra `main`. Empieza con un árbol limpio, o confirma
-o guarda tu propio trabajo, para que la retroalimentación trate sobre los
-cambios del agente.
+toda la rama contra `main`. Empieza con un árbol limpio, o confirma o guarda tu
+propio trabajo, para que la retroalimentación trate sobre los cambios del
+agente.
 
 ## El hook de edición
 
