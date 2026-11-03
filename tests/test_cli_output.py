@@ -158,15 +158,19 @@ def git(root: Path, *arguments: str) -> None:
     )
 
 
-def test_a_diff_ref_wider_than_the_terminal_prints(tmp_path) -> None:
-    root = tmp_path / "repo"
-    root.mkdir()
+def commit_all(root: Path) -> None:
     git(root, "init", "-q")
     git(root, "config", "user.email", "test@example.com")
     git(root, "config", "user.name", "Test")
-    (root / "sample.py").write_text("def nested(a):\n    return a\n")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "base")
+
+
+def test_a_diff_ref_wider_than_the_terminal_prints(tmp_path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "sample.py").write_text("def nested(a):\n    return a\n")
+    commit_all(root)
     branch = "b" * 120
     git(root, "branch", branch)
     (root / "sample.py").write_text(
@@ -313,20 +317,7 @@ def test_output_dash_keeps_the_diff_table_off_stdout(
     tmp_path, diff_flag
 ) -> None:
     root = project(tmp_path, files=3)
-    for arguments in (
-        ["init", "-q"],
-        ["add", "-A"],
-        [
-            "-c",
-            "user.name=T",
-            "-c",
-            "user.email=t@example.com",
-            "commit",
-            "-qm",
-            "base",
-        ],
-    ):
-        subprocess.run(["git", *arguments], cwd=root, check=True)
+    commit_all(root)
     (root / "module_0.py").write_text(
         NESTED + "\n\n" + NESTED.replace("nested", "added")
     )
