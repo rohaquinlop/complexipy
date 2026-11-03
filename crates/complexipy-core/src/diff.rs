@@ -1186,9 +1186,11 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
 }
 
 /// The functions an ignore marker hides in `now` that it does not hide in
-/// `at_ref`, in source order, each scored with its marker disregarded. A
-/// function is known by its name and its rank among the functions of that
-/// name, so a marker on one of two same-named functions names the right one.
+/// `at_ref`, in source order, each scored with its marker disregarded. For
+/// each name, as many are listed as `now` hides beyond `at_ref`; among the
+/// functions of that name, those whose rank `at_ref` does not hide are
+/// chosen first, so a marker on one of two same-named functions names the
+/// right one.
 fn ignored_by_change(
     file_path: &str,
     now: Option<&str>,
@@ -1197,16 +1199,33 @@ fn ignored_by_change(
     let Some(now) = now.filter(|now| crate::utils::has_marker_text(now)) else {
         return Vec::new();
     };
-    let hidden_at_ref: HashSet<(String, usize)> = at_ref
-        .map(hidden_functions)
-        .unwrap_or_default()
+    let mut hidden_at_ref: HashMap<String, HashSet<usize>> = HashMap::new();
+    for (rank, function) in at_ref.map(hidden_functions).unwrap_or_default() {
+        hidden_at_ref.entry(function.name).or_default().insert(rank);
+    }
+    let mut by_name: BTreeMap<String, Vec<(usize, FunctionComplexity)>> = BTreeMap::new();
+    for (rank, function) in hidden_functions(now) {
+        by_name
+            .entry(function.name.clone())
+            .or_default()
+            .push((rank, function));
+    }
+    let mut listed: Vec<FunctionComplexity> = Vec::new();
+    for (name, mut functions) in by_name {
+        let ranks_at_ref = hidden_at_ref.remove(&name).unwrap_or_default();
+        let added = functions.len().saturating_sub(ranks_at_ref.len());
+        functions.sort_by_key(|(rank, _)| ranks_at_ref.contains(rank));
+        listed.extend(
+            functions
+                .into_iter()
+                .take(added)
+                .map(|(_, function)| function),
+        );
+    }
+    listed.sort_by_key(|function| function.line_start);
+    listed
         .into_iter()
-        .map(|(rank, function)| (function.name, rank))
-        .collect();
-    hidden_functions(now)
-        .into_iter()
-        .filter(|(rank, function)| !hidden_at_ref.contains(&(function.name.clone(), *rank)))
-        .map(|(_, function)| IgnoredByChange {
+        .map(|function| IgnoredByChange {
             file_path: file_path.to_string(),
             func_name: function.name,
             line_start: function.line_start,

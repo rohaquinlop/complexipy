@@ -1457,6 +1457,12 @@ fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
     assert_eq!(hidden(&first), vec![("f", 1, 1)]);
     assert_eq!(hidden(&second), vec![("f", 7, 0)]);
     assert_eq!(hidden(&getter), vec![("Svc::value", 2, 6)]);
+
+    let marked_alone =
+        "def f(a):  # complexipy: ignore\n    if a:\n        return 1\n    return 0\n";
+    let stub_above = format!("def f(b):\n    return b\n\n\n{}", marked_alone);
+    let kept = crate::diff::ignored_by_change("m.py", Some(&stub_above), Some(marked_alone));
+    assert!(kept.is_empty());
 }
 
 #[test]
