@@ -1185,34 +1185,28 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
     Some(keyed_complexities(&scored(content, no_ignore)?))
 }
 
-/// The functions an ignore marker hides in `now` beyond those it hides, by
-/// name, in `at_ref`, in source order, each scored with its marker
-/// disregarded. A function is matched by name and start line, since a key
-/// counts only the functions a marker leaves visible.
+/// The functions an ignore marker hides in `now` that it does not hide in
+/// `at_ref`, in source order, each scored with its marker disregarded. A
+/// function is known by its name and its rank among the functions of that
+/// name, so a marker on one of two same-named functions names the right one.
 fn ignored_by_change(
     file_path: &str,
     now: Option<&str>,
     at_ref: Option<&str>,
 ) -> Vec<IgnoredByChange> {
-    let Some(now) = now else {
+    let Some(now) = now.filter(|now| crate::utils::has_marker_text(now)) else {
         return Vec::new();
     };
-    let mut hidden_at_ref: HashMap<String, usize> = HashMap::new();
-    for function in at_ref.map(hidden_functions).unwrap_or_default() {
-        *hidden_at_ref.entry(function.name).or_default() += 1;
-    }
-    let mut hidden_now = hidden_functions(now);
-    hidden_now.sort_by_key(|function| function.line_start);
-    hidden_now
+    let hidden_at_ref: HashSet<(String, usize)> = at_ref
+        .map(hidden_functions)
+        .unwrap_or_default()
         .into_iter()
-        .filter(|function| match hidden_at_ref.get_mut(&function.name) {
-            Some(count) if *count > 0 => {
-                *count -= 1;
-                false
-            }
-            _ => true,
-        })
-        .map(|function| IgnoredByChange {
+        .map(|(rank, function)| (function.name, rank))
+        .collect();
+    hidden_functions(now)
+        .into_iter()
+        .filter(|(rank, function)| !hidden_at_ref.contains(&(function.name.clone(), *rank)))
+        .map(|(_, function)| IgnoredByChange {
             file_path: file_path.to_string(),
             func_name: function.name,
             line_start: function.line_start,
@@ -1221,23 +1215,32 @@ fn ignored_by_change(
         .collect()
 }
 
-/// The functions of `content` that an ignore marker hides, scored with the
+/// The functions of `content` that an ignore marker hides, in source order,
+/// each with its rank among the functions of its name and scored with the
 /// marker disregarded.
-fn hidden_functions(content: &str) -> Vec<FunctionComplexity> {
+fn hidden_functions(content: &str) -> Vec<(usize, FunctionComplexity)> {
     if !crate::utils::has_marker_text(content) {
         return Vec::new();
     }
-    let (Some(unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
+    let (Some(mut unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
         return Vec::new();
     };
+    unmarked.sort_by_key(|function| function.line_start);
     let visible: HashSet<(&str, u64)> = marked
         .iter()
         .map(|function| (function.name.as_str(), function.line_start))
         .collect();
-    unmarked
-        .into_iter()
-        .filter(|function| !visible.contains(&(function.name.as_str(), function.line_start)))
-        .collect()
+    let mut ranks: HashMap<String, usize> = HashMap::new();
+    let mut hidden = Vec::new();
+    for function in unmarked {
+        let rank = ranks.entry(function.name.clone()).or_default();
+        let current = *rank;
+        *rank += 1;
+        if !visible.contains(&(function.name.as_str(), function.line_start)) {
+            hidden.push((current, function));
+        }
+    }
+    hidden
 }
 
 fn scored(content: &str, no_ignore: bool) -> Option<Vec<FunctionComplexity>> {

@@ -333,7 +333,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                         )
                     );
                     let ignored =
-                        format_ignored_by_change(&report.ignored_by_change, &run_diff.label);
+                        format_ignored_by_change(&report.ignored_by_change, &run_diff.git_ref);
                     if !ignored.is_empty() {
                         emit!("{}", ignored);
                     }

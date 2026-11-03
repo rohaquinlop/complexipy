@@ -1434,20 +1434,29 @@ fn ignored_by_change_lists_the_markers_a_change_adds() {
 
 #[test]
 fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
-    let at_ref =
+    let pair =
         "def f(a):\n    if a:\n        return 1\n    return 0\n\n\ndef f(b):\n    return b\n";
-    let now = at_ref.replacen("def f(a):", "def f(a):  # complexipy: ignore", 1);
-    let getter = PROPERTY_PAIR.replacen(
+    let first_marked = pair.replacen("def f(a):", "def f(a):  # complexipy: ignore", 1);
+    let both_marked = first_marked.replacen("def f(b):", "def f(b):  # complexipy: ignore", 1);
+    let setter_marked = PROPERTY_PAIR.replacen(
+        "    def value(self, v):",
+        "    def value(self, v):  # complexipy: ignore",
+        1,
+    );
+    let both_accessors = setter_marked.replacen(
         "    def value(self):",
         "    def value(self):  # complexipy: ignore",
         1,
     );
 
-    let first = crate::diff::ignored_by_change("m.py", Some(&now), Some(at_ref));
-    let property = crate::diff::ignored_by_change("svc.py", Some(&getter), Some(PROPERTY_PAIR));
+    let first = crate::diff::ignored_by_change("m.py", Some(&first_marked), Some(pair));
+    let second = crate::diff::ignored_by_change("m.py", Some(&both_marked), Some(&first_marked));
+    let getter =
+        crate::diff::ignored_by_change("svc.py", Some(&both_accessors), Some(&setter_marked));
 
     assert_eq!(hidden(&first), vec![("f", 1, 1)]);
-    assert_eq!(hidden(&property), vec![("Svc::value", 2, 6)]);
+    assert_eq!(hidden(&second), vec![("f", 7, 0)]);
+    assert_eq!(hidden(&getter), vec![("Svc::value", 2, 6)]);
 }
 
 #[test]
