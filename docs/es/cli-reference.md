@@ -9,7 +9,7 @@
 | `--snapshot-create` | Guarda las violaciones actuales que superen el umbral en `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Omite la comparación con un snapshot aunque exista | `false` |
 | `--failed` | Muestra solo las funciones que superen el umbral de complejidad | `false` |
-| `--suggest-refactors` | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Ignorado por `--plain` | `false` |
+| `--suggest-refactors` | Muestra planes deterministas de refactorización basados en el AST de Rust en la salida CLI enriquecida. Con `--plain`, agrega una línea por plan | `false` |
 | `--fix` | Aplica cada sugerencia aplicable (Seguro de aplicar y empalmable) de las funciones por encima de `max-complexity-allowed` a los archivos fuente y luego informa el estado posterior a las correcciones (ver [Aplicar Sugerencias Aplicables](refactoring-rules.md#aplicar-sugerencias-aplicables)). Implica `--suggest-refactors` | `false` |
 | `--dry-run` | Imprime solo el diff unificado de las correcciones que `--fix` aplicaría, y no escribe nada. Implica `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Usa color | `auto` |
@@ -18,7 +18,7 @@
 | `--ignore-complexity` | No termina con error al superar el umbral | `false` |
 | `--version` | Muestra la versión instalada de complexipy y sale | - |
 | `--top <n>` | Muestra solo las `n` funciones más complejas, ordenadas globalmente por complejidad descendente | - |
-| `--plain` | Emite líneas de texto plano como `<path> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
+| `--plain` | Emite líneas de texto plano como `<path>:<line> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
 | `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | - |
 | `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos. Usa `-` para escribir un solo formato en stdout: la salida de consola se suprime como con `--quiet`, y las advertencias y los errores van a stderr | - |
 | `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | - |

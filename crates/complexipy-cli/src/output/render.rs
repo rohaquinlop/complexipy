@@ -182,7 +182,7 @@ pub fn output_summary(options: SummaryOptions) -> (bool, String) {
     }
 
     if plain {
-        return (has_success, output_plain(&file_entries));
+        return (has_success, output_plain(&file_entries, suggest_refactors));
     }
 
     let output = if failed_only && file_entries.is_empty() && rows.allowed > 0 {
@@ -227,19 +227,52 @@ fn allowed_summary(allowed: u64, max_complexity: u64) -> String {
     )
 }
 
-pub fn output_plain(file_entries: &[FileEntry]) -> String {
+pub fn output_plain(file_entries: &[FileEntry], suggest_refactors: bool) -> String {
     let mut lines = Vec::new();
     for entry in file_entries {
         for function in &entry.functions {
             lines.push(format!(
-                "{} {} {}",
+                "{}:{} {} {}",
                 escape_controls(&entry.path),
+                function.line_start,
                 escape_controls(&function.name),
                 function.complexity
             ));
+            if suggest_refactors {
+                lines.extend(plain_plan_lines(function));
+            }
         }
     }
     lines.join("\n")
+}
+
+fn plain_plan_lines(function: &FunctionRow) -> Vec<String> {
+    let mut lines: Vec<String> = function
+        .refactor_plans
+        .iter()
+        .map(|plan| {
+            let qualifier = if plan.reduction_is_measured { "" } else { "~" };
+            format!(
+                "  {} {} (-{}{})",
+                escape_controls(&plan.rule_id),
+                escape_controls(&plan.title),
+                qualifier,
+                plan.estimated_reduction
+            )
+        })
+        .collect();
+    if function.additional_refactor_plans > 0 {
+        let suffix = if function.additional_refactor_plans != 1 {
+            "s"
+        } else {
+            ""
+        };
+        lines.push(format!(
+            "  ... and {} more suggestion{}",
+            function.additional_refactor_plans, suffix
+        ));
+    }
+    lines
 }
 
 pub fn output_file_entries(

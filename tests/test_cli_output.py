@@ -452,3 +452,28 @@ def test_json_entries_carry_function_lines_and_scoring_lines(tmp_path) -> None:
             sum(line["complexity"] for line in entry["line_complexities"])
             == entry["complexity"]
         )
+
+
+@pytest.mark.parametrize("color", ["yes", "no"])
+def test_plain_lines_carry_the_line_and_one_line_per_plan(
+    tmp_path, monkeypatch, color
+) -> None:
+    root = project(tmp_path, files=1)
+    monkeypatch.chdir(root)
+    function = file_complexity("module_0.py").functions[0]
+    result = run_console(
+        [
+            "module_0.py",
+            "--plain",
+            "--suggest-refactors",
+            "--max-complexity-allowed=0",
+            f"--color={color}",
+        ],
+        root,
+        stdout=subprocess.PIPE,
+    )
+
+    assert result.stdout.splitlines() == [
+        f"module_0.py:{function.line_start} {function.name} {function.complexity}",
+        "  C007 Merge 3 nested if statements (-4)",
+    ]

@@ -182,6 +182,7 @@ fn truncate_top_n_groups_by_path() {
                 crate::types::FunctionRow {
                     name: "low".to_string(),
                     complexity: 1,
+                    line_start: 1,
                     passed: true,
                     path: "a.py".to_string(),
                     file_name: "a.py".to_string(),
@@ -191,6 +192,7 @@ fn truncate_top_n_groups_by_path() {
                 crate::types::FunctionRow {
                     name: "high".to_string(),
                     complexity: 9,
+                    line_start: 5,
                     passed: false,
                     path: "a.py".to_string(),
                     file_name: "a.py".to_string(),
@@ -204,6 +206,7 @@ fn truncate_top_n_groups_by_path() {
             functions: vec![crate::types::FunctionRow {
                 name: "mid".to_string(),
                 complexity: 5,
+                line_start: 1,
                 passed: true,
                 path: "b.py".to_string(),
                 file_name: "b.py".to_string(),

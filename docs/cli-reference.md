@@ -9,7 +9,7 @@
 | `--snapshot-create` | Save the current violations above the threshold into `complexipy-snapshot.json` | `false` |
 | `--snapshot-ignore` | Skip comparing against the snapshot even if it exists | `false` |
 | `--failed` | Show only functions above the complexity threshold | `false` |
-| `--suggest-refactors` | Show deterministic Rust AST-based refactor plans in rich CLI output. Ignored by `--plain` | `false` |
+| `--suggest-refactors` | Show deterministic Rust AST-based refactor plans in rich CLI output. With `--plain`, adds one line per plan | `false` |
 | `--fix` | Apply every fixable suggestion (Safe to apply and spliceable) of the functions above `max-complexity-allowed` to the source files, then report the post-fix state (see [Applying Fixable Suggestions](refactoring-rules.md#applying-fixable-suggestions)). Implies `--suggest-refactors` | `false` |
 | `--dry-run` | Print only the unified diff of the fixes that `--fix` would apply, and write nothing. Implies `--fix` | `false` |
 | `--color <auto\|yes\|no>` | Use color | `auto` |
@@ -18,7 +18,7 @@
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
 | `--top <n>` | Show only the `n` most complex functions, globally sorted by complexity descending | - |
-| `--plain` | Emit plain text lines as `<path> <function> <complexity>`. Cannot be combined with `--quiet` | `false` |
+| `--plain` | Emit plain text lines as `<path>:<line> <function> <complexity>`. Cannot be combined with `--quiet` | `false` |
 | `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`) | - |
 | `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats. Use `-` to write a single format to stdout: the console output is suppressed as with `--quiet`, and warnings and errors go to stderr | - |
 | `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](diff-and-snapshots.md#complexity-diff)) | - |
