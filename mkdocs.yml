@@ -19,6 +19,7 @@ nav:
       - Refactor Suggestions and --fix: refactoring-rules.md
       - CI/CD: ci.md
       - Editor Integration: editors.md
+      - AI Agent Workflows: ai-agents.md
   - Reference:
       - CLI Options: cli-reference.md
       - Python API: api-reference.md
