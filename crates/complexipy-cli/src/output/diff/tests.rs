@@ -1,4 +1,4 @@
-use crate::output::diff::format_diff;
+use crate::output::diff::{format_diff, format_ignored_by_change};
 use complexipy_core::diff::{DiffEntry, Verdict};
 
 fn strip_ansi(input: &str) -> String {
@@ -156,4 +156,24 @@ fn a_diff_only_table_has_no_gate() {
 
     assert!(!output.contains("Gate"));
     assert!(!output.contains("FAILS"));
+}
+
+#[test]
+fn ignored_by_change_lists_each_function_with_its_location_and_score() {
+    use complexipy_core::diff::IgnoredByChange;
+    let function = |func_name: &str, line_start, complexity| IgnoredByChange {
+        file_path: "pkg/m.py".to_string(),
+        func_name: func_name.to_string(),
+        line_start,
+        complexity,
+    };
+
+    assert_eq!(format_ignored_by_change(&[], "main"), "");
+    assert_eq!(
+        format_ignored_by_change(
+            &[function("nested", 1, 6), function("bad\u{1b}", 9, 1)],
+            "main"
+        ),
+        "Hidden by an ignore comment now and not at main (the gate does not count these):\n  pkg/m.py:1 nested 6\n  pkg/m.py:9 bad\\u{1b} 1"
+    );
 }

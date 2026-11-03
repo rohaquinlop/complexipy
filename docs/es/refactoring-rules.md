@@ -458,7 +458,7 @@ Salida de ejemplo (abreviada -- la salida real también muestra un tramo subraya
           Merge nested conditions into `if item.active and item.ready:`
 ```
 
-Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` mantiene la salida plana sin cambios.
+Los planes se basan solo en el análisis AST de Rust; no se usa IA y no se reescribe código automáticamente. Las reducciones estimadas son aproximadas, ordenadas y limitadas, así que trátalas como orientación, no como puntuaciones futuras exactas. `--plain --suggest-refactors` imprime una línea por plan: id de regla, título y reducción.
 
 ### Aplicar Sugerencias Aplicables
 
@@ -483,6 +483,13 @@ complexipy . --fix
         "file_name": "main.py",
         "function_name": "process_items",
         "complexity": 6,
+        "line_start": 1,
+        "line_end": 7,
+        "line_complexities": [
+            {"line": 3, "complexity": 1},
+            {"line": 4, "complexity": 2},
+            {"line": 5, "complexity": 3}
+        ],
         "refactor_plans": [
             {
                 "rule_id": "C007",
@@ -512,7 +519,7 @@ complexipy . --fix
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Los rangos de líneas de funciones están disponibles mediante la API de Python (`line_start`, `line_end`), pero no se incluyen en las entradas de función JSON/CSV legibles por máquina de la CLI.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Cada entrada JSON incluye `line_start` y `line_end` de la función, y `line_complexities`: las líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos valores de `complexity` suman la `complexity` de la función. La salida CSV no incluye datos de líneas.
 
 ### Línea de Comandos
 

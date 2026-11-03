@@ -8,6 +8,16 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- `--diff`, `--diff-only` y `--staged` listan, debajo de la tabla del diff,
+  cada función que un comentario de ignorado oculta ahora pero no ocultaba en
+  la referencia, como `ruta:línea función puntuación`, con la puntuación
+  tomada sin tener en cuenta el comentario. La lista nunca cambia el código de
+  salida, y `--quiet` la oculta.
+- Cada entrada JSON incluye `line_start`, `line_end` y `line_complexities`: las
+  líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos
+  valores de `complexity` suman la `complexity` de la función. Dos funciones
+  con el mismo nombre en un archivo ahora se distinguen por sus líneas. La
+  salida CSV, GitLab y SARIF no cambia.
 - `--output -` escribe el reporte en stdout cuando se selecciona exactamente
   un `--output-format`, así que
   `complexipy . --output-format json --output - | jq .` funciona. stdout
@@ -61,6 +71,13 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- `--plain` imprime cada función como `<path>:<line> <function> <complexity>`,
+  así que los editores y las terminales pueden enlazar la línea. Con
+  `--suggest-refactors`, cada plan agrega una línea con sangría con su id de
+  regla, su título y su reducción, por ejemplo
+  `  C007 Merge 3 nested if statements (-4)`; un `~` marca una reducción
+  estimada. Los scripts que leen el primer campo de una línea `--plain` ahora
+  reciben `:<line>` después de la ruta.
 - El helper de C005 ya no lleva la anotación `-> bool`, porque `and` y `or`
   devuelven un operando, no un bool.
 - Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta

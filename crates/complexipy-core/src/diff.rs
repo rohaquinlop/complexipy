@@ -76,11 +76,22 @@ pub struct UnresolvedFile {
     pub reason: UnresolvedReason,
 }
 
+/// A function an ignore marker hides now and did not hide at the ref, with
+/// the score it has when the marker is disregarded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IgnoredByChange {
+    pub file_path: String,
+    pub func_name: String,
+    pub line_start: u64,
+    pub complexity: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DiffReport {
     pub entries: Vec<DiffEntry>,
     pub unresolved: Vec<UnresolvedFile>,
     pub bodies: Bodies,
+    pub ignored_by_change: Vec<IgnoredByChange>,
 }
 
 /// What the gate knows of function bodies, compared structurally, with
@@ -264,7 +275,17 @@ pub fn compute_diff_report(
     let mut old_functions = analyse_contents(&objects).into_iter();
     let mut ranges: Vec<Range<usize>> = Vec::with_capacity(objects.len());
 
-    for (file, old_functions) in current_files.iter().zip(old_functions.by_ref()) {
+    for (index, (file, old_functions)) in
+        current_files.iter().zip(old_functions.by_ref()).enumerate()
+    {
+        if repository_of[index].is_some() && (changed[index] || objects[index].text().is_none()) {
+            let now = source_on_disk(&Path::new(invocation_path).join(&file.path));
+            report.ignored_by_change.extend(ignored_by_change(
+                &file.path,
+                now.as_deref(),
+                objects[index].text(),
+            ));
+        }
         let start = report.entries.len();
         let current_map = keyed_complexities(&file.functions);
         let mut old_map = old_functions.flatten().unwrap_or_default();
@@ -406,6 +427,11 @@ pub fn compute_staged_diff(
     let mut contents = analyse_contents(&objects).into_iter();
     let mut ranges: Vec<Range<usize>> = Vec::with_capacity(compared.len());
     for ((_, _, display), sides) in compared.into_iter().zip(objects.chunks(2)) {
+        report.ignored_by_change.extend(ignored_by_change(
+            &display,
+            sides[1].text(),
+            sides[0].text(),
+        ));
         let start = report.entries.len();
         let mut old_map = contents.next().flatten().flatten().unwrap_or_default();
         let new_map = contents.next().flatten().flatten().unwrap_or_default();
@@ -1156,6 +1182,198 @@ fn analyse_object(object: &GitObject) -> Option<Option<HashMap<String, u64>>> {
 /// Scores each function of `content`, honoring ignore markers unless
 /// `no_ignore` is set.
 fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<String, u64>> {
+    Some(keyed_complexities(&scored(content, no_ignore)?))
+}
+
+/// The functions an ignore marker hides in `now` that it does not hide in
+/// `at_ref`, in source order, each scored with its marker disregarded.
+/// Among the functions of one name, a hidden function of `at_ref` pairs
+/// first with a hidden function of `now` whose source text is the same.
+/// Each one left over then pairs with the function of `now` that shares the
+/// most lines with it, among the hidden ones left over and the visible ones
+/// whose text `at_ref` does not show; a pair with a visible one is a marker
+/// the change removed. Each hidden function of `now` left without a pair is
+/// listed.
+fn ignored_by_change(
+    file_path: &str,
+    now: Option<&str>,
+    at_ref: Option<&str>,
+) -> Vec<IgnoredByChange> {
+    let Some(now) = now.filter(|now| crate::utils::has_marker_text(now)) else {
+        return Vec::new();
+    };
+    let MarkedFunctions {
+        hidden: hidden_ref,
+        visible: visible_ref,
+    } = at_ref.map(marked_functions).unwrap_or_default();
+    let mut at_ref_by_name: HashMap<String, Vec<Hidden>> = HashMap::new();
+    for hidden in hidden_ref {
+        at_ref_by_name
+            .entry(hidden.function.name.clone())
+            .or_default()
+            .push(hidden);
+    }
+    let marked_now = marked_functions(now);
+    let mut now_by_name: BTreeMap<String, Vec<Hidden>> = BTreeMap::new();
+    for hidden in marked_now.hidden {
+        now_by_name
+            .entry(hidden.function.name.clone())
+            .or_default()
+            .push(hidden);
+    }
+    let mut listed: Vec<FunctionComplexity> = Vec::new();
+    for (name, mut hidden_now) in now_by_name {
+        let mut hidden_at_ref = at_ref_by_name.remove(&name).unwrap_or_default();
+        hidden_now.retain(|hidden| {
+            match hidden_at_ref
+                .iter()
+                .position(|other| other.text == hidden.text)
+            {
+                Some(index) => {
+                    hidden_at_ref.remove(index);
+                    false
+                }
+                None => true,
+            }
+        });
+        let mut unmarked_now: Vec<&str> = marked_now
+            .visible
+            .iter()
+            .filter(|visible| visible.0 == name && !visible_ref.contains(*visible))
+            .map(|(_, text)| text.as_str())
+            .collect();
+        unmarked_now.sort_unstable();
+        let candidates: Vec<&str> = hidden_now
+            .iter()
+            .map(|hidden| hidden.text.as_str())
+            .chain(unmarked_now)
+            .collect();
+        let paired = pair_by_shared_lines(&hidden_at_ref, &candidates, hidden_now.len());
+        listed.extend(
+            hidden_now
+                .into_iter()
+                .enumerate()
+                .filter(|(index, _)| !paired.contains(index))
+                .map(|(_, hidden)| hidden.function),
+        );
+    }
+    listed.sort_by_key(|function| function.line_start);
+    listed
+        .into_iter()
+        .map(|function| IgnoredByChange {
+            file_path: file_path.to_string(),
+            func_name: function.name,
+            line_start: function.line_start,
+            complexity: function.complexity,
+        })
+        .collect()
+}
+
+/// Pairs each of `functions` with one of `candidates` that shares a line
+/// with it, each used once, the pairs that share the most lines first, and
+/// returns the indexes of the candidates in a pair. The candidates from
+/// `hidden` on are visible functions, and on a tie one of them pairs first,
+/// so a hidden function is listed rather than taken for a removed marker.
+fn pair_by_shared_lines(
+    functions: &[Hidden],
+    candidates: &[&str],
+    hidden: usize,
+) -> HashSet<usize> {
+    let mut pairs: Vec<(usize, bool, usize, usize)> = Vec::new();
+    for (function, marked) in functions.iter().enumerate() {
+        for (candidate, text) in candidates.iter().enumerate() {
+            let shared = shared_lines(&marked.text, text);
+            if shared > 0 {
+                pairs.push((shared, candidate < hidden, function, candidate));
+            }
+        }
+    }
+    pairs.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then((left.1, left.2, left.3).cmp(&(right.1, right.2, right.3)))
+    });
+    let mut paired_functions: HashSet<usize> = HashSet::new();
+    let mut paired_candidates: HashSet<usize> = HashSet::new();
+    for (_, _, function, candidate) in pairs {
+        if !paired_functions.contains(&function) && !paired_candidates.contains(&candidate) {
+            paired_functions.insert(function);
+            paired_candidates.insert(candidate);
+        }
+    }
+    paired_candidates
+}
+
+/// How many lines `left` and `right` have in common, each line counted as
+/// often as both hold it.
+fn shared_lines(left: &str, right: &str) -> usize {
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for line in left.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        *counts.entry(line).or_default() += 1;
+    }
+    right
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .filter(|line| match counts.get_mut(line) {
+            Some(count) if *count > 0 => {
+                *count -= 1;
+                true
+            }
+            _ => false,
+        })
+        .count()
+}
+
+/// A function an ignore marker hides: its source text without markers and
+/// its score with the marker disregarded.
+struct Hidden {
+    text: String,
+    function: FunctionComplexity,
+}
+
+/// The functions of a source split by ignore markers: those a marker hides,
+/// in source order, and the name and text of each one it leaves visible.
+#[derive(Default)]
+struct MarkedFunctions {
+    hidden: Vec<Hidden>,
+    visible: HashSet<(String, String)>,
+}
+
+fn marked_functions(content: &str) -> MarkedFunctions {
+    if !crate::utils::has_marker_text(content) {
+        return MarkedFunctions::default();
+    }
+    let (Some(mut unmarked), Some(marked)) = (scored(content, true), scored(content, false)) else {
+        return MarkedFunctions::default();
+    };
+    unmarked.sort_by_key(|function| function.line_start);
+    let shown: HashSet<(&str, u64)> = marked
+        .iter()
+        .map(|function| (function.name.as_str(), function.line_start))
+        .collect();
+    let lines: Vec<&str> = content.lines().collect();
+    let text_of = |function: &FunctionComplexity| {
+        let first = (function.line_start as usize)
+            .saturating_sub(1)
+            .min(lines.len());
+        let last = (function.line_end as usize).clamp(first, lines.len());
+        crate::utils::without_markers(&lines[first..last].join("\n"))
+    };
+    let mut functions = MarkedFunctions::default();
+    for function in unmarked {
+        let text = text_of(&function);
+        if shown.contains(&(function.name.as_str(), function.line_start)) {
+            functions.visible.insert((function.name, text));
+        } else {
+            functions.hidden.push(Hidden { text, function });
+        }
+    }
+    functions
+}
+
+fn scored(content: &str, no_ignore: bool) -> Option<Vec<FunctionComplexity>> {
     let parsed = crate::syntax_tree::parse_module(content).ok()?;
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
         parsed.suite(),
@@ -1165,7 +1383,7 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
             ..Default::default()
         },
     );
-    Some(keyed_complexities(&functions))
+    Some(functions)
 }
 
 fn source_on_disk(path: &Path) -> Option<String> {

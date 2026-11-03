@@ -206,7 +206,14 @@ complexipy . --plain --failed --max-complexity-allowed 10
 Each line is emitted as:
 
 ```text
-<path> <function> <complexity>
+<path>:<line> <function> <complexity>
+```
+
+`<line>` is the line where the function starts, so editors and terminals can link to it. With `--suggest-refactors`, each plan adds an indented line with its rule id, title, and reduction. A `~` marks an estimated reduction, and `complexipy --explain <rule>` prints the full rule text:
+
+```text
+src/main.py:1 nested 6
+  C007 Merge 3 nested if statements (-4)
 ```
 
 `--plain` is CLI-only and cannot be combined with `--quiet`.

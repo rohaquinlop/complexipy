@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from complexipy import cli
+from complexipy import cli, file_complexity
 from complexipy._complexipy import run_cli
 
 NESTED = (
@@ -416,3 +416,64 @@ def test_output_dash_survives_a_closed_stdout(tmp_path) -> None:
     assert "panicked" not in result.stderr
     assert "Traceback" not in result.stderr
     assert result.returncode == 0
+
+
+def test_json_entries_carry_function_lines_and_scoring_lines(tmp_path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    method = "    def run(self, a):\n        if a:\n            return f(a)\n"
+    source = (
+        "def f(n):\n    x = f(n)\n    if n and f(n):\n        return 1\n\n\n"
+        f"class First:\n{method}\n\nclass Second:\n{method}"
+    )
+    (root / "sample.py").write_text(source)
+
+    result = run_binary(
+        ["sample.py", "--output-format=json", "--output", "-"], root
+    )
+    entries = json.loads(result.stdout)
+    expected = {
+        (function.name, function.line_start): function
+        for function in file_complexity(str(root / "sample.py")).functions
+    }
+
+    assert sorted(expected) == sorted(
+        (entry["function_name"], entry["line_start"]) for entry in entries
+    )
+    for entry in entries:
+        function = expected[(entry["function_name"], entry["line_start"])]
+        lines = [line["line"] for line in entry["line_complexities"]]
+        assert entry["line_end"] == function.line_end
+        assert lines == sorted(set(lines))
+        assert all(
+            line["complexity"] > 0 for line in entry["line_complexities"]
+        )
+        assert (
+            sum(line["complexity"] for line in entry["line_complexities"])
+            == entry["complexity"]
+        )
+
+
+@pytest.mark.parametrize("color", ["yes", "no"])
+def test_plain_lines_carry_the_line_and_one_line_per_plan(
+    tmp_path, monkeypatch, color
+) -> None:
+    root = project(tmp_path, files=1)
+    monkeypatch.chdir(root)
+    function = file_complexity("module_0.py").functions[0]
+    result = run_console(
+        [
+            "module_0.py",
+            "--plain",
+            "--suggest-refactors",
+            "--max-complexity-allowed=0",
+            f"--color={color}",
+        ],
+        root,
+        stdout=subprocess.PIPE,
+    )
+
+    assert result.stdout.splitlines() == [
+        f"module_0.py:{function.line_start} {function.name} {function.complexity}",
+        "  C007 Merge 3 nested if statements (-4)",
+    ]

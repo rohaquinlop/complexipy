@@ -43,6 +43,8 @@ A rename or a move passes the gate as long as the function's body stays as it wa
 
 When `--diff` or `--staged` decides the exit code, the report shows the gate's verdict. A function that fails the run, REGRESSED or NEW above the threshold, is listed as `FAILED` and marked `FAILS` in the diff table's `Gate` column, and the table ends with a `Gate:` line that counts them. A function above the threshold that the gate lets through is listed as `ALLOWED`, and `--failed` lists only the functions that fail the run. A snapshot run lists the functions its snapshot lets through as `ALLOWED` too.
 
+Below the diff table, the report lists each function that an ignore comment hides now but did not hide at the reference: a comment added to an existing function, or a new function added with one. Each line gives `path:line`, the function, and its score with the comment disregarded. The list informs a reviewer and never changes the exit code. A function renamed or moved while it kept its comment is listed too, since the name it is hidden under is new. `--quiet` hides the list, as it hides the table.
+
 This requires `git` and a repository-backed path. `--diff` and
 `--diff-only` read each file from the repository that holds it, so a run
 from outside the repository compares against the same history as a run

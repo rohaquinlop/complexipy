@@ -68,6 +68,7 @@ pub fn build_output_rows(
             displayable_functions.push(FunctionRow {
                 name: function.name.clone(),
                 complexity: function.complexity,
+                line_start: function.line_start,
                 passed,
                 path: file.path.clone(),
                 file_name: file.file_name.clone(),

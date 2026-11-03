@@ -2,7 +2,7 @@ use comfy_table::{Cell, Table};
 use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::output::render::rule;
-use complexipy_core::diff::{DiffEntry, DiffStatus, Verdict};
+use complexipy_core::diff::{DiffEntry, DiffStatus, IgnoredByChange, Verdict};
 use complexipy_core::sanitize::escape_controls;
 
 /// The table of changed entries. With `verdicts`, a Gate column marks the
@@ -60,6 +60,29 @@ pub fn format_diff(entries: &[DiffEntry], git_ref: &str, verdicts: Option<&[Verd
         build_diff_summary(&changed),
         verdicts.map(gate_summary).unwrap_or_default()
     )
+}
+
+/// The functions an ignore marker hides now and did not hide at `git_ref`,
+/// each with its score with the marker disregarded. Empty when there are
+/// none. It informs a reviewer and never decides the exit code.
+pub fn format_ignored_by_change(ignored: &[IgnoredByChange], git_ref: &str) -> String {
+    if ignored.is_empty() {
+        return String::new();
+    }
+    let mut lines = vec![format!(
+        "Hidden by an ignore comment now and not at {} (the gate does not count these):",
+        escape_controls(git_ref)
+    )];
+    lines.extend(ignored.iter().map(|function| {
+        format!(
+            "  {}:{} {} {}",
+            escape_controls(&function.file_path),
+            function.line_start,
+            escape_controls(&function.func_name),
+            function.complexity
+        )
+    }));
+    lines.join("\n")
 }
 
 fn gate_summary(verdicts: &[Verdict]) -> String {

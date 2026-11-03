@@ -7,6 +7,15 @@ release section links to its GitHub release notes for the full details.
 
 ### Added
 
+- `--diff`, `--diff-only`, and `--staged` list, below the diff table, each
+  function that an ignore comment hides now but did not hide at the
+  reference, as `path:line function score`, the score taken with the comment
+  disregarded. The list never changes the exit code, and `--quiet` hides it.
+- Each JSON entry carries `line_start`, `line_end`, and `line_complexities`:
+  the lines that add to the score, one entry per line in line order, whose
+  `complexity` values sum to the function's `complexity`. Two functions with
+  one name in one file are now told apart by their lines. CSV, GitLab, and
+  SARIF output do not change.
 - `--output -` writes the report to stdout when exactly one `--output-format`
   is selected, so `complexipy . --output-format json --output - | jq .` works.
   stdout then holds only the report: the console output is suppressed as with
@@ -52,6 +61,12 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- `--plain` prints each function as `<path>:<line> <function> <complexity>`,
+  so editors and terminals can link to the line. With `--suggest-refactors`,
+  each plan adds an indented line with its rule id, title, and reduction, for
+  example `  C007 Merge 3 nested if statements (-4)`; a `~` marks an estimated
+  reduction. Scripts that parse the first field of a `--plain` line now get
+  `:<line>` after the path.
 - The C005 helper no longer carries a `-> bool` annotation, because `and` and
   `or` return an operand, not a bool.
 - Every CLI warning prints to stderr, and `--quiet` no longer hides warnings:

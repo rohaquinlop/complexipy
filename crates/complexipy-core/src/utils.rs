@@ -3,11 +3,12 @@ use ruff_python_ast::{self as ast, Stmt};
 use std::sync::OnceLock;
 
 mod export_deps {
-    pub use crate::classes::{FileComplexity, FunctionComplexity};
+    pub use crate::classes::{FileComplexity, FunctionComplexity, LineComplexity};
     pub use crate::fs_guard::write_atomic;
     pub use crate::sanitize::neutralize_csv_cell;
     pub use csv::Writer;
     pub use serde_json;
+    pub use std::collections::BTreeMap;
     pub use std::path::Path;
 }
 
@@ -130,6 +131,18 @@ pub fn output_json_shared(
     })
 }
 
+fn scoring_lines(line_complexities: &[LineComplexity]) -> Vec<serde_json::Value> {
+    let mut per_line: BTreeMap<u64, u64> = BTreeMap::new();
+    for line in line_complexities {
+        *per_line.entry(line.line).or_default() += line.complexity;
+    }
+    per_line
+        .into_iter()
+        .filter(|&(_, complexity)| complexity > 0)
+        .map(|(line, complexity)| serde_json::json!({"line": line, "complexity": complexity}))
+        .collect()
+}
+
 pub fn render_json(
     functions_complexity: Vec<FileComplexity>,
     show_detailed_results: bool,
@@ -151,6 +164,9 @@ pub fn render_json(
                     "file_name": file.file_name,
                     "function_name": function.name,
                     "complexity": function.complexity,
+                    "line_start": function.line_start,
+                    "line_end": function.line_end,
+                    "line_complexities": scoring_lines(&function.line_complexities),
                     "refactor_plans": refactor_plans
                 });
                 json_data.push(entry);
@@ -506,6 +522,23 @@ fn noqa_re() -> &'static Regex {
     })
 }
 
+/// Whether `code` holds ignore marker text anywhere, comment or not.
+pub fn has_marker_text(code: &str) -> bool {
+    ignore_re().is_match(code) || noqa_re().is_match(code)
+}
+
+/// `code` with every ignore marker and the trailing spaces of each line
+/// removed, so two sources that differ only in their markers compare equal.
+pub fn without_markers(code: &str) -> String {
+    code.lines()
+        .map(|line| {
+            let line = ignore_re().replace_all(line, "");
+            noqa_re().replace_all(&line, "").trim_end().to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Extract an ignore directive from a line.
 ///
 /// Returns `Some(..)` for `# complexipy: ignore` and `# noqa: complexipy`,
@@ -533,7 +566,7 @@ impl CommentRanges {
     /// Tokenizes `code` only when it holds marker text somewhere, so a file
     /// without markers costs one scan.
     pub fn of(code: &str) -> Self {
-        if !ignore_re().is_match(code) && !noqa_re().is_match(code) {
+        if !has_marker_text(code) {
             return Self::default();
         }
         Self(crate::syntax_tree::comment_ranges(code))
