@@ -262,17 +262,16 @@ The same verdict works outside the agent loop:
   and the diff table.
 - When a tool needs structured data instead of text,
   `--output-format json --output -` (after 8.3.0) writes the report to stdout.
-  Each entry carries
-  `line_start`, `line_end`, and `line_complexities`, the lines that add to the
-  score.
+  Each entry carries `line_start`, `line_end`, and `line_complexities`, the
+  lines that add to the score.
 - The hooks treat exit 1 as a limit breach, and complexipy also exits 1 for
   some configuration errors. When the feedback does not match a function in
-  the diff, read the message at the end of the feedback. Each hook checks first
-  that its git reference exists, and exits 1 with a message when it does not.
-- `--diff` needs Git 2.30 or newer. If the reference does not exist, for
-  example when the default branch is `master`, complexipy treats every
-  function as new and the hook reports a failure; set the reference on the
-  first run.
+  the diff, read the message at the end of the feedback.
+- `--diff` needs Git 2.30 or newer. Each hook checks first that its git
+  reference exists. When it does not, for example when the default branch is
+  `master`, the hook exits 1 with a message that names the reference; set
+  `COMPLEXIPY_DIFF_REF` or `COMPLEXIPY_EDIT_DIFF_REF` to a reference that
+  exists.
 - Hooks run with your permissions. Review the scripts before you commit them to
   a repository, like any other command a tool executes for you.
 - The scripts need a POSIX shell. On Windows, install Git for Windows, which

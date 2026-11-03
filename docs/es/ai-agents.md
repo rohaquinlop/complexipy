@@ -90,10 +90,9 @@ exit 2
 El script lee `tool_input.file_path` de la entrada del hook en stdin, omite un
 archivo que no es de Python y revisa solo ese archivo. Cuando la entrada no
 nombra un archivo, como en una edición `apply_patch` de Codex, revisa todos los
-cambios sin confirmar. El estado
-de salida 2 es la señal de retroalimentación para ambos agentes: Claude Code
-muestra el texto de stderr al modelo y Codex CLI reemplaza el resultado de la
-herramienta con él.
+cambios sin confirmar. El estado de salida 2 es la señal de retroalimentación
+para ambos agentes: Claude Code muestra el texto de stderr al modelo y Codex CLI
+reemplaza el resultado de la herramienta con él.
 
 ## El hook de fin de turno
 
@@ -282,12 +281,12 @@ El mismo veredicto funciona fuera del bucle del agente:
 - Los hooks tratan el estado 1 como incumplimiento del límite, y complexipy
   también termina con 1 ante algunos errores de configuración. Cuando la
   retroalimentación no corresponda a una función del diff, lee el mensaje al
-  final de la retroalimentación. Cada hook revisa primero que su referencia de
-  git exista, y termina con 1 y un mensaje cuando no existe.
-- `--diff` necesita Git 2.30 o posterior. Si la referencia no existe, por
-  ejemplo cuando la rama por defecto es `master`, complexipy trata todas las
-  funciones como nuevas y el hook informa un fallo; configura la referencia en
-  la primera ejecución.
+  final de la retroalimentación.
+- `--diff` necesita Git 2.30 o posterior. Cada hook revisa primero que su
+  referencia de git exista. Cuando no existe, por ejemplo cuando la rama por
+  defecto es `master`, el hook termina con 1 y un mensaje que nombra la
+  referencia; define `COMPLEXIPY_DIFF_REF` o `COMPLEXIPY_EDIT_DIFF_REF` con una
+  referencia que exista.
 - Los hooks se ejecutan con tus permisos. Revisa los scripts antes de
   confirmarlos en un repositorio, como cualquier otro comando que una
   herramienta ejecute por ti.
