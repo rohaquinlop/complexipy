@@ -10,8 +10,9 @@ release section links to its GitHub release notes for the full details.
 - `--output -` writes the report to stdout when exactly one `--output-format`
   is selected, so `complexipy . --output-format json --output - | jq .` works.
   stdout then holds only the report: the console output is suppressed as with
-  `--quiet`, and warnings and errors go to stderr. The exit code is the same as with a file.
-  With two or more formats, `--output -` fails before the analysis runs.
+  `--quiet`, and warnings and errors go to stderr. The exit code is the same as
+  with a file. With two or more formats, `--output -` fails before the analysis
+  runs.
 - The language server answers `textDocument/codeAction` with one code action
   per refactoring suggestion of each function over the threshold in the
   requested range. A suggestion `--fix` would apply is a quick fix that rewrites
