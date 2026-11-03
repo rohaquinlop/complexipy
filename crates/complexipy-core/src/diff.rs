@@ -1187,11 +1187,13 @@ fn analyse_content_to_map(content: &str, no_ignore: bool) -> Option<HashMap<Stri
 
 /// The functions an ignore marker hides in `now` that it does not hide in
 /// `at_ref`, in source order, each scored with its marker disregarded.
-/// Among the hidden functions of one name, a function of `now` pairs first
-/// with one of `at_ref` whose source text is the same. A function of
-/// `at_ref` left over whose text `now` still holds without a marker lost its
-/// marker, so it pairs with nothing. The rest pair in source order, and
-/// each function of `now` left without a pair is listed.
+/// Among the functions of one name, a hidden function of `at_ref` pairs
+/// first with a hidden function of `now` whose source text is the same.
+/// Each one left over then pairs with the function of `now` that shares the
+/// most lines with it, among the hidden ones left over and the visible ones
+/// whose text `at_ref` does not show; a pair with a visible one is a marker
+/// the change removed. Each hidden function of `now` left without a pair is
+/// listed.
 fn ignored_by_change(
     file_path: &str,
     now: Option<&str>,
@@ -1200,11 +1202,12 @@ fn ignored_by_change(
     let Some(now) = now.filter(|now| crate::utils::has_marker_text(now)) else {
         return Vec::new();
     };
+    let MarkedFunctions {
+        hidden: hidden_ref,
+        visible: visible_ref,
+    } = at_ref.map(marked_functions).unwrap_or_default();
     let mut at_ref_by_name: HashMap<String, Vec<Hidden>> = HashMap::new();
-    for hidden in at_ref
-        .map(|at_ref| marked_functions(at_ref).hidden)
-        .unwrap_or_default()
-    {
+    for hidden in hidden_ref {
         at_ref_by_name
             .entry(hidden.function.name.clone())
             .or_default()
@@ -1233,16 +1236,25 @@ fn ignored_by_change(
                 None => true,
             }
         });
-        hidden_at_ref.retain(|hidden| {
-            !marked_now
-                .visible
-                .contains(&(name.clone(), hidden.text.clone()))
-        });
+        let mut unmarked_now: Vec<&str> = marked_now
+            .visible
+            .iter()
+            .filter(|visible| visible.0 == name && !visible_ref.contains(*visible))
+            .map(|(_, text)| text.as_str())
+            .collect();
+        unmarked_now.sort_unstable();
+        let candidates: Vec<&str> = hidden_now
+            .iter()
+            .map(|hidden| hidden.text.as_str())
+            .chain(unmarked_now)
+            .collect();
+        let paired = pair_by_shared_lines(&hidden_at_ref, &candidates);
         listed.extend(
             hidden_now
                 .into_iter()
-                .skip(hidden_at_ref.len())
-                .map(|hidden| hidden.function),
+                .enumerate()
+                .filter(|(index, _)| !paired.contains(index))
+                .map(|(_, hidden)| hidden.function),
         );
     }
     listed.sort_by_key(|function| function.line_start);
@@ -1255,6 +1267,52 @@ fn ignored_by_change(
             complexity: function.complexity,
         })
         .collect()
+}
+
+/// Pairs each of `functions` with one of `candidates`, each used once, the
+/// pairs that share the most lines first, and returns the indexes of the
+/// candidates in a pair.
+fn pair_by_shared_lines(functions: &[Hidden], candidates: &[&str]) -> HashSet<usize> {
+    let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
+    for (function, hidden) in functions.iter().enumerate() {
+        for (candidate, text) in candidates.iter().enumerate() {
+            pairs.push((shared_lines(&hidden.text, text), function, candidate));
+        }
+    }
+    pairs.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then((left.1, left.2).cmp(&(right.1, right.2)))
+    });
+    let mut paired_functions: HashSet<usize> = HashSet::new();
+    let mut paired_candidates: HashSet<usize> = HashSet::new();
+    for (_, function, candidate) in pairs {
+        if !paired_functions.contains(&function) && !paired_candidates.contains(&candidate) {
+            paired_functions.insert(function);
+            paired_candidates.insert(candidate);
+        }
+    }
+    paired_candidates
+}
+
+/// How many lines `left` and `right` have in common, each line counted as
+/// often as both hold it.
+fn shared_lines(left: &str, right: &str) -> usize {
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for line in left.lines() {
+        *counts.entry(line.trim()).or_default() += 1;
+    }
+    right
+        .lines()
+        .filter(|line| match counts.get_mut(line.trim()) {
+            Some(count) if *count > 0 => {
+                *count -= 1;
+                true
+            }
+            _ => false,
+        })
+        .count()
 }
 
 /// A function an ignore marker hides: its source text without markers and

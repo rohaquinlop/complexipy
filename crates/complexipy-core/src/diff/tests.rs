@@ -1484,6 +1484,19 @@ fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
     let shifted =
         crate::diff::ignored_by_change("m.py", Some(&stub_above_edited), Some(marked_alone));
     assert!(shifted.is_empty());
+
+    let new_above_edited = format!(
+        "def f(c):  # complexipy: ignore\n    if c:\n        if c:\n            return 1\n    return 0\n\n\n{}",
+        edited
+    );
+    let added_above_edited =
+        crate::diff::ignored_by_change("m.py", Some(&new_above_edited), Some(marked_alone));
+    assert_eq!(hidden(&added_above_edited), vec![("f", 1, 3)]);
+
+    let moved_and_edited = second_marked.replace("return 1", "return 2");
+    let moved_edited =
+        crate::diff::ignored_by_change("m.py", Some(&moved_and_edited), Some(&first_marked));
+    assert_eq!(hidden(&moved_edited), vec![("f", 7, 0)]);
 }
 
 #[test]
