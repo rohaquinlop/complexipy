@@ -1497,6 +1497,20 @@ fn ignored_by_change_finds_the_hidden_one_of_two_same_named_functions() {
     let moved_edited =
         crate::diff::ignored_by_change("m.py", Some(&moved_and_edited), Some(&first_marked));
     assert_eq!(hidden(&moved_edited), vec![("f", 7, 0)]);
+
+    let replaced =
+        "def f(x, y):  # complexipy: ignore\n    if x:\n        return y\n    return None\n";
+    let unrelated = crate::diff::ignored_by_change(
+        "m.py",
+        Some(replaced),
+        Some("def f(a):  # complexipy: ignore\n    return a\n"),
+    );
+    assert_eq!(hidden(&unrelated), vec![("f", 1, 1)]);
+
+    let tied_at_ref = "def f(a):  # complexipy: ignore\n    x = 1\n    return a\n";
+    let tied_now = "def f(a):\n    x = 1\n    return None\n\n\ndef f(c):  # complexipy: ignore\n    x = 1\n    return a\n";
+    let tied = crate::diff::ignored_by_change("m.py", Some(tied_now), Some(tied_at_ref));
+    assert_eq!(hidden(&tied), vec![("f", 6, 0)]);
 }
 
 #[test]

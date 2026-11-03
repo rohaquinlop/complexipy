@@ -1248,7 +1248,7 @@ fn ignored_by_change(
             .map(|hidden| hidden.text.as_str())
             .chain(unmarked_now)
             .collect();
-        let paired = pair_by_shared_lines(&hidden_at_ref, &candidates);
+        let paired = pair_by_shared_lines(&hidden_at_ref, &candidates, hidden_now.len());
         listed.extend(
             hidden_now
                 .into_iter()
@@ -1269,25 +1269,34 @@ fn ignored_by_change(
         .collect()
 }
 
-/// Pairs each of `functions` with one of `candidates`, each used once, the
-/// pairs that share the most lines first, and returns the indexes of the
-/// candidates in a pair.
-fn pair_by_shared_lines(functions: &[Hidden], candidates: &[&str]) -> HashSet<usize> {
-    let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
-    for (function, hidden) in functions.iter().enumerate() {
+/// Pairs each of `functions` with one of `candidates` that shares a line
+/// with it, each used once, the pairs that share the most lines first, and
+/// returns the indexes of the candidates in a pair. The candidates from
+/// `hidden` on are visible functions, and on a tie one of them pairs first,
+/// so a hidden function is listed rather than taken for a removed marker.
+fn pair_by_shared_lines(
+    functions: &[Hidden],
+    candidates: &[&str],
+    hidden: usize,
+) -> HashSet<usize> {
+    let mut pairs: Vec<(usize, bool, usize, usize)> = Vec::new();
+    for (function, marked) in functions.iter().enumerate() {
         for (candidate, text) in candidates.iter().enumerate() {
-            pairs.push((shared_lines(&hidden.text, text), function, candidate));
+            let shared = shared_lines(&marked.text, text);
+            if shared > 0 {
+                pairs.push((shared, candidate < hidden, function, candidate));
+            }
         }
     }
     pairs.sort_by(|left, right| {
         right
             .0
             .cmp(&left.0)
-            .then((left.1, left.2).cmp(&(right.1, right.2)))
+            .then((left.1, left.2, left.3).cmp(&(right.1, right.2, right.3)))
     });
     let mut paired_functions: HashSet<usize> = HashSet::new();
     let mut paired_candidates: HashSet<usize> = HashSet::new();
-    for (_, function, candidate) in pairs {
+    for (_, _, function, candidate) in pairs {
         if !paired_functions.contains(&function) && !paired_candidates.contains(&candidate) {
             paired_functions.insert(function);
             paired_candidates.insert(candidate);
@@ -1300,12 +1309,14 @@ fn pair_by_shared_lines(functions: &[Hidden], candidates: &[&str]) -> HashSet<us
 /// often as both hold it.
 fn shared_lines(left: &str, right: &str) -> usize {
     let mut counts: HashMap<&str, usize> = HashMap::new();
-    for line in left.lines() {
-        *counts.entry(line.trim()).or_default() += 1;
+    for line in left.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        *counts.entry(line).or_default() += 1;
     }
     right
         .lines()
-        .filter(|line| match counts.get_mut(line.trim()) {
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .filter(|line| match counts.get_mut(line) {
             Some(count) if *count > 0 => {
                 *count -= 1;
                 true
