@@ -8,6 +8,11 @@ GitHub con todos los detalles.
 
 ### Añadido
 
+- Cada entrada JSON incluye `line_start`, `line_end` y `line_complexities`: las
+  líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos
+  valores de `complexity` suman la `complexity` de la función. Dos funciones
+  con el mismo nombre en un archivo ahora se distinguen por sus líneas. La
+  salida CSV, GitLab y SARIF no cambia.
 - `--output -` escribe el reporte en stdout cuando se selecciona exactamente
   un `--output-format`, así que
   `complexipy . --output-format json --output - | jq .` funciona. stdout

@@ -480,6 +480,13 @@ complexipy . --fix
         "file_name": "main.py",
         "function_name": "process_data",
         "complexity": 6,
+        "line_start": 1,
+        "line_end": 7,
+        "line_complexities": [
+            {"line": 3, "complexity": 1},
+            {"line": 4, "complexity": 2},
+            {"line": 5, "complexity": 3}
+        ],
         "refactor_plans": [
             {
                 "rule_id": "C007",
@@ -509,7 +516,7 @@ complexipy . --fix
 ]
 ```
 
-JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output does not include plans, and a cell that a spreadsheet would run as a formula (one that starts with `=`, `+`, `-`, or `@`) is written with a leading `'`. Function line ranges are available through the Python API (`line_start`, `line_end`), but are not included in the machine-readable CLI JSON/CSV function entries.
+JSON output contains one entry per emitted function. The `refactor_plans` list is only populated when `--suggest-refactors` is also passed -- otherwise it's `[]`, matching the CLI's rich-output behavior. CSV output does not include plans, and a cell that a spreadsheet would run as a formula (one that starts with `=`, `+`, `-`, or `@`) is written with a leading `'`. Each JSON entry carries the function's `line_start` and `line_end`, and `line_complexities`: the lines that add to the score, one entry per line in line order, whose `complexity` values sum to the function's `complexity`. CSV output does not include line data.
 
 ### Command Line
 
