@@ -22,9 +22,10 @@ The recipes check the diff instead of the whole repository:
 - `complexipy <file> --diff HEAD` checks the edited file on each edit.
 - `complexipy . --diff main` checks the branch when the turn ends.
 
-Each hook passes the report to the agent as its feedback. `--failed --plain --suggest-refactors` keeps it short: one `path:line function complexity` line
-per function over the limit, and one line per refactor plan with its rule id,
-title, and reduction:
+Each hook passes the report to the agent as its feedback.
+`--failed --plain --suggest-refactors` keeps it short: one
+`path:line function complexity` line per function over the limit, and one line
+per refactor plan with its rule id, title, and reduction:
 
 ```bash
 complexipy src/app.py --diff HEAD --failed --plain --suggest-refactors --max-complexity-allowed 15
@@ -53,8 +54,6 @@ Save this script in the hook directory of your agent and make it executable:
 
 ```sh
 #!/bin/sh
-# Reports the functions above the cognitive complexity limit that an edit adds
-# or worsens, so the agent fixes them before the turn continues.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_EDIT_DIFF_REF:-HEAD}
 file=$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
@@ -65,6 +64,10 @@ case "$file" in
 esac
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
+if ! git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+    printf '%s\n' "complexipy hook: the git reference '$ref' does not exist." >&2
+    exit 1
+fi
 report=$(complexipy "$target" --diff "$ref" --failed --plain --suggest-refactors \
     --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
@@ -81,9 +84,9 @@ exit 2
 
 The script reads `tool_input.file_path` from the hook input on stdin, skips a
 file that is not Python, and checks only that file. When the input names no
-file, as with a Codex `apply_patch` edit, it checks every uncommitted change. Exit status 2 is the feedback signal
-for both agents: Claude Code shows the stderr text to the model, and Codex CLI
-replaces the tool result with it.
+file, as with a Codex `apply_patch` edit, it checks every uncommitted change.
+Exit status 2 is the feedback signal for both agents: Claude Code shows the
+stderr text to the model, and Codex CLI replaces the tool result with it.
 
 ## The end-of-turn hook
 
@@ -91,8 +94,6 @@ Save this script next to the edit hook:
 
 ```sh
 #!/bin/sh
-# Reports the functions above the cognitive complexity limit that the branch
-# adds or worsens, so the agent keeps working instead of stopping.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_DIFF_REF:-main}
 if grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
@@ -100,6 +101,10 @@ if grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
 fi
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
+if ! git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+    printf '%s\n' "complexipy hook: the git reference '$ref' does not exist." >&2
+    exit 1
+fi
 report=$(complexipy . --diff "$ref" --failed --plain --suggest-refactors \
     --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
@@ -255,11 +260,15 @@ The same verdict works outside the agent loop:
   ignore comments a change adds come after 8.3.0. With 8.3.0, the hooks give
   the same exit codes, and the feedback shows `path function complexity` lines
   and the diff table.
-- When a tool needs structured data instead of text, `--output-format json --output -` (after 8.3.0) writes the report to stdout. Each entry carries
-  `line_start`, `line_end`, and the lines that add to the score.
+- When a tool needs structured data instead of text,
+  `--output-format json --output -` (after 8.3.0) writes the report to stdout.
+  Each entry carries
+  `line_start`, `line_end`, and `line_complexities`, the lines that add to the
+  score.
 - The hooks treat exit 1 as a limit breach, and complexipy also exits 1 for
   some configuration errors. When the feedback does not match a function in
-  the diff, read the message at the end of the feedback.
+  the diff, read the message at the end of the feedback. Each hook checks first
+  that its git reference exists, and exits 1 with a message when it does not.
 - `--diff` needs Git 2.30 or newer. If the reference does not exist, for
   example when the default branch is `master`, complexipy treats every
   function as new and the hook reports a failure; set the reference on the

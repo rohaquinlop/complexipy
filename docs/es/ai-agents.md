@@ -59,8 +59,6 @@ ejecución:
 
 ```sh
 #!/bin/sh
-# Reports the functions above the cognitive complexity limit that an edit adds
-# or worsens, so the agent fixes them before the turn continues.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_EDIT_DIFF_REF:-HEAD}
 file=$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
@@ -71,6 +69,10 @@ case "$file" in
 esac
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
+if ! git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+    printf '%s\n' "complexipy hook: the git reference '$ref' does not exist." >&2
+    exit 1
+fi
 report=$(complexipy "$target" --diff "$ref" --failed --plain --suggest-refactors \
     --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
@@ -99,8 +101,6 @@ Guarda este script junto al hook de edición:
 
 ```sh
 #!/bin/sh
-# Reports the functions above the cognitive complexity limit that the branch
-# adds or worsens, so the agent keeps working instead of stopping.
 limit=${COMPLEXIPY_MAX_COMPLEXITY:-15}
 ref=${COMPLEXIPY_DIFF_REF:-main}
 if grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
@@ -108,6 +108,10 @@ if grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
 fi
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
+if ! git rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+    printf '%s\n' "complexipy hook: the git reference '$ref' does not exist." >&2
+    exit 1
+fi
 report=$(complexipy . --diff "$ref" --failed --plain --suggest-refactors \
     --max-complexity-allowed "$limit" --color no 2>&1)
 status=$?
@@ -273,12 +277,13 @@ El mismo veredicto funciona fuera del bucle del agente:
   diff.
 - Cuando una herramienta necesita datos estructurados en lugar de texto,
   `--output-format json --output -` (después de 8.3.0) escribe el reporte en
-  stdout. Cada entrada incluye `line_start`, `line_end` y las líneas que suman a
-  la puntuación.
+  stdout. Cada entrada incluye `line_start`, `line_end` y `line_complexities`,
+  las líneas que suman a la puntuación.
 - Los hooks tratan el estado 1 como incumplimiento del límite, y complexipy
   también termina con 1 ante algunos errores de configuración. Cuando la
   retroalimentación no corresponda a una función del diff, lee el mensaje al
-  final de la retroalimentación.
+  final de la retroalimentación. Cada hook revisa primero que su referencia de
+  git exista, y termina con 1 y un mensaje cuando no existe.
 - `--diff` necesita Git 2.30 o posterior. Si la referencia no existe, por
   ejemplo cuando la rama por defecto es `master`, complexipy trata todas las
   funciones como nuevas y el hook informa un fallo; configura la referencia en
