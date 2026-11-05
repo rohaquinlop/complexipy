@@ -16,7 +16,7 @@ fn on_small_stack(task: impl FnOnce() + Send + 'static) {
         .expect("analysis should not overflow the stack");
 }
 
-fn analyzed(code: &str) -> u64 {
+pub(crate) fn analyzed(code: &str) -> u64 {
     code_complexity_shared(
         code,
         &AnalysisOptions {

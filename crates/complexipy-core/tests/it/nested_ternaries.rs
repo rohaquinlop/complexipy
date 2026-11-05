@@ -1,21 +1,6 @@
 //! Conditional expressions count wherever they sit inside an expression.
 
-use complexipy_core::cognitive_complexity::code_complexity_shared;
-use complexipy_core::{AnalysisOptions, RuleSet};
-
-fn complexity(code: &str) -> u64 {
-    code_complexity_shared(
-        code,
-        &AnalysisOptions {
-            check_script: true,
-            with_plans: true,
-            rules: RuleSet::default(),
-            ..Default::default()
-        },
-    )
-    .expect("code should parse")
-    .complexity
-}
+use crate::deep_expressions::analyzed as complexity;
 
 #[test]
 fn a_ternary_inside_any_expression_counts() {
