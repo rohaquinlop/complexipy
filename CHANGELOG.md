@@ -67,7 +67,8 @@ release section links to its GitHub release notes for the full details.
   subject, and `except` types. The decorators and defaults of a nested `def`,
   and the decorators, bases, and keywords of a nested `class`, count toward
   the enclosing function at the nesting level of the definition. Scores of
-  functions that hold these sites go up.
+  functions that hold these sites go up. A complex `match` subject or
+  `except` type can now get a C005 plan, with help text and no suggestion.
 - `--plain` prints each function as `<path>:<line> <function> <complexity>`,
   so editors and terminals can link to the line. With `--suggest-refactors`,
   each plan adds an indented line with its rule id, title, and reduction, for
