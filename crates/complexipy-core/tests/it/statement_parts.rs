@@ -1,7 +1,7 @@
 //! Scored expressions count in statement targets, headers, and nested definition headers.
 
 use complexipy_core::AnalysisOptions;
-use complexipy_core::cognitive_complexity::code_complexity_shared;
+use complexipy_core::cognitive_complexity::{code_complexity_shared, plans_for_function};
 
 use crate::deep_expressions::analyzed;
 
@@ -16,6 +16,8 @@ fn a_scored_expression_in_a_statement_part_counts() {
         ("def g(*, k=(x if a else b)):\n        pass", 1),
         ("@deco(x if d else y)\n    def g():\n        pass", 1),
         ("class C(x if d else y):\n        pass", 1),
+        ("@deco(x if d else y)\n    class C:\n        pass", 1),
+        ("def g(k=(x if a else b), /):\n        pass", 1),
         ("class C(metaclass=(M if d else N)):\n        pass", 1),
         (
             "class C:\n        def m(self, k=(x if d else y)):\n            pass",
@@ -72,4 +74,20 @@ fn a_decorator_counts_on_its_own_line() {
         .map(|line| (line.line, line.complexity))
         .collect();
     assert_eq!(scored, [(3, 1)]);
+}
+
+#[test]
+fn a_complex_match_subject_or_except_type_gets_a_help_only_c005_plan() {
+    for header in [
+        "match a and b and c or a:\n        case _:\n            pass",
+        "try:\n        pass\n    except (E if a and b and c else F):\n        pass",
+    ] {
+        let code = format!("def f(a, b, c):\n    {header}\n");
+        let (plans, _) = plans_for_function(&code, 1, &AnalysisOptions::default())
+            .expect("code should parse")
+            .expect("function should be found");
+        let c005: Vec<_> = plans.iter().filter(|plan| plan.rule_id == "C005").collect();
+        assert_eq!(c005.len(), 1, "{header}");
+        assert!(c005[0].suggestion.is_none(), "{header}");
+    }
 }
