@@ -479,6 +479,40 @@ class TestPaperConformance:
     def test_nested_ternary_gets_nesting_increment(self):
         assert self._c("x = 1 if a else (2 if b else 3)\n") == 3
 
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [
+            ("h(k=x if d else y)", 1),
+            ("o.m(k=x if d else y)", 1),
+            ("g(x if d else y).m()", 1),
+            ("(x if d else y).m", 1),
+            ("a + (x if d else y)", 1),
+            ("t[x if d else y]", 1),
+            ("t[a:(x if d else y)]", 1),
+            ("f'{x if d else y}'", 1),
+            ("h(*(x if d else y))", 1),
+            ("(z := x if d else y)", 1),
+            ("{x if d else y: 1}", 1),
+            ("-(x if d else y)", 1),
+            ("~(x if d else y)", 1),
+            ("not (x if d else y)", 1),
+            ("lambda v=(x if d else y): v", 1),
+            ("await h(x if d else y)", 1),
+            ("(a or b) + 1", 1),
+            ("t[a or b]", 1),
+            ("f'{a and b}'", 1),
+            ("h(k=[v for v in d])", 1),
+            ("a and (x if d else y)", 2),
+            ("a or h(k=x if d else y)", 2),
+            ("h(k=(lambda v: v if v else 0)(d))", 2),
+        ],
+    )
+    def test_scored_expression_inside_any_expression_counts(
+        self, expression: str, expected: int
+    ):
+        code = f"def f(d):\n    return {expression}\n"
+        assert self._c(code) == expected
+
     def test_bare_expression_boolean_sequence(self):
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
 

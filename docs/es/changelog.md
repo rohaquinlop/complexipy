@@ -94,6 +94,17 @@ GitHub con todos los detalles.
 
 ### Corregido
 
+- Una expresión condicional cuenta dondequiera que esté dentro de una
+  expresión. Antes solo contaba como valor de una sentencia, argumento
+  posicional o elemento de una lista, tupla, conjunto o valor de diccionario, y
+  contaba 0 en un argumento con nombre, una clave de diccionario, una cadena de
+  métodos, un atributo, un subíndice, una operación binaria, un `await`, un
+  f-string, una lambda invocada, el valor por defecto de un parámetro de lambda
+  o un operando de `-`, `~`, `not`, `and` u `or`, así que `f(k=a if b else c)`
+  puntuaba 0.
+  Las secuencias de operadores booleanos y las comprensiones en esos mismos
+  lugares también cuentan, así que `(a or b) + 1` ahora puntúa 1. Las
+  puntuaciones suben en las funciones que usan estas formas.
 - La wheel musllinux de x86_64 se vuelve a importar. En 8.3.0 fallaba al
   importarse con `initial-exec TLS resolves to dynamic definition`, porque
   mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede

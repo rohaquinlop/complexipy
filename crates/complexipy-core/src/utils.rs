@@ -1,4 +1,5 @@
 use regex::Regex;
+use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{self as ast, Stmt};
 use std::sync::OnceLock;
 
@@ -335,73 +336,79 @@ pub fn is_decorator(statement: &Stmt) -> bool {
 }
 
 pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
-    let mut complexity: u64 = 0;
+    own_score(expr, nesting_level).unwrap_or_else(|| count_child_expressions(expr, nesting_level))
+}
 
-    match expr {
-        ast::Expr::BoolOp(b) => {
-            complexity += operator_sequences(b, None);
-        }
-        ast::Expr::UnaryOp(u) => {
-            complexity += nested_operator_sequences(&u.operand, None);
-        }
+/// Scores `expr` when it has a rule of its own, or returns `None` for an
+/// expression that is only crossed to reach the scored expressions below it.
+fn own_score(expr: &ast::Expr, nesting_level: u64) -> Option<u64> {
+    let score = match expr {
+        ast::Expr::BoolOp(b) => operator_sequences(b, None, nesting_level),
+        ast::Expr::UnaryOp(u) => nested_operator_sequences(&u.operand, None, nesting_level),
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(&c.left, nesting_level);
-            for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator, nesting_level);
-            }
+            count_bool_ops(&c.left, nesting_level)
+                + c.comparators
+                    .iter()
+                    .map(|comparator| count_bool_ops(comparator, nesting_level))
+                    .sum::<u64>()
         }
         ast::Expr::If(i) => {
-            complexity += 1 + nesting_level;
-            complexity += count_bool_ops(&i.test, nesting_level);
-            complexity += count_bool_ops(&i.body, nesting_level + 1);
-            complexity += count_bool_ops(&i.orelse, nesting_level + 1);
+            1 + nesting_level
+                + count_bool_ops(&i.test, nesting_level)
+                + count_bool_ops(&i.body, nesting_level + 1)
+                + count_bool_ops(&i.orelse, nesting_level + 1)
         }
         ast::Expr::Lambda(l) => {
-            complexity += count_bool_ops(&l.body, nesting_level + 1);
+            l.parameters
+                .iter()
+                .flat_map(|p| p.iter_non_variadic_params())
+                .filter_map(|parameter| parameter.default.as_deref())
+                .map(|default| count_bool_ops(default, nesting_level))
+                .sum::<u64>()
+                + count_bool_ops(&l.body, nesting_level + 1)
         }
-        ast::Expr::ListComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::SetComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::Generator(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
+        ast::Expr::ListComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::SetComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::Generator(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
         ast::Expr::DictComp(c) => {
             let elements: Vec<&ast::Expr> =
                 c.key.as_deref().into_iter().chain([&*c.value]).collect();
-            complexity += count_comprehension(&elements, &c.generators, nesting_level);
+            count_comprehension(&elements, &c.generators, nesting_level)
         }
-        ast::Expr::Call(c) => {
-            for arg in c.arguments.args.iter() {
-                complexity += count_bool_ops(arg, nesting_level);
-            }
-        }
-        ast::Expr::Tuple(t) => {
-            for element in t.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::List(l) => {
-            for element in l.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Set(s) => {
-            for element in s.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Dict(d) => {
-            for value in d.iter_values() {
-                complexity += count_bool_ops(value, nesting_level);
-            }
-        }
-        _ => {}
-    }
+        _ => return None,
+    };
+    Some(score)
+}
 
+/// Sums the scores of the scored expressions below `expr`, crossing the
+/// others with an explicit stack instead of recursion.
+fn count_child_expressions(expr: &ast::Expr, nesting_level: u64) -> u64 {
+    let mut complexity: u64 = 0;
+    let mut pending = direct_children(expr);
+    while let Some(child) = pending.pop() {
+        match own_score(child, nesting_level) {
+            Some(score) => complexity += score,
+            None => pending.extend(direct_children(child)),
+        }
+    }
     complexity
+}
+
+fn direct_children(expr: &ast::Expr) -> Vec<&ast::Expr> {
+    let mut children = ChildExpressions::default();
+    visitor::walk_expr(&mut children, expr);
+    children.exprs
+}
+
+#[derive(Default)]
+struct ChildExpressions<'a> {
+    exprs: Vec<&'a ast::Expr>,
+}
+
+impl<'a> Visitor<'a> for ChildExpressions<'a> {
+    fn visit_expr(&mut self, expr: &'a ast::Expr) {
+        self.exprs.push(expr);
+    }
 }
 
 fn count_comprehension(
@@ -432,21 +439,29 @@ fn count_comprehension(
 /// starts a new sequence unless `enclosing` is the operator of the boolean
 /// operation directly around it; `None` means a unary operator or nothing
 /// encloses it.
-fn operator_sequences(bool_op: &ast::ExprBoolOp, enclosing: Option<ast::BoolOp>) -> u64 {
+fn operator_sequences(
+    bool_op: &ast::ExprBoolOp,
+    enclosing: Option<ast::BoolOp>,
+    nesting_level: u64,
+) -> u64 {
     let starts_sequence = u64::from(enclosing != Some(bool_op.op));
     starts_sequence
         + bool_op
             .values
             .iter()
-            .map(|value| nested_operator_sequences(value, Some(bool_op.op)))
+            .map(|value| nested_operator_sequences(value, Some(bool_op.op), nesting_level))
             .sum::<u64>()
 }
 
-fn nested_operator_sequences(expr: &ast::Expr, enclosing: Option<ast::BoolOp>) -> u64 {
+fn nested_operator_sequences(
+    expr: &ast::Expr,
+    enclosing: Option<ast::BoolOp>,
+    nesting_level: u64,
+) -> u64 {
     match expr {
-        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing),
-        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None),
-        _ => 0,
+        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing, nesting_level),
+        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None, nesting_level),
+        _ => count_bool_ops(expr, nesting_level),
     }
 }
 
