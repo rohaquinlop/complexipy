@@ -61,6 +61,13 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- A conditional expression, a boolean operator sequence, or a comprehension
+  now counts in more statement parts: assignment, augmented assignment,
+  annotated assignment, `del`, `for`, and `with ... as` targets, the `match`
+  subject, and `except` types. The decorators and defaults of a nested `def`,
+  and the decorators, bases, and keywords of a nested `class`, count toward
+  the enclosing function at the nesting level of the definition. Scores of
+  functions that hold these sites go up.
 - `--plain` prints each function as `<path>:<line> <function> <complexity>`,
   so editors and terminals can link to the line. With `--suggest-refactors`,
   each plan adds an indented line with its rule id, title, and reduction, for
