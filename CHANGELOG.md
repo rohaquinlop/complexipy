@@ -87,7 +87,8 @@ release section links to its GitHub release notes for the full details.
   used to count only as a statement's value, a positional argument, or an
   element of a list, tuple, set, or dict value, and counted 0 in a keyword
   argument, a method chain, an attribute, a subscript, a binary operation, an
-  `await`, an f-string, or a called lambda, so `f(k=a if b else c)` scored 0.
+  `await`, an f-string, a called lambda, a lambda parameter default, or an
+  operand of `-`, `~`, `not`, `and`, or `or`, so `f(k=a if b else c)` scored 0.
   Scores rise for functions that use these forms.
 - The x86_64 musllinux wheel imports again. In 8.3.0 it failed on import with
   `initial-exec TLS resolves to dynamic definition`, because mimalloc used a

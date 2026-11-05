@@ -491,9 +491,18 @@ class TestPaperConformance:
             "h(*(x if d else y))",
             "(z := x if d else y)",
             "{x if d else y: 1}",
+            "-(x if d else y)",
+            "~(x if d else y)",
+            "not (x if d else y)",
+            "lambda v=(x if d else y): v",
         ):
             code = f"def f(d):\n    return {expression}\n"
             assert self._c(code) == 1, expression
+
+    def test_ternary_under_boolean_operator_counts(self):
+        for expression in ("a and (x if d else y)", "a or h(k=x if d else y)"):
+            code = f"def f(d):\n    return {expression}\n"
+            assert self._c(code) == 2, expression
 
     def test_ternary_under_await_counts(self):
         assert (

@@ -31,9 +31,21 @@ fn a_ternary_inside_any_expression_counts() {
         "h(*(x if d else y))",
         "(z := x if d else y)",
         "{x if d else y: 1}",
+        "-(x if d else y)",
+        "~(x if d else y)",
+        "not (x if d else y)",
+        "lambda v=(x if d else y): v",
     ] {
         let code = format!("def f(d):\n    return {expression}\n");
         assert_eq!(complexity(&code), 1, "{expression}");
+    }
+}
+
+#[test]
+fn a_ternary_under_a_boolean_operator_counts() {
+    for expression in ["a and (x if d else y)", "a or h(k=x if d else y)"] {
+        let code = format!("def f(d):\n    return {expression}\n");
+        assert_eq!(complexity(&code), 2, "{expression}");
     }
 }
 

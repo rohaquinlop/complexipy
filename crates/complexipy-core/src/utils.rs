@@ -340,10 +340,10 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
 
     match expr {
         ast::Expr::BoolOp(b) => {
-            complexity += operator_sequences(b, None);
+            complexity += operator_sequences(b, None, nesting_level);
         }
         ast::Expr::UnaryOp(u) => {
-            complexity += nested_operator_sequences(&u.operand, None);
+            complexity += nested_operator_sequences(&u.operand, None, nesting_level);
         }
         ast::Expr::Compare(c) => {
             complexity += count_bool_ops(&c.left, nesting_level);
@@ -358,6 +358,15 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
             complexity += count_bool_ops(&i.orelse, nesting_level + 1);
         }
         ast::Expr::Lambda(l) => {
+            for parameter in l
+                .parameters
+                .iter()
+                .flat_map(|p| p.iter_non_variadic_params())
+            {
+                if let Some(default) = &parameter.default {
+                    complexity += count_bool_ops(default, nesting_level);
+                }
+            }
             complexity += count_bool_ops(&l.body, nesting_level + 1);
         }
         ast::Expr::ListComp(c) => {
@@ -458,21 +467,29 @@ fn count_comprehension(
 /// starts a new sequence unless `enclosing` is the operator of the boolean
 /// operation directly around it; `None` means a unary operator or nothing
 /// encloses it.
-fn operator_sequences(bool_op: &ast::ExprBoolOp, enclosing: Option<ast::BoolOp>) -> u64 {
+fn operator_sequences(
+    bool_op: &ast::ExprBoolOp,
+    enclosing: Option<ast::BoolOp>,
+    nesting_level: u64,
+) -> u64 {
     let starts_sequence = u64::from(enclosing != Some(bool_op.op));
     starts_sequence
         + bool_op
             .values
             .iter()
-            .map(|value| nested_operator_sequences(value, Some(bool_op.op)))
+            .map(|value| nested_operator_sequences(value, Some(bool_op.op), nesting_level))
             .sum::<u64>()
 }
 
-fn nested_operator_sequences(expr: &ast::Expr, enclosing: Option<ast::BoolOp>) -> u64 {
+fn nested_operator_sequences(
+    expr: &ast::Expr,
+    enclosing: Option<ast::BoolOp>,
+    nesting_level: u64,
+) -> u64 {
     match expr {
-        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing),
-        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None),
-        _ => 0,
+        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing, nesting_level),
+        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None, nesting_level),
+        _ => count_bool_ops(expr, nesting_level),
     }
 }
 
