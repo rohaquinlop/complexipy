@@ -8,4 +8,5 @@ mod line_endings;
 mod nested_ternaries;
 mod plans_for_function;
 mod python315;
+mod statement_parts;
 mod syntax_error;
