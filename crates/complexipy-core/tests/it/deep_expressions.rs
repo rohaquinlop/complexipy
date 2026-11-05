@@ -47,6 +47,17 @@ fn a_recursive_call_at_the_end_of_a_long_chain_is_found() {
 }
 
 #[test]
+fn a_ternary_at_the_end_of_a_long_chain_is_counted() {
+    on_small_stack(|| {
+        let code = format!(
+            "def f(a, d):\n    return h(k={}(a if d else 0))\n",
+            "a+".repeat(LINKS)
+        );
+        assert_eq!(analyzed(&code), 1);
+    });
+}
+
+#[test]
 fn a_long_condition_gets_its_plans() {
     on_small_stack(|| {
         let code = format!(

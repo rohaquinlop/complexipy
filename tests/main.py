@@ -479,6 +479,32 @@ class TestPaperConformance:
     def test_nested_ternary_gets_nesting_increment(self):
         assert self._c("x = 1 if a else (2 if b else 3)\n") == 3
 
+    def test_ternary_inside_any_expression_counts(self):
+        for expression in (
+            "h(k=x if d else y)",
+            "o.m(k=x if d else y)",
+            "g(x if d else y).m()",
+            "(x if d else y).m",
+            "a + (x if d else y)",
+            "t[x if d else y]",
+            "f'{x if d else y}'",
+            "h(*(x if d else y))",
+            "(z := x if d else y)",
+            "{x if d else y: 1}",
+        ):
+            code = f"def f(d):\n    return {expression}\n"
+            assert self._c(code) == 1, expression
+
+    def test_ternary_under_await_counts(self):
+        assert (
+            self._c("async def f(d):\n    return await h(x if d else y)\n") == 1
+        )
+
+    def test_called_lambda_raises_nesting(self):
+        assert (
+            self._c("def f(d):\n    h(k=(lambda v: v if v else 0)(d))\n") == 2
+        )
+
     def test_bare_expression_boolean_sequence(self):
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
 

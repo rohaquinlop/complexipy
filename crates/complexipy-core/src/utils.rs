@@ -1,4 +1,5 @@
 use regex::Regex;
+use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{self as ast, Stmt};
 use std::sync::OnceLock;
 
@@ -373,35 +374,60 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
                 c.key.as_deref().into_iter().chain([&*c.value]).collect();
             complexity += count_comprehension(&elements, &c.generators, nesting_level);
         }
-        ast::Expr::Call(c) => {
-            for arg in c.arguments.args.iter() {
-                complexity += count_bool_ops(arg, nesting_level);
-            }
+        _ => {
+            complexity += count_child_expressions(expr, nesting_level);
         }
-        ast::Expr::Tuple(t) => {
-            for element in t.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::List(l) => {
-            for element in l.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Set(s) => {
-            for element in s.elts.iter() {
-                complexity += count_bool_ops(element, nesting_level);
-            }
-        }
-        ast::Expr::Dict(d) => {
-            for value in d.iter_values() {
-                complexity += count_bool_ops(value, nesting_level);
-            }
-        }
-        _ => {}
     }
 
     complexity
+}
+
+/// Sums `count_bool_ops` over the scored expressions below `expr`, crossing
+/// the others with an explicit stack instead of recursion.
+fn count_child_expressions(expr: &ast::Expr, nesting_level: u64) -> u64 {
+    let mut complexity: u64 = 0;
+    let mut pending = direct_children(expr);
+    while let Some(child) = pending.pop() {
+        if counts_itself(child) {
+            complexity += count_bool_ops(child, nesting_level);
+        } else {
+            pending.extend(direct_children(child));
+        }
+    }
+    complexity
+}
+
+/// Whether `count_bool_ops` scores `expr` itself.
+fn counts_itself(expr: &ast::Expr) -> bool {
+    matches!(
+        expr,
+        ast::Expr::BoolOp(_)
+            | ast::Expr::UnaryOp(_)
+            | ast::Expr::Compare(_)
+            | ast::Expr::If(_)
+            | ast::Expr::Lambda(_)
+            | ast::Expr::ListComp(_)
+            | ast::Expr::SetComp(_)
+            | ast::Expr::Generator(_)
+            | ast::Expr::DictComp(_)
+    )
+}
+
+fn direct_children(expr: &ast::Expr) -> Vec<&ast::Expr> {
+    let mut children = ChildExpressions::default();
+    visitor::walk_expr(&mut children, expr);
+    children.exprs
+}
+
+#[derive(Default)]
+struct ChildExpressions<'a> {
+    exprs: Vec<&'a ast::Expr>,
+}
+
+impl<'a> Visitor<'a> for ChildExpressions<'a> {
+    fn visit_expr(&mut self, expr: &'a ast::Expr) {
+        self.exprs.push(expr);
+    }
 }
 
 fn count_comprehension(
