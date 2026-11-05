@@ -479,52 +479,39 @@ class TestPaperConformance:
     def test_nested_ternary_gets_nesting_increment(self):
         assert self._c("x = 1 if a else (2 if b else 3)\n") == 3
 
-    def test_ternary_inside_any_expression_counts(self):
-        for expression in (
-            "h(k=x if d else y)",
-            "o.m(k=x if d else y)",
-            "g(x if d else y).m()",
-            "(x if d else y).m",
-            "a + (x if d else y)",
-            "t[x if d else y]",
-            "f'{x if d else y}'",
-            "h(*(x if d else y))",
-            "(z := x if d else y)",
-            "{x if d else y: 1}",
-            "-(x if d else y)",
-            "~(x if d else y)",
-            "not (x if d else y)",
-            "lambda v=(x if d else y): v",
-        ):
-            code = f"def f(d):\n    return {expression}\n"
-            assert self._c(code) == 1, expression
-
-    def test_boolean_operator_or_comprehension_inside_any_expression_counts(
-        self,
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [
+            ("h(k=x if d else y)", 1),
+            ("o.m(k=x if d else y)", 1),
+            ("g(x if d else y).m()", 1),
+            ("(x if d else y).m", 1),
+            ("a + (x if d else y)", 1),
+            ("t[x if d else y]", 1),
+            ("t[a:(x if d else y)]", 1),
+            ("f'{x if d else y}'", 1),
+            ("h(*(x if d else y))", 1),
+            ("(z := x if d else y)", 1),
+            ("{x if d else y: 1}", 1),
+            ("-(x if d else y)", 1),
+            ("~(x if d else y)", 1),
+            ("not (x if d else y)", 1),
+            ("lambda v=(x if d else y): v", 1),
+            ("await h(x if d else y)", 1),
+            ("(a or b) + 1", 1),
+            ("t[a or b]", 1),
+            ("f'{a and b}'", 1),
+            ("h(k=[v for v in d])", 1),
+            ("a and (x if d else y)", 2),
+            ("a or h(k=x if d else y)", 2),
+            ("h(k=(lambda v: v if v else 0)(d))", 2),
+        ],
+    )
+    def test_scored_expression_inside_any_expression_counts(
+        self, expression: str, expected: int
     ):
-        for expression in (
-            "(a or b) + 1",
-            "t[a or b]",
-            "f'{a and b}'",
-            "h(k=[v for v in d])",
-        ):
-            code = f"def f(d):\n    return {expression}\n"
-            assert self._c(code) == 1, expression
-
-    def test_ternary_under_boolean_operator_counts(self):
-        for expression in ("a and (x if d else y)", "a or h(k=x if d else y)"):
-            code = f"def f(d):\n    return {expression}\n"
-            assert self._c(code) == 2, expression
-
-    def test_ternary_under_await_counts(self):
-        assert (
-            self._c("async def f(d):\n    return await h(x if d else y)\n") == 1
-        )
-
-    def test_called_lambda_raises_nesting(self):
-        assert (
-            self._c("def f(d):\n    h(k=(lambda v: v if v else 0)(d))\n") == 2
-        )
+        code = f"async def f(d):\n    return {expression}\n"
+        assert self._c(code) == expected
 
     def test_bare_expression_boolean_sequence(self):
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1

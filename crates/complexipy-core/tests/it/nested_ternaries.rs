@@ -1,64 +1,36 @@
-//! Conditional expressions count wherever they sit inside an expression.
+//! Scored expressions count wherever they sit inside an expression.
 
-use crate::deep_expressions::analyzed as complexity;
+use crate::deep_expressions::analyzed;
 
 #[test]
-fn a_ternary_inside_any_expression_counts() {
-    for expression in [
-        "h(x if d else y)",
-        "h(k=x if d else y)",
-        "o.m(k=x if d else y)",
-        "g(x if d else y).m()",
-        "(x if d else y).m",
-        "a + (x if d else y)",
-        "t[x if d else y]",
-        "f'{x if d else y}'",
-        "h(*(x if d else y))",
-        "(z := x if d else y)",
-        "{x if d else y: 1}",
-        "-(x if d else y)",
-        "~(x if d else y)",
-        "not (x if d else y)",
-        "lambda v=(x if d else y): v",
+fn a_scored_expression_inside_any_expression_counts() {
+    for (expression, expected) in [
+        ("h(x if d else y)", 1),
+        ("h(k=x if d else y)", 1),
+        ("o.m(k=x if d else y)", 1),
+        ("g(x if d else y).m()", 1),
+        ("(x if d else y).m", 1),
+        ("a + (x if d else y)", 1),
+        ("t[x if d else y]", 1),
+        ("t[a:(x if d else y)]", 1),
+        ("f'{x if d else y}'", 1),
+        ("h(*(x if d else y))", 1),
+        ("(z := x if d else y)", 1),
+        ("{x if d else y: 1}", 1),
+        ("-(x if d else y)", 1),
+        ("~(x if d else y)", 1),
+        ("not (x if d else y)", 1),
+        ("lambda v=(x if d else y): v", 1),
+        ("await h(x if d else y)", 1),
+        ("(a or b) + 1", 1),
+        ("t[a or b]", 1),
+        ("f'{a and b}'", 1),
+        ("h(k=[v for v in d])", 1),
+        ("a and (x if d else y)", 2),
+        ("a or h(k=x if d else y)", 2),
+        ("h(k=(lambda v: v if v else 0)(d))", 2),
     ] {
-        let code = format!("def f(d):\n    return {expression}\n");
-        assert_eq!(complexity(&code), 1, "{expression}");
+        let code = format!("async def f(d):\n    return {expression}\n");
+        assert_eq!(analyzed(&code), expected, "{expression}");
     }
-}
-
-#[test]
-fn a_boolean_operator_or_comprehension_inside_any_expression_counts() {
-    for expression in [
-        "(a or b) + 1",
-        "t[a or b]",
-        "f'{a and b}'",
-        "h(k=[v for v in d])",
-    ] {
-        let code = format!("def f(d):\n    return {expression}\n");
-        assert_eq!(complexity(&code), 1, "{expression}");
-    }
-}
-
-#[test]
-fn a_ternary_under_a_boolean_operator_counts() {
-    for expression in ["a and (x if d else y)", "a or h(k=x if d else y)"] {
-        let code = format!("def f(d):\n    return {expression}\n");
-        assert_eq!(complexity(&code), 2, "{expression}");
-    }
-}
-
-#[test]
-fn a_ternary_under_await_counts() {
-    assert_eq!(
-        complexity("async def f(d):\n    return await h(x if d else y)\n"),
-        1
-    );
-}
-
-#[test]
-fn a_called_lambda_raises_nesting() {
-    assert_eq!(
-        complexity("def f(d):\n    h(k=(lambda v: v if v else 0)(d))\n"),
-        2
-    );
 }
