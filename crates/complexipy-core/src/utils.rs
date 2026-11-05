@@ -406,7 +406,6 @@ fn count_child_expressions(expr: &ast::Expr, nesting_level: u64) -> u64 {
     complexity
 }
 
-/// Whether `count_bool_ops` scores `expr` itself.
 fn counts_itself(expr: &ast::Expr) -> bool {
     matches!(
         expr,
