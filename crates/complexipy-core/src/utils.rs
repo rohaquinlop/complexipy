@@ -336,89 +336,62 @@ pub fn is_decorator(statement: &Stmt) -> bool {
 }
 
 pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
-    let mut complexity: u64 = 0;
+    own_score(expr, nesting_level).unwrap_or_else(|| count_child_expressions(expr, nesting_level))
+}
 
-    match expr {
-        ast::Expr::BoolOp(b) => {
-            complexity += operator_sequences(b, None, nesting_level);
-        }
-        ast::Expr::UnaryOp(u) => {
-            complexity += nested_operator_sequences(&u.operand, None, nesting_level);
-        }
+/// Scores `expr` when it has a rule of its own, or returns `None` for an
+/// expression that is only crossed to reach the scored expressions below it.
+fn own_score(expr: &ast::Expr, nesting_level: u64) -> Option<u64> {
+    let score = match expr {
+        ast::Expr::BoolOp(b) => operator_sequences(b, None, nesting_level),
+        ast::Expr::UnaryOp(u) => nested_operator_sequences(&u.operand, None, nesting_level),
         ast::Expr::Compare(c) => {
-            complexity += count_bool_ops(&c.left, nesting_level);
-            for comparator in c.comparators.iter() {
-                complexity += count_bool_ops(comparator, nesting_level);
-            }
+            count_bool_ops(&c.left, nesting_level)
+                + c.comparators
+                    .iter()
+                    .map(|comparator| count_bool_ops(comparator, nesting_level))
+                    .sum::<u64>()
         }
         ast::Expr::If(i) => {
-            complexity += 1 + nesting_level;
-            complexity += count_bool_ops(&i.test, nesting_level);
-            complexity += count_bool_ops(&i.body, nesting_level + 1);
-            complexity += count_bool_ops(&i.orelse, nesting_level + 1);
+            1 + nesting_level
+                + count_bool_ops(&i.test, nesting_level)
+                + count_bool_ops(&i.body, nesting_level + 1)
+                + count_bool_ops(&i.orelse, nesting_level + 1)
         }
         ast::Expr::Lambda(l) => {
-            for parameter in l
-                .parameters
+            l.parameters
                 .iter()
                 .flat_map(|p| p.iter_non_variadic_params())
-            {
-                if let Some(default) = &parameter.default {
-                    complexity += count_bool_ops(default, nesting_level);
-                }
-            }
-            complexity += count_bool_ops(&l.body, nesting_level + 1);
+                .filter_map(|parameter| parameter.default.as_deref())
+                .map(|default| count_bool_ops(default, nesting_level))
+                .sum::<u64>()
+                + count_bool_ops(&l.body, nesting_level + 1)
         }
-        ast::Expr::ListComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::SetComp(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
-        ast::Expr::Generator(c) => {
-            complexity += count_comprehension(&[&c.elt], &c.generators, nesting_level);
-        }
+        ast::Expr::ListComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::SetComp(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
+        ast::Expr::Generator(c) => count_comprehension(&[&c.elt], &c.generators, nesting_level),
         ast::Expr::DictComp(c) => {
             let elements: Vec<&ast::Expr> =
                 c.key.as_deref().into_iter().chain([&*c.value]).collect();
-            complexity += count_comprehension(&elements, &c.generators, nesting_level);
+            count_comprehension(&elements, &c.generators, nesting_level)
         }
-        _ => {
-            complexity += count_child_expressions(expr, nesting_level);
-        }
-    }
-
-    complexity
+        _ => return None,
+    };
+    Some(score)
 }
 
-/// Sums `count_bool_ops` over the scored expressions below `expr`, crossing
-/// the others with an explicit stack instead of recursion.
+/// Sums the scores of the scored expressions below `expr`, crossing the
+/// others with an explicit stack instead of recursion.
 fn count_child_expressions(expr: &ast::Expr, nesting_level: u64) -> u64 {
     let mut complexity: u64 = 0;
     let mut pending = direct_children(expr);
     while let Some(child) = pending.pop() {
-        if counts_itself(child) {
-            complexity += count_bool_ops(child, nesting_level);
-        } else {
-            pending.extend(direct_children(child));
+        match own_score(child, nesting_level) {
+            Some(score) => complexity += score,
+            None => pending.extend(direct_children(child)),
         }
     }
     complexity
-}
-
-fn counts_itself(expr: &ast::Expr) -> bool {
-    matches!(
-        expr,
-        ast::Expr::BoolOp(_)
-            | ast::Expr::UnaryOp(_)
-            | ast::Expr::Compare(_)
-            | ast::Expr::If(_)
-            | ast::Expr::Lambda(_)
-            | ast::Expr::ListComp(_)
-            | ast::Expr::SetComp(_)
-            | ast::Expr::Generator(_)
-            | ast::Expr::DictComp(_)
-    )
 }
 
 fn direct_children(expr: &ast::Expr) -> Vec<&ast::Expr> {
