@@ -42,6 +42,19 @@ fn a_ternary_inside_any_expression_counts() {
 }
 
 #[test]
+fn a_boolean_operator_or_comprehension_inside_any_expression_counts() {
+    for expression in [
+        "(a or b) + 1",
+        "t[a or b]",
+        "f'{a and b}'",
+        "h(k=[v for v in d])",
+    ] {
+        let code = format!("def f(d):\n    return {expression}\n");
+        assert_eq!(complexity(&code), 1, "{expression}");
+    }
+}
+
+#[test]
 fn a_ternary_under_a_boolean_operator_counts() {
     for expression in ["a and (x if d else y)", "a or h(k=x if d else y)"] {
         let code = format!("def f(d):\n    return {expression}\n");

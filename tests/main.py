@@ -499,6 +499,18 @@ class TestPaperConformance:
             code = f"def f(d):\n    return {expression}\n"
             assert self._c(code) == 1, expression
 
+    def test_boolean_operator_or_comprehension_inside_any_expression_counts(
+        self,
+    ):
+        for expression in (
+            "(a or b) + 1",
+            "t[a or b]",
+            "f'{a and b}'",
+            "h(k=[v for v in d])",
+        ):
+            code = f"def f(d):\n    return {expression}\n"
+            assert self._c(code) == 1, expression
+
     def test_ternary_under_boolean_operator_counts(self):
         for expression in ("a and (x if d else y)", "a or h(k=x if d else y)"):
             code = f"def f(d):\n    return {expression}\n"
