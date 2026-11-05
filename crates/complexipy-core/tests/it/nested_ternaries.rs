@@ -30,7 +30,7 @@ fn a_scored_expression_inside_any_expression_counts() {
         ("a or h(k=x if d else y)", 2),
         ("h(k=(lambda v: v if v else 0)(d))", 2),
     ] {
-        let code = format!("async def f(d):\n    return {expression}\n");
+        let code = format!("def f(d):\n    return {expression}\n");
         assert_eq!(analyzed(&code), expected, "{expression}");
     }
 }

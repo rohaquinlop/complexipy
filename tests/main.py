@@ -510,7 +510,7 @@ class TestPaperConformance:
     def test_scored_expression_inside_any_expression_counts(
         self, expression: str, expected: int
     ):
-        code = f"async def f(d):\n    return {expression}\n"
+        code = f"def f(d):\n    return {expression}\n"
         assert self._c(code) == expected
 
     def test_bare_expression_boolean_sequence(self):
