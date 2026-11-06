@@ -91,7 +91,7 @@ match value:        # +1
 ```
 
 **Recursión**
-Una llamada recursiva directa añade +1.
+Una función que se llama a sí misma por nombre añade +1 una sola vez, sin importar cuántas llamadas recursivas haga.
 
 ## Ejemplos Detallados
 

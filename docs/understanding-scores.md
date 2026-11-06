@@ -91,7 +91,7 @@ match value:        # +1
 ```
 
 **Recursion**
-A direct recursive call adds +1.
+A function that calls itself by name adds +1 once, however many recursive calls it makes.
 
 ## Detailed Examples
 
