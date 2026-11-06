@@ -71,6 +71,13 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
+  que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
+  clase, como indica el paper. Antes solo lo hacía un `def` colocado
+  directamente en el cuerpo de una función. El cuerpo de una clase dentro de
+  una función ahora se puntúa completo, y una clase no eleva el anidamiento
+  por sí misma. Con `--check-script`, el cuerpo de una clase a nivel de módulo
+  cuenta para `<module>`; los cuerpos de los métodos no.
 - La excepción de decoradores de Python solo se aplica cuando una función
   devuelve su función anidada por nombre, así que `return inner()` ya no
   elimina el incremento por anidamiento. Un docstring inicial ya no impide la

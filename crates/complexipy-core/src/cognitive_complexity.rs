@@ -173,15 +173,32 @@ pub fn function_level_cognitive_complexity_shared(
                 functions.push(analyze_function(node, def_node, f, name, &file));
             }
         }
-        let result = if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
-            top_level_definition_headers(node, &file.index)
-        } else {
-            let statement = if has_defs {
-                Cow::Owned(without_definitions(node))
-            } else {
-                Cow::Borrowed(node)
-            };
-            statement_cognitive_complexity_shared(&statement, 0, code, &file.index)
+        let result = match node {
+            Stmt::ClassDef(_) if opts.check_script => {
+                let mut result = empty_result();
+                absorb_definition_header(&mut result, node, 0, &file.index);
+                absorb_with_regions(
+                    &mut result,
+                    statement_cognitive_complexity_shared(
+                        &without_definitions(node, true),
+                        0,
+                        code,
+                        &file.index,
+                    ),
+                );
+                result
+            }
+            Stmt::FunctionDef(..) | Stmt::ClassDef(..) => {
+                top_level_definition_headers(node, &file.index)
+            }
+            _ => {
+                let statement = if has_defs || holds_classes(node) {
+                    Cow::Owned(without_definitions(node, opts.check_script))
+                } else {
+                    Cow::Borrowed(node)
+                };
+                statement_cognitive_complexity_shared(&statement, 0, code, &file.index)
+            }
         };
         if opts.check_script {
             module_complexity += result.complexity;
@@ -372,38 +389,54 @@ fn nested_suites_mut(node: &mut Stmt) -> Vec<&mut Vec<Stmt>> {
     }
 }
 
-/// A copy of a module-level compound statement with the body of every `def`
-/// it holds replaced by `pass`, and every `class` it holds reduced to its
-/// methods with their bodies replaced the same way. The headers stay, because
-/// they run at module scope; the bodies are scored on their own and must not
-/// count again toward the module.
-fn without_definitions(node: &Stmt) -> Stmt {
+/// A copy of a module-level statement with the body of every `def` it holds
+/// replaced by `pass`. The headers stay, because they run at module scope; the
+/// bodies are scored on their own and must not count again toward the module.
+/// A `class` keeps its whole body when `keep_class_bodies` is set, and only
+/// its methods otherwise.
+fn without_definitions(node: &Stmt, keep_class_bodies: bool) -> Stmt {
     let mut stripped = node.clone();
-    strip_definitions(&mut stripped);
+    match &mut stripped {
+        Stmt::ClassDef(c) => strip_class(c, keep_class_bodies),
+        other => strip_definitions(other, keep_class_bodies),
+    }
     stripped
 }
 
-fn strip_definitions(node: &mut Stmt) {
+fn strip_definitions(node: &mut Stmt, keep_class_bodies: bool) {
     for suite in nested_suites_mut(node) {
         for child in suite.iter_mut() {
             match child {
                 Stmt::FunctionDef(f) => strip_function_body(f),
-                Stmt::ClassDef(c) => {
-                    c.body
-                        .retain(|member| matches!(member, Stmt::FunctionDef(..)));
-                    for member in c.body.iter_mut() {
-                        if let Stmt::FunctionDef(f) = member {
-                            strip_function_body(f);
-                        }
-                    }
-                    if c.body.is_empty() {
-                        c.body = vec![pass_statement(c.range)];
-                    }
-                }
-                other => strip_definitions(other),
+                Stmt::ClassDef(c) => strip_class(c, keep_class_bodies),
+                other => strip_definitions(other, keep_class_bodies),
             }
         }
     }
+}
+
+fn strip_class(c: &mut ast::StmtClassDef, keep_class_bodies: bool) {
+    if !keep_class_bodies {
+        c.body
+            .retain(|member| matches!(member, Stmt::FunctionDef(..)));
+    }
+    for member in c.body.iter_mut() {
+        match member {
+            Stmt::FunctionDef(f) => strip_function_body(f),
+            Stmt::ClassDef(nested) => strip_class(nested, keep_class_bodies),
+            other => strip_definitions(other, keep_class_bodies),
+        }
+    }
+    if c.body.is_empty() {
+        c.body = vec![pass_statement(c.range)];
+    }
+}
+
+fn holds_classes(node: &Stmt) -> bool {
+    nested_suites(node)
+        .into_iter()
+        .flatten()
+        .any(|child| matches!(child, Stmt::ClassDef(..)) || holds_classes(child))
 }
 
 fn strip_function_body(f: &mut ast::StmtFunctionDef) {
@@ -438,7 +471,7 @@ fn analyze_function(
     file: &FileContext<'_>,
 ) -> FunctionComplexity {
     let index = &file.index;
-    let mut result = statement_cognitive_complexity_shared(node, 0, file.code, index);
+    let mut result = function_root_complexity(node, file.code, index);
     if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), index) {
         result.complexity += 1;
         push_line(&mut result, line, 1);
@@ -471,6 +504,35 @@ fn analyze_function(
         line_complexities: result.line_complexities,
         refactor_plans,
         additional_refactor_plans,
+    }
+}
+
+/// Scores an analyzed function: its body starts at nesting 0, and a decorator
+/// hands that level on to the function it returns.
+fn function_root_complexity(node: &Stmt, code: &str, index: &LineIndex) -> ComplexityResult {
+    let mut result = empty_result();
+    if let Some(inner) = decorator_inner(node) {
+        absorb_definition_header(&mut result, inner, 0, index);
+        absorb_with_regions(&mut result, function_root_complexity(inner, code, index));
+    } else if let Stmt::FunctionDef(f) = node {
+        walk_function_body(&mut result, &f.body, 0, code, index);
+    }
+    result
+}
+
+fn walk_function_body(
+    result: &mut ComplexityResult,
+    body: &[Stmt],
+    nesting_level: u64,
+    code: &str,
+    index: &LineIndex,
+) {
+    for node in body.iter() {
+        absorb_definition_header(result, node, nesting_level, index);
+        absorb_with_regions(
+            result,
+            statement_cognitive_complexity_shared(node, nesting_level, code, index),
+        );
     }
 }
 
@@ -687,7 +749,7 @@ fn statement_cognitive_complexity_shared(
     let mut result = empty_result();
 
     if let Some(inner) = decorator_inner(statement) {
-        absorb_definition_header(&mut result, inner, nesting_level, index);
+        absorb_definition_header(&mut result, inner, nesting_level + 1, index);
         absorb_with_regions(
             &mut result,
             statement_cognitive_complexity_shared(inner, nesting_level, code, index),
@@ -697,29 +759,10 @@ fn statement_cognitive_complexity_shared(
 
     match statement {
         Stmt::FunctionDef(f) => {
-            for node in f.body.iter() {
-                let next_nesting = if matches!(node, Stmt::FunctionDef(..)) {
-                    nesting_level + 1
-                } else {
-                    nesting_level
-                };
-                absorb_definition_header(&mut result, node, nesting_level, index);
-                absorb_with_regions(
-                    &mut result,
-                    statement_cognitive_complexity_shared(node, next_nesting, code, index),
-                );
-            }
+            walk_function_body(&mut result, &f.body, nesting_level + 1, code, index);
         }
         Stmt::ClassDef(c) => {
-            for node in c.body.iter() {
-                if let Stmt::FunctionDef(..) = node {
-                    absorb_definition_header(&mut result, node, nesting_level, index);
-                    absorb_with_regions(
-                        &mut result,
-                        statement_cognitive_complexity_shared(node, nesting_level, code, index),
-                    );
-                }
-            }
+            walk_function_body(&mut result, &c.body, nesting_level, code, index);
         }
         Stmt::Assign(a) => {
             let exprs: Vec<&ast::Expr> = a.targets.iter().chain([&*a.value]).collect();

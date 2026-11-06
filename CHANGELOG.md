@@ -61,6 +61,12 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- A nested function raises the nesting level of its body wherever it sits,
+  under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
+  paper prescribes. Before, only a `def` placed directly in a function body
+  did. A class body inside a function is now scored in full, and a class does
+  not raise the nesting level itself. With `--check-script`, the body of a
+  module-level class counts toward `<module>`; method bodies do not.
 - The Python decorator exception applies only when a function returns its
   nested function by name, so `return inner()` no longer drops the nesting
   increment. A leading docstring no longer stops the exception.
