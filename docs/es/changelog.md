@@ -71,6 +71,16 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- Una expresión condicional, una secuencia de operadores booleanos o una
+  comprensión ahora cuentan en más partes de una sentencia: los destinos de
+  asignación, asignación aumentada, asignación anotada, `del`, `for` y
+  `with ... as`, el sujeto de `match` y los tipos de `except`. Los decoradores
+  y valores por defecto de un `def` anidado, y los decoradores, bases y
+  palabras clave de una `class` anidada, cuentan para la función que los
+  contiene, en el nivel de anidamiento de la definición. Sube la puntuación de
+  las funciones que tienen estos casos. Un sujeto de `match` o un tipo de
+  `except` complejo ahora puede recibir un plan C005, con texto de ayuda y sin
+  sugerencia.
 - `--plain` imprime cada función como `<path>:<line> <function> <complexity>`,
   así que los editores y las terminales pueden enlazar la línea. Con
   `--suggest-refactors`, cada plan agrega una línea con sangría con su id de
