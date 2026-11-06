@@ -536,7 +536,7 @@ class TestPaperConformance:
                 2,
             ),
             (
-                "def f(a):\n    def deco(g):\n        def w():\n            if a:\n                pass\n        return w\n    return deco\n",
+                "def f(a):\n    x = a\n    def deco(g):\n        def w():\n            if a:\n                pass\n        return w\n    return deco\n",
                 2,
             ),
         ],
