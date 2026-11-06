@@ -522,7 +522,7 @@ fn function_root_complexity(node: &Stmt, code: &str, index: &LineIndex) -> Compl
 
 fn walk_function_body(
     result: &mut ComplexityResult,
-    body: &[Stmt],
+    body: &ast::Suite,
     nesting_level: u64,
     code: &str,
     index: &LineIndex,
