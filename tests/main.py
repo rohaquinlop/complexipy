@@ -535,6 +535,10 @@ class TestPaperConformance:
                 "def f(a):\n    x = a\n    def deco(g):\n        def w(x=(1 if a else 2)):\n            pass\n        return w\n    return deco\n",
                 2,
             ),
+            (
+                "def f(a):\n    def deco(g):\n        def w():\n            if a:\n                pass\n        return w\n    return deco\n",
+                2,
+            ),
         ],
     )
     def test_nested_definitions_raise_nesting(self, code: str, expected: int):
