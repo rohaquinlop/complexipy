@@ -80,18 +80,18 @@ for item in items:  # +1
 **Sentencias Match** (Python 3.10+)
 
 ```python
-# Puntuación: 2
-match value:        # +0 (el match en sí no cuenta)
+# Puntuación: 5
+match value:        # +1
     case 1:
-        if x:       # +1
+        if x:       # +2 (1 + anidamiento)
             pass
     case 2:
-        if y:       # +1
+        if y:       # +2 (1 + anidamiento)
             pass
 ```
 
 **Recursión**
-Las llamadas recursivas se analizan pero no añaden complejidad extra más allá de sus estructuras de control.
+Una llamada recursiva directa añade +1.
 
 ## Ejemplos Detallados
 
