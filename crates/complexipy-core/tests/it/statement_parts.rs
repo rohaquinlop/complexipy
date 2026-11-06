@@ -50,15 +50,78 @@ fn a_scored_expression_in_a_statement_part_counts() {
         ("def g(k=a or b):\n        pass", 1),
         ("t[[v for v in z][0]] = 1", 1),
         ("def g(k: (A if a else B)):\n        pass", 0),
+        (
+            "match d:\n        case _ if (x if d else y):\n            pass",
+            2,
+        ),
+        ("match d:\n        case _ if a and b:\n            pass", 2),
+        (
+            "match d:\n        case _ if [v for v in d]:\n            pass",
+            2,
+        ),
+        ("match d:\n        case _ if d:\n            pass", 1),
     ] {
         let code = format!("def f(d):\n    {body}\n");
         assert_eq!(analyzed(&code), expected, "{body}");
     }
 }
 
+fn module_and_function_scores(code: &str) -> (u64, Vec<u64>) {
+    let functions = code_complexity_shared(
+        code,
+        &AnalysisOptions {
+            check_script: true,
+            ..Default::default()
+        },
+    )
+    .expect("code should parse")
+    .functions;
+    let (module, defined): (Vec<_>, Vec<_>) = functions
+        .iter()
+        .partition(|function| function.name == "<module>");
+    (
+        module[0].complexity,
+        defined.iter().map(|function| function.complexity).collect(),
+    )
+}
+
 #[test]
-fn a_module_level_definition_header_does_not_count() {
-    assert_eq!(analyzed("def f(k=(x if a else b)):\n    pass\n"), 0);
+fn a_module_level_header_or_guard_counts_toward_the_module() {
+    for (code, expected) in [
+        ("def f(k=(x if a else b)):\n    pass\n", 1),
+        ("@deco(x if a else b)\ndef f():\n    pass\n", 1),
+        ("class C(x if a else b):\n    pass\n", 1),
+        ("class C(metaclass=(M if a else N)):\n    pass\n", 1),
+        (
+            "class C:\n    def m(self, k=(x if a else b)):\n        pass\n",
+            1,
+        ),
+        ("if a:\n    def f(k=(x if a else b)):\n        pass\n", 3),
+        (
+            "if a:\n    class C:\n        def m(self, k=(x if a else b)):\n            pass\n",
+            3,
+        ),
+        (
+            "def f(k=(x if a else b)):  # complexipy: ignore\n    pass\n",
+            1,
+        ),
+        ("match d:\n    case _ if a and b:\n        pass\n", 2),
+    ] {
+        let (module, functions) = module_and_function_scores(code);
+        assert_eq!(module, expected, "{code}");
+        assert!(functions.iter().all(|score| *score == 0), "{code}");
+    }
+}
+
+#[test]
+fn a_module_level_header_counts_toward_the_file_total_without_check_script() {
+    let result = code_complexity_shared(
+        "def f(k=(x if a else b)):\n    pass\n",
+        &AnalysisOptions::default(),
+    )
+    .expect("code should parse");
+    assert_eq!(result.complexity, 1);
+    assert_eq!(result.functions[0].complexity, 0);
 }
 
 #[test]
@@ -77,10 +140,11 @@ fn a_decorator_counts_on_its_own_line() {
 }
 
 #[test]
-fn a_complex_match_subject_or_except_type_gets_a_help_only_c005_plan() {
+fn a_complex_match_subject_except_type_or_case_guard_gets_a_help_only_c005_plan() {
     for header in [
         "match a and b and c or a:\n        case _:\n            pass",
         "try:\n        pass\n    except (E if a and b and c else F):\n        pass",
+        "match a:\n        case _ if a and b and c or a:\n            pass",
     ] {
         let code = format!("def f(a, b, c):\n    {header}\n");
         let (plans, _) = plans_for_function(&code, 1, &AnalysisOptions::default())

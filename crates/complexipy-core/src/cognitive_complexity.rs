@@ -173,16 +173,16 @@ pub fn function_level_cognitive_complexity_shared(
                 functions.push(analyze_function(node, def_node, f, name, &file));
             }
         }
-        if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
-            continue;
-        }
-
-        let statement = if has_defs {
-            Cow::Owned(without_definitions(node))
+        let result = if matches!(node, Stmt::FunctionDef(..) | Stmt::ClassDef(..)) {
+            top_level_definition_headers(node, &file.index)
         } else {
-            Cow::Borrowed(node)
+            let statement = if has_defs {
+                Cow::Owned(without_definitions(node))
+            } else {
+                Cow::Borrowed(node)
+            };
+            statement_cognitive_complexity_shared(&statement, 0, code, &file.index)
         };
-        let result = statement_cognitive_complexity_shared(&statement, 0, code, &file.index);
         if opts.check_script {
             module_complexity += result.complexity;
             module_line_complexities.extend(result.line_complexities);
@@ -372,9 +372,11 @@ fn nested_suites_mut(node: &mut Stmt) -> Vec<&mut Vec<Stmt>> {
     }
 }
 
-/// A copy of a module-level compound statement with every `def` and `class`
-/// it holds replaced by `pass`, because those are scored on their own and
-/// must not count again toward the module.
+/// A copy of a module-level compound statement with the body of every `def`
+/// it holds replaced by `pass`, and every `class` it holds reduced to its
+/// methods with their bodies replaced the same way. The headers stay, because
+/// they run at module scope; the bodies are scored on their own and must not
+/// count again toward the module.
 fn without_definitions(node: &Stmt) -> Stmt {
     let mut stripped = node.clone();
     strip_definitions(&mut stripped);
@@ -384,20 +386,48 @@ fn without_definitions(node: &Stmt) -> Stmt {
 fn strip_definitions(node: &mut Stmt) {
     for suite in nested_suites_mut(node) {
         for child in suite.iter_mut() {
-            let range = match child {
-                Stmt::FunctionDef(f) => f.range,
-                Stmt::ClassDef(c) => c.range,
-                other => {
-                    strip_definitions(other);
-                    continue;
+            match child {
+                Stmt::FunctionDef(f) => strip_function_body(f),
+                Stmt::ClassDef(c) => {
+                    c.body
+                        .retain(|member| matches!(member, Stmt::FunctionDef(..)));
+                    for member in c.body.iter_mut() {
+                        if let Stmt::FunctionDef(f) = member {
+                            strip_function_body(f);
+                        }
+                    }
+                    if c.body.is_empty() {
+                        c.body = vec![pass_statement(c.range)];
+                    }
                 }
-            };
-            *child = Stmt::Pass(ast::StmtPass {
-                node_index: Default::default(),
-                range,
-            });
+                other => strip_definitions(other),
+            }
         }
     }
+}
+
+fn strip_function_body(f: &mut ast::StmtFunctionDef) {
+    f.body = vec![pass_statement(f.range)];
+}
+
+fn pass_statement(range: ruff_text_size::TextRange) -> Stmt {
+    Stmt::Pass(ast::StmtPass {
+        node_index: Default::default(),
+        range,
+    })
+}
+
+fn top_level_definition_headers(node: &Stmt, index: &LineIndex) -> ComplexityResult {
+    let mut result = empty_result();
+    absorb_definition_header(&mut result, node, 0, index);
+    if let Stmt::ClassDef(c) = node {
+        for member in c.body.iter() {
+            if let Stmt::FunctionDef(..) = member {
+                absorb_definition_header(&mut result, member, 0, index);
+            }
+        }
+    }
+    result
 }
 
 fn analyze_function(
@@ -867,6 +897,15 @@ fn statement_cognitive_complexity_shared(
             let mut children = Vec::new();
             push_bool_region(&mut children, line_start, line_start, column_start, boolean);
             for case in m.cases.iter() {
+                if let Some(guard) = case.guard.as_deref() {
+                    let start = usize::from(guard.range().start());
+                    let line = index.line_of(start);
+                    let guard_bool = count_bool_ops(guard, nesting_level);
+                    result.complexity += guard_bool;
+                    push_line(&mut result, line, guard_bool);
+                    let column = index.column_of(start, code);
+                    push_bool_region(&mut children, line, line, column, guard_bool);
+                }
                 absorb(
                     &mut result,
                     collect_suite(&case.body, nesting_level + 1, code, index, &mut children),

@@ -72,6 +72,16 @@ GitHub con todos los detalles.
 ### Cambiado
 
 - Una expresión condicional, una secuencia de operadores booleanos o una
+  comprensión en la guarda de un `case` ahora cuentan, en el nivel de
+  anidamiento del `match`, como la condición de un `elif`. Una guarda compleja
+  puede recibir un plan C005 con texto de ayuda.
+- Los decoradores y valores por defecto de un `def` de nivel de módulo, los
+  decoradores, bases y palabras clave de una `class` de nivel de módulo, y las
+  cabeceras de sus métodos directos ahora cuentan para el ámbito del módulo:
+  la entrada `<module>` con `--check-script`, y el total del archivo sin él.
+  Esto también vale para una función ignorada. Las puntuaciones de las
+  funciones no cambian.
+- Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión ahora cuentan en más partes de una sentencia: los destinos de
   asignación, asignación aumentada, asignación anotada, `del`, `for` y
   `with ... as`, el sujeto de `match` y los tipos de `except`. Los decoradores

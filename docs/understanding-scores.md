@@ -80,18 +80,18 @@ for item in items:  # +1
 **Match Statements** (Python 3.10+)
 
 ```python
-# Score: 2
-match value:        # +0 (match itself doesn't count)
+# Score: 5
+match value:        # +1
     case 1:
-        if x:       # +1
+        if x:       # +2 (1 + nesting)
             pass
     case 2:
-        if y:       # +1
+        if y:       # +2 (1 + nesting)
             pass
 ```
 
 **Recursion**
-Recursive calls are analyzed but don't add extra complexity beyond their control structures.
+A function that calls itself by name adds +1 once, however many recursive calls it makes.
 
 ## Detailed Examples
 
