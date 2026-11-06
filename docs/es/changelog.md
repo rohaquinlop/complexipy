@@ -71,6 +71,10 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- La excepción de decoradores de Python solo se aplica cuando una función
+  devuelve su función anidada por nombre, así que `return inner()` ya no
+  elimina el incremento por anidamiento. Un docstring inicial ya no impide la
+  excepción.
 - Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión en la guarda de un `case` ahora cuentan, en el nivel de
   anidamiento del `match`, como la condición de un `elif`. Una guarda compleja

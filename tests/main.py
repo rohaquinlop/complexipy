@@ -464,6 +464,34 @@ class TestPaperConformance:
         code = "def foo():\n    def bar():\n        foo()\n    return bar\n"
         assert self._c(code) == 0
 
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            (
+                "def a_decorator(a, b):\n    def inner(func):\n        if a:\n            print(b)\n        func()\n    return inner\n",
+                1,
+            ),
+            (
+                "def not_a_decorator(a, b):\n    my_var = a * b\n    def inner(func):\n        if a:\n            print(b)\n        func()\n    return inner\n",
+                2,
+            ),
+            (
+                "def decorator_generator(a):\n    def generator(func):\n        def decorator(func):\n            if a:\n                print(a)\n            return func()\n        return decorator\n    return generator\n",
+                1,
+            ),
+            (
+                "def f(a):\n    def g():\n        if a:\n            pass\n    return g()\n",
+                2,
+            ),
+            (
+                'def deco(func):\n    """Doc."""\n    def inner():\n        if func:\n            pass\n    return inner\n',
+                1,
+            ),
+        ],
+    )
+    def test_python_decorator_exception(self, code: str, expected: int):
+        assert self._c(code) == expected
+
     def test_lambda_raises_nesting(self):
         assert self._c("g = lambda x: (1 if x else 2)\n") == 2
         assert self._c("g = lambda x: x and x\n") == 1
