@@ -527,13 +527,12 @@ fn walk_function_body(
     code: &str,
     index: &LineIndex,
 ) {
-    for node in body.iter() {
-        absorb_definition_header(result, node, nesting_level, index);
-        absorb_with_regions(
-            result,
-            statement_cognitive_complexity_shared(node, nesting_level, code, index),
-        );
-    }
+    let mut regions = Vec::new();
+    absorb(
+        result,
+        collect_suite(body, nesting_level, code, index, &mut regions),
+    );
+    result.regions.extend(regions);
 }
 
 fn detect_direct_recursion(body: &[Stmt], name: &str, index: &LineIndex) -> Option<u64> {
