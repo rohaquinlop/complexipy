@@ -61,6 +61,9 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- The Python decorator exception applies only when a function returns its
+  nested function by name, so `return inner()` no longer drops the nesting
+  increment. A leading docstring no longer stops the exception.
 - A conditional expression, a boolean operator sequence, or a comprehension
   in a `case` guard now counts, at the nesting level of the `match`, like an
   `elif` test. A complex guard can get a C005 plan with help text.

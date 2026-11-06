@@ -7,7 +7,7 @@ mod shared_deps {
     pub use crate::rules::{AnalysisOptions, RuleSet};
     pub use crate::syntax_tree::{Node, PreOrder, parse_module};
     pub use crate::utils::{
-        CommentRanges, LineIndex, count_bool_ops, find_noqa_comment, is_decorator,
+        CommentRanges, LineIndex, count_bool_ops, decorator_inner, find_noqa_comment,
         may_contain_marker,
     };
     pub use ruff_python_ast::{self as ast, Stmt};
@@ -686,13 +686,11 @@ fn statement_cognitive_complexity_shared(
 ) -> ComplexityResult {
     let mut result = empty_result();
 
-    if is_decorator(statement)
-        && let Stmt::FunctionDef(f) = statement
-    {
-        absorb_definition_header(&mut result, &f.body[0], nesting_level, index);
+    if let Some(inner) = decorator_inner(statement) {
+        absorb_definition_header(&mut result, inner, nesting_level, index);
         absorb_with_regions(
             &mut result,
-            statement_cognitive_complexity_shared(&f.body[0], nesting_level, code, index),
+            statement_cognitive_complexity_shared(inner, nesting_level, code, index),
         );
         return result;
     }

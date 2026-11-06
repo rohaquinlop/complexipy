@@ -325,14 +325,24 @@ pub fn split_lines(text: &str) -> impl Iterator<Item = &str> {
     })
 }
 
-pub fn is_decorator(statement: &Stmt) -> bool {
-    if let Stmt::FunctionDef(f) = statement
-        && f.body.len() == 2
-    {
-        return matches!(&f.body[0], Stmt::FunctionDef(..))
-            && matches!(&f.body[1], Stmt::Return(..));
-    }
-    false
+/// Returns the nested function of a decorator: a function whose body, after
+/// an optional docstring, is only a nested `def` and `return` of its name.
+pub fn decorator_inner(statement: &Stmt) -> Option<&Stmt> {
+    let Stmt::FunctionDef(f) = statement else {
+        return None;
+    };
+    let body = match f.body.as_slice() {
+        [Stmt::Expr(docstring), rest @ ..] if docstring.value.is_string_literal_expr() => rest,
+        body => body,
+    };
+    let [inner @ Stmt::FunctionDef(def), Stmt::Return(ret)] = body else {
+        return None;
+    };
+    let returns_inner = matches!(
+        ret.value.as_deref(),
+        Some(ast::Expr::Name(name)) if name.id == def.name.id
+    );
+    returns_inner.then_some(inner)
 }
 
 pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
