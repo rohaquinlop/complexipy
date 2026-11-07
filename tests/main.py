@@ -492,6 +492,91 @@ class TestPaperConformance:
     def test_python_decorator_exception(self, code: str, expected: int):
         assert self._c(code) == expected
 
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            (
+                "def f(a, b):\n    if a:\n        def g():\n            if b:\n                pass\n",
+                4,
+            ),
+            (
+                "def f(a):\n    with a:\n        def g():\n            if a:\n                pass\n",
+                2,
+            ),
+            (
+                "def f(a):\n    try:\n        def g():\n            if a:\n                pass\n    except E:\n        pass\n",
+                3,
+            ),
+            (
+                "def f(xs):\n    for x in xs:\n        def g():\n            if x:\n                pass\n",
+                4,
+            ),
+            (
+                "def f(a):\n    def g():\n        if a:\n            pass\n    g()\n",
+                2,
+            ),
+            (
+                "def f(a):\n    class C:\n        def m(self):\n            if a:\n                pass\n",
+                2,
+            ),
+            (
+                "def f(a):\n    class C:\n        if a:\n            def m(self):\n                if a:\n                    pass\n",
+                4,
+            ),
+            (
+                "def f(a):\n    class C:\n        class D:\n            def m(self):\n                if a:\n                    pass\n",
+                2,
+            ),
+            (
+                "def f(a):\n    class C:\n        if a:\n            def m(self, x=(1 if a else 2)):\n                pass\n",
+                3,
+            ),
+            (
+                "def f(a):\n    x = a\n    def deco(g):\n        def w(x=(1 if a else 2)):\n            pass\n        return w\n    return deco\n",
+                2,
+            ),
+            (
+                "def f(a):\n    x = a\n    def deco(g):\n        def w():\n            if a:\n                pass\n        return w\n    return deco\n",
+                2,
+            ),
+        ],
+    )
+    def test_nested_definitions_raise_nesting(self, code: str, expected: int):
+        assert self._c(code) == expected
+
+    @pytest.mark.parametrize(
+        ("code", "module", "file_level"),
+        [
+            ("class C:\n    if a:\n        x = 1\n", 1, 0),
+            (
+                "class C:\n    def m(self):\n        if a:\n            pass\n",
+                0,
+                0,
+            ),
+            ("if b:\n    class C:\n        if a:\n            x = 1\n", 3, 1),
+            (
+                "class C:\n    class D:\n        if a:\n            x = 1\n",
+                1,
+                0,
+            ),
+            (
+                "if b:\n    class C:\n        def m(self):\n            if a:\n                pass\n",
+                1,
+                1,
+            ),
+        ],
+    )
+    def test_module_class_bodies_count_only_with_check_script(
+        self, code: str, module: int, file_level: int
+    ):
+        scripted = code_complexity(code, check_script=True).functions
+        assert [f.complexity for f in scripted if f.name == "<module>"] == [
+            module
+        ]
+        plain = code_complexity(code)
+        functions = sum(f.complexity for f in plain.functions)
+        assert plain.complexity - functions == file_level
+
     def test_lambda_raises_nesting(self):
         assert self._c("g = lambda x: (1 if x else 2)\n") == 2
         assert self._c("g = lambda x: x and x\n") == 1
