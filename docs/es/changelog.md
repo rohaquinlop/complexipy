@@ -111,7 +111,8 @@ GitHub con todos los detalles.
   excepción.
 - Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión en la guarda de un `case` ahora cuentan, en el nivel de
-  anidamiento del `match`, como la condición de un `elif`. Una guarda compleja
+  anidamiento del `match`. La guarda en sí no suma nada, a diferencia del +1
+  de un `elif`. Una guarda compleja
   puede recibir un plan C005 con texto de ayuda.
 - Los decoradores y valores por defecto de un `def` de nivel de módulo, los
   decoradores, bases y palabras clave de una `class` de nivel de módulo, y las
