@@ -767,7 +767,7 @@ fn statement_cognitive_complexity_shared(
         );
         absorb_with_regions(
             &mut result,
-            statement_cognitive_complexity_shared(returned, nesting_level, code, index),
+            statement_cognitive_complexity_shared(returned, nesting_level + 1, code, index),
         );
         return result;
     }

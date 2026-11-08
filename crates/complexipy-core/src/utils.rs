@@ -329,7 +329,6 @@ pub fn split_lines(text: &str) -> impl Iterator<Item = &str> {
 /// an optional docstring, is only a nested `def` and a `return` of its name or
 /// of a call that takes it as a direct argument, such as
 /// `functools.wraps(f)(inner)`. A call of the nested function does not count.
-/// The `return` statement comes back too, so its expressions are still scored.
 pub fn decorator_inner(statement: &Stmt) -> Option<(&Stmt, &Stmt)> {
     let Stmt::FunctionDef(f) = statement else {
         return None;
@@ -347,7 +346,11 @@ pub fn decorator_inner(statement: &Stmt) -> Option<(&Stmt, &Stmt)> {
         Some(ast::Expr::Call(call)) => {
             !is_inner(&call.func)
                 && (call.arguments.args.iter().any(is_inner)
-                    || call.arguments.keywords.iter().any(|kw| is_inner(&kw.value)))
+                    || call
+                        .arguments
+                        .keywords
+                        .iter()
+                        .any(|kw| kw.arg.is_some() && is_inner(&kw.value)))
         }
         Some(value) => is_inner(value),
         None => false,
