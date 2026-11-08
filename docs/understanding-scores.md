@@ -98,7 +98,7 @@ Each function in a recursion cycle adds +1 once, however many recursive calls it
 
 - Comprehensions: the `for` and `if` clauses add nothing and do not raise the nesting level. The paper ignores shorthand that lets several statements be written readably as one, and a comprehension is shorthand for a loop that builds a value. A ternary or a boolean operator inside a comprehension still counts.
 - `else` on `for`, `while`, and `try`: +1, with no nesting increment, and its body raises the nesting level, like `else` after `if`. The `else` body runs only when the loop ends without `break` or the `try` body raised nothing, so it is a branch the reader must track. The paper calls `else` a hybrid increment: no nesting increment, but a higher nesting level for what it holds.
-- `case` guards: +0 for the guard itself. A boolean operator sequence or a ternary inside it counts, at the nesting level of the `match`. The paper gives a `switch` and all its cases a single increment and does not name guards, and SonarJava scores the `when` guards of Java `switch` cases the same way.
+- `case` guards: +0 for the guard itself. A boolean operator sequence or a ternary inside it counts, at the nesting level of the `match`. The paper gives a `switch` and all its cases a single increment and does not name guards, so a guard is read as part of its case.
 - Mixed boolean operators: the operators of one condition are read left to right, as they appear in the code, and each change between `and` and `or` starts a new sequence. A `not` starts a new condition for its operand.
 
 ## Detailed Examples
