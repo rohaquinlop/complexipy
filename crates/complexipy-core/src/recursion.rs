@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ruff_python_ast::{self as ast, Stmt};
-use ruff_text_size::TextSize;
+use ruff_text_size::{Ranged, TextSize};
 
 use crate::cognitive_complexity::nested_suites;
 use crate::syntax_tree::{Node, PreOrder};
@@ -181,20 +181,88 @@ impl<'a> CallGraph<'a> {
     fn calls_of(&self, id: usize) -> Vec<(usize, TextSize)> {
         let def = &self.defs[id];
         let mut calls = Vec::new();
-        let mut walk = PreOrder::new(def.def.body.iter().map(Node::Stmt));
+        let roots: Vec<Node<'a>> = def.def.body.iter().map(Node::Stmt).collect();
+        self.collect_calls(def, roots, &mut Vec::new(), &mut calls);
+        calls
+    }
+
+    /// Collects the calls that run when `def` runs: its body, the headers and
+    /// class bodies of the definitions nested in it, and its lambdas, whose
+    /// parameters hide outer names.
+    fn collect_calls(
+        &self,
+        def: &Def<'a>,
+        roots: Vec<Node<'a>>,
+        shadowed: &mut Vec<&'a str>,
+        calls: &mut Vec<(usize, TextSize)>,
+    ) {
+        let mut walk = PreOrder::new(roots.into_iter());
         while let Some(node) = walk.next() {
             match node {
-                Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_))
-                | Node::Expr(ast::Expr::Lambda(_)) => continue,
+                Node::Stmt(Stmt::FunctionDef(f)) => {
+                    self.record_decorators(def, &f.decorator_list, shadowed, calls);
+                    let roots = decorators(&f.decorator_list)
+                        .chain(defaults(&f.parameters))
+                        .collect();
+                    self.collect_calls(def, roots, shadowed, calls);
+                }
+                Node::Stmt(Stmt::ClassDef(c)) => {
+                    self.record_decorators(def, &c.decorator_list, shadowed, calls);
+                    let arguments = c.arguments.iter().flat_map(|arguments| {
+                        arguments
+                            .args
+                            .iter()
+                            .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
+                            .map(Node::Expr)
+                    });
+                    let roots = decorators(&c.decorator_list)
+                        .chain(arguments)
+                        .chain(c.body.iter().map(Node::Stmt))
+                        .collect();
+                    self.collect_calls(def, roots, shadowed, calls);
+                }
+                Node::Expr(ast::Expr::Lambda(lambda)) => {
+                    let depth = shadowed.len();
+                    if let Some(parameters) = lambda.parameters.as_deref() {
+                        self.collect_calls(def, defaults(parameters).collect(), shadowed, calls);
+                        shadowed.extend(parameters.iter().map(|p| p.name().as_str()));
+                    }
+                    self.collect_calls(def, vec![Node::Expr(&lambda.body)], shadowed, calls);
+                    shadowed.truncate(depth);
+                }
                 Node::Expr(ast::Expr::Call(call)) => {
-                    let start = call.range.start();
-                    calls.extend(self.callees(def, &call.func).iter().map(|&c| (c, start)));
+                    self.record_call(def, &call.func, call.range.start(), shadowed, calls);
                     walk.descend(node);
                 }
                 _ => walk.descend(node),
             }
         }
-        calls
+    }
+
+    fn record_decorators(
+        &self,
+        def: &Def<'a>,
+        list: &'a [ast::Decorator],
+        shadowed: &[&'a str],
+        calls: &mut Vec<(usize, TextSize)>,
+    ) {
+        for decorator in list.iter() {
+            let start = decorator.expression.range().start();
+            self.record_call(def, &decorator.expression, start, shadowed, calls);
+        }
+    }
+
+    fn record_call(
+        &self,
+        def: &Def<'a>,
+        func: &'a ast::Expr,
+        start: TextSize,
+        shadowed: &[&'a str],
+        calls: &mut Vec<(usize, TextSize)>,
+    ) {
+        if !shadowed.contains(&base_name(func)) {
+            calls.extend(self.callees(def, func).iter().map(|&c| (c, start)));
+        }
     }
 
     fn callees(&self, caller: &Def<'a>, func: &'a ast::Expr) -> &[usize] {
@@ -223,6 +291,29 @@ impl<'a> CallGraph<'a> {
             scope = self.parent_scope[current];
         }
         &[]
+    }
+}
+
+fn decorators(list: &[ast::Decorator]) -> impl Iterator<Item = Node<'_>> {
+    list.iter()
+        .map(|decorator| Node::Expr(&decorator.expression))
+}
+
+fn defaults(parameters: &ast::Parameters) -> impl Iterator<Item = Node<'_>> {
+    parameters
+        .iter_non_variadic_params()
+        .filter_map(|parameter| parameter.default.as_deref())
+        .map(Node::Expr)
+}
+
+fn base_name(func: &ast::Expr) -> &str {
+    match func {
+        ast::Expr::Name(name) => name.id.as_str(),
+        ast::Expr::Attribute(attribute) => match attribute.value.as_ref() {
+            ast::Expr::Name(value) => value.id.as_str(),
+            _ => "",
+        },
+        _ => "",
     }
 }
 

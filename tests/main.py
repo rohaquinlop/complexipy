@@ -529,6 +529,26 @@ class TestPaperConformance:
                 id="decrease-method-bare-name-not-self",
             ),
             pytest.param(
+                "def f(n):\n    return list(map(lambda k: f(k - 1), range(n)))\n",
+                1,
+                id="lambda-call",
+            ),
+            pytest.param(
+                "def g(n):\n    def inner(x=g(n - 1)):\n        return x\n    return inner\n",
+                1,
+                id="nested-default",
+            ),
+            pytest.param(
+                "def h(n):\n    @h\n    def inner():\n        pass\n    return inner\n",
+                1,
+                id="nested-decorator",
+            ),
+            pytest.param(
+                "def s(f):\n    return lambda f: f()\n",
+                0,
+                id="guard-lambda-parameter",
+            ),
+            pytest.param(
                 "class B:\n    def m(self):\n        return 1\nclass C(B):\n    def m(self):\n        return super().m()\n",
                 0,
                 id="guard-super",
