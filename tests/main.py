@@ -483,6 +483,21 @@ class TestPaperConformance:
                 id="new-self-method",
             ),
             pytest.param(
+                "class C:\n    def a(self):\n        return self.b()\n    def b(self):\n        return self.a()\n",
+                2,
+                id="new-sibling-self-cycle",
+            ),
+            pytest.param(
+                "def f():\n    class C:\n        def m(self):\n            return self.m()\n    return C\n",
+                1,
+                id="new-method-of-class-in-function",
+            ),
+            pytest.param(
+                "def a():  # complexipy: ignore\n    return b()\ndef b():\n    return a()\n",
+                1,
+                id="ignored-def-keeps-cycle",
+            ),
+            pytest.param(
                 "class C:\n    @classmethod\n    def m(cls, n):\n        return cls.m(n - 1)\n",
                 1,
                 id="new-cls-method",
@@ -510,7 +525,7 @@ class TestPaperConformance:
             pytest.param(
                 "class C:\n    def get(self, x):\n        return get(x)\n",
                 0,
-                id="decrease-method-calls-same-name",
+                id="decrease-method-bare-name-not-self",
             ),
             pytest.param(
                 "class B:\n    def m(self):\n        return 1\nclass C(B):\n    def m(self):\n        return super().m()\n",
@@ -535,8 +550,6 @@ class TestPaperConformance:
         ],
     )
     def test_recursion_cycles(self, code: str, expected: int):
-        # Each method in a recursion cycle, direct or indirect, adds +1 (paper,
-        # Recursion section and Appendix B1). Cycles resolve within one file.
         assert self._c(code) == expected
 
     @pytest.mark.parametrize(
