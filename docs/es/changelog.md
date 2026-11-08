@@ -71,6 +71,16 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- Cada función en un ciclo de recursión suma +1, para ciclos indirectos
+  (`a` llama a `b`, `b` llama a `a`), para métodos que llaman a `self.m()` o
+  `cls.m()`, y para funciones anidadas, cuyo +1 va a la función que las
+  contiene, como indica el paper. Las llamadas se resuelven dentro de un
+  archivo: un nombre simple al ámbito de función o de módulo más cercano que
+  lo define, y `self.m()` a un método de la misma clase. Una función interna
+  recursiva de una fábrica de decoradores ahora suma +1 a la fábrica. Un
+  método que llama a un nombre simple igual al suyo, como
+  `def get(self): return get(x)`, ya no puntúa como recursivo, porque ese
+  nombre no es el método.
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
   clase, como indica el paper. Antes solo lo hacía un `def` colocado

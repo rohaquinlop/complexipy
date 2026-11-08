@@ -11,6 +11,7 @@ pub mod fix;
 pub mod fs_guard;
 #[cfg(feature = "runner")]
 pub(crate) mod helpers;
+mod recursion;
 mod refactor_plans;
 mod rules;
 #[cfg(feature = "runner")]
