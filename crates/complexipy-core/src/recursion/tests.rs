@@ -71,3 +71,13 @@ fn long_call_chain_does_not_overflow() {
     }
     assert_eq!(recursive_lines(&code).len(), count);
 }
+
+#[test]
+fn class_and_import_bindings_shadow_outer_functions() {
+    let class = "def g():\n    return f()\ndef f():\n    class g:\n        pass\n    return g()\n";
+    assert_eq!(recursive_lines(class), vec![]);
+    let import = "def g():\n    return f()\ndef f():\n    from m import g\n    return g()\n";
+    assert_eq!(recursive_lines(import), vec![]);
+    let module = "import a.g as g\ndef h():\n    return g()\ndef g():\n    return h()\n";
+    assert_eq!(recursive_lines(module), vec![(2, 3), (4, 5)]);
+}

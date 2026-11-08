@@ -63,8 +63,8 @@ release section links to its GitHub release notes for the full details.
 
 - Each function in a recursion cycle adds +1, for indirect cycles
   (`a` calls `b`, `b` calls `a`), for methods that call `self.m()` or
-  `cls.m()`, and for nested functions, whose +1 goes to the enclosing
-  function, as the paper prescribes. Calls resolve within one file: a bare
+  `cls.m()`, and for nested functions and the methods of a class nested in a
+  function, whose +1 goes to the enclosing function, as the paper prescribes. Calls resolve within one file: a bare
   name to the nearest function or module scope that defines it, and
   `self.m()` to a method of the same class. A recursive inner function of a
   decorator factory now adds +1 to the factory. A method that calls a bare

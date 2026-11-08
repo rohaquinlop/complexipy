@@ -105,19 +105,43 @@ impl<'a> CallGraph<'a> {
         for statement in suite.iter() {
             match statement {
                 Stmt::FunctionDef(f) => self.collect_def(f, context),
-                Stmt::ClassDef(c) => self.collect_suite(
-                    &c.body,
-                    Context {
-                        class: Some(c.range.start()),
-                        ..context
-                    },
-                ),
+                Stmt::ClassDef(c) => {
+                    self.bind_non_function(context, c.name.as_str());
+                    self.collect_suite(
+                        &c.body,
+                        Context {
+                            class: Some(c.range.start()),
+                            ..context
+                        },
+                    );
+                }
+                Stmt::Import(import) => {
+                    for alias in import.names.iter() {
+                        let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                        let bound = bound.split('.').next().unwrap_or(bound);
+                        self.bind_non_function(context, bound);
+                    }
+                }
+                Stmt::ImportFrom(import) => {
+                    for alias in import.names.iter() {
+                        let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                        self.bind_non_function(context, bound);
+                    }
+                }
                 _ => {
                     for nested in nested_suites(statement) {
                         self.collect_suite(nested, context);
                     }
                 }
             }
+        }
+    }
+
+    /// Records a class or import binding, so a bare-name lookup stops at its
+    /// scope without reaching a function of the same name further out.
+    fn bind_non_function(&mut self, context: Context<'a>, name: &'a str) {
+        if context.class.is_none() {
+            self.names.entry((context.scope, name)).or_default();
         }
     }
 

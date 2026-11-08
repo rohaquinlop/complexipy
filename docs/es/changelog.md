@@ -73,8 +73,8 @@ GitHub con todos los detalles.
 
 - Cada función en un ciclo de recursión suma +1, para ciclos indirectos
   (`a` llama a `b`, `b` llama a `a`), para métodos que llaman a `self.m()` o
-  `cls.m()`, y para funciones anidadas, cuyo +1 va a la función que las
-  contiene, como indica el paper. Las llamadas se resuelven dentro de un
+  `cls.m()`, y para funciones anidadas y los métodos de una clase anidada en una
+  función, cuyo +1 va a la función que los contiene, como indica el paper. Las llamadas se resuelven dentro de un
   archivo: un nombre simple al ámbito de función o de módulo más cercano que
   lo define, y `self.m()` a un método de la misma clase. Una función interna
   recursiva de una fábrica de decoradores ahora suma +1 a la fábrica. Un
