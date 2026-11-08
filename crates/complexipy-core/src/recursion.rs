@@ -200,25 +200,20 @@ impl<'a> CallGraph<'a> {
         while let Some(node) = walk.next() {
             match node {
                 Node::Stmt(Stmt::FunctionDef(f)) => {
-                    self.record_decorators(def, &f.decorator_list, shadowed, calls);
-                    let roots = decorators(&f.decorator_list)
-                        .chain(defaults(&f.parameters))
-                        .collect();
+                    let mut roots = self.record_decorators(def, &f.decorator_list, shadowed, calls);
+                    roots.extend(defaults(&f.parameters));
                     self.collect_calls(def, roots, shadowed, calls);
                 }
                 Node::Stmt(Stmt::ClassDef(c)) => {
-                    self.record_decorators(def, &c.decorator_list, shadowed, calls);
-                    let arguments = c.arguments.iter().flat_map(|arguments| {
+                    let mut roots = self.record_decorators(def, &c.decorator_list, shadowed, calls);
+                    roots.extend(c.arguments.iter().flat_map(|arguments| {
                         arguments
                             .args
                             .iter()
                             .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
                             .map(Node::Expr)
-                    });
-                    let roots = decorators(&c.decorator_list)
-                        .chain(arguments)
-                        .chain(c.body.iter().map(Node::Stmt))
-                        .collect();
+                    }));
+                    roots.extend(c.body.iter().map(Node::Stmt));
                     self.collect_calls(def, roots, shadowed, calls);
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
@@ -239,17 +234,22 @@ impl<'a> CallGraph<'a> {
         }
     }
 
+    /// Records each decorator as a call, since applying it calls it, and
+    /// returns the decorator expressions to walk for the calls inside them.
     fn record_decorators(
         &self,
         def: &Def<'a>,
         list: &'a [ast::Decorator],
         shadowed: &[&'a str],
         calls: &mut Vec<(usize, TextSize)>,
-    ) {
-        for decorator in list.iter() {
-            let start = decorator.expression.range().start();
-            self.record_call(def, &decorator.expression, start, shadowed, calls);
-        }
+    ) -> Vec<Node<'a>> {
+        list.iter()
+            .map(|decorator| {
+                let expression = &decorator.expression;
+                self.record_call(def, expression, expression.range().start(), shadowed, calls);
+                Node::Expr(expression)
+            })
+            .collect()
     }
 
     fn record_call(
@@ -292,11 +292,6 @@ impl<'a> CallGraph<'a> {
         }
         &[]
     }
-}
-
-fn decorators(list: &[ast::Decorator]) -> impl Iterator<Item = Node<'_>> {
-    list.iter()
-        .map(|decorator| Node::Expr(&decorator.expression))
 }
 
 fn defaults(parameters: &ast::Parameters) -> impl Iterator<Item = Node<'_>> {

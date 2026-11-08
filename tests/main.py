@@ -544,7 +544,7 @@ class TestPaperConformance:
                 id="nested-decorator",
             ),
             pytest.param(
-                "def s(f):\n    return lambda f: f()\n",
+                "def f(n):\n    return lambda f: f()\n",
                 0,
                 id="guard-lambda-parameter",
             ),
