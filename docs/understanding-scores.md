@@ -91,7 +91,7 @@ match value:        # +1
 ```
 
 **Recursion**
-A function that calls itself by name adds +1 once, however many recursive calls it makes.
+Each function in a recursion cycle adds +1 once, however many recursive calls it makes. The cycle can be direct (`fact` calls `fact`) or indirect (`a` calls `b`, `b` calls `a`). The +1 of a nested function goes to the function that holds it. A call counts when it resolves in the same file: a bare name to the nearest enclosing function or module scope that defines it, or `self.m()` and `cls.m()` to a method of the caller's class (a closure in a method uses that method's `self`). Calls through `super()`, other objects, the class name, or imports do not count, cycles across files are not detected, and a parameter or variable that shadows a function name is not tracked.
 
 ## Detailed Examples
 

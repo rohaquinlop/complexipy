@@ -91,7 +91,7 @@ match value:        # +1
 ```
 
 **Recursión**
-Una función que se llama a sí misma por nombre añade +1 una sola vez, sin importar cuántas llamadas recursivas haga.
+Cada función en un ciclo de recursión añade +1 una sola vez, sin importar cuántas llamadas recursivas haga. El ciclo puede ser directo (`fact` llama a `fact`) o indirecto (`a` llama a `b`, `b` llama a `a`). El +1 de una función anidada va a la función que la contiene. Una llamada cuenta cuando se resuelve en el mismo archivo: un nombre simple al ámbito de función o de módulo más cercano que lo define, o `self.m()` y `cls.m()` a un método de la clase de quien llama (una clausura dentro de un método usa el `self` de ese método). Las llamadas a través de `super()`, de otros objetos, del nombre de la clase o de imports no cuentan, los ciclos entre archivos no se detectan, y no se rastrea un parámetro o variable que oculte el nombre de una función.
 
 ## Ejemplos Detallados
 
