@@ -34,7 +34,7 @@ Cada estructura de flujo de control añade a la complejidad:
 | Bucle `for` | +1 | `for item in items:` |
 | Bucle `while` | +1 | `while condition:` |
 | Manejador `except` | +1 | `except ValueError:` |
-| Cláusula `finally` | +0 | `finally:` (solo anidamiento) |
+| Cláusula `finally` | +0 | `finally:` (su cuerpo no está anidado) |
 | Operador ternario | +1 | `x if condition else y` |
 
 ### 2. Multiplicador de Anidamiento
@@ -147,9 +147,9 @@ def check_eligibility(user, product):
 ```python
 def load_config(path):
     try:                              # try en sí mismo: +0
-        with open(path) as f:         # +1 (gestor de contexto tratado como if)
+        with open(path) as f:         # +0 (with no suma nada y no anida)
             data = json.load(f)
-            if validate(data):        # +2 (1 + anidamiento)
+            if validate(data):        # +1 (los cuerpos de try y with no están anidados)
                 return data
     except FileNotFoundError:         # +1
         create_default_config()
@@ -158,7 +158,7 @@ def load_config(path):
     finally:                          # +0 (finally en sí mismo)
         if log_enabled:               # +1
             log("Config load attempted")
-# Complejidad total: 6
+# Complejidad total: 4
 ```
 
 ## Directrices Prácticas

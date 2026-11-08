@@ -34,7 +34,7 @@ Each control flow structure adds to the complexity:
 | `for` loop | +1 | `for item in items:` |
 | `while` loop | +1 | `while condition:` |
 | `except` handler | +1 | `except ValueError:` |
-| `finally` clause | +0 | `finally:` (nesting only) |
+| `finally` clause | +0 | `finally:` (its body is not nested) |
 | Ternary operator | +1 | `x if condition else y` |
 
 ### 2. Nesting Multiplier
@@ -147,9 +147,9 @@ def check_eligibility(user, product):
 ```python
 def load_config(path):
     try:                              # try itself: +0
-        with open(path) as f:         # +1 (context manager treated as if)
+        with open(path) as f:         # +0 (with adds nothing and does not nest)
             data = json.load(f)
-            if validate(data):        # +2 (1 + nesting)
+            if validate(data):        # +1 (try and with bodies are not nested)
                 return data
     except FileNotFoundError:         # +1
         create_default_config()
@@ -158,7 +158,7 @@ def load_config(path):
     finally:                          # +0 (finally itself)
         if log_enabled:               # +1
             log("Config load attempted")
-# Total complexity: 6
+# Total complexity: 4
 ```
 
 ## Practical Guidelines
