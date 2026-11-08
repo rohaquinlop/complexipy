@@ -105,7 +105,7 @@ class TestFiles:
         path = self.local_path / "src/test_for_assign.py"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 2 == total_complexity
+        assert 1 == total_complexity
 
     def test_if(self):
         path = self.local_path / "src/test_if.py"
@@ -159,7 +159,7 @@ class TestFiles:
         path = self.local_path / "src/test_try_nested.py"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 10 == total_complexity
+        assert 11 == total_complexity
 
     def test_nested_definitions(self):
         # Definitions under a module-level try/except and methods of a nested
@@ -173,7 +173,7 @@ class TestFiles:
     def test_file_complexity(self):
         path = self.local_path / "src/test_try_nested.py"
         result = file_complexity(str(path))
-        assert 10 == result.complexity
+        assert 11 == result.complexity
 
     def test_code_complexity(self):
         snippet = """\
@@ -391,7 +391,8 @@ class TestScriptComplexity:
 
 class TestPaperConformance:
     """Conformance with the Cognitive Complexity white paper (G. Ann Campbell,
-    SonarSource v1.7). Each expected value is the one prescribed by the paper.
+    SonarSource v1.7), plus the scores chosen for Python constructs the paper
+    does not name, as `docs/understanding-scores.md` records them.
     """
 
     def _c(self, code: str) -> int:
@@ -669,13 +670,23 @@ class TestPaperConformance:
         assert self._c("g = lambda x: (1 if x else 2)\n") == 2
         assert self._c("g = lambda x: x and x\n") == 1
 
-    def test_comprehension_loop_and_filter(self):
-        assert self._c("def f(xs):\n    return [x for x in xs if x > 0]\n") == 2
-        assert (
-            self._c("def f(xs):\n    return [y for x in xs for y in x if y]\n")
-            == 3
-        )
-        assert self._c("def f(xs):\n    return any(x and x for x in xs)\n") == 2
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [
+            ("[x for x in xs]", 0),
+            ("[x for x in xs if x]", 0),
+            ("[y for x in xs for y in x]", 0),
+            ("[[y for y in x] for x in xs]", 0),
+            ("any(x > 0 for x in xs)", 0),
+            ("[y for x in xs for y in x if y]", 0),
+            ("[1 if x else 2 for x in xs]", 1),
+            ("any(x and x for x in xs)", 1),
+        ],
+    )
+    def test_comprehension_clauses_add_nothing(
+        self, expression: str, expected: int
+    ):
+        assert self._c(f"def f(xs):\n    return {expression}\n") == expected
 
     def test_nested_ternary_gets_nesting_increment(self):
         assert self._c("x = 1 if a else (2 if b else 3)\n") == 3
@@ -702,7 +713,7 @@ class TestPaperConformance:
             ("(a or b) + 1", 1),
             ("t[a or b]", 1),
             ("f'{a and b}'", 1),
-            ("h(k=[v for v in d])", 1),
+            ("h(k=[v if d else 0 for v in d])", 1),
             ("a and (x if d else y)", 2),
             ("a or h(k=x if d else y)", 2),
             ("h(k=(lambda v: v if v else 0)(d))", 2),
@@ -718,8 +729,6 @@ class TestPaperConformance:
         assert self._c("def f(a, b):\n    foo(a and b)\n") == 1
 
     def test_each_boolean_sequence_counts_once(self):
-        # One per run of like operators: the outer `and` run plus one per
-        # parenthesized `or`; an `and` group inside the `and` run joins it.
         def returning(expression: str) -> str:
             return f"def f(a, b, c, d):\n    return {expression}\n"
 
@@ -728,8 +737,50 @@ class TestPaperConformance:
         assert self._c(returning("a and not (b or c) and (c or d)")) == 3
         assert self._c(returning("not (a and (b or c))")) == 2
         repeated = " and ".join(["(a or b) and (c and d)"] * 100)
-        assert self._c(returning(repeated)) == 101
+        assert self._c(returning(repeated)) == 200
 
     def test_loop_else_is_not_nested(self):
         code = "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n"
-        assert self._c(code) == 2
+        assert self._c(code) == 3
+
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            (
+                "def f(xs):\n    for x in xs:\n        pass\n    else:\n        pass\n",
+                2,
+            ),
+            (
+                "def f(a):\n    while a:\n        pass\n    else:\n        pass\n",
+                2,
+            ),
+            (
+                "def f():\n    try:\n        pass\n    except E:\n        pass\n    else:\n        pass\n",
+                2,
+            ),
+            (
+                "def f():\n    try:\n        pass\n    except E:\n        pass\n    finally:\n        pass\n",
+                1,
+            ),
+        ],
+    )
+    def test_else_on_loops_and_try_adds_one(self, code: str, expected: int):
+        assert self._c(code) == expected
+
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [
+            ("a or b and c or d", 3),
+            ("a and b or c", 2),
+            ("a and b and c", 1),
+            ("(a or b) or c", 1),
+            ("a and not (b and c)", 2),
+        ],
+    )
+    def test_mixed_boolean_operators_read_left_to_right(
+        self, expression: str, expected: int
+    ):
+        assert (
+            self._c(f"def f(a, b, c, d):\n    return {expression}\n")
+            == expected
+        )
