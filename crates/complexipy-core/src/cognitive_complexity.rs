@@ -518,9 +518,13 @@ fn analyze_function(
 /// hands that level on to the function it returns.
 fn function_root_complexity(node: &Stmt, code: &str, index: &LineIndex) -> ComplexityResult {
     let mut result = empty_result();
-    if let Some(inner) = decorator_inner(node) {
+    if let Some((inner, returned)) = decorator_inner(node) {
         absorb_definition_header(&mut result, inner, 0, index);
         absorb_with_regions(&mut result, function_root_complexity(inner, code, index));
+        absorb_with_regions(
+            &mut result,
+            statement_cognitive_complexity_shared(returned, 0, code, index),
+        );
     } else if let Stmt::FunctionDef(f) = node {
         walk_function_body(&mut result, &f.body, 0, code, index);
     }
@@ -755,11 +759,15 @@ fn statement_cognitive_complexity_shared(
 ) -> ComplexityResult {
     let mut result = empty_result();
 
-    if let Some(inner) = decorator_inner(statement) {
+    if let Some((inner, returned)) = decorator_inner(statement) {
         absorb_definition_header(&mut result, inner, nesting_level + 1, index);
         absorb_with_regions(
             &mut result,
             statement_cognitive_complexity_shared(inner, nesting_level, code, index),
+        );
+        absorb_with_regions(
+            &mut result,
+            statement_cognitive_complexity_shared(returned, nesting_level, code, index),
         );
         return result;
     }
