@@ -30,12 +30,13 @@ Cada estructura de flujo de control añade a la complejidad:
 | -- | -- | -- |
 | Sentencia `if` | +1 | `if condition:` |
 | Cláusula `elif` | +1 | `elif other_condition:` |
-| Cláusula `else` | +0 | `else:` (solo anidamiento) |
+| Cláusula `else` | +1 | `else:` después de `if`, `for`, `while` o `try` (sin incremento por anidamiento) |
 | Bucle `for` | +1 | `for item in items:` |
 | Bucle `while` | +1 | `while condition:` |
 | Manejador `except` | +1 | `except ValueError:` |
 | Cláusula `finally` | +0 | `finally:` (solo anidamiento) |
 | Operador ternario | +1 | `x if condition else y` |
+| Cláusula de comprensión | +0 | `[x for x in xs if x]` |
 
 ### 2. Multiplicador de Anidamiento
 
@@ -63,8 +64,8 @@ def check(a, b, c):
         return True
 ```
 
-- Cada operador `and` u `or`: +1
-- Cambios de tipo de operador (mezclar `and`/`or`): +1 adicional
+- Cada secuencia de operadores iguales, leída de izquierda a derecha: +1
+- Cada cambio entre `and` y `or` inicia una nueva secuencia: `a or b and c or d` se lee `or`, `and`, `or` y suma +3
 
 ### 4. Casos Especiales
 
@@ -92,6 +93,12 @@ match value:        # +1
 
 **Recursión**
 Cada función en un ciclo de recursión añade +1 una sola vez, sin importar cuántas llamadas recursivas haga. El ciclo puede ser directo (`fact` llama a `fact`) o indirecto (`a` llama a `b`, `b` llama a `a`). El +1 de una función anidada, o de un método de una clase anidada en una función, va a la función que lo contiene. Una llamada cuenta cuando se resuelve en el mismo archivo: un nombre simple al ámbito de función o de módulo más cercano que lo define, o `self.m()` y `cls.m()` a un método de la clase de quien llama (una clausura dentro de un método usa el `self` de ese método). Las llamadas a través de `super()`, de otros objetos, del nombre de la clase o de imports no cuentan, los ciclos entre archivos no se detectan, y no se rastrea un parámetro o variable que oculte el nombre de una función.
+
+**Construcciones de Python que el paper no nombra**
+
+- Comprensiones: las cláusulas `for` e `if` no suman nada y no elevan el nivel de anidamiento. El paper ignora las abreviaturas que permiten escribir varias sentencias de forma legible como una sola, y una comprensión es una abreviatura de un bucle que construye un valor. Un ternario o un operador booleano dentro de una comprensión sigue contando.
+- `else` en `for`, `while` y `try`: +1, sin incremento por anidamiento, como `else` después de `if`. El cuerpo del `else` solo se ejecuta cuando el bucle termina sin `break` o cuando el cuerpo del `try` no lanzó nada, así que es una rama que el lector debe seguir.
+- Operadores booleanos mezclados: los operadores de una condición se leen de izquierda a derecha, en el orden en que aparecen en el código, y cada cambio entre `and` y `or` inicia una nueva secuencia. Un `not` inicia una nueva condición para su operando.
 
 ## Ejemplos Detallados
 
