@@ -55,9 +55,9 @@ def example(a, b, c, d):
         return 3
     elif d:         # +1
         return 4
-    else:           # +0 (else doesn't add base score)
+    else:           # +1 (no nesting increment)
         return 0
-# complexipy: 4 points
+# complexipy: 5 points
 ```
 
 ## Key Differences
@@ -112,15 +112,15 @@ def nested_logic(a, b, c):
 
 **Ruff**: Counts `else` as a branch (+1)
 
-**complexipy**: `else` doesn't add base complexity, only nesting penalty
+**complexipy**: `else` adds +1 too, but never a nesting increment, however deep it sits
 
 ```python
 # Ruff: 2 branches
-# complexipy: 1 point
+# complexipy: 2 points
 def check(value):
     if value > 0:   # Ruff: +1, complexipy: +1
         return "positive"
-    else:           # Ruff: +1, complexipy: +0
+    else:           # Ruff: +1, complexipy: +1
         return "non-positive"
 ```
 
@@ -130,7 +130,7 @@ Both count boolean operators, but with different philosophies:
 
 **Ruff**: Counts each `and`/`or` as a separate branch
 
-**complexipy**: Counts operators and penalizes mixed operator types
+**complexipy**: Counts each sequence of like operators once, read left to right; a change between `and` and `or` starts a new sequence
 
 ```python
 # Ruff: 3 branches (if + and + or)
@@ -144,17 +144,17 @@ def check(a, b, c):
 
 **Ruff**: Counts each `case` as a branch
 
-**complexipy**: Match itself adds no complexity, only nested content counts
+**complexipy**: `match` adds +1 once for all its cases, and the content of each case is nested
 
 ```python
 # Ruff: 3 branches (match + 2 cases)
-# complexipy: 2 points (only the nested ifs)
-match value:        # Ruff: +1, complexipy: +0
+# complexipy: 5 points (match +1, each nested if +2)
+match value:        # Ruff: +1, complexipy: +1
     case 1:         # Ruff: +1, complexipy: +0
-        if x:       # Ruff: +1, complexipy: +1
+        if x:       # Ruff: +1, complexipy: +2 (1 + nesting)
             pass
     case 2:         # Already counted by Ruff
-        if y:       # complexipy: +1
+        if y:       # complexipy: +2 (1 + nesting)
             pass
 ```
 
@@ -175,20 +175,20 @@ def process_payment(order):
             if not verify_fraud_check(order):      # Ruff: 5, complexipy: 8 (1+2 nesting)
                 return False
         return process_credit_card(order)
-    elif order.payment_method == "paypal":         # Ruff: 6, complexipy: 4
+    elif order.payment_method == "paypal":         # Ruff: 6, complexipy: 9
         return process_paypal(order)
-    else:                                           # Ruff: 7, complexipy: 4
+    else:                                           # Ruff: 7, complexipy: 10
         return False
 
 # Final Scores:
 # Ruff: 7 branches
-# complexipy: 8 points
+# complexipy: 10 points
 ```
 
 In this example:
 
 - Ruff flags the function for having 7 branches (over typical threshold)
-- complexipy gives it 8 points, with most complexity coming from the nested fraud check
+- complexipy gives it 10 points, with most complexity coming from the nested fraud check
 - complexipy better identifies that the deeply nested fraud check is the problematic part
 
 ## Which Should You Use?
@@ -266,9 +266,9 @@ If you're already using Ruff and want to add complexipy:
 | -- | -- | -- |
 | **Based on** | Cyclomatic Complexity | Cognitive Complexity |
 | **Counts nesting** | ❌ No | ✅ Yes |
-| **else penalty** | ✅ Yes | ❌ No (only nesting) |
+| **else penalty** | ✅ Yes | ✅ Yes (+1, no nesting increment) |
 | **Boolean operators** | ✅ Yes | ✅ Yes |
-| **match statements** | ✅ Yes | Partial (content only) |
+| **match statements** | ✅ Yes | ✅ Yes (+1 for the whole `match`) |
 | **Best for** | Structural, testing, branch density | How difficult code is to understand |
 | **Threshold** | ~12 branches | ~15 points |
 | **Performance** | Fast (Rust) | Very fast (Rust) |
