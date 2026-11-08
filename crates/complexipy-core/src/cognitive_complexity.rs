@@ -5,7 +5,7 @@ mod shared_deps {
         build_refactor_plans,
     };
     pub use crate::rules::{AnalysisOptions, RuleSet};
-    pub use crate::syntax_tree::{Node, PreOrder, parse_module};
+    pub use crate::syntax_tree::parse_module;
     pub use crate::utils::{
         CommentRanges, LineIndex, count_bool_ops, decorator_inner, find_noqa_comment,
         may_contain_marker,
@@ -15,14 +15,14 @@ mod shared_deps {
 
 use std::borrow::Cow;
 
-use ruff_text_size::Ranged;
+use ruff_text_size::{Ranged, TextSize};
 
 use crate::bindings::{FunctionBindings, ModuleBindings};
 use crate::classes::CodeComplexity;
 
 use shared_deps::*;
 use std::cell::OnceCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// What the analysis of one file shares across its functions. The plan
 /// inputs are built on first use, so a run that builds no plan never pays
@@ -37,6 +37,7 @@ struct FileContext<'a> {
     def_names: OnceCell<HashSet<String>>,
     module_bindings: OnceCell<ModuleBindings>,
     newline: OnceCell<&'static str>,
+    recursion: OnceCell<HashMap<TextSize, u64>>,
 }
 
 impl<'a> FileContext<'a> {
@@ -54,6 +55,7 @@ impl<'a> FileContext<'a> {
             def_names: OnceCell::new(),
             module_bindings: OnceCell::new(),
             newline: OnceCell::new(),
+            recursion: OnceCell::new(),
         }
     }
 
@@ -341,7 +343,7 @@ fn qualified(class: Option<&str>, name: &str) -> String {
     }
 }
 
-fn nested_suites(node: &Stmt) -> Vec<&[Stmt]> {
+pub(crate) fn nested_suites(node: &Stmt) -> Vec<&[Stmt]> {
     match node {
         Stmt::If(i) => std::iter::once(i.body.as_slice())
             .chain(
@@ -472,9 +474,14 @@ fn analyze_function(
 ) -> FunctionComplexity {
     let index = &file.index;
     let mut result = function_root_complexity(node, file.code, index);
-    if let Some(line) = detect_direct_recursion(&f.body, f.name.as_str(), index) {
-        result.complexity += 1;
-        push_line(&mut result, line, 1);
+    let recursive = file
+        .recursion
+        .get_or_init(|| crate::recursion::recursive_defs(file.suite, index));
+    for def in std::iter::once(f).chain(crate::recursion::nested_definitions(&f.body)) {
+        if let Some(&line) = recursive.get(&def.range.start()) {
+            result.complexity += 1;
+            push_line(&mut result, line, 1);
+        }
     }
     let start = usize::from(f.range.start());
     let line_start = index.line_of(start);
@@ -533,22 +540,6 @@ fn walk_function_body(
         collect_suite(body, nesting_level, code, index, &mut regions),
     );
     result.regions.extend(regions);
-}
-
-fn detect_direct_recursion(body: &[Stmt], name: &str, index: &LineIndex) -> Option<u64> {
-    let mut walk = PreOrder::new(body.iter().map(Node::Stmt));
-    while let Some(node) = walk.next() {
-        match node {
-            Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_)) => continue,
-            Node::Expr(ast::Expr::Call(call)) if matches!(call.func.as_ref(), ast::Expr::Name(callee) if callee.id.as_str() == name) =>
-            {
-                return Some(index.line_of(usize::from(call.range.start())));
-            }
-            Node::Expr(ast::Expr::Lambda(_)) => continue,
-            _ => walk.descend(node),
-        }
-    }
-    None
 }
 
 fn empty_result() -> ComplexityResult {
