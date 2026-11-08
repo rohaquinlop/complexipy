@@ -7,8 +7,8 @@ mod shared_deps {
     pub use crate::rules::{AnalysisOptions, RuleSet};
     pub use crate::syntax_tree::parse_module;
     pub use crate::utils::{
-        CommentRanges, LineIndex, count_bool_ops, decorator_inner, find_noqa_comment,
-        may_contain_marker,
+        CommentRanges, LineIndex, count_bool_ops, decorator_inner, else_keyword_line,
+        find_noqa_comment, may_contain_marker,
     };
     pub use ruff_python_ast::{self as ast, Stmt};
 }
@@ -705,6 +705,7 @@ fn loop_complexity(
         &mut result,
         collect_suite(body, nesting_level + 1, code, index, &mut children),
     );
+    add_else_increment(&mut result, orelse, code, index);
     absorb(
         &mut result,
         collect_suite(orelse, nesting_level, code, index, &mut children),
@@ -728,6 +729,22 @@ fn loop_complexity(
         },
     );
     result
+}
+
+fn add_else_increment(
+    result: &mut ComplexityResult,
+    orelse: &ast::Suite,
+    code: &str,
+    index: &LineIndex,
+) {
+    if let Some(first) = orelse.first() {
+        result.complexity += 1;
+        push_line(
+            result,
+            else_keyword_line(code, usize::from(first.range().start()), index),
+            1,
+        );
+    }
 }
 
 fn statement_cognitive_complexity_shared(
@@ -889,6 +906,7 @@ fn statement_cognitive_complexity_shared(
                 );
             }
 
+            add_else_increment(&mut result, &t.orelse, code, index);
             absorb(
                 &mut result,
                 collect_suite(&t.orelse, nesting_level, code, index, &mut children),

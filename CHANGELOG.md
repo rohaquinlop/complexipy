@@ -61,6 +61,14 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- Comprehension `for` and `if` clauses add nothing and no longer raise the
+  nesting level, since a comprehension is shorthand for a loop. `else` on
+  `for`, `while`, and `try` adds +1 with no nesting increment, like `else`
+  after `if`. Mixed boolean operators are read left to right, so
+  `a or b and c or d` scores 3 instead of 2. Scores drop for code with
+  comprehensions and rise for loop and `try` `else` and some mixed conditions.
+  The `tests/src/test_for_assign.py` total goes from 2 to 1 and the
+  `tests/src/test_try_nested.py` total from 10 to 11.
 - Each function in a recursion cycle adds +1, for indirect cycles (`a` calls
   `b`, `b` calls `a`), for methods that call `self.m()` or `cls.m()`, and for
   nested functions and the methods of a class nested in a function, whose +1

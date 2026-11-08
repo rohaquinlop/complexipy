@@ -353,8 +353,8 @@ pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {
 /// expression that is only crossed to reach the scored expressions below it.
 fn own_score(expr: &ast::Expr, nesting_level: u64) -> Option<u64> {
     let score = match expr {
-        ast::Expr::BoolOp(b) => operator_sequences(b, None, nesting_level),
-        ast::Expr::UnaryOp(u) => nested_operator_sequences(&u.operand, None, nesting_level),
+        ast::Expr::BoolOp(b) => operator_sequences(b, nesting_level),
+        ast::Expr::UnaryOp(u) => count_bool_ops(&u.operand, nesting_level),
         ast::Expr::Compare(c) => {
             count_bool_ops(&c.left, nesting_level)
                 + c.comparators
@@ -426,53 +426,78 @@ fn count_comprehension(
     generators: &[ast::Comprehension],
     nesting_level: u64,
 ) -> u64 {
-    let mut complexity: u64 = 0;
-    let inner_nesting = nesting_level + 1;
+    generators
+        .iter()
+        .flat_map(|generator| std::iter::once(&generator.iter).chain(generator.ifs.iter()))
+        .chain(elements.iter().copied())
+        .map(|expr| count_bool_ops(expr, nesting_level))
+        .sum()
+}
 
-    for generator in generators.iter() {
-        complexity += 1 + nesting_level;
-        complexity += count_bool_ops(&generator.iter, nesting_level);
-        for filter in generator.ifs.iter() {
-            complexity += 1;
-            complexity += count_bool_ops(filter, inner_nesting);
+enum ChainItem<'a> {
+    Operand(&'a ast::Expr),
+    Operator(ast::BoolOp),
+}
+
+fn push_chain<'a>(stack: &mut Vec<ChainItem<'a>>, bool_op: &'a ast::ExprBoolOp) {
+    for (position, value) in bool_op.values.iter().enumerate().rev() {
+        stack.push(ChainItem::Operand(value));
+        if position > 0 {
+            stack.push(ChainItem::Operator(bool_op.op));
         }
     }
+}
 
-    for element in elements.iter() {
-        complexity += count_bool_ops(element, inner_nesting);
+/// Counts the sequences of like boolean operators in the chain rooted at
+/// `bool_op`, read left to right: the operators of nested boolean operations
+/// sit between the operators around them, and each change of operator starts
+/// a new sequence. Operands that are not boolean operations are scored on
+/// their own, so the operand of a `not` starts a chain of its own.
+fn operator_sequences(bool_op: &ast::ExprBoolOp, nesting_level: u64) -> u64 {
+    let mut complexity: u64 = 0;
+    let mut previous: Option<ast::BoolOp> = None;
+    let mut stack = Vec::new();
+    push_chain(&mut stack, bool_op);
+    while let Some(item) = stack.pop() {
+        match item {
+            ChainItem::Operand(ast::Expr::BoolOp(nested)) => push_chain(&mut stack, nested),
+            ChainItem::Operand(operand) => complexity += count_bool_ops(operand, nesting_level),
+            ChainItem::Operator(operator) => {
+                if previous != Some(operator) {
+                    complexity += 1;
+                }
+                previous = Some(operator);
+            }
+        }
     }
-
     complexity
 }
 
-/// Counts the sequences of like boolean operators in `bool_op`. The node
-/// starts a new sequence unless `enclosing` is the operator of the boolean
-/// operation directly around it; `None` means a unary operator or nothing
-/// encloses it.
-fn operator_sequences(
-    bool_op: &ast::ExprBoolOp,
-    enclosing: Option<ast::BoolOp>,
-    nesting_level: u64,
-) -> u64 {
-    let starts_sequence = u64::from(enclosing != Some(bool_op.op));
-    starts_sequence
-        + bool_op
-            .values
-            .iter()
-            .map(|value| nested_operator_sequences(value, Some(bool_op.op), nesting_level))
-            .sum::<u64>()
-}
-
-fn nested_operator_sequences(
-    expr: &ast::Expr,
-    enclosing: Option<ast::BoolOp>,
-    nesting_level: u64,
-) -> u64 {
-    match expr {
-        ast::Expr::BoolOp(bool_op) => operator_sequences(bool_op, enclosing, nesting_level),
-        ast::Expr::UnaryOp(unary) => nested_operator_sequences(&unary.operand, None, nesting_level),
-        _ => count_bool_ops(expr, nesting_level),
+/// The line of the `else` keyword that opens the suite whose first statement
+/// starts at `suite_start`. A clause keyword opens its own line, so the search
+/// looks at that statement's line (`else: pass`) and then back over blank and
+/// comment lines only. Falls back to the statement's own line.
+pub fn else_keyword_line(code: &str, suite_start: usize, index: &LineIndex) -> u64 {
+    let statement_line = line_start_of(code, suite_start);
+    let mut line_start = statement_line;
+    loop {
+        let text = line_at(code, line_start).trim_start();
+        let opens_else = text
+            .strip_prefix("else")
+            .is_some_and(|rest| rest.starts_with(':') || rest.starts_with(char::is_whitespace));
+        if opens_else {
+            return index.line_of(line_start);
+        }
+        let skippable = text.is_empty() || text.starts_with('#');
+        if line_start != statement_line && !skippable {
+            break;
+        }
+        match previous_line_start(code, line_start) {
+            Some(previous) => line_start = previous,
+            None => break,
+        }
     }
+    index.line_of(statement_line)
 }
 
 fn line_start_of(code: &str, offset: usize) -> usize {
