@@ -467,6 +467,81 @@ class TestPaperConformance:
     @pytest.mark.parametrize(
         ("code", "expected"),
         [
+            pytest.param(
+                "def a(n):\n    return b(n)\ndef b(n):\n    return a(n)\n",
+                2,
+                id="new-mutual",
+            ),
+            pytest.param(
+                "def a():\n    return b()\ndef b():\n    return c()\ndef c():\n    return a()\n",
+                3,
+                id="new-three-cycle",
+            ),
+            pytest.param(
+                "class C:\n    def m(self, n):\n        return self.m(n - 1)\n",
+                1,
+                id="new-self-method",
+            ),
+            pytest.param(
+                "class C:\n    @classmethod\n    def m(cls, n):\n        return cls.m(n - 1)\n",
+                1,
+                id="new-cls-method",
+            ),
+            pytest.param(
+                "def f():\n    def g(n):\n        return g(n - 1)\n    return g(3)\n",
+                1,
+                id="new-nested-function",
+            ),
+            pytest.param(
+                "class C:\n    def m(self):\n        def inner():\n            return self.m()\n        return inner()\n",
+                2,
+                id="new-closure-self-method",
+            ),
+            pytest.param(
+                "def foo():\n    def bar():\n        return foo()\n    return bar()\n",
+                2,
+                id="new-closure-and-outer",
+            ),
+            pytest.param(
+                "def deco(a):\n    def inner(n):\n        return inner(n - 1)\n    return inner\n",
+                1,
+                id="new-decorator-factory-inner",
+            ),
+            pytest.param(
+                "class C:\n    def get(self, x):\n        return get(x)\n",
+                0,
+                id="decrease-method-calls-same-name",
+            ),
+            pytest.param(
+                "class B:\n    def m(self):\n        return 1\nclass C(B):\n    def m(self):\n        return super().m()\n",
+                0,
+                id="guard-super",
+            ),
+            pytest.param(
+                "class C:\n    @staticmethod\n    def m(x):\n        return x.m()\n",
+                0,
+                id="guard-staticmethod",
+            ),
+            pytest.param(
+                "class C:\n    def m(self, other):\n        return other.m()\n",
+                0,
+                id="guard-other-receiver",
+            ),
+            pytest.param(
+                "class C:\n    def m(self):\n        return C.m(self)\n",
+                0,
+                id="guard-class-name",
+            ),
+        ],
+    )
+    def test_recursion_cycles(self, code: str, expected: int):
+        # Each method in a recursion cycle, direct or indirect, adds +1 (paper,
+        # Recursion section and Appendix B1). Cycles resolve within one file.
+        assert self._c(code) == expected
+
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
             (
                 "def a_decorator(a, b):\n    def inner(func):\n        if a:\n            print(b)\n        func()\n    return inner\n",
                 1,
