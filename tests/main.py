@@ -539,9 +539,14 @@ class TestPaperConformance:
                 id="nested-default",
             ),
             pytest.param(
-                "def h(n):\n    @h\n    def inner():\n        pass\n    return inner\n",
+                "def h(n):\n    @h(n)\n    def inner():\n        pass\n    return inner\n",
                 1,
                 id="nested-decorator",
+            ),
+            pytest.param(
+                "def h(n):\n    @h\n    def inner():\n        pass\n    return inner\n",
+                0,
+                id="guard-bare-decorator",
             ),
             pytest.param(
                 "def f(n):\n    return lambda f: f()\n",

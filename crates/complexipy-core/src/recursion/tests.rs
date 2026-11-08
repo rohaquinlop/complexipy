@@ -58,7 +58,7 @@ fn calls_in_lambdas_and_nested_headers_belong_to_the_enclosing_def() {
         "def f(n):\n    return lambda k: f(k)\n",
         "def f(n):\n    return lambda k=f(n): k\n",
         "def f(n):\n    def inner(x=f(n)):\n        return x\n    return inner\n",
-        "def f(n):\n    @f\n    def inner():\n        pass\n    return inner\n",
+        "def f(n):\n    @f(n)\n    def inner():\n        pass\n    return inner\n",
         "def f(n):\n    class K(f(n)):\n        pass\n    return K\n",
         "def f(n):\n    class K: x = f(n)\n    return K\n",
     ];
@@ -68,10 +68,11 @@ fn calls_in_lambdas_and_nested_headers_belong_to_the_enclosing_def() {
 }
 
 #[test]
-fn lambda_parameters_hide_outer_names() {
+fn shadowed_names_and_bare_decorators_are_not_calls() {
     let cases = [
         "def f(n):\n    return lambda f: f()\n",
         "def f(n):\n    return lambda *f: f()\n",
+        "def f(n):\n    @f\n    def inner():\n        pass\n    return inner\n",
         "class C:\n    def m(self):\n        return lambda self: self.m()\n",
         "def f(n):\n    def inner():\n        return f(n)\n    return lambda inner: inner()\n",
     ];
