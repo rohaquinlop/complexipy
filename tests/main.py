@@ -69,7 +69,7 @@ class TestFiles:
         path = self.local_path / "src"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 69 == total_complexity
+        assert 70 == total_complexity
 
     def test(self):
         path = self.local_path / "src/test.py"
@@ -159,7 +159,7 @@ class TestFiles:
         path = self.local_path / "src/test_try_nested.py"
         files, _ = _analyze_paths([path])
         total_complexity = sum([file.complexity for file in files])
-        assert 11 == total_complexity
+        assert 12 == total_complexity
 
     def test_nested_definitions(self):
         # Definitions under a module-level try/except and methods of a nested
@@ -173,7 +173,7 @@ class TestFiles:
     def test_file_complexity(self):
         path = self.local_path / "src/test_try_nested.py"
         result = file_complexity(str(path))
-        assert 11 == result.complexity
+        assert 12 == result.complexity
 
     def test_code_complexity(self):
         snippet = """\
@@ -766,9 +766,16 @@ class TestPaperConformance:
         repeated = " and ".join(["(a or b) and (c and d)"] * 100)
         assert self._c(returning(repeated)) == 200
 
-    def test_loop_else_is_not_nested(self):
-        code = "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n"
-        assert self._c(code) == 3
+    @pytest.mark.parametrize(
+        "code",
+        [
+            "def f(xs, x):\n    for i in xs:\n        pass\n    else:\n        if x:\n            pass\n",
+            "def f(a, x):\n    while a:\n        pass\n    else:\n        if x:\n            pass\n",
+            "def f(x):\n    try:\n        pass\n    except E:\n        pass\n    else:\n        if x:\n            pass\n",
+        ],
+    )
+    def test_else_on_loops_and_try_is_nested(self, code: str):
+        assert self._c(code) == 4
 
     @pytest.mark.parametrize(
         ("code", "expected"),

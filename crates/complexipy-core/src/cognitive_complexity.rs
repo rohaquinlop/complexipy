@@ -708,7 +708,7 @@ fn loop_complexity(
     add_else_increment(&mut result, orelse, code, index);
     absorb(
         &mut result,
-        collect_suite(orelse, nesting_level, code, index, &mut children),
+        collect_suite(orelse, nesting_level + 1, code, index, &mut children),
     );
 
     finalize_region(
@@ -909,7 +909,7 @@ fn statement_cognitive_complexity_shared(
             add_else_increment(&mut result, &t.orelse, code, index);
             absorb(
                 &mut result,
-                collect_suite(&t.orelse, nesting_level, code, index, &mut children),
+                collect_suite(&t.orelse, nesting_level + 1, code, index, &mut children),
             );
             absorb(
                 &mut result,

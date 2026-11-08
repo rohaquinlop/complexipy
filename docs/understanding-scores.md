@@ -30,7 +30,7 @@ Each control flow structure adds to the complexity:
 | -- | -- | -- |
 | `if` statement | +1 | `if condition:` |
 | `elif` clause | +1 | `elif other_condition:` |
-| `else` clause | +1 | `else:` after `if`, `for`, `while`, or `try` (no nesting increment) |
+| `else` clause | +1 | `else:` after `if`, `for`, `while`, or `try` (no nesting increment; its body is nested) |
 | `for` loop | +1 | `for item in items:` |
 | `while` loop | +1 | `while condition:` |
 | `except` handler | +1 | `except ValueError:` |
@@ -97,7 +97,7 @@ Each function in a recursion cycle adds +1 once, however many recursive calls it
 **Python constructs the paper does not name**
 
 - Comprehensions: the `for` and `if` clauses add nothing and do not raise the nesting level. The paper ignores shorthand that lets several statements be written readably as one, and a comprehension is shorthand for a loop that builds a value. A ternary or a boolean operator inside a comprehension still counts.
-- `else` on `for`, `while`, and `try`: +1, with no nesting increment, like `else` after `if`. The `else` body runs only when the loop ends without `break` or the `try` body raised nothing, so it is a branch the reader must track.
+- `else` on `for`, `while`, and `try`: +1, with no nesting increment, and its body raises the nesting level, like `else` after `if`. The `else` body runs only when the loop ends without `break` or the `try` body raised nothing, so it is a branch the reader must track. The paper calls `else` a hybrid increment: no nesting increment, but a higher nesting level for what it holds.
 - Mixed boolean operators: the operators of one condition are read left to right, as they appear in the code, and each change between `and` and `or` starts a new sequence. A `not` starts a new condition for its operand.
 
 ## Detailed Examples
