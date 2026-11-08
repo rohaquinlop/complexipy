@@ -140,11 +140,11 @@ def validate_order(order):
 
 ```python
 def check_eligibility(user, product):
-    if user.age >= 18 and user.verified and product.available: # +4
-        #  ^^^ if: +1, and operators: +2, total: +4
+    if user.age >= 18 and user.verified and product.available: # +2
+        #  ^^^ if: +1, and run: +1, total: +2
         return True
     return False
-# Total complexity: 4
+# Total complexity: 2
 ```
 
 **Analysis**: Multiple boolean operators increase the mental load of understanding the condition.
@@ -181,7 +181,7 @@ Focus on functions with scores above your threshold (default: 15). Common refact
 
 ### Example Refactoring
 
-**Before (Complexity: 12)**
+**Before (Complexity: 13)**
 
 ```python
 def process_order(order):
@@ -190,8 +190,8 @@ def process_order(order):
             if order.payment:          # +3
                 if order.payment.process(): # +4
                     ship_order(order)
-                else:
-                    refund(order)      # +0 (else clause)
+                else:                          # +1 (else clause)
+                    refund(order)
             else:
                 notify_payment_required() # Still nested
         else:
@@ -225,7 +225,7 @@ def process_order(order):
 **Key improvements:**
 
 - Reduced nesting from 4 levels to 1
-- Complexity dropped from 12 to 4
+- Complexity dropped from 13 to 4
 - Logic is now linear and easier to follow
 
 ## Score Interpretation Tips

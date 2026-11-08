@@ -66,8 +66,9 @@ release section links to its GitHub release notes for the full details.
   `for`, `while`, and `try` adds +1 with no nesting increment, like `else`
   after `if`. Mixed boolean operators are read left to right, so
   `a or b and c or d` scores 3 instead of 2. Scores drop for code with
-  comprehensions and rise for loop and `try` `else` and some mixed conditions.
-  The `tests/src/test_for_assign.py` total goes from 2 to 1 and the
+  comprehensions and rise for loop and `try` `else`. Some mixed conditions
+  score higher and some lower: `(a or (b and c)) and d` goes from 3 to 2. The
+  `tests/src/test_for_assign.py` total goes from 2 to 1 and the
   `tests/src/test_try_nested.py` total from 10 to 11.
 - Each function in a recursion cycle adds +1, for indirect cycles (`a` calls
   `b`, `b` calls `a`), for methods that call `self.m()` or `cls.m()`, and for

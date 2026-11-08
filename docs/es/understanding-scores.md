@@ -140,11 +140,11 @@ def validate_order(order):
 
 ```python
 def check_eligibility(user, product):
-    if user.age >= 18 and user.verified and product.available: # +4
-        #  ^^^ if: +1, operadores and: +2, total: +4
+    if user.age >= 18 and user.verified and product.available: # +2
+        #  ^^^ if: +1, secuencia and: +1, total: +2
         return True
     return False
-# Complejidad total: 4
+# Complejidad total: 2
 ```
 
 **Análisis**: Múltiples operadores booleanos aumentan la carga mental para comprender la condición.
@@ -181,7 +181,7 @@ Enfócate en las funciones con puntuaciones por encima de tu umbral (predetermin
 
 ### Ejemplo de Refactorización
 
-**Antes (Complejidad: 12)**
+**Antes (Complejidad: 13)**
 
 ```python
 def process_order(order):
@@ -190,8 +190,8 @@ def process_order(order):
             if order.payment:          # +3
                 if order.payment.process(): # +4
                     ship_order(order)
-                else:
-                    refund(order)      # +0 (cláusula else)
+                else:                          # +1 (cláusula else)
+                    refund(order)
             else:
                 notify_payment_required() # Aún anidado
         else:
@@ -225,7 +225,7 @@ def process_order(order):
 **Mejoras clave:**
 
 - Anidamiento reducido de 4 niveles a 1
-- Complejidad reducida de 12 a 4
+- Complejidad reducida de 13 a 4
 - La lógica ahora es lineal y más fácil de seguir
 
 ## Consejos para Interpretar Puntuaciones
