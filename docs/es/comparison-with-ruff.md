@@ -55,9 +55,9 @@ def example(a, b, c, d):
         return 3
     elif d:         # +1
         return 4
-    else:           # +0 (else no añade puntuación base)
+    else:           # +1 (sin incremento por anidamiento)
         return 0
-# complexipy: 4 puntos
+# complexipy: 5 puntos
 ```
 
 ## Diferencias Clave
@@ -112,15 +112,15 @@ def nested_logic(a, b, c):
 
 **Ruff**: Cuenta `else` como una rama (+1)
 
-**complexipy**: `else` no añade complejidad base, solo penalización por anidamiento
+**complexipy**: `else` también suma +1, pero nunca un incremento por anidamiento, por profundo que esté
 
 ```python
 # Ruff: 2 ramas
-# complexipy: 1 punto
+# complexipy: 2 puntos
 def check(value):
     if value > 0:   # Ruff: +1, complexipy: +1
         return "positive"
-    else:           # Ruff: +1, complexipy: +0
+    else:           # Ruff: +1, complexipy: +1
         return "non-positive"
 ```
 
@@ -130,7 +130,7 @@ Ambas cuentan los operadores booleanos, pero con filosofías diferentes:
 
 **Ruff**: Cuenta cada `and`/`or` como una rama separada
 
-**complexipy**: Cuenta operadores y penaliza los tipos de operador mezclados
+**complexipy**: Cuenta cada secuencia de operadores iguales una sola vez, leída de izquierda a derecha; un cambio entre `and` y `or` inicia una nueva secuencia
 
 ```python
 # Ruff: 3 ramas (if + and + or)
@@ -144,17 +144,17 @@ def check(a, b, c):
 
 **Ruff**: Cuenta cada `case` como una rama
 
-**complexipy**: El match en sí no añade complejidad, solo cuenta el contenido anidado
+**complexipy**: `match` suma +1 una sola vez por todos sus casos, y el contenido de cada caso está anidado
 
 ```python
 # Ruff: 3 ramas (match + 2 casos)
-# complexipy: 2 puntos (solo los if anidados)
-match value:        # Ruff: +1, complexipy: +0
+# complexipy: 5 puntos (match +1, cada if anidado +2)
+match value:        # Ruff: +1, complexipy: +1
     case 1:         # Ruff: +1, complexipy: +0
-        if x:       # Ruff: +1, complexipy: +1
+        if x:       # Ruff: +1, complexipy: +2 (1 + anidamiento)
             pass
     case 2:         # Ya contado por Ruff
-        if y:       # complexipy: +1
+        if y:       # complexipy: +2 (1 + anidamiento)
             pass
 ```
 
@@ -175,20 +175,20 @@ def process_payment(order):
             if not verify_fraud_check(order):      # Ruff: 5, complexipy: 8 (1+2 anidamiento)
                 return False
         return process_credit_card(order)
-    elif order.payment_method == "paypal":         # Ruff: 6, complexipy: 4
+    elif order.payment_method == "paypal":         # Ruff: 6, complexipy: 9
         return process_paypal(order)
-    else:                                           # Ruff: 7, complexipy: 4
+    else:                                           # Ruff: 7, complexipy: 10
         return False
 
 # Puntuaciones Finales:
 # Ruff: 7 ramas
-# complexipy: 8 puntos
+# complexipy: 10 puntos
 ```
 
 En este ejemplo:
 
 - Ruff marca la función por tener 7 ramas (por encima del umbral típico)
-- complexipy le da 8 puntos, con la mayor complejidad proveniente de la verificación de fraude anidada
+- complexipy le da 10 puntos, con la mayor complejidad proveniente de la verificación de fraude anidada
 - complexipy identifica mejor que la verificación de fraude profundamente anidada es la parte problemática
 
 ## ¿Cuál Deberías Usar?
@@ -266,9 +266,9 @@ Si ya estás usando Ruff y quieres agregar complexipy:
 | -- | -- | -- |
 | **Basado en** | Complejidad Ciclomática | Complejidad Cognitiva |
 | **Cuenta anidamiento** | ❌ No | ✅ Sí |
-| **Penalización por else** | ✅ Sí | ❌ No (solo anidamiento) |
+| **Penalización por else** | ✅ Sí | ✅ Sí (+1, sin incremento por anidamiento) |
 | **Operadores booleanos** | ✅ Sí | ✅ Sí |
-| **Sentencias match** | ✅ Sí | Parcial (solo contenido) |
+| **Sentencias match** | ✅ Sí | ✅ Sí (+1 por todo el `match`) |
 | **Ideal para** | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
 | **Umbral** | ~12 ramas | ~15 puntos |
 | **Rendimiento** | Rápido (Rust) | Muy rápido (Rust) |
