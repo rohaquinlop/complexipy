@@ -95,8 +95,8 @@ release section links to its GitHub release notes for the full details.
   nested function by name, so `return inner()` no longer drops the nesting
   increment. A leading docstring no longer stops the exception.
 - A conditional expression, a boolean operator sequence, or a comprehension
-  in a `case` guard now counts, at the nesting level of the `match`, like an
-  `elif` test. A complex guard can get a C005 plan with help text.
+  in a `case` guard now counts, at the nesting level of the `match`. The
+  guard itself adds nothing, unlike the +1 of an `elif`. A complex guard can get a C005 plan with help text.
 - The decorators and defaults of a module-level `def`, the decorators, bases,
   and keywords of a module-level `class`, and the headers of their direct
   methods now count toward module scope: the `<module>` entry with

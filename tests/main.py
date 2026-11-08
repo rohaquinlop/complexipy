@@ -422,6 +422,17 @@ class TestPaperConformance:
         )
         assert self._c(code) == 3
 
+    @pytest.mark.parametrize(
+        ("guard", "expected"),
+        [("a", 1), ("a and b", 2), ("(b if a else c)", 2)],
+        ids=["bare", "boolean-sequence", "ternary"],
+    )
+    def test_case_guard_adds_nothing_of_its_own(
+        self, guard: str, expected: int
+    ):
+        code = f"def f(v, a, b, c):\n    match v:\n        case 1 if {guard}:\n            pass\n"
+        assert self._c(code) == expected
+
     def test_try_body_is_not_nested(self):
         # try/except: an `if` directly in the try body is charged at nesting 0.
         code = "def f(x):\n    try:\n        if x:\n            pass\n    except Exception:\n        pass\n"
