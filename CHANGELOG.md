@@ -61,20 +61,16 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
-- The `else` body of `for`, `while`, and `try` raises the nesting level,
-  like the `else` body of `if`, as the paper prescribes for a hybrid
-  increment. A structure inside it scores one more per level: an `if` in a
-  loop `else` goes from +1 to +2. The `tests/src/test_try_nested.py` total
-  goes from 11 to 12.
 - Comprehension `for` and `if` clauses add nothing and no longer raise the
   nesting level, since a comprehension is shorthand for a loop. `else` on
-  `for`, `while`, and `try` adds +1 with no nesting increment, like `else`
-  after `if`. Mixed boolean operators are read left to right, so
+  `for`, `while`, and `try` adds +1 with no nesting increment, and its body
+  raises the nesting level, like `else` after `if`: the paper's hybrid
+  increment. Mixed boolean operators are read left to right, so
   `a or b and c or d` scores 3 instead of 2. Scores drop for code with
   comprehensions and rise for loop and `try` `else`. Some mixed conditions
   score higher and some lower: `(a or (b and c)) and d` goes from 3 to 2. The
   `tests/src/test_for_assign.py` total goes from 2 to 1 and the
-  `tests/src/test_try_nested.py` total from 10 to 11.
+  `tests/src/test_try_nested.py` total from 10 to 12.
 - Each function in a recursion cycle adds +1, for indirect cycles (`a` calls
   `b`, `b` calls `a`), for methods that call `self.m()` or `cls.m()`, and for
   nested functions and the methods of a class nested in a function, whose +1
