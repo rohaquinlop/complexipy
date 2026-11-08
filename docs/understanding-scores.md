@@ -192,9 +192,9 @@ def process_order(order):
                     ship_order(order)
                 else:                          # +1 (else clause)
                     refund(order)
-            else:
-                notify_payment_required() # Still nested
-        else:
+            else:                      # +1 (else clause)
+                notify_payment_required()
+        else:                          # +1 (else clause)
             log_invalid_order()
     return False
 ```

@@ -192,9 +192,9 @@ def process_order(order):
                     ship_order(order)
                 else:                          # +1 (cláusula else)
                     refund(order)
-            else:
-                notify_payment_required() # Aún anidado
-        else:
+            else:                      # +1 (cláusula else)
+                notify_payment_required()
+        else:                          # +1 (cláusula else)
             log_invalid_order()
     return False
 ```
