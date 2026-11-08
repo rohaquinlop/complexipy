@@ -71,6 +71,16 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- Las cláusulas `for` e `if` de una comprensión no suman nada y ya no elevan
+  el nivel de anidamiento, porque una comprensión es una abreviatura de un
+  bucle. `else` en `for`, `while` y `try` suma +1 sin incremento por
+  anidamiento, como `else` después de `if`. Los operadores booleanos mezclados
+  se leen de izquierda a derecha, así que `a or b and c or d` puntúa 3 en
+  lugar de 2. Las puntuaciones bajan para el código con comprensiones y suben
+  con `else` en bucles y `try`. Algunas condiciones mezcladas suben y otras
+  bajan: `(a or (b and c)) and d` pasa de 3 a 2. El total de
+  `tests/src/test_for_assign.py` pasa de 2 a 1 y el de
+  `tests/src/test_try_nested.py` de 10 a 11.
 - Cada función en un ciclo de recursión suma +1, para ciclos indirectos (`a`
   llama a `b`, `b` llama a `a`), para métodos que llaman a `self.m()` o
   `cls.m()`, y para funciones anidadas y los métodos de una clase anidada en

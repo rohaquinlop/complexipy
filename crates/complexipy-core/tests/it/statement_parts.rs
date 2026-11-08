@@ -48,7 +48,7 @@ fn a_scored_expression_in_a_statement_part_counts() {
         ),
         ("t[a and b] = 1", 1),
         ("def g(k=a or b):\n        pass", 1),
-        ("t[[v for v in z][0]] = 1", 1),
+        ("t[[v if z else 0 for v in z][0]] = 1", 1),
         ("def g(k: (A if a else B)):\n        pass", 0),
         (
             "match d:\n        case _ if (x if d else y):\n            pass",
@@ -56,7 +56,7 @@ fn a_scored_expression_in_a_statement_part_counts() {
         ),
         ("match d:\n        case _ if a and b:\n            pass", 2),
         (
-            "match d:\n        case _ if [v for v in d]:\n            pass",
+            "match d:\n        case _ if [v if d else 0 for v in d]:\n            pass",
             2,
         ),
         ("match d:\n        case _ if d:\n            pass", 1),

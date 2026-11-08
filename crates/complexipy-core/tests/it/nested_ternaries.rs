@@ -25,7 +25,7 @@ fn a_scored_expression_inside_any_expression_counts() {
         ("(a or b) + 1", 1),
         ("t[a or b]", 1),
         ("f'{a and b}'", 1),
-        ("h(k=[v for v in d])", 1),
+        ("h(k=[v if d else 0 for v in d])", 1),
         ("a and (x if d else y)", 2),
         ("a or h(k=x if d else y)", 2),
         ("h(k=(lambda v: v if v else 0)(d))", 2),

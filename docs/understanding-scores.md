@@ -30,12 +30,13 @@ Each control flow structure adds to the complexity:
 | -- | -- | -- |
 | `if` statement | +1 | `if condition:` |
 | `elif` clause | +1 | `elif other_condition:` |
-| `else` clause | +0 | `else:` (nesting only) |
+| `else` clause | +1 | `else:` after `if`, `for`, `while`, or `try` (no nesting increment) |
 | `for` loop | +1 | `for item in items:` |
 | `while` loop | +1 | `while condition:` |
 | `except` handler | +1 | `except ValueError:` |
 | `finally` clause | +0 | `finally:` (nesting only) |
 | Ternary operator | +1 | `x if condition else y` |
+| Comprehension clause | +0 | `[x for x in xs if x]` |
 
 ### 2. Nesting Multiplier
 
@@ -63,8 +64,8 @@ def check(a, b, c):
         return True
 ```
 
-- Each `and` or `or` operator: +1
-- Operator type changes (mixing `and`/`or`): +1 additional
+- Each run of like operators, read left to right: +1
+- Each change between `and` and `or` starts a new run: `a or b and c or d` reads `or`, `and`, `or` and scores +3
 
 ### 4. Special Cases
 
@@ -92,6 +93,12 @@ match value:        # +1
 
 **Recursion**
 Each function in a recursion cycle adds +1 once, however many recursive calls it makes. The cycle can be direct (`fact` calls `fact`) or indirect (`a` calls `b`, `b` calls `a`). The +1 of a nested function, or of a method of a class nested in a function, goes to the function that holds it. A call counts when it resolves in the same file: a bare name to the nearest enclosing function or module scope that defines it, or `self.m()` and `cls.m()` to a method of the caller's class (a closure in a method uses that method's `self`). Calls through `super()`, other objects, the class name, or imports do not count, cycles across files are not detected, and a parameter or variable that shadows a function name is not tracked.
+
+**Python constructs the paper does not name**
+
+- Comprehensions: the `for` and `if` clauses add nothing and do not raise the nesting level. The paper ignores shorthand that lets several statements be written readably as one, and a comprehension is shorthand for a loop that builds a value. A ternary or a boolean operator inside a comprehension still counts.
+- `else` on `for`, `while`, and `try`: +1, with no nesting increment, like `else` after `if`. The `else` body runs only when the loop ends without `break` or the `try` body raised nothing, so it is a branch the reader must track.
+- Mixed boolean operators: the operators of one condition are read left to right, as they appear in the code, and each change between `and` and `or` starts a new sequence. A `not` starts a new condition for its operand.
 
 ## Detailed Examples
 
@@ -133,11 +140,11 @@ def validate_order(order):
 
 ```python
 def check_eligibility(user, product):
-    if user.age >= 18 and user.verified and product.available: # +4
-        #  ^^^ if: +1, and operators: +2, total: +4
+    if user.age >= 18 and user.verified and product.available: # +2
+        #  ^^^ if: +1, and run: +1, total: +2
         return True
     return False
-# Total complexity: 4
+# Total complexity: 2
 ```
 
 **Analysis**: Multiple boolean operators increase the mental load of understanding the condition.
@@ -174,7 +181,7 @@ Focus on functions with scores above your threshold (default: 15). Common refact
 
 ### Example Refactoring
 
-**Before (Complexity: 12)**
+**Before (Complexity: 13)**
 
 ```python
 def process_order(order):
@@ -183,11 +190,11 @@ def process_order(order):
             if order.payment:          # +3
                 if order.payment.process(): # +4
                     ship_order(order)
-                else:
-                    refund(order)      # +0 (else clause)
-            else:
-                notify_payment_required() # Still nested
-        else:
+                else:                          # +1 (else clause)
+                    refund(order)
+            else:                      # +1 (else clause)
+                notify_payment_required()
+        else:                          # +1 (else clause)
             log_invalid_order()
     return False
 ```
@@ -218,7 +225,7 @@ def process_order(order):
 **Key improvements:**
 
 - Reduced nesting from 4 levels to 1
-- Complexity dropped from 12 to 4
+- Complexity dropped from 13 to 4
 - Logic is now linear and easier to follow
 
 ## Score Interpretation Tips
