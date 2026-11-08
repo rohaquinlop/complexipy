@@ -106,9 +106,10 @@ GitHub con todos los detalles.
   por sí misma. Con `--check-script`, el cuerpo de una clase a nivel de módulo
   cuenta para `<module>`; los cuerpos de los métodos no.
 - La excepción de decoradores de Python solo se aplica cuando una función
-  devuelve su función anidada por nombre, así que `return inner()` ya no
+  devuelve su función anidada, por nombre o como argumento directo de una
+  llamada como `functools.wraps(f)(inner)`, así que `return inner()` ya no
   elimina el incremento por anidamiento. Un docstring inicial ya no impide la
-  excepción.
+  excepción, y las expresiones del `return` ahora cuentan.
 - Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión en la guarda de un `case` ahora cuentan, en el nivel de
   anidamiento del `match`. La guarda en sí no suma nada, a diferencia del +1

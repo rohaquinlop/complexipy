@@ -92,8 +92,10 @@ release section links to its GitHub release notes for the full details.
   not raise the nesting level itself. With `--check-script`, the body of a
   module-level class counts toward `<module>`; method bodies do not.
 - The Python decorator exception applies only when a function returns its
-  nested function by name, so `return inner()` no longer drops the nesting
-  increment. A leading docstring no longer stops the exception.
+  nested function, by name or as a direct argument of a call such as
+  `functools.wraps(f)(inner)`, so `return inner()` no longer drops the nesting
+  increment. A leading docstring no longer stops the exception, and the
+  expressions in the `return` now count.
 - A conditional expression, a boolean operator sequence, or a comprehension
   in a `case` guard now counts, at the nesting level of the `match`. The
   guard itself adds nothing, unlike the +1 of an `elif`. A complex guard can get a C005 plan with help text.
