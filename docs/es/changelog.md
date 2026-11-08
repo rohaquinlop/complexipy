@@ -71,6 +71,11 @@ GitHub con todos los detalles.
 
 ### Cambiado
 
+- El cuerpo del `else` de `for`, `while` y `try` eleva el nivel de
+  anidamiento, como el cuerpo del `else` de `if`, tal como el paper indica
+  para un incremento híbrido. Una estructura dentro de él puntúa uno más por
+  nivel: un `if` en el `else` de un bucle pasa de +1 a +2. El total de
+  `tests/src/test_try_nested.py` pasa de 11 a 12.
 - Las cláusulas `for` e `if` de una comprensión no suman nada y ya no elevan
   el nivel de anidamiento, porque una comprensión es una abreviatura de un
   bucle. `else` en `for`, `while` y `try` suma +1 sin incremento por

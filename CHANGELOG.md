@@ -61,6 +61,11 @@ release section links to its GitHub release notes for the full details.
 
 ### Changed
 
+- The `else` body of `for`, `while`, and `try` raises the nesting level,
+  like the `else` body of `if`, as the paper prescribes for a hybrid
+  increment. A structure inside it scores one more per level: an `if` in a
+  loop `else` goes from +1 to +2. The `tests/src/test_try_nested.py` total
+  goes from 11 to 12.
 - Comprehension `for` and `if` clauses add nothing and no longer raise the
   nesting level, since a comprehension is shorthand for a loop. `else` on
   `for`, `while`, and `try` adds +1 with no nesting increment, like `else`

@@ -30,7 +30,7 @@ Cada estructura de flujo de control añade a la complejidad:
 | -- | -- | -- |
 | Sentencia `if` | +1 | `if condition:` |
 | Cláusula `elif` | +1 | `elif other_condition:` |
-| Cláusula `else` | +1 | `else:` después de `if`, `for`, `while` o `try` (sin incremento por anidamiento) |
+| Cláusula `else` | +1 | `else:` después de `if`, `for`, `while` o `try` (sin incremento por anidamiento; su cuerpo queda anidado) |
 | Bucle `for` | +1 | `for item in items:` |
 | Bucle `while` | +1 | `while condition:` |
 | Manejador `except` | +1 | `except ValueError:` |
@@ -97,7 +97,7 @@ Cada función en un ciclo de recursión añade +1 una sola vez, sin importar cu�
 **Construcciones de Python que el paper no nombra**
 
 - Comprensiones: las cláusulas `for` e `if` no suman nada y no elevan el nivel de anidamiento. El paper ignora las abreviaturas que permiten escribir varias sentencias de forma legible como una sola, y una comprensión es una abreviatura de un bucle que construye un valor. Un ternario o un operador booleano dentro de una comprensión sigue contando.
-- `else` en `for`, `while` y `try`: +1, sin incremento por anidamiento, como `else` después de `if`. El cuerpo del `else` solo se ejecuta cuando el bucle termina sin `break` o cuando el cuerpo del `try` no lanzó nada, así que es una rama que el lector debe seguir.
+- `else` en `for`, `while` y `try`: +1, sin incremento por anidamiento, y su cuerpo eleva el nivel de anidamiento, como `else` después de `if`. El cuerpo del `else` solo se ejecuta cuando el bucle termina sin `break` o cuando el cuerpo del `try` no lanzó nada, así que es una rama que el lector debe seguir. El paper llama a `else` un incremento híbrido: sin incremento por anidamiento, pero con un nivel de anidamiento mayor para lo que contiene.
 - Operadores booleanos mezclados: los operadores de una condición se leen de izquierda a derecha, en el orden en que aparecen en el código, y cada cambio entre `and` y `or` inicia una nueva secuencia. Un `not` inicia una nueva condición para su operando.
 
 ## Ejemplos Detallados
