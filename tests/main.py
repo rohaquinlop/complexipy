@@ -681,6 +681,8 @@ class TestPaperConformance:
             ("[y for x in xs for y in x if y]", 0),
             ("[1 if x else 2 for x in xs]", 1),
             ("any(x and x for x in xs)", 1),
+            ("[x for x in xs if x and y]", 1),
+            ("{x: y for x, y in xs if x}", 0),
         ],
     )
     def test_comprehension_clauses_add_nothing(
@@ -775,6 +777,8 @@ class TestPaperConformance:
             ("a and b and c", 1),
             ("(a or b) or c", 1),
             ("a and not (b and c)", 2),
+            ("a or b and c and d or e", 3),
+            ("(a or (b and c)) and d", 2),
         ],
     )
     def test_mixed_boolean_operators_read_left_to_right(

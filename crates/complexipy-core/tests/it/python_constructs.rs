@@ -1,10 +1,7 @@
-//! Scoring of Python constructs the paper does not name: comprehensions,
-//! `else` on loops and `try`, and mixed boolean operators.
+//! Line attribution of the `else` increment on loops and `try`.
 
 use complexipy_core::AnalysisOptions;
 use complexipy_core::cognitive_complexity::code_complexity_shared;
-
-use crate::deep_expressions::analyzed;
 
 fn scoring_lines(code: &str) -> Vec<(u64, u64)> {
     let result = code_complexity_shared(code, &AnalysisOptions::default()).expect("code parses");
@@ -17,38 +14,6 @@ fn scoring_lines(code: &str) -> Vec<(u64, u64)> {
         .collect();
     lines.sort_unstable();
     lines
-}
-
-#[test]
-fn boolean_operators_count_runs_read_left_to_right() {
-    for (expression, expected) in [
-        ("a or b and c or d", 3),
-        ("a and b or c", 2),
-        ("a and b and c", 1),
-        ("(a or b) or c", 1),
-        ("a and not (b and c)", 2),
-        ("a or b and c and d or e", 3),
-    ] {
-        let code = format!("def f(a, b, c, d, e):\n    return {}\n", expression);
-        assert_eq!(analyzed(&code), expected, "{}", expression);
-    }
-}
-
-#[test]
-fn comprehension_clauses_add_nothing() {
-    for (expression, expected) in [
-        ("[x for x in xs]", 0),
-        ("[x for x in xs if x]", 0),
-        ("[y for x in xs for y in x]", 0),
-        ("[[y for y in x] for x in xs]", 0),
-        ("{x: y for x, y in xs if x}", 0),
-        ("any(x > 0 for x in xs)", 0),
-        ("[1 if x else 2 for x in xs]", 1),
-        ("[x for x in xs if x and y]", 1),
-    ] {
-        let code = format!("def f(xs, y):\n    return {}\n", expression);
-        assert_eq!(analyzed(&code), expected, "{}", expression);
-    }
 }
 
 #[test]
