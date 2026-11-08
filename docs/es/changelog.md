@@ -91,6 +91,12 @@ GitHub con todos los detalles.
   decoradores ahora suma +1 a la fábrica. Un método que llama a un nombre
   simple igual al suyo, como `def get(self): return get(x)`, ya no puntúa como
   recursivo, porque ese nombre no es el método.
+- Una llamada recursiva dentro de una lambda, o en los decoradores, los
+  argumentos por defecto, las bases o el cuerpo de clase de una definición
+  anidada en una función, ahora cuenta para la función que la contiene, porque
+  ese código se ejecuta cuando se ejecuta la función. Los parámetros propios
+  de una lambda ocultan los nombres externos, así que `lambda f: f()` dentro de
+  `f` no es recursiva.
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
   clase, como indica el paper. Antes solo lo hacía un `def` colocado

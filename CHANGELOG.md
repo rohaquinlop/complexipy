@@ -79,6 +79,11 @@ release section links to its GitHub release notes for the full details.
   function of a decorator factory now adds +1 to the factory. A method that
   calls a bare name equal to its own, such as `def get(self): return get(x)`,
   no longer scores as recursive, since that name is not the method.
+- A recursive call inside a lambda, or in the decorators, default arguments,
+  bases, or class body of a definition nested in a function, now counts for
+  the enclosing function, since that code runs when the function runs. A
+  lambda's own parameters hide outer names, so `lambda f: f()` inside `f` is
+  not recursive.
 - A nested function raises the nesting level of its body wherever it sits,
   under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
   paper prescribes. Before, only a `def` placed directly in a function body
