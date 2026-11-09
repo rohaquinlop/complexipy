@@ -12,9 +12,9 @@ def test_try():
             print("Caught a ValueError")
     except Exception as e:  # 1 (nested = 0)
         print(f"Caught an exception: {str(e)}")
-    else:
+    else:  # 1 (nested = 0)
         if a is not None and b is not None:  # 2 + 1 (nested = 1)
             print("No exception occurred")
     finally:
-        if a:  # 2 (nested = 1)
+        if a:  # 1 (nested = 0)
             print("Always executed")
