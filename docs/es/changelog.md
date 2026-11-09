@@ -96,14 +96,16 @@ GitHub con todos los detalles.
   estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
   método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
   ámbito que un nombre simple, a exactamente una clase del archivo, y nada más
-  enlaza `K` en ese ámbito: ni un `def`, ni un import, ni un parámetro, ni un
-  parámetro de tipo, ni una asignación, ni un `global` o `nonlocal`.
+  enlaza `K` en ese ámbito: ni un `def`, ni un import (un import con asterisco
+  incluido), ni un parámetro, ni un parámetro de tipo, ni una asignación,
+  incluida una hecha a través de una declaración `global` o `nonlocal`.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque
   ese código se ejecuta cuando se ejecuta la función. Los parámetros propios
-  de una lambda ocultan los nombres externos, así que `lambda f: f()` dentro de
-  `f` no es recursiva.
+  de una lambda, las variables de bucle de una comprensión y los parámetros de
+  tipo de una clase ocultan los nombres externos donde son visibles, así que
+  `lambda f: f()` y `[f(x) for f in fs]` dentro de `f` no son recursivas.
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
   clase, como indica el paper. Antes solo lo hacía un `def` colocado

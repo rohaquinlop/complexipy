@@ -84,13 +84,14 @@ release section links to its GitHub release notes for the full details.
   now counts toward a recursion cycle. It resolves to a method of `K` when the
   name `K` resolves, by the same scope lookup as a bare name, to exactly one
   class of the file, and nothing else binds `K` in that scope: no `def`,
-  import, parameter, type parameter, assignment, or `global` or `nonlocal`
-  declaration.
+  import (a star import included), parameter, type parameter, or assignment,
+  including one made through a `global` or `nonlocal` declaration.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
-  lambda's own parameters hide outer names, so `lambda f: f()` inside `f` is
-  not recursive.
+  lambda's own parameters, a comprehension's loop variables, and a class's
+  type parameters hide outer names where they are visible, so `lambda f: f()`
+  and `[f(x) for f in fs]` inside `f` are not recursive.
 - A nested function raises the nesting level of its body wherever it sits,
   under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
   paper prescribes. Before, only a `def` placed directly in a function body
