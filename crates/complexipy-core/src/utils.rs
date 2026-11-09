@@ -326,8 +326,10 @@ pub fn split_lines(text: &str) -> impl Iterator<Item = &str> {
 }
 
 /// Returns the nested function of a decorator: a function whose body, after
-/// an optional docstring, is only a nested `def` and `return` of its name.
-pub fn decorator_inner(statement: &Stmt) -> Option<&Stmt> {
+/// an optional docstring, is only a nested `def` and a `return` of its name or
+/// of a call that takes it as a direct argument, such as
+/// `functools.wraps(f)(inner)`. A call of the nested function does not count.
+pub fn decorator_inner(statement: &Stmt) -> Option<(&Stmt, &Stmt)> {
     let Stmt::FunctionDef(f) = statement else {
         return None;
     };
@@ -335,14 +337,25 @@ pub fn decorator_inner(statement: &Stmt) -> Option<&Stmt> {
         [Stmt::Expr(docstring), rest @ ..] if docstring.value.is_string_literal_expr() => rest,
         body => body,
     };
-    let [inner @ Stmt::FunctionDef(def), Stmt::Return(ret)] = body else {
+    let [inner @ Stmt::FunctionDef(def), returned @ Stmt::Return(ret)] = body else {
         return None;
     };
-    let returns_inner = matches!(
-        ret.value.as_deref(),
-        Some(ast::Expr::Name(name)) if name.id == def.name.id
-    );
-    returns_inner.then_some(inner)
+    let is_inner =
+        |expr: &ast::Expr| matches!(expr, ast::Expr::Name(name) if name.id == def.name.id);
+    let returns_inner = match ret.value.as_deref() {
+        Some(ast::Expr::Call(call)) => {
+            !is_inner(&call.func)
+                && (call.arguments.args.iter().any(is_inner)
+                    || call
+                        .arguments
+                        .keywords
+                        .iter()
+                        .any(|kw| kw.arg.is_some() && is_inner(&kw.value)))
+        }
+        Some(value) => is_inner(value),
+        None => false,
+    };
+    returns_inner.then_some((inner, returned))
 }
 
 pub fn count_bool_ops(expr: &ast::Expr, nesting_level: u64) -> u64 {

@@ -612,6 +612,30 @@ class TestPaperConformance:
                 'def deco(func):\n    """Doc."""\n    def inner():\n        if func:\n            pass\n    return inner\n',
                 1,
             ),
+            (
+                "def deco(f):\n    def wrapper():\n        if f:\n            pass\n    return functools.wraps(f)(wrapper)\n",
+                1,
+            ),
+            (
+                "def deco(f):\n    def wrapper():\n        if f:\n            pass\n    return update_wrapper(wrapper=wrapper, wrapped=f)\n",
+                1,
+            ),
+            (
+                "def f(a):\n    def g(x):\n        if a:\n            pass\n    return g(g)\n",
+                2,
+            ),
+            (
+                "def deco(f, a):\n    def wrapper():\n        pass\n    return wraps(f if a else None)(wrapper)\n",
+                1,
+            ),
+            (
+                "def outer(a):\n    x = 1\n    def deco(f):\n        def wrapper():\n            pass\n        return wraps(f if a else None)(wrapper)\n    return deco\n",
+                2,
+            ),
+            (
+                "def deco(f):\n    def wrapper():\n        if f:\n            pass\n    return update(f, **wrapper)\n",
+                2,
+            ),
         ],
     )
     def test_python_decorator_exception(self, code: str, expected: int):
