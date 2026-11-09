@@ -118,6 +118,7 @@ fn class_name_call_resolves_to_its_method() {
         "class K:\n    @classmethod\n    def s(cls, n):\n        return K.s(n - 1)\n",
         "class K:\n    def s(self, n):\n        return K.s(self, n - 1)\n",
         "def f():\n    class K:\n        @staticmethod\n        def s(n):\n            return K.s(n - 1)\n    return K\n",
+        "class O:\n    from m import K\nclass K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n",
     ];
     for code in cases {
         let lines = recursive_lines(code);
@@ -134,9 +135,15 @@ fn class_name_call_needs_exactly_one_class_binding() {
         format!("class K:\n{method}from m import K\n"),
         format!("class K:\n{method}def K():\n    pass\n"),
         format!("class K:\n{method}for K in []:\n    pass\n"),
+        format!("class K:\n{method}class O:\n    global K\n    K = 1\n"),
+        format!("class K:\n{method}try:\n    pass\nexcept E as K:\n    pass\n"),
+        format!("class K:\n{method}match x:\n    case [P(a=(1 | {{**K}}))]:\n        pass\n"),
         format!("class K:\n{method}def f():\n    global K\n    K = 1\n"),
         "class K:\n    @staticmethod\n    def s(K):\n        return K.s(1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        K = n\n        return K.s(1)\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        def g(x=(K := 1)):\n            pass\n        return K.s(n - 1)\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        f = lambda x=(K := 1): x\n        return K.s(n - 1)\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        class C((K := object)):\n            pass\n        return K.s(n - 1)\n".to_string(),
         "def f():\n    class K:\n        @staticmethod\n        def s(n):\n            return K.s(n - 1)\n    def g():\n        nonlocal K\n        K = 1\n".to_string(),
         "class K:\n    @staticmethod\n    def t(n):\n        return K.s(n)\n".to_string(),
         "class K:\n    @staticmethod\n    def s[K](n):\n        return K.s(n - 1)\n".to_string(),

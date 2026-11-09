@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{self as ast, Stmt};
 use ruff_text_size::TextSize;
 
@@ -119,6 +118,7 @@ impl<'a> CallGraph<'a> {
                             .push(c.range.start());
                     }
                     self.rebind_type_params(context.scope, c.type_params.as_deref());
+                    self.record_outer_rebinds(Some(context.scope), Rebinds::of(&c.body));
                     self.collect_suite(
                         &c.body,
                         Context {
@@ -131,15 +131,13 @@ impl<'a> CallGraph<'a> {
                     for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
                         let bound = bound.split('.').next().unwrap_or(bound);
-                        self.bind_non_function(context, bound);
-                        self.rebound.insert((context.scope, bound));
+                        self.bind_import(context, bound);
                     }
                 }
                 Stmt::ImportFrom(import) => {
                     for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-                        self.bind_non_function(context, bound);
-                        self.rebound.insert((context.scope, bound));
+                        self.bind_import(context, bound);
                     }
                 }
                 _ => {
@@ -156,6 +154,13 @@ impl<'a> CallGraph<'a> {
     fn bind_non_function(&mut self, context: Context<'a>, name: &'a str) {
         if context.class.is_none() {
             self.names.entry((context.scope, name)).or_default();
+        }
+    }
+
+    fn bind_import(&mut self, context: Context<'a>, name: &'a str) {
+        self.bind_non_function(context, name);
+        if context.class.is_none() {
+            self.rebound.insert((context.scope, name));
         }
     }
 
@@ -196,28 +201,34 @@ impl<'a> CallGraph<'a> {
 
     /// Records every name that `body` binds in `scope` other than by `def` or
     /// `class`, and the outer scopes that its `global` and `nonlocal`
-    /// declarations rebind.
+    /// declarations name.
     fn record_rebinds(
         &mut self,
         scope: usize,
         body: &'a [Stmt],
         parameters: Option<&'a ast::Parameters>,
     ) {
-        let mut rebinds = Rebinds::default();
-        rebinds.visit_body(body);
+        let rebinds = Rebinds::of(body);
         let parameters = parameters.into_iter().flat_map(|p| p.iter());
         for name in rebinds
             .local
-            .into_iter()
+            .iter()
+            .copied()
             .chain(parameters.map(|p| p.name().as_str()))
         {
             self.rebound.insert((scope, name));
         }
+        self.record_outer_rebinds(self.parent_scope[scope], rebinds);
+    }
+
+    /// Records the scopes that `global` and `nonlocal` declarations rebind,
+    /// where `outer` is the nearest scope a `nonlocal` name can refer to.
+    fn record_outer_rebinds(&mut self, outer: Option<usize>, rebinds: Rebinds<'a>) {
         for name in rebinds.global {
             self.rebound.insert((MODULE_SCOPE, name));
         }
         for name in rebinds.nonlocal {
-            let mut outer = self.parent_scope[scope];
+            let mut outer = outer;
             while let Some(current) = outer.filter(|&current| current != MODULE_SCOPE) {
                 self.rebound.insert((current, name));
                 outer = self.parent_scope[current];
@@ -347,41 +358,97 @@ struct Rebinds<'a> {
     nonlocal: Vec<&'a str>,
 }
 
-impl<'a> Visitor<'a> for Rebinds<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(_) | Stmt::ClassDef(_) => {}
-            Stmt::Global(global) => self.global.extend(global.names.iter().map(|n| n.as_str())),
-            Stmt::Nonlocal(nonlocal) => self
-                .nonlocal
-                .extend(nonlocal.names.iter().map(|n| n.as_str())),
-            _ => visitor::walk_stmt(self, stmt),
+impl<'a> Rebinds<'a> {
+    fn of(body: &'a [Stmt]) -> Self {
+        let mut rebinds = Rebinds::default();
+        let mut pending: Vec<Node<'a>> = body.iter().map(Node::Stmt).collect();
+        while !pending.is_empty() {
+            rebinds.walk(std::mem::take(&mut pending), &mut pending);
+        }
+        rebinds
+    }
+
+    /// Walks `roots` in their own scope. The headers of nested definitions and
+    /// lambdas run in this scope too, so they go to `pending`; their bodies
+    /// are skipped.
+    fn walk(&mut self, roots: Vec<Node<'a>>, pending: &mut Vec<Node<'a>>) {
+        let rebinds = self;
+        let mut walk = PreOrder::new(roots.into_iter());
+        while let Some(node) = walk.next() {
+            match node {
+                Node::Stmt(Stmt::FunctionDef(f)) => {
+                    pending.extend(decorators(&f.decorator_list).chain(defaults(&f.parameters)));
+                }
+                Node::Stmt(Stmt::ClassDef(c)) => {
+                    pending.extend(decorators(&c.decorator_list));
+                    pending.extend(c.arguments.iter().flat_map(|arguments| {
+                        arguments
+                            .args
+                            .iter()
+                            .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
+                            .map(Node::Expr)
+                    }));
+                }
+                Node::Expr(ast::Expr::Lambda(lambda)) => {
+                    pending.extend(lambda.parameters.as_deref().into_iter().flat_map(defaults));
+                }
+                Node::Stmt(Stmt::Global(global)) => rebinds
+                    .global
+                    .extend(global.names.iter().map(|n| n.as_str())),
+                Node::Stmt(Stmt::Nonlocal(nonlocal)) => rebinds
+                    .nonlocal
+                    .extend(nonlocal.names.iter().map(|n| n.as_str())),
+                Node::Expr(ast::Expr::Name(name)) if !name.ctx.is_load() => {
+                    rebinds.local.push(name.id.as_str());
+                }
+                Node::Stmt(Stmt::Try(try_stmt)) => {
+                    for handler in try_stmt.handlers.iter() {
+                        let ast::ExceptHandler::ExceptHandler(except) = handler;
+                        rebinds
+                            .local
+                            .extend(except.name.as_ref().map(|n| n.as_str()));
+                    }
+                    walk.descend(node);
+                }
+                Node::Stmt(Stmt::Match(match_stmt)) => {
+                    rebinds.add_captures(match_stmt.cases.iter().map(|case| &case.pattern));
+                    walk.descend(node);
+                }
+                _ => walk.descend(node),
+            }
         }
     }
 
-    fn visit_expr(&mut self, expr: &'a ast::Expr) {
-        match expr {
-            ast::Expr::Name(name) if !name.ctx.is_load() => self.local.push(name.id.as_str()),
-            ast::Expr::Lambda(_) => {}
-            _ => visitor::walk_expr(self, expr),
+    fn add_captures(&mut self, patterns: impl Iterator<Item = &'a ast::Pattern>) {
+        let mut stack: Vec<&'a ast::Pattern> = patterns.collect();
+        while let Some(pattern) = stack.pop() {
+            let name = match pattern {
+                ast::Pattern::MatchAs(p) => {
+                    stack.extend(p.pattern.as_deref());
+                    p.name.as_ref()
+                }
+                ast::Pattern::MatchStar(p) => p.name.as_ref(),
+                ast::Pattern::MatchMapping(p) => {
+                    stack.extend(p.patterns.iter());
+                    p.rest.as_ref()
+                }
+                ast::Pattern::MatchSequence(p) => {
+                    stack.extend(p.patterns.iter());
+                    None
+                }
+                ast::Pattern::MatchOr(p) => {
+                    stack.extend(p.patterns.iter());
+                    None
+                }
+                ast::Pattern::MatchClass(p) => {
+                    stack.extend(p.arguments.patterns.iter());
+                    stack.extend(p.arguments.keywords.iter().map(|k| &k.pattern));
+                    None
+                }
+                _ => None,
+            };
+            self.local.extend(name.map(|n| n.as_str()));
         }
-    }
-
-    fn visit_except_handler(&mut self, handler: &'a ast::ExceptHandler) {
-        let ast::ExceptHandler::ExceptHandler(except) = handler;
-        self.local.extend(except.name.as_ref().map(|n| n.as_str()));
-        visitor::walk_except_handler(self, handler);
-    }
-
-    fn visit_pattern(&mut self, pattern: &'a ast::Pattern) {
-        let name = match pattern {
-            ast::Pattern::MatchAs(p) => p.name.as_ref(),
-            ast::Pattern::MatchStar(p) => p.name.as_ref(),
-            ast::Pattern::MatchMapping(p) => p.rest.as_ref(),
-            _ => None,
-        };
-        self.local.extend(name.map(|n| n.as_str()));
-        visitor::walk_pattern(self, pattern);
     }
 }
 
