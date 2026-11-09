@@ -581,8 +581,23 @@ class TestPaperConformance:
             ),
             pytest.param(
                 "class C:\n    def m(self):\n        return C.m(self)\n",
+                1,
+                id="new-class-name",
+            ),
+            pytest.param(
+                "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n",
+                1,
+                id="new-class-name-staticmethod",
+            ),
+            pytest.param(
+                "class K:\n    @classmethod\n    def s(cls, n):\n        return K.s(n - 1)\n",
+                1,
+                id="new-class-name-classmethod",
+            ),
+            pytest.param(
+                "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\nK = object()\n",
                 0,
-                id="guard-class-name",
+                id="guard-class-name-rebound",
             ),
         ],
     )

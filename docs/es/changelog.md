@@ -92,6 +92,12 @@ GitHub con todos los detalles.
   decoradores ahora suma +1 a la fábrica. Un método que llama a un nombre
   simple igual al suyo, como `def get(self): return get(x)`, ya no puntúa como
   recursivo, porque ese nombre no es el método.
+- Una llamada a través del nombre de la clase, como `K.s()` en un método
+  estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
+  método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
+  ámbito que un nombre simple, a exactamente una clase del archivo, y nada más
+  enlaza `K` en ese ámbito: ni un `def`, ni un import, ni un parámetro, ni una
+  asignación, ni un `global` o `nonlocal`.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque

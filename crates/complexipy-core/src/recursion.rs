@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{self as ast, Stmt};
 use ruff_text_size::TextSize;
 
@@ -30,6 +31,8 @@ struct CallGraph<'a> {
     parent_scope: Vec<Option<usize>>,
     names: HashMap<(usize, &'a str), Vec<usize>>,
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
+    classes: HashMap<(usize, &'a str), Vec<TextSize>>,
+    rebound: HashSet<(usize, &'a str)>,
 }
 
 /// The recursive definitions of a file, keyed by the start offset of each
@@ -38,7 +41,8 @@ struct CallGraph<'a> {
 /// A call resolves only within the file: a bare name through the nearest
 /// enclosing function or module scope that binds it, and `recv.name()` to a
 /// method of the caller's class when `recv` is the receiver of the method
-/// that holds the call.
+/// that holds the call, or when `recv` names exactly one class of the file
+/// through the same scope lookup and nothing else binds that name there.
 pub(crate) fn recursive_defs(suite: &[Stmt], index: &LineIndex) -> HashMap<TextSize, u64> {
     let graph = CallGraph::of(suite);
     let edges: Vec<Vec<(usize, TextSize)>> =
@@ -90,6 +94,7 @@ impl<'a> CallGraph<'a> {
             parent_scope: vec![None],
             ..CallGraph::default()
         };
+        graph.record_rebinds(MODULE_SCOPE, suite, None);
         graph.collect_suite(
             suite,
             Context {
@@ -107,6 +112,13 @@ impl<'a> CallGraph<'a> {
                 Stmt::FunctionDef(f) => self.collect_def(f, context),
                 Stmt::ClassDef(c) => {
                     self.bind_non_function(context, c.name.as_str());
+                    if context.class.is_none() {
+                        self.classes
+                            .entry((context.scope, c.name.as_str()))
+                            .or_default()
+                            .push(c.range.start());
+                    }
+                    self.rebind_type_params(context.scope, c.type_params.as_deref());
                     self.collect_suite(
                         &c.body,
                         Context {
@@ -120,12 +132,14 @@ impl<'a> CallGraph<'a> {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
                         let bound = bound.split('.').next().unwrap_or(bound);
                         self.bind_non_function(context, bound);
+                        self.rebound.insert((context.scope, bound));
                     }
                 }
                 Stmt::ImportFrom(import) => {
                     for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
                         self.bind_non_function(context, bound);
+                        self.rebound.insert((context.scope, bound));
                     }
                 }
                 _ => {
@@ -163,6 +177,8 @@ impl<'a> CallGraph<'a> {
         };
         let body_scope = self.parent_scope.len();
         self.parent_scope.push(Some(context.scope));
+        self.record_rebinds(body_scope, &f.body, Some(&f.parameters));
+        self.rebind_type_params(body_scope, f.type_params.as_deref());
         self.defs.push(Def {
             def: f,
             body_scope,
@@ -176,6 +192,43 @@ impl<'a> CallGraph<'a> {
                 receiver,
             },
         );
+    }
+
+    /// Records every name that `body` binds in `scope` other than by `def` or
+    /// `class`, and the outer scopes that its `global` and `nonlocal`
+    /// declarations rebind.
+    fn record_rebinds(
+        &mut self,
+        scope: usize,
+        body: &'a [Stmt],
+        parameters: Option<&'a ast::Parameters>,
+    ) {
+        let mut rebinds = Rebinds::default();
+        rebinds.visit_body(body);
+        let parameters = parameters.into_iter().flat_map(|p| p.iter());
+        for name in rebinds
+            .local
+            .into_iter()
+            .chain(parameters.map(|p| p.name().as_str()))
+        {
+            self.rebound.insert((scope, name));
+        }
+        for name in rebinds.global {
+            self.rebound.insert((MODULE_SCOPE, name));
+        }
+        for name in rebinds.nonlocal {
+            let mut outer = self.parent_scope[scope];
+            while let Some(current) = outer.filter(|&current| current != MODULE_SCOPE) {
+                self.rebound.insert((current, name));
+                outer = self.parent_scope[current];
+            }
+        }
+    }
+
+    fn rebind_type_params(&mut self, scope: usize, type_params: Option<&'a ast::TypeParams>) {
+        for type_param in type_params.into_iter().flat_map(|t| t.iter()) {
+            self.rebound.insert((scope, type_param.name().as_str()));
+        }
     }
 
     fn calls_of(&self, id: usize) -> Vec<(usize, TextSize)> {
@@ -241,18 +294,38 @@ impl<'a> CallGraph<'a> {
     fn callees(&self, caller: &Def<'a>, func: &'a ast::Expr) -> &[usize] {
         match func {
             ast::Expr::Name(name) => self.lookup(caller.body_scope, name.id.as_str()),
-            ast::Expr::Attribute(attribute) => match (attribute.value.as_ref(), caller.receiver) {
-                (ast::Expr::Name(value), Some((receiver, class)))
-                    if value.id.as_str() == receiver =>
-                {
-                    self.methods
-                        .get(&(class, attribute.attr.as_str()))
-                        .map_or(&[], Vec::as_slice)
-                }
-                _ => &[],
-            },
+            ast::Expr::Attribute(attribute) => {
+                let ast::Expr::Name(value) = attribute.value.as_ref() else {
+                    return &[];
+                };
+                let class = match caller.receiver {
+                    Some((receiver, class)) if value.id.as_str() == receiver => Some(class),
+                    _ => self.class_of(caller.body_scope, value.id.as_str()),
+                };
+                class
+                    .and_then(|class| self.methods.get(&(class, attribute.attr.as_str())))
+                    .map_or(&[], Vec::as_slice)
+            }
             _ => &[],
         }
+    }
+
+    fn class_of(&self, scope: usize, name: &'a str) -> Option<TextSize> {
+        let mut scope = Some(scope);
+        while let Some(current) = scope {
+            let key = (current, name);
+            if self.rebound.contains(&key) || self.names.get(&key).is_some_and(|d| !d.is_empty()) {
+                return None;
+            }
+            if let Some(classes) = self.classes.get(&key) {
+                return match classes.as_slice() {
+                    [class] => Some(*class),
+                    _ => None,
+                };
+            }
+            scope = self.parent_scope[current];
+        }
+        None
     }
 
     fn lookup(&self, scope: usize, name: &'a str) -> &[usize] {
@@ -264,6 +337,51 @@ impl<'a> CallGraph<'a> {
             scope = self.parent_scope[current];
         }
         &[]
+    }
+}
+
+#[derive(Default)]
+struct Rebinds<'a> {
+    local: Vec<&'a str>,
+    global: Vec<&'a str>,
+    nonlocal: Vec<&'a str>,
+}
+
+impl<'a> Visitor<'a> for Rebinds<'a> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::FunctionDef(_) | Stmt::ClassDef(_) => {}
+            Stmt::Global(global) => self.global.extend(global.names.iter().map(|n| n.as_str())),
+            Stmt::Nonlocal(nonlocal) => self
+                .nonlocal
+                .extend(nonlocal.names.iter().map(|n| n.as_str())),
+            _ => visitor::walk_stmt(self, stmt),
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &'a ast::Expr) {
+        match expr {
+            ast::Expr::Name(name) if !name.ctx.is_load() => self.local.push(name.id.as_str()),
+            ast::Expr::Lambda(_) => {}
+            _ => visitor::walk_expr(self, expr),
+        }
+    }
+
+    fn visit_except_handler(&mut self, handler: &'a ast::ExceptHandler) {
+        let ast::ExceptHandler::ExceptHandler(except) = handler;
+        self.local.extend(except.name.as_ref().map(|n| n.as_str()));
+        visitor::walk_except_handler(self, handler);
+    }
+
+    fn visit_pattern(&mut self, pattern: &'a ast::Pattern) {
+        let name = match pattern {
+            ast::Pattern::MatchAs(p) => p.name.as_ref(),
+            ast::Pattern::MatchStar(p) => p.name.as_ref(),
+            ast::Pattern::MatchMapping(p) => p.rest.as_ref(),
+            _ => None,
+        };
+        self.local.extend(name.map(|n| n.as_str()));
+        visitor::walk_pattern(self, pattern);
     }
 }
 
