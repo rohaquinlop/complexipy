@@ -96,8 +96,8 @@ GitHub con todos los detalles.
   estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
   método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
   ámbito que un nombre simple, a exactamente una clase del archivo, y nada más
-  enlaza `K` en ese ámbito: ni un `def`, ni un import, ni un parámetro, ni una
-  asignación, ni un `global` o `nonlocal`.
+  enlaza `K` en ese ámbito: ni un `def`, ni un import, ni un parámetro, ni un
+  parámetro de tipo, ni una asignación, ni un `global` o `nonlocal`.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque

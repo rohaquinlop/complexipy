@@ -84,7 +84,8 @@ release section links to its GitHub release notes for the full details.
   now counts toward a recursion cycle. It resolves to a method of `K` when the
   name `K` resolves, by the same scope lookup as a bare name, to exactly one
   class of the file, and nothing else binds `K` in that scope: no `def`,
-  import, parameter, assignment, or `global` or `nonlocal` rebinding.
+  import, parameter, type parameter, assignment, or `global` or `nonlocal`
+  declaration.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
