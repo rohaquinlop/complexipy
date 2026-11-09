@@ -61,6 +61,8 @@ fn calls_in_lambdas_and_nested_headers_belong_to_the_enclosing_def() {
         "def f(n):\n    @f(n)\n    def inner():\n        pass\n    return inner\n",
         "def f(n):\n    class K(f(n)):\n        pass\n    return K\n",
         "def f(n):\n    class K: x = f(n)\n    return K\n",
+        "def f(n):\n    return [f(x) for x in range(n)]\n",
+        "def f(n):\n    return [x for f in f(n)]\n",
     ];
     for code in cases {
         assert_eq!(recursive_lines(code), vec![(1, 2)], "{code}");
@@ -75,6 +77,9 @@ fn shadowed_names_and_bare_decorators_are_not_calls() {
         "def f(n):\n    @f\n    def inner():\n        pass\n    return inner\n",
         "class C:\n    def m(self):\n        return lambda self: self.m()\n",
         "def f(n):\n    def inner():\n        return f(n)\n    return lambda inner: inner()\n",
+        "def f(fs):\n    return [f(x) for f in fs]\n",
+        "def f(fs):\n    return {k: f() for k, f in fs}\n",
+        "def f(n):\n    class K[f](f()):\n        pass\n    return K\n",
     ];
     for code in cases {
         assert_eq!(recursive_lines(code), vec![], "{code}");
@@ -120,8 +125,21 @@ fn class_name_call_resolves_to_its_method() {
         "def f():\n    class K:\n        @staticmethod\n        def s(n):\n            return K.s(n - 1)\n    return K\n",
         "class O:\n    from m import K\nclass K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n",
     ];
+    let method = "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n";
+    let elsewhere = [
+        "class Box[K]:\n    item: K\n",
+        "def f():\n    global K\n",
+        "class O:\n    global K\n",
+        "xs = [K for K in range(3)]\n",
+        "xs = {K: v for K, *v in []}\n",
+        "def f():\n    K = 1\n    def g():\n        nonlocal K\n        K = 2\n",
+    ];
+    let cases = cases
+        .iter()
+        .map(|case| case.to_string())
+        .chain(elsewhere.iter().map(|other| format!("{method}{other}")));
     for code in cases {
-        let lines = recursive_lines(code);
+        let lines = recursive_lines(&code);
         assert_eq!(lines.len(), 1, "{code}");
     }
 }
@@ -136,11 +154,16 @@ fn class_name_call_needs_exactly_one_class_binding() {
         format!("class K:\n{method}def K():\n    pass\n"),
         format!("class K:\n{method}for K in []:\n    pass\n"),
         format!("class K:\n{method}class O:\n    global K\n    K = 1\n"),
+        format!("class K:\n{method}from m import *\n"),
+        format!("class K:\n{method}xs = [(K := x) for x in []]\n"),
+        format!("class K:\n{method}def f():\n    global K\n    import K\n"),
+        format!("class K:\n{method}def f():\n    global K\n    def K():\n        pass\n"),
         format!("class K:\n{method}try:\n    pass\nexcept E as K:\n    pass\n"),
         format!("class K:\n{method}match x:\n    case [P(a=(1 | {{**K}}))]:\n        pass\n"),
         format!("class K:\n{method}def f():\n    global K\n    K = 1\n"),
         "class K:\n    @staticmethod\n    def s(K):\n        return K.s(1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        K = n\n        return K.s(1)\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(ks):\n        return [K.s(x) for K in ks]\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        def g(x=(K := 1)):\n            pass\n        return K.s(n - 1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        f = lambda x=(K := 1): x\n        return K.s(n - 1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        class C((K := object)):\n            pass\n        return K.s(n - 1)\n".to_string(),

@@ -599,6 +599,16 @@ class TestPaperConformance:
                 0,
                 id="guard-class-name-rebound",
             ),
+            pytest.param(
+                "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\nclass Box[K]:\n    item: K\n",
+                1,
+                id="new-class-name-other-class-type-param",
+            ),
+            pytest.param(
+                "def f(fs):\n    return [f(x) for f in fs]\n",
+                0,
+                id="guard-comprehension-variable",
+            ),
         ],
     )
     def test_recursion_cycles(self, code: str, expected: int):

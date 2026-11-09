@@ -32,6 +32,7 @@ struct CallGraph<'a> {
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
     classes: HashMap<(usize, &'a str), Vec<TextSize>>,
     rebound: HashSet<(usize, &'a str)>,
+    nonlocals: Vec<(Option<usize>, &'a str)>,
 }
 
 /// The recursive definitions of a file, keyed by the start offset of each
@@ -102,6 +103,9 @@ impl<'a> CallGraph<'a> {
                 receiver: None,
             },
         );
+        for (outer, name) in std::mem::take(&mut graph.nonlocals) {
+            graph.rebind_nonlocal(outer, name);
+        }
         graph
     }
 
@@ -109,35 +113,18 @@ impl<'a> CallGraph<'a> {
         for statement in suite.iter() {
             match statement {
                 Stmt::FunctionDef(f) => self.collect_def(f, context),
-                Stmt::ClassDef(c) => {
-                    self.bind_non_function(context, c.name.as_str());
-                    if context.class.is_none() {
-                        self.classes
-                            .entry((context.scope, c.name.as_str()))
-                            .or_default()
-                            .push(c.range.start());
-                    }
-                    self.rebind_type_params(context.scope, c.type_params.as_deref());
-                    self.record_outer_rebinds(Some(context.scope), Rebinds::of(&c.body));
-                    self.collect_suite(
-                        &c.body,
-                        Context {
-                            class: Some(c.range.start()),
-                            ..context
-                        },
-                    );
-                }
+                Stmt::ClassDef(c) => self.collect_class(c, context),
                 Stmt::Import(import) => {
                     for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
                         let bound = bound.split('.').next().unwrap_or(bound);
-                        self.bind_import(context, bound);
+                        self.bind_non_function(context, bound);
                     }
                 }
                 Stmt::ImportFrom(import) => {
                     for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-                        self.bind_import(context, bound);
+                        self.bind_non_function(context, bound);
                     }
                 }
                 _ => {
@@ -149,18 +136,43 @@ impl<'a> CallGraph<'a> {
         }
     }
 
+    /// Records a class and walks its body. A class with type parameters gets
+    /// its own scope for them, which its methods see and the code around the
+    /// class does not.
+    fn collect_class(&mut self, c: &'a ast::StmtClassDef, context: Context<'a>) {
+        let name = c.name.as_str();
+        self.bind_non_function(context, name);
+        if context.class.is_none() {
+            self.classes
+                .entry((context.scope, name))
+                .or_default()
+                .push(c.range.start());
+        }
+        self.record_declarations(Some(context.scope), &Rebinds::of(&c.body));
+        let scope = match c.type_params.as_deref() {
+            Some(type_params) => {
+                let scope = self.parent_scope.len();
+                self.parent_scope.push(Some(context.scope));
+                self.rebind_type_params(scope, Some(type_params));
+                scope
+            }
+            None => context.scope,
+        };
+        self.collect_suite(
+            &c.body,
+            Context {
+                scope,
+                class: Some(c.range.start()),
+                ..context
+            },
+        );
+    }
+
     /// Records a class or import binding, so a bare-name lookup stops at its
     /// scope without reaching a function of the same name further out.
     fn bind_non_function(&mut self, context: Context<'a>, name: &'a str) {
         if context.class.is_none() {
             self.names.entry((context.scope, name)).or_default();
-        }
-    }
-
-    fn bind_import(&mut self, context: Context<'a>, name: &'a str) {
-        self.bind_non_function(context, name);
-        if context.class.is_none() {
-            self.rebound.insert((context.scope, name));
         }
     }
 
@@ -200,8 +212,8 @@ impl<'a> CallGraph<'a> {
     }
 
     /// Records every name that `body` binds in `scope` other than by `def` or
-    /// `class`, and the outer scopes that its `global` and `nonlocal`
-    /// declarations name.
+    /// `class`. A name declared `global` or `nonlocal` binds in an outer scope
+    /// instead, and only when `body` assigns it.
     fn record_rebinds(
         &mut self,
         scope: usize,
@@ -216,29 +228,45 @@ impl<'a> CallGraph<'a> {
             .copied()
             .chain(parameters.map(|p| p.name().as_str()))
         {
-            self.rebound.insert((scope, name));
+            if !rebinds.global.contains(&name) && !rebinds.nonlocal.contains(&name) {
+                self.rebound.insert((scope, name));
+            }
         }
-        self.record_outer_rebinds(self.parent_scope[scope], rebinds);
+        self.record_declarations(self.parent_scope[scope], &rebinds);
     }
 
-    /// Records the scopes that `global` and `nonlocal` declarations rebind,
-    /// where `outer` is the nearest scope a `nonlocal` name can refer to.
-    fn record_outer_rebinds(&mut self, outer: Option<usize>, rebinds: Rebinds<'a>) {
-        for name in rebinds.global {
+    /// Records the `global` and `nonlocal` names that a body assigns. `outer`
+    /// is the nearest scope a `nonlocal` name can refer to; it is resolved
+    /// once every binding of the file is known.
+    fn record_declarations(&mut self, outer: Option<usize>, rebinds: &Rebinds<'a>) {
+        let assigned =
+            |name: &&'a str| rebinds.local.contains(name) || rebinds.defined.contains(name);
+        for &name in rebinds.global.iter().filter(|name| assigned(name)) {
             self.rebound.insert((MODULE_SCOPE, name));
         }
-        for name in rebinds.nonlocal {
-            let mut outer = outer;
-            while let Some(current) = outer.filter(|&current| current != MODULE_SCOPE) {
-                self.rebound.insert((current, name));
-                outer = self.parent_scope[current];
+        for &name in rebinds.nonlocal.iter().filter(|name| assigned(name)) {
+            self.nonlocals.push((outer, name));
+        }
+    }
+
+    fn rebind_nonlocal(&mut self, outer: Option<usize>, name: &'a str) {
+        let mut scope = outer;
+        while let Some(current) = scope.filter(|&current| current != MODULE_SCOPE) {
+            let key = (current, name);
+            if self.names.contains_key(&key)
+                || self.classes.contains_key(&key)
+                || self.rebound.contains(&key)
+            {
+                self.rebound.insert(key);
+                return;
             }
+            scope = self.parent_scope[current];
         }
     }
 
     fn rebind_type_params(&mut self, scope: usize, type_params: Option<&'a ast::TypeParams>) {
-        for type_param in type_params.into_iter().flat_map(|t| t.iter()) {
-            self.rebound.insert((scope, type_param.name().as_str()));
+        for name in type_param_names(type_params) {
+            self.rebound.insert((scope, name));
         }
     }
 
@@ -251,8 +279,9 @@ impl<'a> CallGraph<'a> {
     }
 
     /// Collects the calls that run when `def` runs: its body, the headers and
-    /// class bodies of the definitions nested in it, and its lambdas, whose
-    /// parameters hide outer names.
+    /// class bodies of the definitions nested in it, its lambdas, and its
+    /// comprehensions. Lambda parameters, comprehension loop variables, and a
+    /// nested class's type parameters hide outer names where they are visible.
     fn collect_calls(
         &self,
         def: &Def<'a>,
@@ -270,16 +299,18 @@ impl<'a> CallGraph<'a> {
                     self.collect_calls(def, roots, shadowed, calls);
                 }
                 Node::Stmt(Stmt::ClassDef(c)) => {
-                    let mut roots: Vec<Node<'a>> = decorators(&c.decorator_list).collect();
-                    roots.extend(c.arguments.iter().flat_map(|arguments| {
-                        arguments
-                            .args
-                            .iter()
-                            .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
-                            .map(Node::Expr)
-                    }));
+                    self.collect_calls(
+                        def,
+                        decorators(&c.decorator_list).collect(),
+                        shadowed,
+                        calls,
+                    );
+                    let depth = shadowed.len();
+                    shadowed.extend(type_param_names(c.type_params.as_deref()));
+                    let mut roots: Vec<Node<'a>> = class_arguments(c).collect();
                     roots.extend(c.body.iter().map(Node::Stmt));
                     self.collect_calls(def, roots, shadowed, calls);
+                    shadowed.truncate(depth);
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
                     let depth = shadowed.len();
@@ -288,6 +319,28 @@ impl<'a> CallGraph<'a> {
                         shadowed.extend(parameters.iter().map(|p| p.name().as_str()));
                     }
                     self.collect_calls(def, vec![Node::Expr(&lambda.body)], shadowed, calls);
+                    shadowed.truncate(depth);
+                }
+                Node::Expr(expr) if is_comprehension(expr) => {
+                    let (generators, elements) = comprehension_parts(expr);
+                    let Some((first, rest)) = generators.split_first() else {
+                        continue;
+                    };
+                    self.collect_calls(def, vec![Node::Expr(&first.iter)], shadowed, calls);
+                    let depth = shadowed.len();
+                    for generator in generators.iter() {
+                        shadowed.extend(target_names(&generator.target));
+                    }
+                    let mut roots: Vec<Node<'a>> = rest
+                        .iter()
+                        .map(|generator| Node::Expr(&generator.iter))
+                        .collect();
+                    for generator in generators.iter() {
+                        roots.push(Node::Expr(&generator.target));
+                        roots.extend(generator.ifs.iter().map(Node::Expr));
+                    }
+                    roots.extend(elements.into_iter().map(Node::Expr));
+                    self.collect_calls(def, roots, shadowed, calls);
                     shadowed.truncate(depth);
                 }
                 Node::Expr(ast::Expr::Call(call)) => {
@@ -325,7 +378,10 @@ impl<'a> CallGraph<'a> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
-            if self.rebound.contains(&key) || self.names.get(&key).is_some_and(|d| !d.is_empty()) {
+            if self.rebound.contains(&key)
+                || self.rebound.contains(&(current, "*"))
+                || self.names.get(&key).is_some_and(|d| !d.is_empty())
+            {
                 return None;
             }
             if let Some(classes) = self.classes.get(&key) {
@@ -354,6 +410,7 @@ impl<'a> CallGraph<'a> {
 #[derive(Default)]
 struct Rebinds<'a> {
     local: Vec<&'a str>,
+    defined: Vec<&'a str>,
     global: Vec<&'a str>,
     nonlocal: Vec<&'a str>,
 }
@@ -368,50 +425,67 @@ impl<'a> Rebinds<'a> {
         rebinds
     }
 
-    /// Walks `roots` in their own scope. The headers of nested definitions and
-    /// lambdas run in this scope too, so they go to `pending`; their bodies
-    /// are skipped.
+    /// Walks `roots` in their own scope. The headers of nested definitions,
+    /// lambda defaults, and the parts of a comprehension other than its loop
+    /// variables run in this scope too, so they go to `pending`; the bodies
+    /// of definitions and lambdas are skipped.
     fn walk(&mut self, roots: Vec<Node<'a>>, pending: &mut Vec<Node<'a>>) {
-        let rebinds = self;
         let mut walk = PreOrder::new(roots.into_iter());
         while let Some(node) = walk.next() {
             match node {
                 Node::Stmt(Stmt::FunctionDef(f)) => {
+                    self.defined.push(f.name.as_str());
                     pending.extend(decorators(&f.decorator_list).chain(defaults(&f.parameters)));
                 }
                 Node::Stmt(Stmt::ClassDef(c)) => {
-                    pending.extend(decorators(&c.decorator_list));
-                    pending.extend(c.arguments.iter().flat_map(|arguments| {
-                        arguments
-                            .args
-                            .iter()
-                            .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
-                            .map(Node::Expr)
+                    self.defined.push(c.name.as_str());
+                    pending.extend(decorators(&c.decorator_list).chain(class_arguments(c)));
+                }
+                Node::Stmt(Stmt::Import(import)) => {
+                    self.local.extend(import.names.iter().map(|alias| {
+                        let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                        bound.split('.').next().unwrap_or(bound)
                     }));
+                }
+                Node::Stmt(Stmt::ImportFrom(import)) => {
+                    self.local.extend(
+                        import
+                            .names
+                            .iter()
+                            .map(|alias| alias.asname.as_ref().unwrap_or(&alias.name).as_str()),
+                    );
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
                     pending.extend(lambda.parameters.as_deref().into_iter().flat_map(defaults));
                 }
-                Node::Stmt(Stmt::Global(global)) => rebinds
-                    .global
-                    .extend(global.names.iter().map(|n| n.as_str())),
-                Node::Stmt(Stmt::Nonlocal(nonlocal)) => rebinds
-                    .nonlocal
-                    .extend(nonlocal.names.iter().map(|n| n.as_str())),
+                Node::Expr(expr) if is_comprehension(expr) => {
+                    let (generators, elements) = comprehension_parts(expr);
+                    pending.extend(elements.into_iter().map(Node::Expr));
+                    for generator in generators.iter() {
+                        pending.push(Node::Expr(&generator.iter));
+                        pending.extend(generator.ifs.iter().map(Node::Expr));
+                        pending.extend(target_parts(&generator.target).map(Node::Expr));
+                    }
+                }
+                Node::Stmt(Stmt::Global(global)) => {
+                    self.global.extend(global.names.iter().map(|n| n.as_str()));
+                }
+                Node::Stmt(Stmt::Nonlocal(nonlocal)) => {
+                    self.nonlocal
+                        .extend(nonlocal.names.iter().map(|n| n.as_str()));
+                }
                 Node::Expr(ast::Expr::Name(name)) if !name.ctx.is_load() => {
-                    rebinds.local.push(name.id.as_str());
+                    self.local.push(name.id.as_str());
                 }
                 Node::Stmt(Stmt::Try(try_stmt)) => {
                     for handler in try_stmt.handlers.iter() {
                         let ast::ExceptHandler::ExceptHandler(except) = handler;
-                        rebinds
-                            .local
-                            .extend(except.name.as_ref().map(|n| n.as_str()));
+                        self.local.extend(except.name.as_ref().map(|n| n.as_str()));
                     }
                     walk.descend(node);
                 }
                 Node::Stmt(Stmt::Match(match_stmt)) => {
-                    rebinds.add_captures(match_stmt.cases.iter().map(|case| &case.pattern));
+                    self.add_captures(match_stmt.cases.iter().map(|case| &case.pattern));
                     walk.descend(node);
                 }
                 _ => walk.descend(node),
@@ -450,6 +524,80 @@ impl<'a> Rebinds<'a> {
             self.local.extend(name.map(|n| n.as_str()));
         }
     }
+}
+
+fn is_comprehension(expr: &ast::Expr) -> bool {
+    matches!(
+        expr,
+        ast::Expr::ListComp(_)
+            | ast::Expr::SetComp(_)
+            | ast::Expr::DictComp(_)
+            | ast::Expr::Generator(_)
+    )
+}
+
+fn comprehension_parts(expr: &ast::Expr) -> (&[ast::Comprehension], Vec<&ast::Expr>) {
+    match expr {
+        ast::Expr::ListComp(c) => (&c.generators, vec![&*c.elt]),
+        ast::Expr::SetComp(c) => (&c.generators, vec![&*c.elt]),
+        ast::Expr::Generator(c) => (&c.generators, vec![&*c.elt]),
+        ast::Expr::DictComp(c) => (
+            &c.generators,
+            c.key.as_deref().into_iter().chain([&*c.value]).collect(),
+        ),
+        _ => (&[], Vec::new()),
+    }
+}
+
+/// The names a loop target binds: the names in it, through tuples, lists,
+/// and starred items.
+fn target_names(target: &ast::Expr) -> Vec<&str> {
+    let mut names = Vec::new();
+    let mut stack = vec![target];
+    while let Some(expr) = stack.pop() {
+        match expr {
+            ast::Expr::Name(name) => names.push(name.id.as_str()),
+            ast::Expr::Tuple(t) => stack.extend(t.elts.iter()),
+            ast::Expr::List(l) => stack.extend(l.elts.iter()),
+            ast::Expr::Starred(s) => stack.push(&s.value),
+            _ => {}
+        }
+    }
+    names
+}
+
+/// The parts of a loop target that are not names it binds, such as the
+/// object and index of `x[i]`.
+fn target_parts(target: &ast::Expr) -> impl Iterator<Item = &ast::Expr> {
+    let mut parts = Vec::new();
+    let mut stack = vec![target];
+    while let Some(expr) = stack.pop() {
+        match expr {
+            ast::Expr::Name(_) => {}
+            ast::Expr::Tuple(t) => stack.extend(t.elts.iter()),
+            ast::Expr::List(l) => stack.extend(l.elts.iter()),
+            ast::Expr::Starred(s) => stack.push(&s.value),
+            _ => parts.push(expr),
+        }
+    }
+    parts.into_iter()
+}
+
+fn type_param_names(type_params: Option<&ast::TypeParams>) -> impl Iterator<Item = &str> {
+    type_params
+        .into_iter()
+        .flat_map(|t| t.iter())
+        .map(|type_param| type_param.name().as_str())
+}
+
+fn class_arguments(c: &ast::StmtClassDef) -> impl Iterator<Item = Node<'_>> {
+    c.arguments.iter().flat_map(|arguments| {
+        arguments
+            .args
+            .iter()
+            .chain(arguments.keywords.iter().map(|keyword| &keyword.value))
+            .map(Node::Expr)
+    })
 }
 
 fn decorators(list: &[ast::Decorator]) -> impl Iterator<Item = Node<'_>> {
