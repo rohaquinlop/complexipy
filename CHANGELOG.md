@@ -80,11 +80,21 @@ release section links to its GitHub release notes for the full details.
   function of a decorator factory now adds +1 to the factory. A method that
   calls a bare name equal to its own, such as `def get(self): return get(x)`,
   no longer scores as recursive, since that name is not the method.
+- A call through the class name, such as `K.s()` in a static method of `K`,
+  now counts toward a recursion cycle. It resolves to a method of `K` when the
+  name `K` resolves, by the same scope lookup as a bare name, to exactly one
+  class of the file, and nothing else binds `K` in that scope: no `def`,
+  import (a star import included), parameter, type parameter, or assignment,
+  including one made through a `global` or `nonlocal` declaration.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
-  lambda's own parameters hide outer names, so `lambda f: f()` inside `f` is
-  not recursive.
+  lambda's own parameters, a comprehension's loop variables, and the type
+  parameters of a class or function hide outer names where they are visible,
+  so `lambda f: f()` and `[f(x) for f in fs]` inside `f` are not recursive. A
+  call in a class body to a name that the same class body binds goes to the
+  module's binding when it runs before that binding, and to the class's
+  binding after it; when the order cannot be known, the call adds nothing.
 - A nested function raises the nesting level of its body wherever it sits,
   under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
   paper prescribes. Before, only a `def` placed directly in a function body

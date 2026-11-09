@@ -92,12 +92,24 @@ GitHub con todos los detalles.
   decoradores ahora suma +1 a la fábrica. Un método que llama a un nombre
   simple igual al suyo, como `def get(self): return get(x)`, ya no puntúa como
   recursivo, porque ese nombre no es el método.
+- Una llamada a través del nombre de la clase, como `K.s()` en un método
+  estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
+  método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
+  ámbito que un nombre simple, a exactamente una clase del archivo, y nada más
+  enlaza `K` en ese ámbito: ni un `def`, ni un import (un import con asterisco
+  incluido), ni un parámetro, ni un parámetro de tipo, ni una asignación,
+  incluida una hecha a través de una declaración `global` o `nonlocal`.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque
   ese código se ejecuta cuando se ejecuta la función. Los parámetros propios
-  de una lambda ocultan los nombres externos, así que `lambda f: f()` dentro de
-  `f` no es recursiva.
+  de una lambda, las variables de bucle de una comprensión y los parámetros de
+  tipo de una clase o función ocultan los nombres externos donde son visibles,
+  así que `lambda f: f()` y `[f(x) for f in fs]` dentro de `f` no son
+  recursivas. Una llamada en el cuerpo de una clase a un nombre que el mismo
+  cuerpo enlaza va al enlace del módulo cuando se ejecuta antes de ese enlace,
+  y al enlace de la clase después; cuando el orden no se puede saber, la
+  llamada no suma nada.
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
   clase, como indica el paper. Antes solo lo hacía un `def` colocado
