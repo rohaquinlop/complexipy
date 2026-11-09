@@ -32,6 +32,7 @@ struct CallGraph<'a> {
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
     classes: HashMap<(usize, &'a str), Vec<TextSize>>,
     rebound: HashSet<(usize, &'a str)>,
+    type_params: HashSet<(usize, &'a str)>,
     nonlocals: Vec<(Option<usize>, &'a str)>,
 }
 
@@ -192,10 +193,15 @@ impl<'a> CallGraph<'a> {
                 context.receiver
             }
         };
+        let mut outer = context.scope;
+        if let Some(type_params) = f.type_params.as_deref() {
+            outer = self.parent_scope.len();
+            self.parent_scope.push(Some(context.scope));
+            self.rebind_type_params(outer, Some(type_params));
+        }
         let body_scope = self.parent_scope.len();
-        self.parent_scope.push(Some(context.scope));
+        self.parent_scope.push(Some(outer));
         self.record_rebinds(body_scope, &f.body, Some(&f.parameters));
-        self.rebind_type_params(body_scope, f.type_params.as_deref());
         self.defs.push(Def {
             def: f,
             body_scope,
@@ -266,7 +272,7 @@ impl<'a> CallGraph<'a> {
 
     fn rebind_type_params(&mut self, scope: usize, type_params: Option<&'a ast::TypeParams>) {
         for name in type_param_names(type_params) {
-            self.rebound.insert((scope, name));
+            self.type_params.insert((scope, name));
         }
     }
 
@@ -274,7 +280,7 @@ impl<'a> CallGraph<'a> {
         let def = &self.defs[id];
         let mut calls = Vec::new();
         let roots: Vec<Node<'a>> = def.def.body.iter().map(Node::Stmt).collect();
-        self.collect_calls(def, roots, &mut Vec::new(), &mut calls);
+        self.collect_calls(def, roots, &mut Vec::new(), &[], &mut calls);
         calls
     }
 
@@ -282,11 +288,14 @@ impl<'a> CallGraph<'a> {
     /// class bodies of the definitions nested in it, its lambdas, and its
     /// comprehensions. Lambda parameters, comprehension loop variables, and a
     /// nested class's type parameters hide outer names where they are visible.
+    /// `overrides` holds the names a class body binds, for the code that runs
+    /// directly in that class body.
     fn collect_calls(
         &self,
         def: &Def<'a>,
         roots: Vec<Node<'a>>,
         shadowed: &mut Vec<&'a str>,
+        overrides: &[(&'a str, Binding)],
         calls: &mut Vec<(usize, TextSize)>,
     ) {
         let mut walk = PreOrder::new(roots.into_iter());
@@ -296,29 +305,19 @@ impl<'a> CallGraph<'a> {
                     let roots = decorators(&f.decorator_list)
                         .chain(defaults(&f.parameters))
                         .collect();
-                    self.collect_calls(def, roots, shadowed, calls);
+                    self.collect_calls(def, roots, shadowed, overrides, calls);
                 }
                 Node::Stmt(Stmt::ClassDef(c)) => {
-                    self.collect_calls(
-                        def,
-                        decorators(&c.decorator_list).collect(),
-                        shadowed,
-                        calls,
-                    );
-                    let depth = shadowed.len();
-                    shadowed.extend(type_param_names(c.type_params.as_deref()));
-                    let mut roots: Vec<Node<'a>> = class_arguments(c).collect();
-                    roots.extend(c.body.iter().map(Node::Stmt));
-                    self.collect_calls(def, roots, shadowed, calls);
-                    shadowed.truncate(depth);
+                    self.collect_class_calls(def, c, shadowed, overrides, calls);
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
                     let depth = shadowed.len();
                     if let Some(parameters) = lambda.parameters.as_deref() {
-                        self.collect_calls(def, defaults(parameters).collect(), shadowed, calls);
+                        let roots = defaults(parameters).collect();
+                        self.collect_calls(def, roots, shadowed, overrides, calls);
                         shadowed.extend(parameters.iter().map(|p| p.name().as_str()));
                     }
-                    self.collect_calls(def, vec![Node::Expr(&lambda.body)], shadowed, calls);
+                    self.collect_calls(def, vec![Node::Expr(&lambda.body)], shadowed, &[], calls);
                     shadowed.truncate(depth);
                 }
                 Node::Expr(expr) if is_comprehension(expr) => {
@@ -326,7 +325,8 @@ impl<'a> CallGraph<'a> {
                     let Some((first, rest)) = generators.split_first() else {
                         continue;
                     };
-                    self.collect_calls(def, vec![Node::Expr(&first.iter)], shadowed, calls);
+                    let roots = vec![Node::Expr(&first.iter)];
+                    self.collect_calls(def, roots, shadowed, overrides, calls);
                     let depth = shadowed.len();
                     for generator in generators.iter() {
                         shadowed.extend(target_names(&generator.target));
@@ -340,14 +340,12 @@ impl<'a> CallGraph<'a> {
                         roots.extend(generator.ifs.iter().map(Node::Expr));
                     }
                     roots.extend(elements.into_iter().map(Node::Expr));
-                    self.collect_calls(def, roots, shadowed, calls);
+                    self.collect_calls(def, roots, shadowed, &[], calls);
                     shadowed.truncate(depth);
                 }
                 Node::Expr(ast::Expr::Call(call)) => {
-                    if !shadowed.contains(&base_name(&call.func)) {
-                        let start = call.range.start();
-                        calls.extend(self.callees(def, &call.func).iter().map(|&c| (c, start)));
-                    }
+                    let start = call.range.start();
+                    self.add_calls(def, &call.func, start, shadowed, overrides, calls);
                     walk.descend(node);
                 }
                 _ => walk.descend(node),
@@ -355,16 +353,194 @@ impl<'a> CallGraph<'a> {
         }
     }
 
-    fn callees(&self, caller: &Def<'a>, func: &'a ast::Expr) -> &[usize] {
+    /// Collects the calls of a nested class: its decorators and bases run in
+    /// the code around it, and its body runs statement by statement with the
+    /// names that the body itself binds.
+    fn collect_class_calls(
+        &self,
+        def: &Def<'a>,
+        c: &'a ast::StmtClassDef,
+        shadowed: &mut Vec<&'a str>,
+        overrides: &[(&'a str, Binding)],
+        calls: &mut Vec<(usize, TextSize)>,
+    ) {
+        let roots = decorators(&c.decorator_list).collect();
+        self.collect_calls(def, roots, shadowed, overrides, calls);
+        let depth = shadowed.len();
+        shadowed.extend(type_param_names(c.type_params.as_deref()));
+        self.collect_calls(
+            def,
+            class_arguments(c).collect(),
+            shadowed,
+            overrides,
+            calls,
+        );
+        for (roots, body_overrides) in self.class_body_parts(c) {
+            self.collect_calls(def, roots, shadowed, &body_overrides, calls);
+        }
+        shadowed.truncate(depth);
+    }
+
+    /// Splits a class body into parts, each with what the names that the body
+    /// binds mean there. Python looks a name the class body binds up in the
+    /// module until the binding runs, and in the class after it, so a part
+    /// before every binding resolves through the module scope, a part after an
+    /// unconditional binding resolves to that binding, and a part whose order
+    /// cannot be known resolves to nothing.
+    fn class_body_parts(&self, c: &'a ast::StmtClassDef) -> Vec<BodyPart<'a>> {
+        let whole = Rebinds::of(&c.body);
+        let fixed: Vec<(&'a str, Binding)> = whole
+            .global
+            .iter()
+            .map(|&name| (name, Binding::Module))
+            .collect();
+        let mut states: Vec<(&'a str, Binding)> = Vec::new();
+        for &name in whole.local.iter().chain(whole.defined.iter()) {
+            let declared = whole.global.contains(&name) || whole.nonlocal.contains(&name);
+            if !declared && !states.iter().any(|(bound, _)| *bound == name) {
+                states.push((name, Binding::Module));
+            }
+        }
+        let mut parts = Vec::new();
+        for statement in c.body.iter() {
+            let own = Rebinds::of(std::slice::from_ref(statement));
+            let assignment = Assignment::of(statement);
+            let mut in_value = fixed.clone();
+            let mut in_rest = fixed.clone();
+            for state in states.iter_mut() {
+                let (name, prior) = *state;
+                let (value, rest, next) = if own.binds(name) {
+                    self.bound_by_statement(c, statement, &own, assignment.as_ref(), name, prior)
+                } else {
+                    (prior, prior, prior)
+                };
+                in_value.push((name, value));
+                in_rest.push((name, rest));
+                state.1 = next;
+            }
+            match assignment {
+                Some(assignment) => {
+                    parts.push((vec![Node::Expr(assignment.value)], in_value));
+                    let rest = assignment
+                        .targets
+                        .iter()
+                        .chain(assignment.annotation.iter());
+                    parts.push((rest.map(|&expr| Node::Expr(expr)).collect(), in_rest));
+                }
+                None => parts.push((vec![Node::Stmt(statement)], in_value)),
+            }
+        }
+        parts
+    }
+
+    /// What `name` means in the value and in the rest of a class-body
+    /// statement that binds it, and what it means after the statement.
+    fn bound_by_statement(
+        &self,
+        c: &'a ast::StmtClassDef,
+        statement: &'a Stmt,
+        own: &Rebinds<'a>,
+        assignment: Option<&Assignment<'a>>,
+        name: &'a str,
+        prior: Binding,
+    ) -> (Binding, Binding, Binding) {
+        const UNKNOWN: (Binding, Binding, Binding) =
+            (Binding::Hidden, Binding::Hidden, Binding::Hidden);
+        if let Some(assignment) = assignment {
+            let in_targets = assignment
+                .targets
+                .iter()
+                .any(|&target| target_names(target).contains(&name));
+            let value_binds = Rebinds::of_nodes(vec![Node::Expr(assignment.value)]).binds(name);
+            return if in_targets && !value_binds {
+                (prior, Binding::Hidden, Binding::Hidden)
+            } else {
+                UNKNOWN
+            };
+        }
+        let header_only = !own.local.contains(&name);
+        match statement {
+            Stmt::FunctionDef(f) if header_only && f.name.as_str() == name => {
+                let method = self
+                    .methods
+                    .get(&(c.range.start(), name))
+                    .and_then(|ids| {
+                        ids.iter()
+                            .find(|&&id| self.defs[id].def.range.start() == f.range.start())
+                    })
+                    .map_or(Binding::Hidden, |&id| Binding::Method(id));
+                (prior, prior, method)
+            }
+            Stmt::ClassDef(k) if header_only && k.name.as_str() == name => {
+                (prior, prior, Binding::Class(k.range.start()))
+            }
+            Stmt::Import(_) | Stmt::ImportFrom(_) | Stmt::TypeAlias(_) => {
+                (prior, prior, Binding::Hidden)
+            }
+            Stmt::Delete(delete)
+                if delete.targets.iter().any(
+                    |target| matches!(target, ast::Expr::Name(n) if n.id.as_str() == name),
+                ) =>
+            {
+                (prior, prior, Binding::Module)
+            }
+            Stmt::AnnAssign(annotated) if annotated.value.is_none() => (prior, prior, prior),
+            _ => UNKNOWN,
+        }
+    }
+
+    fn add_calls(
+        &self,
+        def: &Def<'a>,
+        func: &'a ast::Expr,
+        start: TextSize,
+        shadowed: &[&'a str],
+        overrides: &[(&'a str, Binding)],
+        calls: &mut Vec<(usize, TextSize)>,
+    ) {
+        let name = base_name(func);
+        let binding = overrides
+            .iter()
+            .rev()
+            .find(|(bound, _)| *bound == name)
+            .map(|&(_, binding)| binding);
+        let targets: &[usize] = match binding {
+            Some(Binding::Module) => self.callees(func, MODULE_SCOPE, None),
+            Some(Binding::Hidden) => &[],
+            Some(Binding::Method(id)) => {
+                if matches!(func, ast::Expr::Name(_)) {
+                    calls.push((id, start));
+                }
+                &[]
+            }
+            Some(Binding::Class(class)) => match func {
+                ast::Expr::Attribute(attribute) => self
+                    .methods
+                    .get(&(class, attribute.attr.as_str()))
+                    .map_or(&[], Vec::as_slice),
+                _ => &[],
+            },
+            None if shadowed.contains(&name) => &[],
+            None => self.callees(func, def.body_scope, def.receiver),
+        };
+        calls.extend(targets.iter().map(|&callee| (callee, start)));
+    }
+
+    fn callees(
+        &self,
+        func: &'a ast::Expr,
+        scope: usize,
+        receiver: Option<Receiver<'a>>,
+    ) -> &[usize] {
         match func {
-            ast::Expr::Name(name) => self.lookup(caller.body_scope, name.id.as_str()),
+            ast::Expr::Name(name) => self.lookup(scope, name.id.as_str()),
             ast::Expr::Attribute(attribute) => {
                 let ast::Expr::Name(value) = attribute.value.as_ref() else {
                     return &[];
                 };
-                let class = match caller.receiver {
+                let class = match receiver {
                     Some((receiver, class)) if value.id.as_str() == receiver => Some(class),
-                    _ => self.class_of(caller.body_scope, value.id.as_str()),
+                    _ => self.class_of(scope, value.id.as_str()),
                 };
                 class
                     .and_then(|class| self.methods.get(&(class, attribute.attr.as_str())))
@@ -379,6 +555,7 @@ impl<'a> CallGraph<'a> {
         while let Some(current) = scope {
             let key = (current, name);
             if self.rebound.contains(&key)
+                || self.type_params.contains(&key)
                 || self.rebound.contains(&(current, "*"))
                 || self.names.get(&key).is_some_and(|d| !d.is_empty())
             {
@@ -401,9 +578,51 @@ impl<'a> CallGraph<'a> {
             if let Some(defs) = self.names.get(&(current, name)) {
                 return defs;
             }
+            if self.type_params.contains(&(current, name)) {
+                return &[];
+            }
             scope = self.parent_scope[current];
         }
         &[]
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Binding {
+    Module,
+    Hidden,
+    Method(usize),
+    Class(TextSize),
+}
+
+type BodyPart<'a> = (Vec<Node<'a>>, Vec<(&'a str, Binding)>);
+
+struct Assignment<'a> {
+    value: &'a ast::Expr,
+    targets: Vec<&'a ast::Expr>,
+    annotation: Option<&'a ast::Expr>,
+}
+
+impl<'a> Assignment<'a> {
+    fn of(statement: &'a Stmt) -> Option<Self> {
+        match statement {
+            Stmt::Assign(assign) => Some(Assignment {
+                value: &assign.value,
+                targets: assign.targets.iter().collect(),
+                annotation: None,
+            }),
+            Stmt::AugAssign(assign) => Some(Assignment {
+                value: &assign.value,
+                targets: vec![&assign.target],
+                annotation: None,
+            }),
+            Stmt::AnnAssign(assign) => assign.value.as_deref().map(|value| Assignment {
+                value,
+                targets: vec![&assign.target],
+                annotation: Some(&assign.annotation),
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -416,9 +635,16 @@ struct Rebinds<'a> {
 }
 
 impl<'a> Rebinds<'a> {
+    fn binds(&self, name: &str) -> bool {
+        self.local.contains(&name) || self.defined.contains(&name)
+    }
+
     fn of(body: &'a [Stmt]) -> Self {
+        Self::of_nodes(body.iter().map(Node::Stmt).collect())
+    }
+
+    fn of_nodes(mut pending: Vec<Node<'a>>) -> Self {
         let mut rebinds = Rebinds::default();
-        let mut pending: Vec<Node<'a>> = body.iter().map(Node::Stmt).collect();
         while !pending.is_empty() {
             rebinds.walk(std::mem::take(&mut pending), &mut pending);
         }

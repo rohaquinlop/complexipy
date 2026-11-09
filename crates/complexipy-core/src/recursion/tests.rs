@@ -80,6 +80,8 @@ fn shadowed_names_and_bare_decorators_are_not_calls() {
         "def f(fs):\n    return [f(x) for f in fs]\n",
         "def f(fs):\n    return {k: f() for k, f in fs}\n",
         "def f(n):\n    class K[f](f()):\n        pass\n    return K\n",
+        "def T(n):\n    class Box[T]:\n        def m(self):\n            return T(self)\n    return Box.m(None)\n",
+        "def g():\n    return f()\ndef f[g]():\n    return g()\n",
     ];
     for code in cases {
         assert_eq!(recursive_lines(code), vec![], "{code}");
@@ -155,6 +157,11 @@ fn class_name_call_needs_exactly_one_class_binding() {
         format!("class K:\n{method}for K in []:\n    pass\n"),
         format!("class K:\n{method}class O:\n    global K\n    K = 1\n"),
         format!("class K:\n{method}from m import *\n"),
+        format!("class K:\n{method}with open(p) as K:\n    pass\n"),
+        format!("class K:\n{method}del K\n"),
+        format!("class K:\n{method}K += 1\n"),
+        format!("class K:\n{method}type K = int\n"),
+        format!("class K:\n{method}K: int = 1\n"),
         format!("class K:\n{method}xs = [(K := x) for x in []]\n"),
         format!("class K:\n{method}def f():\n    global K\n    import K\n"),
         format!("class K:\n{method}def f():\n    global K\n    def K():\n        pass\n"),
@@ -164,6 +171,9 @@ fn class_name_call_needs_exactly_one_class_binding() {
         "class K:\n    @staticmethod\n    def s(K):\n        return K.s(1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        K = n\n        return K.s(1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(ks):\n        return [K.s(x) for K in ks]\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        class C:\n            K = 1\n            x = K.s(n)\n        return n\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        class C:\n            def K(self):\n                pass\n            x = K.s(n)\n        return n\n".to_string(),
+        "class K:\n    @staticmethod\n    def s(n):\n        class C:\n            import K\n            x = K.s(n)\n        return n\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        def g(x=(K := 1)):\n            pass\n        return K.s(n - 1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        f = lambda x=(K := 1): x\n        return K.s(n - 1)\n".to_string(),
         "class K:\n    @staticmethod\n    def s(n):\n        class C((K := object)):\n            pass\n        return K.s(n - 1)\n".to_string(),
@@ -175,5 +185,42 @@ fn class_name_call_needs_exactly_one_class_binding() {
     ];
     for code in cases {
         assert_eq!(recursive_lines(&code), vec![], "{code}");
+    }
+}
+
+#[test]
+fn class_body_calls_follow_statement_order() {
+    let cases: [(&str, Vec<(u64, u64)>); 7] = [
+        (
+            "def f(n):\n    class C:\n        x = f(n)\n        f = 1\n    return C\n",
+            vec![(1, 3)],
+        ),
+        (
+            "def f(n):\n    class C:\n        f = 1\n        x = f(n)\n    return C\n",
+            vec![],
+        ),
+        (
+            "def f(n):\n    class C:\n        f = f(n)\n    return C\n",
+            vec![(1, 3)],
+        ),
+        (
+            "def f(n):\n    class C:\n        if n:\n            f = 1\n        x = f(n)\n    return C\n",
+            vec![],
+        ),
+        (
+            "def f(n):\n    class C:\n        f = 1\n        del f\n        x = f(n)\n    return C\n",
+            vec![(1, 5)],
+        ),
+        (
+            "def outer():\n    def f(n):\n        class C:\n            x = f(n)\n            f = 1\n        return C\n    return f\n",
+            vec![],
+        ),
+        (
+            "def f(n):\n    class C:\n        def g(x):\n            return f(x)\n        y = g(n)\n    return C\n",
+            vec![(1, 5), (3, 4)],
+        ),
+    ];
+    for (code, expected) in cases {
+        assert_eq!(recursive_lines(code), expected, "{code}");
     }
 }
