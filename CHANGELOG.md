@@ -89,9 +89,12 @@ release section links to its GitHub release notes for the full details.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
-  lambda's own parameters, a comprehension's loop variables, and a class's
-  type parameters hide outer names where they are visible, so `lambda f: f()`
-  and `[f(x) for f in fs]` inside `f` are not recursive.
+  lambda's own parameters, a comprehension's loop variables, and the type
+  parameters of a class or function hide outer names where they are visible,
+  so `lambda f: f()` and `[f(x) for f in fs]` inside `f` are not recursive. A
+  call in a class body to a name that the same class body binds goes to the
+  module's binding when it runs before that binding, and to the class's
+  binding after it; when the order cannot be known, the call adds nothing.
 - A nested function raises the nesting level of its body wherever it sits,
   under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
   paper prescribes. Before, only a `def` placed directly in a function body
