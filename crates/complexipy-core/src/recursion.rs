@@ -262,7 +262,8 @@ impl<'a> CallGraph<'a> {
         let Some(flow) = self.flow.get(&scope) else {
             return at <= bound;
         };
-        let holds_both = |range: &TextRange| range.contains(at) && range.contains(start);
+        let repeats = |offset, parts: &[TextRange]| parts.iter().any(|part| part.contains(offset));
+        let holds_both = |parts: &Vec<TextRange>| repeats(at, parts) && repeats(start, parts);
         let excluded = flow.branches.iter().any(|branches| {
             let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
             matches!((branch_of(at), branch_of(start)), (Some(a), Some(d)) if a != d)
@@ -631,7 +632,7 @@ impl<'a> CallGraph<'a> {
 }
 
 struct Flow {
-    loops: Vec<TextRange>,
+    loops: Vec<Vec<TextRange>>,
     branches: Vec<Vec<TextRange>>,
 }
 
@@ -678,7 +679,7 @@ impl<'a> Assignment<'a> {
 struct Rebinds<'a> {
     local: Vec<&'a str>,
     at: Vec<(&'a str, TextSize)>,
-    loops: Vec<TextRange>,
+    loops: Vec<Vec<TextRange>>,
     branches: Vec<Vec<TextRange>>,
     defined: Vec<&'a str>,
     global: Vec<&'a str>,
@@ -772,8 +773,16 @@ impl<'a> Rebinds<'a> {
                         .push(match_stmt.cases.iter().map(Ranged::range).collect());
                     walk.descend(node);
                 }
-                Node::Stmt(statement @ (Stmt::For(_) | Stmt::While(_))) => {
-                    self.loops.push(statement.range());
+                Node::Stmt(Stmt::For(for_stmt)) => {
+                    let body = suite_range(&for_stmt.body);
+                    self.loops
+                        .push(body.into_iter().chain([for_stmt.target.range()]).collect());
+                    walk.descend(node);
+                }
+                Node::Stmt(Stmt::While(while_stmt)) => {
+                    let body = suite_range(&while_stmt.body);
+                    let test = while_stmt.test.range();
+                    self.loops.push(body.into_iter().chain([test]).collect());
                     walk.descend(node);
                 }
                 Node::Stmt(Stmt::If(if_stmt)) => {

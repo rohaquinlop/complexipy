@@ -250,6 +250,8 @@ fn local_bindings_hide_outer_function_names() {
         "for x in xs:\n    f = 1\n    def f(n):\n        return f()\n",
         "while X:\n    if Y:\n        f = 1\n    else:\n        def f(n):\n            return f()\n",
         "try:\n    def f(n):\n        return f()\nexcept E:\n    f = 1\n",
+        "for x in xs:\n    def f(n):\n        return f()\nelse:\n    f = 1\n",
+        "for f in xs:\n    def f(n):\n        return f()\n",
         "def g():\n    return f()\ndef f():\n    g = 1\n    return g()\n",
         "def g():\n    return f()\ndef f():\n    def h():\n        return g()\n    g = 1\n    return h()\n",
     ];
@@ -272,6 +274,9 @@ fn bindings_before_the_def_keep_it_resolved() {
         "if X:\n    def f(n):\n        return f()\nelif (f := Y):\n    pass\nelse:\n    f = 1\n",
         "match x:\n    case 1:\n        def f(n):\n            return f()\n    case f:\n        pass\n",
         "try:\n    f = 1\nexcept E:\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    f = 1\nelse:\n    def f(n):\n        return f()\n",
+        "for x in (f := xs):\n    def f(n):\n        return f()\n",
+        "while (f := X):\n    pass\nelse:\n    def f(n):\n        return f()\n",
         "def h():\n    global g\n    return g\ndef f(n):\n    return f()\n",
     ];
     for code in cases {
