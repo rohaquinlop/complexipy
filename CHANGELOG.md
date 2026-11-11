@@ -89,11 +89,13 @@ release section links to its GitHub release notes for the full details.
 - A bare-name call no longer counts as recursion when a binding of the
   caller hides the function: a parameter, an assignment, a walrus, a `for` or
   `with` target, an `except ... as` name, a `match` capture, a `del`, an
-  import, or a type alias, so `def f(f): return f()` scores 0. A scope that
-  binds a function name both by `def` and another way resolves to the `def`
-  only when every other binding comes in an earlier statement of that scope,
-  and to nothing when a `global` or `nonlocal` declaration rebinds it, so
-  `f = wrap(f)` after `def f` makes `f()` add nothing.
+  import, a type alias, or a class, so `def f(f): return f()` scores 0. A
+  scope that binds a function name both by `def` and another way resolves to
+  the `def` only when every other binding has always run before the `def`
+  binds the name: it comes earlier in the code or in another branch of the
+  same `if` or `match`, no loop holds both, and no `global` or `nonlocal`
+  declaration rebinds it. So `f = wrap(f)` after `def f` makes `f()` add
+  nothing, and `f = 1` before `def f` keeps the +1.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
