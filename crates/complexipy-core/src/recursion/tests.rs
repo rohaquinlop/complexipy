@@ -245,6 +245,11 @@ fn local_bindings_hide_outer_function_names() {
         "def f(n):\n    return f()\ndef h():\n    global f\n    f = 1\n",
         "def outer():\n    def f(n):\n        return f()\n    def h():\n        nonlocal f\n        f = 1\n    return f\n",
         "def outer():\n    def f(n):\n        return f()\n    f = wrap(f)\n    return f\n",
+        "def f(n):\n    return f()\nclass f:\n    pass\n",
+        "if X:\n    def f(n):\n        return f()\nelse:\n    pass\nf = 1\n",
+        "for x in xs:\n    f = 1\n    def f(n):\n        return f()\n",
+        "while X:\n    if Y:\n        f = 1\n    else:\n        def f(n):\n            return f()\n",
+        "try:\n    def f(n):\n        return f()\nexcept E:\n    f = 1\n",
         "def g():\n    return f()\ndef f():\n    g = 1\n    return g()\n",
         "def g():\n    return f()\ndef f():\n    def h():\n        return g()\n    g = 1\n    return h()\n",
     ];
@@ -261,6 +266,12 @@ fn bindings_before_the_def_keep_it_resolved() {
         "def f(n):\n    return f()\nf.cache = {}\n",
         "@d(f := 1)\ndef f(n):\n    return f()\n",
         "def outer(f):\n    def f(n):\n        return f()\n    return f\n",
+        "if X:\n    f = 1\n    def f(n):\n        return f()\n",
+        "class f:\n    pass\ndef f(n):\n    return f()\n",
+        "def f(n=(f := 1)):\n    return f()\n",
+        "if X:\n    def f(n):\n        return f()\nelif (f := Y):\n    pass\nelse:\n    f = 1\n",
+        "match x:\n    case 1:\n        def f(n):\n            return f()\n    case f:\n        pass\n",
+        "try:\n    f = 1\nexcept E:\n    def f(n):\n        return f()\n",
         "def h():\n    global g\n    return g\ndef f(n):\n    return f()\n",
     ];
     for code in cases {

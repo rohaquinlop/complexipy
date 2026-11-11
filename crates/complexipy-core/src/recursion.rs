@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{self as ast, Stmt};
-use ruff_text_size::{Ranged, TextSize};
+use ruff_text_size::{Ranged, TextRange, TextSize};
 
 use crate::cognitive_complexity::nested_suites;
 use crate::syntax_tree::{Node, PreOrder};
@@ -32,7 +32,8 @@ struct CallGraph<'a> {
     names: HashMap<(usize, &'a str), Vec<usize>>,
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
     classes: HashMap<(usize, &'a str), Vec<TextSize>>,
-    rebound: HashMap<(usize, &'a str), TextSize>,
+    rebound: HashMap<(usize, &'a str), Vec<TextSize>>,
+    flow: HashMap<usize, Flow>,
     type_params: HashSet<(usize, &'a str)>,
     nonlocals: Vec<(Option<usize>, &'a str)>,
 }
@@ -219,42 +220,54 @@ impl<'a> CallGraph<'a> {
     }
 
     /// Records every name that `body` binds in `scope` other than by `def` or
-    /// `class`, with the offset after which the binding has run: the end of
-    /// its top-level statement, or the start of a `def` or `class` statement
-    /// whose header binds it. A name declared `global` or `nonlocal` binds in
-    /// an outer scope instead, and only when `body` assigns it.
+    /// `class`, at the offset of the binding, with the loops and the `if` and
+    /// `match` branches of `body`. A name declared `global` or `nonlocal`
+    /// binds in an outer scope instead, and only when `body` assigns it.
     fn record_rebinds(
         &mut self,
         scope: usize,
         body: &'a [Stmt],
         parameters: Option<&'a ast::Parameters>,
     ) {
-        let mut rebinds = Rebinds::default();
-        let mut positions: Vec<(&'a str, TextSize)> = parameters
+        let mut rebinds = Rebinds::of(body);
+        let parameters = parameters
             .into_iter()
             .flat_map(|p| p.iter())
-            .map(|p| (p.name().as_str(), TextSize::default()))
-            .collect();
-        for statement in body.iter() {
-            let own = Rebinds::of(std::slice::from_ref(statement));
-            let position = match statement {
-                Stmt::FunctionDef(_) | Stmt::ClassDef(_) => statement.start(),
-                _ => statement.end(),
-            };
-            positions.extend(own.local.iter().map(|&name| (name, position)));
-            rebinds.extend(own);
-        }
-        for (name, position) in positions {
+            .map(|p| (p.name().as_str(), TextSize::default()));
+        for (name, at) in rebinds.at.iter().copied().chain(parameters) {
             if !rebinds.global.contains(&name) && !rebinds.nonlocal.contains(&name) {
-                self.rebind((scope, name), position);
+                self.rebind((scope, name), at);
             }
         }
+        let flow = Flow {
+            loops: std::mem::take(&mut rebinds.loops),
+            branches: std::mem::take(&mut rebinds.branches),
+        };
+        self.flow.insert(scope, flow);
         self.record_declarations(self.parent_scope[scope], &rebinds);
     }
 
-    fn rebind(&mut self, key: (usize, &'a str), position: TextSize) {
-        let last = self.rebound.entry(key).or_insert(position);
-        *last = (*last).max(position);
+    fn rebind(&mut self, key: (usize, &'a str), at: TextSize) {
+        self.rebound.entry(key).or_default().push(at);
+    }
+
+    /// Whether the binding of `name` at `at` in `scope` has always run when
+    /// the definition `id` binds the name: it comes before the definition's
+    /// body or in a branch that excludes the definition, and no loop of the
+    /// scope holds both.
+    fn binds_before(&self, scope: usize, id: usize, at: TextSize) -> bool {
+        let def = self.defs[id].def;
+        let start = def.start();
+        let bound = def.body.first().map_or(def.end(), Ranged::start);
+        let Some(flow) = self.flow.get(&scope) else {
+            return at <= bound;
+        };
+        let holds_both = |range: &TextRange| range.contains(at) && range.contains(start);
+        let excluded = flow.branches.iter().any(|branches| {
+            let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
+            matches!((branch_of(at), branch_of(start)), (Some(a), Some(d)) if a != d)
+        });
+        (at <= bound || excluded) && !flow.loops.iter().any(holds_both)
     }
 
     /// Records the `global` and `nonlocal` names that a body assigns. `outer`
@@ -589,17 +602,24 @@ impl<'a> CallGraph<'a> {
     }
 
     /// The definitions a bare name resolves to: those of the nearest scope
-    /// that binds it, when each one runs after every other binding of the
-    /// name in that scope.
+    /// that binds it, when every other binding of the name in that scope,
+    /// a class included, has always run before each definition binds it.
     fn lookup(&self, scope: usize, name: &'a str) -> &[usize] {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
-            let rebound = self.rebound.get(&key).copied();
+            let rebound = self.rebound.get(&key);
             if let Some(defs) = self.names.get(&key) {
-                let after = rebound.unwrap_or_default();
-                let ordered = defs.iter().all(|&id| self.defs[id].def.start() >= after);
-                return if ordered { defs } else { &[] };
+                let others: Vec<TextSize> = rebound
+                    .into_iter()
+                    .chain(self.classes.get(&key))
+                    .flatten()
+                    .copied()
+                    .collect();
+                let last = defs
+                    .iter()
+                    .all(|&id| others.iter().all(|&at| self.binds_before(current, id, at)));
+                return if last { defs } else { &[] };
             }
             if rebound.is_some() || self.type_params.contains(&key) {
                 return &[];
@@ -608,6 +628,11 @@ impl<'a> CallGraph<'a> {
         }
         &[]
     }
+}
+
+struct Flow {
+    loops: Vec<TextRange>,
+    branches: Vec<Vec<TextRange>>,
 }
 
 #[derive(Clone, Copy)]
@@ -652,17 +677,18 @@ impl<'a> Assignment<'a> {
 #[derive(Default)]
 struct Rebinds<'a> {
     local: Vec<&'a str>,
+    at: Vec<(&'a str, TextSize)>,
+    loops: Vec<TextRange>,
+    branches: Vec<Vec<TextRange>>,
     defined: Vec<&'a str>,
     global: Vec<&'a str>,
     nonlocal: Vec<&'a str>,
 }
 
 impl<'a> Rebinds<'a> {
-    fn extend(&mut self, other: Rebinds<'a>) {
-        self.local.extend(other.local);
-        self.defined.extend(other.defined);
-        self.global.extend(other.global);
-        self.nonlocal.extend(other.nonlocal);
+    fn bind(&mut self, name: &'a str, at: TextSize) {
+        self.local.push(name);
+        self.at.push((name, at));
     }
 
     fn binds(&self, name: &str) -> bool {
@@ -698,18 +724,16 @@ impl<'a> Rebinds<'a> {
                     pending.extend(decorators(&c.decorator_list).chain(class_arguments(c)));
                 }
                 Node::Stmt(Stmt::Import(import)) => {
-                    self.local.extend(import.names.iter().map(|alias| {
+                    for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-                        bound.split('.').next().unwrap_or(bound)
-                    }));
+                        self.bind(bound.split('.').next().unwrap_or(bound), alias.start());
+                    }
                 }
                 Node::Stmt(Stmt::ImportFrom(import)) => {
-                    self.local.extend(
-                        import
-                            .names
-                            .iter()
-                            .map(|alias| alias.asname.as_ref().unwrap_or(&alias.name).as_str()),
-                    );
+                    for alias in import.names.iter() {
+                        let bound = alias.asname.as_ref().unwrap_or(&alias.name);
+                        self.bind(bound.as_str(), alias.start());
+                    }
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
                     pending.extend(lambda.parameters.as_deref().into_iter().flat_map(defaults));
@@ -731,17 +755,32 @@ impl<'a> Rebinds<'a> {
                         .extend(nonlocal.names.iter().map(|n| n.as_str()));
                 }
                 Node::Expr(ast::Expr::Name(name)) if !name.ctx.is_load() => {
-                    self.local.push(name.id.as_str());
+                    self.bind(name.id.as_str(), name.start());
                 }
                 Node::Stmt(Stmt::Try(try_stmt)) => {
                     for handler in try_stmt.handlers.iter() {
                         let ast::ExceptHandler::ExceptHandler(except) = handler;
-                        self.local.extend(except.name.as_ref().map(|n| n.as_str()));
+                        if let Some(name) = except.name.as_ref() {
+                            self.bind(name.as_str(), name.start());
+                        }
                     }
                     walk.descend(node);
                 }
                 Node::Stmt(Stmt::Match(match_stmt)) => {
                     self.add_captures(match_stmt.cases.iter().map(|case| &case.pattern));
+                    self.branches
+                        .push(match_stmt.cases.iter().map(Ranged::range).collect());
+                    walk.descend(node);
+                }
+                Node::Stmt(statement @ (Stmt::For(_) | Stmt::While(_))) => {
+                    self.loops.push(statement.range());
+                    walk.descend(node);
+                }
+                Node::Stmt(Stmt::If(if_stmt)) => {
+                    let body = suite_range(&if_stmt.body);
+                    let clauses = if_stmt.elif_else_clauses.iter().map(Ranged::range);
+                    self.branches
+                        .push(body.into_iter().chain(clauses).collect());
                     walk.descend(node);
                 }
                 _ => walk.descend(node),
@@ -777,7 +816,9 @@ impl<'a> Rebinds<'a> {
                 }
                 _ => None,
             };
-            self.local.extend(name.map(|n| n.as_str()));
+            if let Some(name) = name {
+                self.bind(name.as_str(), name.start());
+            }
         }
     }
 }
@@ -837,6 +878,12 @@ fn target_parts(target: &ast::Expr) -> impl Iterator<Item = &ast::Expr> {
         }
     }
     parts.into_iter()
+}
+
+fn suite_range(suite: &[Stmt]) -> Option<TextRange> {
+    let first = suite.first()?;
+    let last = suite.last()?;
+    Some(TextRange::new(first.start(), last.end()))
 }
 
 fn type_param_names(type_params: Option<&ast::TypeParams>) -> impl Iterator<Item = &str> {
