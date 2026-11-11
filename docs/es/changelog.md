@@ -99,6 +99,15 @@ GitHub con todos los detalles.
   enlaza `K` en ese ámbito: ni un `def`, ni un import (un import con asterisco
   incluido), ni un parámetro, ni un parámetro de tipo, ni una asignación,
   incluida una hecha a través de una declaración `global` o `nonlocal`.
+- Una llamada a un nombre simple ya no cuenta como recursión cuando un enlace
+  de quien llama oculta la función: un parámetro, una asignación, un walrus,
+  un destino de `for` o `with`, un nombre de `except ... as`, una captura de
+  `match`, un `del`, un import o un alias de tipo, así que
+  `def f(f): return f()` puntúa 0. Un ámbito que enlaza el nombre de una
+  función con un `def` y de otra forma se resuelve al `def` solo cuando todos
+  los demás enlaces están en una sentencia anterior de ese ámbito, y a nada
+  cuando una declaración `global` o `nonlocal` lo reenlaza, así que
+  `f = wrap(f)` después de `def f` hace que `f()` no sume nada.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque
