@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{self as ast, Stmt};
-use ruff_text_size::TextSize;
+use ruff_text_size::{Ranged, TextSize};
 
 use crate::cognitive_complexity::nested_suites;
 use crate::syntax_tree::{Node, PreOrder};
 use crate::utils::LineIndex;
 
 const MODULE_SCOPE: usize = 0;
+const UNORDERED: TextSize = TextSize::new(u32::MAX);
 
 type Receiver<'a> = (&'a str, TextSize);
 
@@ -31,7 +32,7 @@ struct CallGraph<'a> {
     names: HashMap<(usize, &'a str), Vec<usize>>,
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
     classes: HashMap<(usize, &'a str), Vec<TextSize>>,
-    rebound: HashSet<(usize, &'a str)>,
+    rebound: HashMap<(usize, &'a str), TextSize>,
     type_params: HashSet<(usize, &'a str)>,
     nonlocals: Vec<(Option<usize>, &'a str)>,
 }
@@ -218,27 +219,42 @@ impl<'a> CallGraph<'a> {
     }
 
     /// Records every name that `body` binds in `scope` other than by `def` or
-    /// `class`. A name declared `global` or `nonlocal` binds in an outer scope
-    /// instead, and only when `body` assigns it.
+    /// `class`, with the offset after which the binding has run: the end of
+    /// its top-level statement, or the start of a `def` or `class` statement
+    /// whose header binds it. A name declared `global` or `nonlocal` binds in
+    /// an outer scope instead, and only when `body` assigns it.
     fn record_rebinds(
         &mut self,
         scope: usize,
         body: &'a [Stmt],
         parameters: Option<&'a ast::Parameters>,
     ) {
-        let rebinds = Rebinds::of(body);
-        let parameters = parameters.into_iter().flat_map(|p| p.iter());
-        for name in rebinds
-            .local
-            .iter()
-            .copied()
-            .chain(parameters.map(|p| p.name().as_str()))
-        {
+        let mut rebinds = Rebinds::default();
+        let mut positions: Vec<(&'a str, TextSize)> = parameters
+            .into_iter()
+            .flat_map(|p| p.iter())
+            .map(|p| (p.name().as_str(), TextSize::default()))
+            .collect();
+        for statement in body.iter() {
+            let own = Rebinds::of(std::slice::from_ref(statement));
+            let position = match statement {
+                Stmt::FunctionDef(_) | Stmt::ClassDef(_) => statement.start(),
+                _ => statement.end(),
+            };
+            positions.extend(own.local.iter().map(|&name| (name, position)));
+            rebinds.extend(own);
+        }
+        for (name, position) in positions {
             if !rebinds.global.contains(&name) && !rebinds.nonlocal.contains(&name) {
-                self.rebound.insert((scope, name));
+                self.rebind((scope, name), position);
             }
         }
         self.record_declarations(self.parent_scope[scope], &rebinds);
+    }
+
+    fn rebind(&mut self, key: (usize, &'a str), position: TextSize) {
+        let last = self.rebound.entry(key).or_insert(position);
+        *last = (*last).max(position);
     }
 
     /// Records the `global` and `nonlocal` names that a body assigns. `outer`
@@ -248,7 +264,7 @@ impl<'a> CallGraph<'a> {
         let assigned =
             |name: &&'a str| rebinds.local.contains(name) || rebinds.defined.contains(name);
         for &name in rebinds.global.iter().filter(|name| assigned(name)) {
-            self.rebound.insert((MODULE_SCOPE, name));
+            self.rebind((MODULE_SCOPE, name), UNORDERED);
         }
         for &name in rebinds.nonlocal.iter().filter(|name| assigned(name)) {
             self.nonlocals.push((outer, name));
@@ -261,9 +277,9 @@ impl<'a> CallGraph<'a> {
             let key = (current, name);
             if self.names.contains_key(&key)
                 || self.classes.contains_key(&key)
-                || self.rebound.contains(&key)
+                || self.rebound.contains_key(&key)
             {
-                self.rebound.insert(key);
+                self.rebind(key, UNORDERED);
                 return;
             }
             scope = self.parent_scope[current];
@@ -554,9 +570,9 @@ impl<'a> CallGraph<'a> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
-            if self.rebound.contains(&key)
+            if self.rebound.contains_key(&key)
                 || self.type_params.contains(&key)
-                || self.rebound.contains(&(current, "*"))
+                || self.rebound.contains_key(&(current, "*"))
                 || self.names.get(&key).is_some_and(|d| !d.is_empty())
             {
                 return None;
@@ -572,13 +588,20 @@ impl<'a> CallGraph<'a> {
         None
     }
 
+    /// The definitions a bare name resolves to: those of the nearest scope
+    /// that binds it, when each one runs after every other binding of the
+    /// name in that scope.
     fn lookup(&self, scope: usize, name: &'a str) -> &[usize] {
         let mut scope = Some(scope);
         while let Some(current) = scope {
-            if let Some(defs) = self.names.get(&(current, name)) {
-                return defs;
+            let key = (current, name);
+            let rebound = self.rebound.get(&key).copied();
+            if let Some(defs) = self.names.get(&key) {
+                let after = rebound.unwrap_or_default();
+                let ordered = defs.iter().all(|&id| self.defs[id].def.start() >= after);
+                return if ordered { defs } else { &[] };
             }
-            if self.type_params.contains(&(current, name)) {
+            if rebound.is_some() || self.type_params.contains(&key) {
                 return &[];
             }
             scope = self.parent_scope[current];
@@ -635,6 +658,13 @@ struct Rebinds<'a> {
 }
 
 impl<'a> Rebinds<'a> {
+    fn extend(&mut self, other: Rebinds<'a>) {
+        self.local.extend(other.local);
+        self.defined.extend(other.defined);
+        self.global.extend(other.global);
+        self.nonlocal.extend(other.nonlocal);
+    }
+
     fn binds(&self, name: &str) -> bool {
         self.local.contains(&name) || self.defined.contains(&name)
     }

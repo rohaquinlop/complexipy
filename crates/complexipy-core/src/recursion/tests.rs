@@ -224,3 +224,46 @@ fn class_body_calls_follow_statement_order() {
         assert_eq!(recursive_lines(code), expected, "{code}");
     }
 }
+
+#[test]
+fn local_bindings_hide_outer_function_names() {
+    let cases = [
+        "def f(f):\n    return f()\n",
+        "def g(n):\n    g = n\n    return g()\n",
+        "def f(n):\n    if (f := n):\n        return f()\n",
+        "def f(n):\n    for f in n:\n        f()\n",
+        "def f(n):\n    with n as f:\n        return f()\n",
+        "def f(n):\n    try:\n        pass\n    except E as f:\n        f()\n",
+        "def f(n):\n    match n:\n        case [f]:\n            f()\n",
+        "def f(n):\n    del f\n    return f()\n",
+        "def f(n):\n    type f = int\n    return f()\n",
+        "def f(n):\n    import f\n    return f()\n",
+        "def f(n):\n    f += 1\n    return f()\n",
+        "def f(n):\n    f: int = n\n    return f()\n",
+        "def f(n):\n    return f()\nf = wrap(f)\n",
+        "def f(n):\n    return f()\nfor f in []:\n    pass\n",
+        "def f(n):\n    return f()\ndef h():\n    global f\n    f = 1\n",
+        "def outer():\n    def f(n):\n        return f()\n    def h():\n        nonlocal f\n        f = 1\n    return f\n",
+        "def outer():\n    def f(n):\n        return f()\n    f = wrap(f)\n    return f\n",
+        "def g():\n    return f()\ndef f():\n    g = 1\n    return g()\n",
+        "def g():\n    return f()\ndef f():\n    def h():\n        return g()\n    g = 1\n    return h()\n",
+    ];
+    for code in cases {
+        assert_eq!(recursive_lines(code), vec![], "{code}");
+    }
+}
+
+#[test]
+fn bindings_before_the_def_keep_it_resolved() {
+    let cases = [
+        "f = 1\ndef f(n):\n    return f()\n",
+        "from m import f\ndef f(n):\n    return f()\n",
+        "def f(n):\n    return f()\nf.cache = {}\n",
+        "@d(f := 1)\ndef f(n):\n    return f()\n",
+        "def outer(f):\n    def f(n):\n        return f()\n    return f\n",
+        "def h():\n    global g\n    return g\ndef f(n):\n    return f()\n",
+    ];
+    for code in cases {
+        assert_eq!(recursive_lines(code).len(), 1, "{code}");
+    }
+}
