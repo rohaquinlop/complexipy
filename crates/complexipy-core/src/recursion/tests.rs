@@ -241,6 +241,7 @@ fn local_bindings_hide_outer_function_names() {
         "def f(n):\n    f += 1\n    return f()\n",
         "def f(n):\n    f: int = n\n    return f()\n",
         "def f(n):\n    f: int\n    return f()\n",
+        "def f(n):\n    class f:\n        pass\n    return f()\n",
         "def f(n):\n    def outer(f):\n        def g(m):\n            return f(m)\n        return g(f)\n    return outer(n)\n",
         "def f(n):\n    return f()\nf = wrap(f)\n",
         "def f(n):\n    return f()\nfor f in []:\n    pass\n",

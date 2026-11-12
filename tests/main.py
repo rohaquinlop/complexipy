@@ -665,6 +665,11 @@ class TestPaperConformance:
                 id="guard-annotation-only-local",
             ),
             pytest.param(
+                "def f(n):\n    class f:\n        pass\n    return f()\n",
+                0,
+                id="guard-local-class",
+            ),
+            pytest.param(
                 "def f(n):\n    def outer(f):\n        def g(m):\n            return f(m)\n        return g(f)\n    return outer(n)\n",
                 0,
                 id="guard-enclosing-parameter",
