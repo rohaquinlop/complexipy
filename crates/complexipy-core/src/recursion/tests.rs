@@ -189,6 +189,83 @@ fn class_name_call_needs_exactly_one_class_binding() {
 }
 
 #[test]
+fn class_name_call_follows_binding_order() {
+    let class = "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n";
+    let looped =
+        "    class K:\n        @staticmethod\n        def s(n):\n            return K.s(n - 1)\n";
+    let cases = [
+        (format!("K = None\n{class}"), 1),
+        (format!("from m import K\n{class}"), 1),
+        (format!("def K():\n    pass\n{class}"), 1),
+        (format!("for K in []:\n    pass\n{class}"), 1),
+        (format!("if c:\n    K = None\nelse:\n{looped}"), 1),
+        (format!("for x in xs:\n    K = None\n{looped}"), 1),
+        (format!("K = None\n{class}K = None\n"), 0),
+        (format!("from m import *\n{class}"), 0),
+        (format!("for x in xs:\n{looped}    K = None\n"), 0),
+        (
+            format!("for x in xs:\n    K = None\n    if c:\n        break\n{looped}"),
+            0,
+        ),
+        (format!("K = None\n{class}class K:\n    pass\n"), 0),
+    ];
+    for (code, expected) in cases {
+        assert_eq!(recursive_lines(&code).len(), expected, "{code}");
+    }
+}
+
+#[test]
+fn class_name_call_in_its_own_class_statement_is_unresolved() {
+    let method = "        @staticmethod\n        def s(n):\n            return f()\n";
+    let module = "class C:\n    @staticmethod\n    def m():\n        return f()\n";
+    let cases = [
+        (
+            format!("def f():\n    K = None\n    class K:\n        x = K.s(1)\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    class K:\n        x = K.s(1)\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    K = None\n    @d(K.s(1))\n    class K:\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    K = None\n    class K(K.s(1)):\n{method}"),
+            0,
+        ),
+        (
+            format!(
+                "def f():\n    K = None\n    class K:\n        class C:\n            x = K.s(1)\n{method}"
+            ),
+            0,
+        ),
+        (
+            format!(
+                "def f():\n    K = None\n    class K:\n        x = [K.s(i) for i in r]\n{method}"
+            ),
+            0,
+        ),
+        (
+            format!("def f():\n    class K:\n        g = lambda: K.s(1)\n{method}    return K\n"),
+            2,
+        ),
+        (
+            format!("{module}def f():\n    class K:\n        class C:\n            x = C.m()\n"),
+            2,
+        ),
+        (
+            format!("{module}def f():\n    class K:\n        class C(C.m()):\n            pass\n"),
+            2,
+        ),
+    ];
+    for (code, expected) in cases {
+        assert_eq!(recursive_lines(&code).len(), expected, "{code}");
+    }
+}
+
+#[test]
 fn class_body_calls_follow_statement_order() {
     let cases: [(&str, Vec<(u64, u64)>); 7] = [
         (

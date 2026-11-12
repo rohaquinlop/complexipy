@@ -83,9 +83,12 @@ release section links to its GitHub release notes for the full details.
 - A call through the class name, such as `K.s()` in a static method of `K`,
   now counts toward a recursion cycle. It resolves to a method of `K` when the
   name `K` resolves, by the same scope lookup as a bare name, to exactly one
-  class of the file, and nothing else binds `K` in that scope: no `def`,
-  import (a star import included), parameter, type parameter, or assignment,
-  including one made through a `global` or `nonlocal` declaration.
+  class of the file, and every other binding of `K` in that scope has always
+  run before the class binds it, by the same order rule as a bare-name
+  `def`. A star import or a type parameter in that scope, or a binding made
+  through a `global` or `nonlocal` declaration, leaves the call unresolved.
+  A call through `K` in the decorators, bases, or body of class `K` itself
+  does not resolve to it, since the class has not bound its name yet.
 - A bare-name call no longer counts as recursion when a binding of the
   caller hides the function: a parameter, an assignment, a walrus, a `for` or
   `with` target, an `except ... as` name, a `match` capture, a `del`, an

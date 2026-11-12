@@ -31,7 +31,7 @@ struct CallGraph<'a> {
     parent_scope: Vec<Option<usize>>,
     names: HashMap<(usize, &'a str), Vec<usize>>,
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
-    classes: HashMap<(usize, &'a str), Vec<TextSize>>,
+    classes: HashMap<(usize, &'a str), Vec<&'a ast::StmtClassDef>>,
     rebound: HashMap<(usize, &'a str), Vec<TextSize>>,
     flow: HashMap<usize, Flow<'a>>,
     type_params: HashSet<(usize, &'a str)>,
@@ -45,7 +45,8 @@ struct CallGraph<'a> {
 /// enclosing function or module scope that binds it, and `recv.name()` to a
 /// method of the caller's class when `recv` is the receiver of the method
 /// that holds the call, or when `recv` names exactly one class of the file
-/// through the same scope lookup and nothing else binds that name there.
+/// through the same scope lookup and every other binding of that name there
+/// has always run before the class binds it.
 pub(crate) fn recursive_defs(suite: &[Stmt], index: &LineIndex) -> HashMap<TextSize, u64> {
     let graph = CallGraph::of(suite);
     let edges: Vec<Vec<(usize, TextSize)>> =
@@ -149,7 +150,7 @@ impl<'a> CallGraph<'a> {
             self.classes
                 .entry((context.scope, name))
                 .or_default()
-                .push(c.range.start());
+                .push(c);
         }
         self.record_declarations(Some(context.scope), &Rebinds::of(&c.body));
         let scope = match c.type_params.as_deref() {
@@ -247,14 +248,13 @@ impl<'a> CallGraph<'a> {
         self.rebound.entry(key).or_default().push(at);
     }
 
-    /// Whether the binding at `at` in `scope` has always run when
-    /// the definition `id` binds the name: it comes before the definition's
-    /// body or cannot run after it, and the innermost loop that repeats both
-    /// runs it before the definition in every pass.
-    fn binds_before(&self, scope: usize, id: usize, at: TextSize) -> bool {
-        let def = self.defs[id].def;
-        let start = def.start();
-        let bound = def.body.first().map_or(def.end(), Ranged::start);
+    /// Whether the binding at `at` in `scope` has always run when the
+    /// definition spanning `binder` with `body` binds the name: it comes
+    /// before the definition's body or cannot run after it, and the innermost
+    /// loop that repeats both runs it before the definition in every pass.
+    fn binds_before(&self, scope: usize, binder: TextRange, body: &[Stmt], at: TextSize) -> bool {
+        let start = binder.start();
+        let bound = body.first().map_or(binder.end(), Ranged::start);
         let Some(flow) = self.flow.get(&scope) else {
             return at <= bound;
         };
@@ -268,7 +268,7 @@ impl<'a> CallGraph<'a> {
             .iter()
             .filter(|&&repeated| repeats(repeated, at) && repeats(repeated, start))
             .min_by_key(|repeated| repeated.range().len());
-        (at <= bound || flow.excludes(at, def))
+        (at <= bound || flow.excludes(at, binder))
             && innermost.is_none_or(|repeated| flow.runs_in_order(repeated, at, start))
     }
 
@@ -370,7 +370,7 @@ impl<'a> CallGraph<'a> {
                         roots.extend(generator.ifs.iter().map(Node::Expr));
                     }
                     roots.extend(elements.into_iter().map(Node::Expr));
-                    self.collect_calls(def, roots, shadowed, &[], calls);
+                    self.collect_calls(def, roots, shadowed, &unbound(overrides), calls);
                     shadowed.truncate(depth);
                 }
                 Node::Expr(ast::Expr::Call(call)) => {
@@ -385,7 +385,9 @@ impl<'a> CallGraph<'a> {
 
     /// Collects the calls of a nested class: its decorators and bases run in
     /// the code around it, and its body runs statement by statement with the
-    /// names that the body itself binds.
+    /// names that the body itself binds. When the class binds its name in a
+    /// function scope, none of them runs once it has, so the name never means
+    /// the class there.
     fn collect_class_calls(
         &self,
         def: &Def<'a>,
@@ -394,18 +396,21 @@ impl<'a> CallGraph<'a> {
         overrides: &[(&'a str, Binding)],
         calls: &mut Vec<(usize, TextSize)>,
     ) {
+        let name = c.name.as_str();
+        let in_class_body = overrides
+            .iter()
+            .any(|&(bound, binding)| bound == name && !matches!(binding, Binding::Unbound));
+        let own = (!in_class_body).then_some((name, Binding::Unbound));
+        let header: Vec<(&'a str, Binding)> = overrides.iter().copied().chain(own).collect();
         let roots = decorators(&c.decorator_list).collect();
-        self.collect_calls(def, roots, shadowed, overrides, calls);
+        self.collect_calls(def, roots, shadowed, &header, calls);
         let depth = shadowed.len();
         shadowed.extend(type_param_names(c.type_params.as_deref()));
-        self.collect_calls(
-            def,
-            class_arguments(c).collect(),
-            shadowed,
-            overrides,
-            calls,
-        );
+        self.collect_calls(def, class_arguments(c).collect(), shadowed, &header, calls);
+        let unbound = unbound(&header);
         for (roots, body_overrides) in self.class_body_parts(c) {
+            let body_overrides: Vec<(&'a str, Binding)> =
+                unbound.iter().copied().chain(body_overrides).collect();
             self.collect_calls(def, roots, shadowed, &body_overrides, calls);
         }
         shadowed.truncate(depth);
@@ -541,7 +546,7 @@ impl<'a> CallGraph<'a> {
             .map(|&(_, binding)| binding);
         let targets: Vec<usize> = match binding {
             Some(Binding::Module) => self.callees(func, MODULE_SCOPE, None),
-            Some(Binding::Hidden) => Vec::new(),
+            Some(Binding::Hidden | Binding::Unbound) => Vec::new(),
             Some(Binding::Method(id)) => {
                 if matches!(func, ast::Expr::Name(_)) {
                     calls.push((id, start));
@@ -591,18 +596,26 @@ impl<'a> CallGraph<'a> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
-            if self.rebound.contains_key(&key)
-                || self.type_params.contains(&key)
-                || self.rebound.contains_key(&(current, "*"))
-                || self.names.get(&key).is_some_and(|d| !d.is_empty())
-            {
+            if self.type_params.contains(&key) || self.rebound.contains_key(&(current, "*")) {
                 return None;
             }
+            let rebound = self.rebound.get(&key);
+            let defs = self.names.get(&key).filter(|defs| !defs.is_empty());
             if let Some(classes) = self.classes.get(&key) {
-                return match classes.as_slice() {
-                    [class] => Some(*class),
-                    _ => None,
+                let [class] = classes.as_slice() else {
+                    return None;
                 };
+                let mut others = rebound.into_iter().flatten().copied().chain(
+                    defs.into_iter()
+                        .flatten()
+                        .map(|&id| self.defs[id].def.start()),
+                );
+                return others
+                    .all(|at| self.binds_before(current, class.range, &class.body, at))
+                    .then(|| class.start());
+            }
+            if rebound.is_some() || defs.is_some() {
+                return None;
             }
             scope = self.parent_scope[current];
         }
@@ -618,16 +631,22 @@ impl<'a> CallGraph<'a> {
             let key = (current, name);
             let rebound = self.rebound.get(&key);
             if let Some(defs) = self.names.get(&key) {
+                let classes = self.classes.get(&key).into_iter().flatten();
                 let others: Vec<TextSize> = rebound
                     .into_iter()
-                    .chain(self.classes.get(&key))
                     .flatten()
                     .copied()
+                    .chain(classes.map(|class| class.start()))
                     .collect();
                 return defs
                     .iter()
                     .copied()
-                    .filter(|&id| others.iter().all(|&at| self.binds_before(current, id, at)))
+                    .filter(|&id| {
+                        let def = self.defs[id].def;
+                        others
+                            .iter()
+                            .all(|&at| self.binds_before(current, def.range, &def.body, at))
+                    })
                     .collect();
             }
             if rebound.is_some() || self.type_params.contains(&key) {
@@ -648,10 +667,11 @@ struct Flow<'a> {
 }
 
 impl Flow<'_> {
-    /// Whether the binding at `at` cannot run once `def` has bound its name:
-    /// it sits in another branch of the same `if` or `match`, or in an
-    /// `except` handler of a `try` whose body runs nothing after `def`.
-    fn excludes(&self, at: TextSize, def: &ast::StmtFunctionDef) -> bool {
+    /// Whether the binding at `at` cannot run once the definition spanning
+    /// `def` has bound its name: it sits in another branch of the same `if`
+    /// or `match`, or in an `except` handler of a `try` whose body runs
+    /// nothing after the definition.
+    fn excludes(&self, at: TextSize, def: TextRange) -> bool {
         let start = def.start();
         let in_other_branch = self.branches.iter().any(|branches| {
             let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
@@ -717,6 +737,7 @@ impl Flow<'_> {
 enum Binding {
     Module,
     Hidden,
+    Unbound,
     Method(usize),
     Class(TextSize),
 }
@@ -920,6 +941,14 @@ impl<'a> Rebinds<'a> {
             }
         }
     }
+}
+
+fn unbound<'a>(overrides: &[(&'a str, Binding)]) -> Vec<(&'a str, Binding)> {
+    overrides
+        .iter()
+        .copied()
+        .filter(|(_, binding)| matches!(binding, Binding::Unbound))
+        .collect()
 }
 
 fn is_comprehension(expr: &ast::Expr) -> bool {
