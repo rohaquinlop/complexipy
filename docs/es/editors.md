@@ -415,7 +415,7 @@ añadir los hints `+N`.
 
 ## Límites
 
-Las comprobaciones de ratchet con `--diff` y las compuertas por código de
+Las comprobaciones de ratchet con `--diff` y los controles por código de
 salida siguen siendo solo de la CLI. El servidor de lenguaje está pensado para
 guiarte mientras escribes, no para sustituir el contrato de CI, así que el uso
 actual de CI no cambia.

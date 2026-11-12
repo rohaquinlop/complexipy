@@ -90,7 +90,7 @@ Mostrar solo las N funciones más complejas entre todos los archivos analizados:
 complexipy . --top 10
 ```
 
-Mostrar sugerencias deterministas de refactorización para funciones fallidas:
+Mostrar sugerencias deterministas de refactorización para las funciones que fallan:
 
 ```bash
 complexipy . --failed --suggest-refactors
@@ -253,7 +253,7 @@ Controla la salida en color:
 
 ```bash
 complexipy . --color auto  # Predeterminado: detecta automáticamente la compatibilidad con la terminal
-complexipy . --color yes   # Forza colores
+complexipy . --color yes   # Fuerza colores
 complexipy . --color no    # Deshabilita colores
 ```
 

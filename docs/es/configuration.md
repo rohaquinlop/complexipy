@@ -19,7 +19,7 @@ archivo que no se aplica.
 `--isolated` ignora todos los archivos de configuración, y `--config <ruta>`
 lee solo el archivo indicado: su sección `[tool.complexipy]` cuando el archivo
 se llama `pyproject.toml`, y el archivo completo en otro caso. Usa cualquiera
-de los dos en CI para fijar el gate, de modo que un cambio en la configuración
+de los dos en CI para fijar el control, de modo que un cambio en la configuración
 del repositorio no pueda alterarlo.
 
 Un archivo de configuración que no es un archivo regular, que pesa más de
@@ -104,7 +104,7 @@ desconocidas.
 ### Configuración de Diff
 
 La política de comparación se puede declarar una sola vez en el repositorio
-en lugar de pasar los mismos flags en cada llamada. Añade una sección
+en lugar de pasar las mismas flags en cada llamada. Añade una sección
 `[tool.complexipy.diff]` al mismo archivo de configuración:
 
 === "complexipy.toml"
@@ -130,13 +130,13 @@ en lugar de pasar los mismos flags en cada llamada. Añade una sección
   una ejecución concreta.
 - `staged` habilita la comparación staged por defecto, como pasar
   `--staged` en cada llamada.
-- Los flags de CLI siempre tienen prioridad sobre los valores de la sección.
+- Las flags de CLI siempre tienen prioridad sobre los valores de la sección.
 - `branch = ""` deshabilita el diff para el repositorio actual (opt-out),
   y con él el valor `staged` de la sección.
 - Una sección `[diff]` cambia lo que verifica el código de salida, así que
   cada ejecución en la que se aplica imprime una advertencia en stderr que
   nombra el archivo. Pasa `--diff`, `--isolated` o `--config <ruta>` para
-  fijar el gate en CI.
+  fijar el control en CI.
 - Orden de resolución: flag de CLI, luego la sección `diff`.
 - Si la `branch` configurada no existe en el clon local (por ejemplo un
   clon recién hecho o shallow), cada función se reporta como `NEW`, la

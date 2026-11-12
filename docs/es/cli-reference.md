@@ -33,8 +33,8 @@
 | `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
 | `--explain <regla>` | Imprime el id, el nombre, la categoría, la aplicabilidad, la descripción y el enlace a la documentación de una regla de refactorización, y termina sin analizar nada. Un id desconocido termina con un error que lista los ids válidos | - |
 
-Las banderas booleanas aceptan un valor explícito solo en la forma
-adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
+Las flags booleanas aceptan un valor explícito solo en la forma
+adjunta `--flag=<true|false>`. Una flag sin valor significa `true`,
 y el argumento siguiente nunca se consume como su valor.
 
 Ejemplo:

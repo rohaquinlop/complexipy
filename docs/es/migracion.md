@@ -56,7 +56,7 @@ compatibilidad con versiones antiguas se eliminaron:
 No se eliminó ninguna flag ni clave. Cambian las puntuaciones y parte de la
 salida:
 
-- **Puntuaciones** - esta versión aplica más reglas del paper de complejidad
+- **Puntuaciones** - esta versión aplica más reglas del artículo de complejidad
   cognitiva: comprensiones, `else` en bucles y `try`, operadores booleanos
   mezclados, ciclos de recursión, definiciones anidadas y expresiones
   condicionales en más lugares. Sobre el código fuente de django, cambia la

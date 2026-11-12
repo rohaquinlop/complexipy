@@ -87,7 +87,7 @@ archivo de configuración vuelve a registrar la línea base en cada ejecución,
 así que toda violación actual pasa; esa ejecución imprime una advertencia en
 stderr que nombra el archivo.
 
-### Cómo Funcionan las snapshots
+### Cómo Funcionan los Snapshots
 
 Una vez que exista un snapshot, complexipy:
 
@@ -118,7 +118,7 @@ jobs:
               run: complexipy . --max-complexity-allowed 15
 ```
 
-El archivo de snapshot (`complexipy-snapshot.json`) debería ser commiteado al control de versiones.
+El archivo de snapshot (`complexipy-snapshot.json`) debería incluirse en el control de versiones.
 
 ### Ignorar snapshots
 

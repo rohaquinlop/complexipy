@@ -183,7 +183,7 @@ regressions = [
     if e.status == DiffStatus.REGRESSED and e.new_complexity > 15
 ]
 
-# O usar la compuerta de ratchet directamente (falla con REGRESSED/NEW sobre el umbral)
+# O usar el control de ratchet directamente (falla con REGRESSED/NEW sobre el umbral)
 if has_regressions(entries, 15):
     raise SystemExit("Regresiones de complejidad detectadas")
 ```

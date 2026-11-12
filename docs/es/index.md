@@ -101,7 +101,7 @@ complexipy .
 # Establece un umbral personalizado
 complexipy . --max-complexity-allowed 10
 
-# Muestra las funciones fallidas con sugerencias de refactorización
+# Muestra las funciones que fallan con sugerencias de refactorización
 complexipy . --failed --suggest-refactors
 
 # Guarda los resultados en JSON
