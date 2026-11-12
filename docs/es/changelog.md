@@ -181,7 +181,8 @@ GitHub con todos los detalles.
   reciben `:<line>` después de la ruta
   ([#326](https://github.com/rohaquinlop/complexipy/issues/326)).
 - El helper de C005 ya no lleva la anotación `-> bool`, porque `and` y `or`
-  devuelven un operando, no un bool.
+  devuelven un operando, no un bool
+  ([#263](https://github.com/rohaquinlop/complexipy/issues/263)).
 - Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta
   las advertencias: solo oculta el reporte. Las advertencias de `--diff` y
   `--staged` pasaron de stdout a stderr, así que ya no se mezclan con un
@@ -218,7 +219,8 @@ GitHub con todos los detalles.
 - La wheel musllinux de x86_64 se vuelve a importar. En 8.3.0 fallaba al
   importarse con `initial-exec TLS resolves to dynamic definition`, porque
   mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede
-  cargar desde una extensión de Python.
+  cargar desde una extensión de Python
+  ([#311](https://github.com/rohaquinlop/complexipy/pull/311)).
 
 ## [8.3.0] - 2026-10-26
 
