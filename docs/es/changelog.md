@@ -6,25 +6,39 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+!!! note "Migración"
+
+    Esta versión aplica más reglas del paper de complejidad cognitiva, así que
+    las puntuaciones cambian. Sobre el código fuente de django, cambia la
+    puntuación de 1.946 de 30.813 funciones: 1.481 bajan y 465 suben, y el
+    total de todos los archivos baja un 7%. Vuelve a ejecutar `complexipy`
+    después de actualizar y revisa tus umbrales y snapshots. Los scripts que
+    leen la salida de `--plain`, o las advertencias en stdout, también
+    necesitan un cambio. Consulta la
+    [guía de migración](https://complexipy.com/es/migracion/) para actualizar.
+
 ### Añadido
 
 - `--diff`, `--diff-only` y `--staged` listan, debajo de la tabla del diff,
   cada función que un comentario de ignorado oculta ahora pero no ocultaba en
   la referencia, como `ruta:línea función puntuación`, con la puntuación
   tomada sin tener en cuenta el comentario. La lista nunca cambia el código de
-  salida, y `--quiet` la oculta.
+  salida, y `--quiet` la oculta
+  ([#327](https://github.com/rohaquinlop/complexipy/issues/327)).
 - Cada entrada JSON incluye `line_start`, `line_end` y `line_complexities`: las
-  líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos
-  valores de `complexity` suman la `complexity` de la función. Dos funciones
-  con el mismo nombre en un archivo ahora se distinguen por sus líneas. La
-  salida CSV, GitLab y SARIF no cambia.
+  líneas que suman a la puntuación, una entrada por línea en orden de línea,
+  cuyos valores de `complexity` suman la `complexity` de la función. Dos
+  funciones con el mismo nombre en un archivo ahora se distinguen por sus
+  líneas. La salida CSV, GitLab y SARIF no cambia
+  ([#325](https://github.com/rohaquinlop/complexipy/issues/325)).
 - `--output -` escribe el reporte en stdout cuando se selecciona exactamente
   un `--output-format`, así que
   `complexipy . --output-format json --output - | jq .` funciona. stdout
   contiene entonces solo el reporte: la salida de consola se suprime como con
   `--quiet`, y las advertencias y los errores van a stderr. El código de salida
   es el mismo que con un archivo. Con dos o más formatos, `--output -` falla
-  antes de que corra el análisis.
+  antes de que corra el análisis
+  ([#324](https://github.com/rohaquinlop/complexipy/issues/324)).
 - El servidor de lenguaje responde a `textDocument/codeAction` con una acción
   de código por cada sugerencia de refactorización de cada función que supere
   el umbral en el rango solicitado. Una sugerencia que `--fix` aplicaría es una
@@ -67,9 +81,14 @@ GitHub con todos los detalles.
   los patrones de `exclude` a los archivos pasados explícitamente como
   argumentos. Sin él, un archivo explícito se analiza como antes. Úsalo con
   pre-commit, que nombra cada archivo modificado, para que se aplique el
-  `exclude` configurado.
+  `exclude` configurado
+  ([#293](https://github.com/rohaquinlop/complexipy/issues/293)).
+- El esquema de configuración está en el catálogo de SchemaStore, así que un
+  servidor de lenguaje TOML como Taplo autocompleta y valida
+  `complexipy.toml` y `.complexipy.toml` sin una línea `#:schema`
+  ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
 
-### Cambiado
+### Cambiado (puntuación)
 
 - Las cláusulas `for` e `if` de una comprensión no suman nada y ya no elevan
   el nivel de anidamiento, porque una comprensión es una abreviatura de un
@@ -79,81 +98,66 @@ GitHub con todos los detalles.
   se leen de izquierda a derecha, así que `a or b and c or d` puntúa 3 en
   lugar de 2. Las puntuaciones bajan para el código con comprensiones y suben
   con `else` en bucles y `try`. Algunas condiciones mezcladas suben y otras
-  bajan: `(a or (b and c)) and d` pasa de 3 a 2. El total de
-  `tests/src/test_for_assign.py` pasa de 2 a 1 y el de
-  `tests/src/test_try_nested.py` de 10 a 12.
-- Cada función en un ciclo de recursión suma +1, para ciclos indirectos (`a`
-  llama a `b`, `b` llama a `a`), para métodos que llaman a `self.m()` o
-  `cls.m()`, y para funciones anidadas y los métodos de una clase anidada en
-  una función, cuyo +1 va a la función que los contiene, como indica el paper.
-  Las llamadas se resuelven dentro de un archivo: un nombre simple al ámbito
-  de función o de módulo más cercano que lo define, y `self.m()` a un método
-  de la misma clase. Una función interna recursiva de una fábrica de
-  decoradores ahora suma +1 a la fábrica. Un método que llama a un nombre
-  simple igual al suyo, como `def get(self): return get(x)`, ya no puntúa como
-  recursivo, porque ese nombre no es el método.
+  bajan: `(a or (b and c)) and d` pasa de 3 a 2
+  ([#342](https://github.com/rohaquinlop/complexipy/issues/342),
+  [#351](https://github.com/rohaquinlop/complexipy/issues/351)).
+- Cada función en un ciclo de recursión suma +1: ciclos indirectos (`a` llama
+  a `b`, `b` llama a `a`), métodos que llaman a `self.m()` o `cls.m()`, y
+  funciones anidadas, cuyo +1 va a la función que las contiene, como indica el
+  paper. Las llamadas se resuelven dentro de un archivo, con las reglas de
+  [Entendiendo las puntuaciones de complejidad](https://complexipy.com/es/understanding-scores/#4-casos-especiales).
+  Un método que llama a un nombre simple igual al suyo, como
+  `def get(self): return get(x)`, ya no puntúa como recursivo
+  ([#340](https://github.com/rohaquinlop/complexipy/issues/340)).
 - Una llamada a través del nombre de la clase, como `K.s()` en un método
-  estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
-  método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
-  ámbito que un nombre simple, a exactamente una clase del archivo, y todo
-  otro enlace de `K` en ese ámbito siempre se ha ejecutado antes de que la
-  clase enlace `K`, con la misma regla de orden que un `def` de nombre simple.
-  Un import con asterisco o un parámetro de tipo en ese ámbito, o un enlace
-  hecho a través de una declaración `global` o `nonlocal`, deja la llamada sin
-  resolver.
-  Una llamada a través de `K` en los decoradores, las bases o el cuerpo de la
-  propia clase `K` no se resuelve a ella, porque la clase aún no ha enlazado
-  su nombre.
-- Una llamada a un nombre simple ya no cuenta como recursión cuando un enlace
-  de quien llama oculta la función: un parámetro, una asignación, un walrus,
-  un destino de `for` o `with`, un nombre de `except ... as`, una captura de
-  `match`, un `del`, un import, un alias de tipo o una clase, así que
-  `def f(f): return f()` puntúa 0. Un ámbito que enlaza el nombre de una
-  función con un `def` y de otra forma se resuelve a cada `def` antes del cual
-  todos los demás enlaces ya se ejecutaron siempre: el enlace está antes en el
-  código, en otra rama del mismo `if` o `match`, o en un manejador `except` de
-  un `try` cuyo cuerpo no ejecuta nada después del `def`. En un bucle que
-  repite a ambos, el enlace también se ejecuta antes en cada pasada: el `def`
-  no está en un `if` u otro bloque propio dentro del bucle, ningún `break` ni
-  `continue` queda entre ellos, ningún `try` o `with` rodea el bucle, y el
-  enlace no está en la condición de un `while`. Una declaración `global` o
-  `nonlocal` que reenlaza el nombre oculta todos los `def`. Así
-  `f = wrap(f)` después de `def f` hace que `f()` no sume nada, y `f = 1`
-  antes de `def f` mantiene el +1.
+  estático de `K`, ahora cuenta para un ciclo de recursión cuando `K` nombra
+  exactamente una clase del archivo y ningún otro enlace de `K` puede
+  reemplazarla
+  ([#354](https://github.com/rohaquinlop/complexipy/issues/354),
+  [#363](https://github.com/rohaquinlop/complexipy/issues/363)).
+- Una llamada a un nombre simple ya no cuenta como recursión cuando otro
+  enlace oculta la función, como un parámetro, una asignación o un import,
+  así que `def f(f): return f()` puntúa 0. Cuando un ámbito enlaza el nombre
+  con un `def` y de otra forma, la llamada cuenta solo si el otro enlace
+  siempre se ejecuta antes: `f = 1` antes de `def f` mantiene el +1, y
+  `f = wrap(f)` después lo quita
+  ([#361](https://github.com/rohaquinlop/complexipy/issues/361)).
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
-  anidada en una función, ahora cuenta para la función que la contiene, porque
-  ese código se ejecuta cuando se ejecuta la función. Los parámetros propios
-  de una lambda, las variables de bucle de una comprensión y los parámetros de
-  tipo de una clase o función ocultan los nombres externos donde son visibles,
-  así que `lambda f: f()` y `[f(x) for f in fs]` dentro de `f` no son
-  recursivas. Una llamada en el cuerpo de una clase a un nombre que el mismo
-  cuerpo enlaza va al enlace del módulo cuando se ejecuta antes de ese enlace,
-  y al enlace de la clase después; cuando el orden no se puede saber, la
-  llamada no suma nada.
+  anidada en una función, ahora cuenta para la función que la contiene. Los
+  parámetros de una lambda, las variables de una comprensión y los parámetros
+  de tipo ocultan los nombres externos, así que `lambda f: f()` dentro de `f`
+  no es recursiva
+  ([#349](https://github.com/rohaquinlop/complexipy/issues/349)).
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
   clase, como indica el paper. Antes solo lo hacía un `def` colocado
   directamente en el cuerpo de una función. El cuerpo de una clase dentro de
   una función ahora se puntúa completo, y una clase no eleva el anidamiento
   por sí misma. Con `--check-script`, el cuerpo de una clase a nivel de módulo
-  cuenta para `<module>`; los cuerpos de los métodos no.
+  cuenta para `<module>`; los cuerpos de los métodos no
+  ([#339](https://github.com/rohaquinlop/complexipy/issues/339)).
 - La excepción de decoradores de Python solo se aplica cuando una función
   devuelve su función anidada, por nombre o como argumento directo de una
   llamada como `functools.wraps(f)(inner)`, así que `return inner()` ya no
   elimina el incremento por anidamiento. Un docstring inicial ya no impide la
-  excepción, y las expresiones del `return` ahora cuentan.
+  excepción, y las expresiones del `return` ahora cuentan
+  ([#341](https://github.com/rohaquinlop/complexipy/issues/341),
+  [#353](https://github.com/rohaquinlop/complexipy/issues/353)).
 - Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión en la guarda de un `case` ahora cuentan, en el nivel de
   anidamiento del `match`. La guarda en sí no suma nada, a diferencia del +1
-  de un `elif`. Una guarda compleja
-  puede recibir un plan C005 con texto de ayuda.
+  de un `elif`. Una guarda compleja puede recibir un plan C005 con texto de
+  ayuda
+  ([#338](https://github.com/rohaquinlop/complexipy/issues/338),
+  [#352](https://github.com/rohaquinlop/complexipy/issues/352)).
 - Los decoradores y valores por defecto de un `def` de nivel de módulo, los
   decoradores, bases y palabras clave de una `class` de nivel de módulo, y las
   cabeceras de sus métodos directos ahora cuentan para el ámbito del módulo:
   la entrada `<module>` con `--check-script`, y el total del archivo sin él.
   Esto también vale para una función ignorada. Las puntuaciones de las
-  funciones no cambian.
+  funciones no cambian
+  ([#338](https://github.com/rohaquinlop/complexipy/issues/338)).
 - Una expresión condicional, una secuencia de operadores booleanos o una
   comprensión ahora cuentan en más partes de una sentencia: los destinos de
   asignación, asignación aumentada, asignación anotada, `del`, `for` y
@@ -163,27 +167,38 @@ GitHub con todos los detalles.
   contiene, en el nivel de anidamiento de la definición. Sube la puntuación de
   las funciones que tienen estos casos. Un sujeto de `match` o un tipo de
   `except` complejo ahora puede recibir un plan C005, con texto de ayuda y sin
-  sugerencia.
+  sugerencia
+  ([#336](https://github.com/rohaquinlop/complexipy/issues/336)).
+
+### Cambiado (CLI y salida)
+
 - `--plain` imprime cada función como `<path>:<line> <function> <complexity>`,
   así que los editores y las terminales pueden enlazar la línea. Con
   `--suggest-refactors`, cada plan agrega una línea con sangría con su id de
   regla, su título y su reducción, por ejemplo
   `  C007 Merge 3 nested if statements (-4)`; un `~` marca una reducción
   estimada. Los scripts que leen el primer campo de una línea `--plain` ahora
-  reciben `:<line>` después de la ruta.
+  reciben `:<line>` después de la ruta
+  ([#326](https://github.com/rohaquinlop/complexipy/issues/326)).
 - El helper de C005 ya no lleva la anotación `-> bool`, porque `and` y `or`
   devuelven un operando, no un bool.
 - Cada advertencia de la CLI se imprime en stderr, y `--quiet` ya no oculta
-  las advertencias: solo oculta el informe. Las advertencias de `--diff` y
+  las advertencias: solo oculta el reporte. Las advertencias de `--diff` y
   `--staged` pasaron de stdout a stderr, así que ya no se mezclan con un
-  informe que otra herramienta lee desde una tubería
+  reporte que otra herramienta lee desde una tubería
   ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
-- La documentación indica que `--diff`, `--diff-only` y `--staged` requieren
-  Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
-  Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
+
+### Rendimiento
+
 - La wheel musllinux de aarch64 reserva memoria con mimalloc, como la de
   x86_64. Sobre el código fuente de django se ejecuta entre 4 y 5 veces más
   rápido ([#303](https://github.com/rohaquinlop/complexipy/issues/303)).
+
+### Documentación
+
+- La documentación indica que `--diff`, `--diff-only` y `--staged` requieren
+  Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
+  Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
 ### Corregido
 
@@ -194,10 +209,12 @@ GitHub con todos los detalles.
   métodos, un atributo, un subíndice, una operación binaria, un `await`, un
   f-string, una lambda invocada, el valor por defecto de un parámetro de lambda
   o un operando de `-`, `~`, `not`, `and` u `or`, así que `f(k=a if b else c)`
-  puntuaba 0.
-  Las secuencias de operadores booleanos y las comprensiones en esos mismos
-  lugares también cuentan, así que `(a or b) + 1` ahora puntúa 1. Las
-  puntuaciones suben en las funciones que usan estas formas.
+  puntuaba 0. Las secuencias de operadores booleanos y las comprensiones en
+  esos mismos lugares también cuentan, así que `(a or b) + 1` ahora puntúa 1.
+  Las puntuaciones suben en las funciones que usan estas formas
+  ([#334](https://github.com/rohaquinlop/complexipy/issues/334), gracias a
+  [@glictevo](https://github.com/glictevo) en
+  [#335](https://github.com/rohaquinlop/complexipy/pull/335)).
 - La wheel musllinux de x86_64 se vuelve a importar. En 8.3.0 fallaba al
   importarse con `initial-exec TLS resolves to dynamic definition`, porque
   mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede

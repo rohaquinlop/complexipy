@@ -5,23 +5,36 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+!!! note "Migration"
+
+    This release applies more of the cognitive complexity paper's rules, so
+    scores change. On the django source tree, 1,946 of 30,813 functions change
+    score: 1,481 go down and 465 go up, and the total of all files drops by 7%.
+    Re-run `complexipy` after upgrading and review your thresholds and
+    snapshots. Scripts that read `--plain` output, or warnings on stdout, also
+    need a change. See the
+    [migration guide](https://complexipy.com/migration/) for upgrade
+    guidance.
+
 ### Added
 
 - `--diff`, `--diff-only`, and `--staged` list, below the diff table, each
   function that an ignore comment hides now but did not hide at the
   reference, as `path:line function score`, the score taken with the comment
-  disregarded. The list never changes the exit code, and `--quiet` hides it.
+  disregarded. The list never changes the exit code, and `--quiet` hides it
+  ([#327](https://github.com/rohaquinlop/complexipy/issues/327)).
 - Each JSON entry carries `line_start`, `line_end`, and `line_complexities`:
   the lines that add to the score, one entry per line in line order, whose
   `complexity` values sum to the function's `complexity`. Two functions with
   one name in one file are now told apart by their lines. CSV, GitLab, and
-  SARIF output do not change.
+  SARIF output do not change
+  ([#325](https://github.com/rohaquinlop/complexipy/issues/325)).
 - `--output -` writes the report to stdout when exactly one `--output-format`
   is selected, so `complexipy . --output-format json --output - | jq .` works.
   stdout then holds only the report: the console output is suppressed as with
   `--quiet`, and warnings and errors go to stderr. The exit code is the same as
   with a file. With two or more formats, `--output -` fails before the analysis
-  runs.
+  runs ([#324](https://github.com/rohaquinlop/complexipy/issues/324)).
 - The language server answers `textDocument/codeAction` with one code action
   per refactoring suggestion of each function over the threshold in the
   requested range. A suggestion `--fix` would apply is a quick fix that rewrites
@@ -57,9 +70,14 @@ release section links to its GitHub release notes for the full details.
 - `--force-exclude`, also `force-exclude = true` in the configuration, applies
   `exclude` patterns to files passed explicitly as arguments. Without it, an
   explicit file is analyzed as before. Pass it under pre-commit, which names
-  each changed file, so the configured `exclude` applies there.
+  each changed file, so the configured `exclude` applies there
+  ([#293](https://github.com/rohaquinlop/complexipy/issues/293)).
+- The configuration schema is in the SchemaStore catalog, so a TOML language
+  server such as Taplo completes and validates `complexipy.toml` and
+  `.complexipy.toml` with no `#:schema` line
+  ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
 
-### Changed
+### Changed (scoring)
 
 - Comprehension `for` and `if` clauses add nothing and no longer raise the
   nesting level, since a comprehension is shorthand for a loop. `else` on
@@ -68,70 +86,59 @@ release section links to its GitHub release notes for the full details.
   increment. Mixed boolean operators are read left to right, so
   `a or b and c or d` scores 3 instead of 2. Scores drop for code with
   comprehensions and rise for loop and `try` `else`. Some mixed conditions
-  score higher and some lower: `(a or (b and c)) and d` goes from 3 to 2. The
-  `tests/src/test_for_assign.py` total goes from 2 to 1 and the
-  `tests/src/test_try_nested.py` total from 10 to 12.
-- Each function in a recursion cycle adds +1, for indirect cycles (`a` calls
-  `b`, `b` calls `a`), for methods that call `self.m()` or `cls.m()`, and for
-  nested functions and the methods of a class nested in a function, whose +1
-  goes to the enclosing function, as the paper prescribes. Calls resolve
-  within one file: a bare name to the nearest function or module scope that
-  defines it, and `self.m()` to a method of the same class. A recursive inner
-  function of a decorator factory now adds +1 to the factory. A method that
-  calls a bare name equal to its own, such as `def get(self): return get(x)`,
-  no longer scores as recursive, since that name is not the method.
+  score higher and some lower: `(a or (b and c)) and d` goes from 3 to 2
+  ([#342](https://github.com/rohaquinlop/complexipy/issues/342),
+  [#351](https://github.com/rohaquinlop/complexipy/issues/351)).
+- Each function in a recursion cycle adds +1: indirect cycles (`a` calls `b`,
+  `b` calls `a`), methods that call `self.m()` or `cls.m()`, and nested
+  functions, whose +1 goes to the enclosing function, as the paper prescribes.
+  Calls resolve within one file, by the rules in
+  [Understanding Complexity Scores](https://complexipy.com/understanding-scores/#4-special-cases).
+  A method that calls a bare name equal to its own, such as
+  `def get(self): return get(x)`, no longer scores as recursive
+  ([#340](https://github.com/rohaquinlop/complexipy/issues/340)).
 - A call through the class name, such as `K.s()` in a static method of `K`,
-  now counts toward a recursion cycle. It resolves to a method of `K` when the
-  name `K` resolves, by the same scope lookup as a bare name, to exactly one
-  class of the file, and every other binding of `K` in that scope has always
-  run before the class binds it, by the same order rule as a bare-name
-  `def`. A star import or a type parameter in that scope, or a binding made
-  through a `global` or `nonlocal` declaration, leaves the call unresolved.
-  A call through `K` in the decorators, bases, or body of class `K` itself
-  does not resolve to it, since the class has not bound its name yet.
-- A bare-name call no longer counts as recursion when a binding of the
-  caller hides the function: a parameter, an assignment, a walrus, a `for` or
-  `with` target, an `except ... as` name, a `match` capture, a `del`, an
-  import, a type alias, or a class, so `def f(f): return f()` scores 0. A
-  scope that binds a function name both by `def` and another way resolves to
-  each `def` that every other binding has always run before: the binding
-  comes earlier in the code, in another branch of the same `if` or `match`,
-  or in an `except` handler of a `try` whose body runs nothing after the
-  `def`. In a loop that repeats both, the binding also runs earlier in every
-  pass: the `def` does not sit in an `if` or other block of its own in the
-  loop, no `break` or `continue` comes between them, no `try` or `with` is
-  around the loop, and the binding is not in a `while` test. A `global` or
-  `nonlocal` declaration that rebinds the name hides every `def`. So
-  `f = wrap(f)` after `def f` makes `f()` add nothing, and `f = 1` before
-  `def f` keeps the +1.
+  now counts toward a recursion cycle when `K` names exactly one class of the
+  file and no other binding of `K` can replace it
+  ([#354](https://github.com/rohaquinlop/complexipy/issues/354),
+  [#363](https://github.com/rohaquinlop/complexipy/issues/363)).
+- A bare-name call no longer counts as recursion when another binding hides
+  the function, such as a parameter, an assignment, or an import, so
+  `def f(f): return f()` scores 0. When a scope binds the name both by `def`
+  and another way, the call counts only if the other binding always runs
+  first: `f = 1` before `def f` keeps the +1, and `f = wrap(f)` after it
+  removes it ([#361](https://github.com/rohaquinlop/complexipy/issues/361)).
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
-  the enclosing function, since that code runs when the function runs. A
-  lambda's own parameters, a comprehension's loop variables, and the type
-  parameters of a class or function hide outer names where they are visible,
-  so `lambda f: f()` and `[f(x) for f in fs]` inside `f` are not recursive. A
-  call in a class body to a name that the same class body binds goes to the
-  module's binding when it runs before that binding, and to the class's
-  binding after it; when the order cannot be known, the call adds nothing.
+  the enclosing function. Lambda parameters, comprehension variables, and
+  type parameters hide outer names, so `lambda f: f()` inside `f` is not
+  recursive ([#349](https://github.com/rohaquinlop/complexipy/issues/349)).
 - A nested function raises the nesting level of its body wherever it sits,
   under `if`, `for`, `while`, `with`, `try`, `match`, or in a class, as the
   paper prescribes. Before, only a `def` placed directly in a function body
   did. A class body inside a function is now scored in full, and a class does
   not raise the nesting level itself. With `--check-script`, the body of a
-  module-level class counts toward `<module>`; method bodies do not.
+  module-level class counts toward `<module>`; method bodies do not
+  ([#339](https://github.com/rohaquinlop/complexipy/issues/339)).
 - The Python decorator exception applies only when a function returns its
   nested function, by name or as a direct argument of a call such as
   `functools.wraps(f)(inner)`, so `return inner()` no longer drops the nesting
   increment. A leading docstring no longer stops the exception, and the
-  expressions in the `return` now count.
+  expressions in the `return` now count
+  ([#341](https://github.com/rohaquinlop/complexipy/issues/341),
+  [#353](https://github.com/rohaquinlop/complexipy/issues/353)).
 - A conditional expression, a boolean operator sequence, or a comprehension
   in a `case` guard now counts, at the nesting level of the `match`. The
-  guard itself adds nothing, unlike the +1 of an `elif`. A complex guard can get a C005 plan with help text.
+  guard itself adds nothing, unlike the +1 of an `elif`. A complex guard can
+  get a C005 plan with help text
+  ([#338](https://github.com/rohaquinlop/complexipy/issues/338),
+  [#352](https://github.com/rohaquinlop/complexipy/issues/352)).
 - The decorators and defaults of a module-level `def`, the decorators, bases,
   and keywords of a module-level `class`, and the headers of their direct
   methods now count toward module scope: the `<module>` entry with
   `--check-script`, and the file total without it. This also holds for an
-  ignored function. Function scores do not change.
+  ignored function. Function scores do not change
+  ([#338](https://github.com/rohaquinlop/complexipy/issues/338)).
 - A conditional expression, a boolean operator sequence, or a comprehension
   now counts in more statement parts: assignment, augmented assignment,
   annotated assignment, `del`, `for`, and `with ... as` targets, the `match`
@@ -139,13 +146,18 @@ release section links to its GitHub release notes for the full details.
   and the decorators, bases, and keywords of a nested `class`, count toward
   the enclosing function at the nesting level of the definition. Scores of
   functions that hold these sites go up. A complex `match` subject or
-  `except` type can now get a C005 plan, with help text and no suggestion.
+  `except` type can now get a C005 plan, with help text and no suggestion
+  ([#336](https://github.com/rohaquinlop/complexipy/issues/336)).
+
+### Changed (CLI and output)
+
 - `--plain` prints each function as `<path>:<line> <function> <complexity>`,
   so editors and terminals can link to the line. With `--suggest-refactors`,
   each plan adds an indented line with its rule id, title, and reduction, for
   example `  C007 Merge 3 nested if statements (-4)`; a `~` marks an estimated
   reduction. Scripts that parse the first field of a `--plain` line now get
-  `:<line>` after the path.
+  `:<line>` after the path
+  ([#326](https://github.com/rohaquinlop/complexipy/issues/326)).
 - The C005 helper no longer carries a `-> bool` annotation, because `and` and
   `or` return an operand, not a bool.
 - Every CLI warning prints to stderr, and `--quiet` no longer hides warnings:
@@ -153,12 +165,18 @@ release section links to its GitHub release notes for the full details.
   stdout to stderr, so they no longer mix with a report that another tool
   reads from a pipe
   ([#294](https://github.com/rohaquinlop/complexipy/issues/294)).
-- The docs state that `--diff`, `--diff-only`, and `--staged` require Git 2.30
-  or newer on `PATH`. Analysis without these options does not require Git
-  ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
+
+### Performance
+
 - The aarch64 musllinux wheel allocates with mimalloc, like the x86_64 one.
   On the django source tree it runs about 4 to 5 times faster
   ([#303](https://github.com/rohaquinlop/complexipy/issues/303)).
+
+### Documentation
+
+- The docs state that `--diff`, `--diff-only`, and `--staged` require Git 2.30
+  or newer on `PATH`. Analysis without these options does not require Git
+  ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
 
 ### Fixed
 
@@ -170,7 +188,10 @@ release section links to its GitHub release notes for the full details.
   default, or an operand of `-`, `~`, `not`, `and`, or `or`, so
   `f(k=a if b else c)` scored 0. Boolean operator sequences and comprehensions
   in the same places count too, so `(a or b) + 1` now scores 1. Scores rise for
-  functions that use these forms.
+  functions that use these forms
+  ([#334](https://github.com/rohaquinlop/complexipy/issues/334), thanks to
+  [@glictevo](https://github.com/glictevo) in
+  [#335](https://github.com/rohaquinlop/complexipy/pull/335)).
 - The x86_64 musllinux wheel imports again. In 8.3.0 it failed on import with
   `initial-exec TLS resolves to dynamic definition`, because mimalloc used a
   thread-local storage model that musl cannot load from a Python extension.
