@@ -21,9 +21,9 @@ Inside the editor you get:
   that rewrites the buffer in one undoable edit. The others appear in the
   refactor menu with their help text.
 
-Results refresh as you type. The server uses full document sync and analyzes
-only the documents you have open, so there is no workspace-wide scan and no
-need to save.
+Results refresh as you type. The server uses full document sync and, by default,
+analyzes only the documents you have open, so there is no workspace-wide scan
+unless `lsp.workspace-diagnostics` is on, and no need to save.
 
 ## Installation
 
@@ -211,6 +211,9 @@ at the root of each workspace folder:
 | `max-complexity-allowed` | `15` | Functions strictly above this value are reported. A function at the limit passes. |
 | `exclude` | `[]` | Glob patterns, matched relative to the workspace folder that holds the configuration file and to each of its `paths` entries. Excluded files produce no hints and no diagnostics. |
 | `no-ignore` | `false` | Analyze functions even when an inline ignore comment suppresses them. |
+| `paths` | `[]` | Folders that `exclude` and `lsp.workspace-diagnostics` work from, relative to the workspace folder. Empty means the workspace folder itself. |
+| `select` | all rules | Refactoring rules or rule groups the server suggests, as in [Rule Selection](ignores.md#rule-selection). |
+| `ignore` | `[]` | Refactoring rules or rule groups the server never suggests. Wins over `select`. |
 | `lsp.inlay-hints` | `"threshold"` | When to show the per-function hint: `"threshold"`, `"always"`, or `"never"`. |
 | `lsp.per-line-hints` | `false` | Also show a `+N` hint on every line with a non-zero complexity increment. |
 | `lsp.diagnostics` | `true` | Publish warnings for functions above `max-complexity-allowed`. |

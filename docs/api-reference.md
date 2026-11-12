@@ -98,9 +98,6 @@ from complexipy import file_complexity
 result = file_complexity("src/main.py", check_script=True)
 
 print(f"Total complexity: {result.complexity}")
-
-# Analyze without honoring inline ignore comments
-result = file_complexity("src/main.py", no_ignore=True)
 print(f"File path: {result.path}")
 
 # Iterate over functions
@@ -108,6 +105,9 @@ for func in result.functions:
     print(f"{func.name}:")
     print(f"  Complexity: {func.complexity}")
     print(f"  Lines: {func.line_start}-{func.line_end}")
+
+# Analyze without honoring inline ignore comments
+result = file_complexity("src/main.py", no_ignore=True)
 ```
 
 ### Analyzing Code Strings
@@ -129,11 +129,11 @@ def calculate_discount(price, customer):
 result = code_complexity(code, check_script=True)
 print(f"Complexity: {result.complexity}")
 
-# Analyze code string without honoring ignore comments
-result = code_complexity(code, no_ignore=True)
-
 for func in result.functions:
     print(f"{func.name}: {func.complexity}")
+
+# Analyze code string without honoring ignore comments
+result = code_complexity(code, no_ignore=True)
 ```
 
 Both functions build refactor plans by default. Pass `with_plans=False` when

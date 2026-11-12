@@ -21,6 +21,7 @@
 | `--plain` | Emite líneas de texto plano como `<path>:<line> <function> <complexity>`. No se puede combinar con `--quiet` | `false` |
 | `--output-format <format>` | Selecciona un formato de salida legible por máquinas. Repite la flag para varios formatos (`json`, `csv`, `gitlab`, `sarif`) | - |
 | `--output <path>` | Escribe la salida legible por máquinas en un archivo o directorio. Usa un directorio cuando emitas varios formatos. Usa `-` para escribir un solo formato en stdout: la salida de consola se suprime como con `--quiet`, y las advertencias y los errores van a stderr | - |
+| `--cache-dir <ruta>` | Guarda la caché por función en este directorio en lugar de `.complexipy_cache/` (ver [Configuración de la caché](configuration.md#configuracion-de-la-cache)) | `.complexipy_cache` |
 | `--diff <ref>` | Muestra un diff de complejidad contra una referencia de git y aplica el umbral. Falla si hay regresiones por encima de `--max-complexity-allowed` (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | - |
 | `--diff-only <ref>` | Muestra un diff de complejidad visualmente sin afectar el código de salida (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | - |
 | `--staged` | Compara los cambios staged (índice de git) contra la referencia de `--diff` (por defecto `HEAD`). Responde "¿qué complejidad estoy a punto de commitear?" (ver [Diff de Complejidad](diff-and-snapshots.md#diff-de-complejidad)) | `false` |
@@ -32,8 +33,8 @@
 | `--config <ruta>` | Lee la configuración solo de este archivo, en lugar de los archivos del directorio de invocación | - |
 | `--explain <regla>` | Imprime el id, el nombre, la categoría, la aplicabilidad, la descripción y el enlace a la documentación de una regla de refactorización, y termina sin analizar nada. Un id desconocido termina con un error que lista los ids válidos | - |
 
-Las banderas booleanas aceptan un valor explícito solo en la forma
-adjunta `--flag=<true|false>`. Una bandera sin valor significa `true`,
+Las flags booleanas aceptan un valor explícito solo en la forma
+adjunta `--flag=<true|false>`. Una flag sin valor significa `true`,
 y el argumento siguiente nunca se consume como su valor.
 
 Ejemplo:

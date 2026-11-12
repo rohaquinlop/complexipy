@@ -48,7 +48,7 @@ Suprime las advertencias de complejidad para funciones específicas usando el co
 
 ```python
 def complex_legacy_function():  # complexipy: ignore
-    # Lógica compleja que no puede ser refactorizada
+    # Lógica compleja que todavía no se puede refactorizar
     pass
 
 # O con un motivo
@@ -127,7 +127,7 @@ complexipy . --report-ignored --no-ignore
 
 Cada ubicación se imprime como `ruta:línea  # texto-del-comentario`, seguida del total. Cuando `--output-format json` también está activo, las ubicaciones ignoradas se exportan a `complexipy-ignored.json`. `--quiet` oculta la lista, y la exportación JSON se escribe de todos modos. Con `--output -`, el archivo se escribe en el directorio desde el que se ejecuta complexipy.
 
-Ambos flags también están disponibles en la API de Python mediante `no_ignore=True`:
+Ambas flags también están disponibles en la API de Python mediante `no_ignore=True`:
 
 ```python
 from complexipy import file_complexity, code_complexity

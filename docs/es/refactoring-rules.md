@@ -470,7 +470,7 @@ complexipy . --fix
 
 `--fix` solo cambia funciones cuya complejidad supera `max-complexity-allowed`, la misma regla que usa el control. Cada paso vuelve a comprobar el umbral, así que una función deja de cambiar en cuanto lo cumple. Una función en el umbral o por debajo conserva sus sugerencias en el reporte y nunca se reescribe. Una ejecución aplica cada plan aplicable de esas funciones en cada archivo analizado y repite paso a paso, hasta 8 pasos, hasta que no quede ningún plan aplicable; un paso posterior etiqueta su diff como `pass 2:`. Por cada archivo corregido, la ejecución imprime un diff unificado con resaltado de sintaxis de los cambios aplicados, con números de línea, una línea de contexto por bloque y la regla que se activó, y luego un resumen de las correcciones aplicadas y omitidas. El resumen muestra la reducción de cada corrección como `(-3 complexity)`, con una tilde delante del número (`(- ~3 complexity)`) cuando el número es estimado. Las líneas del resumen usan los números de línea del archivo anteriores a la ejecución, en cada paso; una corrección dentro de una región que un paso anterior reescribió informa las líneas de esa región. Cuando no hay nada aplicable, la ejecución imprime `No fixes to apply.` El reporte y cada control miden el estado después de las correcciones. Reanalizar un archivo corregido muestra que el hallazgo desapareció y que la complejidad bajó en la reducción medida del plan.
 
-`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada, ni siquiera la caché o el snapshot. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna bandera extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
+`--fix --dry-run` previsualiza los mismos cambios: imprime solo el diff unificado y no escribe nada, ni siquiera la caché o el snapshot. `--fix` se ejecuta donde estés: los cambios sin confirmar, los archivos sin rastrear y la ausencia de un repositorio de git nunca lo bloquean, y no hace falta ninguna flag extra. Una corrección conserva los finales de línea del archivo y su salto de línea final. El filtrado por regla se apoya en `--select` e `--ignore`.
 
 `--fix` reescribe solo archivos regulares dentro del directorio desde el que se ejecuta. Omite un enlace simbólico y un archivo que cambió en disco después de que complexipy lo leyera. Escribe un archivo nuevo junto al original y lo renombra en su lugar, conservando los bits de permisos y el grupo, pero no setuid, setgid, los atributos extendidos ni las ACL.
 
@@ -479,9 +479,9 @@ complexipy . --fix
 ```json
 [
     {
-        "path": "src",
+        "path": "src/main.py",
         "file_name": "main.py",
-        "function_name": "process_items",
+        "function_name": "process_data",
         "complexity": 6,
         "line_start": 1,
         "line_end": 7,
@@ -501,6 +501,7 @@ complexipy . --fix
                 "current_complexity": 6,
                 "estimated_reduction": 2,
                 "estimated_complexity_after": 4,
+                "reduction_is_measured": true,
                 "category": "Readability",
                 "applicability": "MachineApplicable",
                 "description": "Merge nested if statements into a single if with combined conditions",
@@ -509,6 +510,8 @@ complexipy . --fix
                 "suggestion": {
                     "replacement": "        if item.active and item.ready:\n            total += item.value",
                     "applicability": "MachineApplicable",
+                    "spliceable": true,
+                    "insertions": [],
                     "description": "Merge nested conditions into `if item.active and item.ready:`"
                 },
                 "help": null,
@@ -519,7 +522,7 @@ complexipy . --fix
 ]
 ```
 
-La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Cada entrada JSON incluye `line_start` y `line_end` de la función, y `line_complexities`: las líneas que suman al puntaje, una entrada por línea en orden de línea, cuyos valores de `complexity` suman la `complexity` de la función. La salida CSV no incluye datos de líneas.
+La salida JSON contiene una entrada por cada función emitida. La lista `refactor_plans` solo se completa cuando también se pasa `--suggest-refactors` -- de lo contrario es `[]`, igual que el comportamiento de la salida enriquecida de la CLI. La salida CSV no incluye planes, y una celda que una hoja de cálculo ejecutaría como fórmula (una que empieza con `=`, `+`, `-` o `@`) se escribe con un `'` inicial. Cada entrada JSON incluye `line_start` y `line_end` de la función, y `line_complexities`: las líneas que suman a la puntuación, una entrada por línea en orden de línea, cuyos valores de `complexity` suman la `complexity` de la función. La salida CSV no incluye datos de líneas.
 
 ### Línea de Comandos
 
@@ -527,7 +530,7 @@ La salida JSON contiene una entrada por cada función emitida. La lista `refacto
 # Muestra sugerencias de refactorización
 complexipy . --suggest-refactors
 
-# Muestra sugerencias solo para funciones fallidas
+# Muestra sugerencias solo para las funciones que fallan
 complexipy . --failed --suggest-refactors
 
 # Exporta sugerencias a JSON
@@ -603,11 +606,11 @@ indicador de confianza, `reduction_is_measured`:
 - **Medida** (`true`): la regla insertó su sugerencia en el código real, lo
   re-analizó y volvió a ejecutar el puntuador. El número es la respuesta
   literal a "aplica esto y vuelve a puntuar" - exactamente lo que
-  reportan C002 y C007, que llevan reemplazos aplicables por máquina. La
+  reportan C002, C007 y un C005 empalmable, que llevan reemplazos aplicables por máquina. La
   CLI los muestra sin calificador: `Reduction: -2 complexity (7 -> 5)`.
 - **Estimada** (`false`): el número proviene de la fórmula manual de la
-  regla (reglas solo con ayuda C001, C003, C004, C011, y el fragmento
-  C005, además de cualquier respaldo cuando una inserción no se puede
+  regla (reglas solo con ayuda C001, C003, C004, C011, un fragmento
+  C005 no empalmable, además de cualquier respaldo cuando una inserción no se puede
   re-analizar). La CLI los muestra con una tilde:
   `Estimated reduction: ~-2 complexity (7 -> 5)`.
 

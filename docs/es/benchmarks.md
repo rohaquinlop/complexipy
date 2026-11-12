@@ -17,7 +17,7 @@ abajo indica la versión y el commit exactos.
   `uv add` en un proyecto aislado, invocada como `bin/complexipy` de su
   entorno virtual.
 - **Paridad de invocación:** ambas CLIs se ejecutan como scripts de
-  consola directos con banderas idénticas, cada carga desde su propio
+  consola directos con flags idénticas, cada carga desde su propio
   directorio vacío. El envoltorio `uv run` queda excluido de la medición
   para que ningún lado pague el costo del proceso de uv.
 - **Corpus:** repositorios reales de código abierto, clonados de forma
@@ -44,23 +44,23 @@ bash benchmarks/benchmark-cli.sh
 
 ## Qué dicen los números
 
-- **Los árboles grandes ganan más.** django (~2900 archivos, con su suite
+- **Los árboles grandes ganan más.** django (~2.900 archivos, con su suite
   de pruebas incluida) es aproximadamente 68-91 veces más rápido: el
   motor de Rust analiza el árbol en paralelo en todos los núcleos,
   mientras que la CLI de Python lo procesaba en uno.
 - **Los árboles pequeños y medianos** (requests, flask) son
   aproximadamente 9-15 veces más rápidos.
-- **El arranque es más barato.** La prueba de un solo archivo es unas 3.3
+- **El arranque es más barato.** La prueba de un solo archivo es unas 3,3
   veces más rápida: es el costo del intérprete de Python y de la
   importación de typer/rich eliminado del camino crítico.
 - **La tabla de escalado** al final de los resultados mide el motor de
   Rust con una fixture sintética en tamaños 1x, 2x y 4x. Razones
   cercanas a 2 significan análisis lineal; razones cercanas a 4
   significan comportamiento cuadrático. Las razones registradas rondan
-  1.0-1.2.
+  1,0-1,2.
 - **La representación de la salida también es más barata.** Mostrar la
-  tabla completa de resultados en django cuesta ~0.02 s en la CLI de Rust
-  frente a ~5.7 s en la CLI de Python (la diferencia entre el modo por
+  tabla completa de resultados en django cuesta ~0,02 s en la CLI de Rust
+  frente a ~5,7 s en la CLI de Python (la diferencia entre el modo por
   defecto y --quiet), así que la brecha de tiempo crece en árboles grandes
   cuando los resultados se imprimen de verdad - las filas [render] miden
   ese camino de extremo a extremo.

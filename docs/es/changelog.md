@@ -8,7 +8,7 @@ GitHub con todos los detalles.
 
 !!! note "Migración"
 
-    Esta versión aplica más reglas del paper de complejidad cognitiva, así que
+    Esta versión aplica más reglas del artículo de complejidad cognitiva, así que
     las puntuaciones cambian. Sobre el código fuente de django, cambia la
     puntuación de 1.946 de 30.813 funciones: 1.481 bajan y 465 suben, y el
     total de todos los archivos baja un 7%. Vuelve a ejecutar `complexipy`
@@ -95,7 +95,7 @@ GitHub con todos los detalles.
   el nivel de anidamiento, porque una comprensión es una abreviatura de un
   bucle. `else` en `for`, `while` y `try` suma +1 sin incremento por
   anidamiento, y su cuerpo eleva el nivel de anidamiento, como `else` después
-  de `if`: el incremento híbrido del paper. Los operadores booleanos mezclados
+  de `if`: el incremento híbrido del artículo. Los operadores booleanos mezclados
   se leen de izquierda a derecha, así que `a or b and c or d` puntúa 3 en
   lugar de 2. Las puntuaciones bajan para el código con comprensiones y suben
   con `else` en bucles y `try`. Algunas condiciones mezcladas suben y otras
@@ -105,7 +105,7 @@ GitHub con todos los detalles.
 - Cada función en un ciclo de recursión suma +1: ciclos indirectos (`a` llama
   a `b`, `b` llama a `a`), métodos que llaman a `self.m()` o `cls.m()`, y
   funciones anidadas, cuyo +1 va a la función que las contiene, como indica el
-  paper. Las llamadas se resuelven dentro de un archivo, con las reglas de
+  artículo. Las llamadas se resuelven dentro de un archivo, con las reglas de
   [Entendiendo las puntuaciones de complejidad](https://complexipy.com/es/understanding-scores/#4-casos-especiales).
   Un método que llama a un nombre simple igual al suyo, como
   `def get(self): return get(x)`, ya no puntúa como recursivo
@@ -132,7 +132,7 @@ GitHub con todos los detalles.
   ([#349](https://github.com/rohaquinlop/complexipy/issues/349)).
 - Una función anidada eleva el nivel de anidamiento de su cuerpo donde sea
   que esté, dentro de `if`, `for`, `while`, `with`, `try`, `match` o de una
-  clase, como indica el paper. Antes solo lo hacía un `def` colocado
+  clase, como indica el artículo. Antes solo lo hacía un `def` colocado
   directamente en el cuerpo de una función. El cuerpo de una clase dentro de
   una función ahora se puntúa completo, y una clase no eleva el anidamiento
   por sí misma. Con `--check-script`, el cuerpo de una clase a nivel de módulo

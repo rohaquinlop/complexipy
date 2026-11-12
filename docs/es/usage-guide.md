@@ -90,7 +90,7 @@ Mostrar solo las N funciones más complejas entre todos los archivos analizados:
 complexipy . --top 10
 ```
 
-Mostrar sugerencias deterministas de refactorización para funciones fallidas:
+Mostrar sugerencias deterministas de refactorización para las funciones que fallan:
 
 ```bash
 complexipy . --failed --suggest-refactors
@@ -163,6 +163,12 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 
 # Varios formatos escritos en un directorio
 complexipy . --output-format json --output-format sarif --output reports/
+
+# Reporte de GitLab Code Quality
+complexipy . --output-format gitlab
+
+# Salida SARIF
+complexipy . --output-format sarif
 
 # Añade --suggest-refactors a cualquiera de los anteriores para incluir
 # también los hallazgos de las reglas de refactorización (C001, C007, ...)
@@ -247,7 +253,7 @@ Controla la salida en color:
 
 ```bash
 complexipy . --color auto  # Predeterminado: detecta automáticamente la compatibilidad con la terminal
-complexipy . --color yes   # Forza colores
+complexipy . --color yes   # Fuerza colores
 complexipy . --color no    # Deshabilita colores
 ```
 
@@ -329,10 +335,10 @@ complexipy . --exclude "venv/**" --exclude ".venv/**" --exclude "node_modules/**
 
 ### Resultados diferentes a los esperados
 
-Verifica la precedencia de los archivos de configuración. Usa `--help` para ver la configuración activa:
+Verifica la precedencia de los archivos de configuración: complexipy lee solo el primer archivo de configuración que se analiza, y una advertencia nombra el archivo que no aplica. Ejecuta con `--isolated` para comparar con los valores por defecto:
 
 ```bash
-complexipy --help
+complexipy . --isolated
 ```
 
 ## Próximos Pasos
