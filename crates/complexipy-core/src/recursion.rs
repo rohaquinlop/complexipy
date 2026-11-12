@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{self as ast, Stmt};
@@ -36,6 +37,8 @@ struct CallGraph<'a> {
     flow: HashMap<usize, Flow<'a>>,
     type_params: HashSet<(usize, &'a str)>,
     nonlocals: Vec<(Option<usize>, &'a str)>,
+    resolved_defs: RefCell<HashMap<(usize, &'a str), Vec<usize>>>,
+    resolved_classes: RefCell<HashMap<(usize, &'a str), Option<TextSize>>>,
 }
 
 /// The recursive definitions of a file, keyed by the start offset of each
@@ -605,14 +608,20 @@ impl<'a> CallGraph<'a> {
                 let [class] = classes.as_slice() else {
                     return None;
                 };
-                let mut others = rebound.into_iter().flatten().copied().chain(
-                    defs.into_iter()
-                        .flatten()
-                        .map(|&id| self.defs[id].def.start()),
-                );
-                return others
-                    .all(|at| self.binds_before(current, class.range, &class.body, at))
-                    .then(|| class.start());
+                return *self
+                    .resolved_classes
+                    .borrow_mut()
+                    .entry(key)
+                    .or_insert_with(|| {
+                        let mut others = rebound.into_iter().flatten().copied().chain(
+                            defs.into_iter()
+                                .flatten()
+                                .map(|&id| self.defs[id].def.start()),
+                        );
+                        others
+                            .all(|at| self.binds_before(current, class.range, &class.body, at))
+                            .then(|| class.start())
+                    });
             }
             if rebound.is_some() || defs.is_some() {
                 return None;
@@ -631,23 +640,29 @@ impl<'a> CallGraph<'a> {
             let key = (current, name);
             let rebound = self.rebound.get(&key);
             if let Some(defs) = self.names.get(&key) {
-                let classes = self.classes.get(&key).into_iter().flatten();
-                let others: Vec<TextSize> = rebound
-                    .into_iter()
-                    .flatten()
-                    .copied()
-                    .chain(classes.map(|class| class.start()))
-                    .collect();
-                return defs
-                    .iter()
-                    .copied()
-                    .filter(|&id| {
-                        let def = self.defs[id].def;
-                        others
-                            .iter()
-                            .all(|&at| self.binds_before(current, def.range, &def.body, at))
+                return self
+                    .resolved_defs
+                    .borrow_mut()
+                    .entry(key)
+                    .or_insert_with(|| {
+                        let classes = self.classes.get(&key).into_iter().flatten();
+                        let others: Vec<TextSize> = rebound
+                            .into_iter()
+                            .flatten()
+                            .copied()
+                            .chain(classes.map(|class| class.start()))
+                            .collect();
+                        defs.iter()
+                            .copied()
+                            .filter(|&id| {
+                                let def = self.defs[id].def;
+                                others
+                                    .iter()
+                                    .all(|&at| self.binds_before(current, def.range, &def.body, at))
+                            })
+                            .collect()
                     })
-                    .collect();
+                    .clone();
             }
             if rebound.is_some() || self.type_params.contains(&key) {
                 return Vec::new();
