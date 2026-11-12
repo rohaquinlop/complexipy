@@ -82,10 +82,10 @@ plugins:
 extra:
   alternate:
     - name: English
-      link: /complexipy/
+      link: /
       lang: en
     - name: Español
-      link: /complexipy/es/
+      link: /es/
       lang: es
   social:
     - icon: fontawesome/brands/github-alt
