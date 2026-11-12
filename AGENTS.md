@@ -89,12 +89,12 @@ uv run mkdocs serve                                 # preview the docs site
 
 - `tests/main.py` asserts the exact totals for the fixtures in `tests/src/`, plus
   paper conformance. An algorithm change renegotiates those numbers
-  deliberately, never to make a run go green.
+  deliberately, never to make a run go green, and adds `TestPaperConformance`
+  cases asserting `code_complexity(code).complexity` for what it fixes and keeps.
 - `tests/fixtures/refactor_plans/` holds rule-behaviour fixtures and stays out of
   the `tests/src/` corpus, so rule work does not perturb the asserted totals.
-- `pyproject.toml` sets `python_files = ["test_*.py", "main.py"]`, so
-  `tests/main.py` is a test module, and `norecursedirs = ["tests/src"]` keeps the
-  fixture files from being collected.
+- `pyproject.toml` collects `tests/main.py` (`python_files`) and skips
+  `tests/src/` (`norecursedirs`).
 - Rust tests that need private items are a `mod tests;` child module in a sibling
   file, as in `utils.rs` and `utils/tests.rs`. A new test file is invisible until
   its owning module declares it, so no inline `mod tests { }` and no `#[path]`.

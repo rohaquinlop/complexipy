@@ -224,3 +224,78 @@ fn class_body_calls_follow_statement_order() {
         assert_eq!(recursive_lines(code), expected, "{code}");
     }
 }
+
+#[test]
+fn local_bindings_hide_outer_function_names() {
+    let cases = [
+        "def f(f):\n    return f()\n",
+        "def g(n):\n    g = n\n    return g()\n",
+        "def f(n):\n    if (f := n):\n        return f()\n",
+        "def f(n):\n    for f in n:\n        f()\n",
+        "def f(n):\n    with n as f:\n        return f()\n",
+        "def f(n):\n    try:\n        pass\n    except E as f:\n        f()\n",
+        "def f(n):\n    match n:\n        case [f]:\n            f()\n",
+        "def f(n):\n    del f\n    return f()\n",
+        "def f(n):\n    type f = int\n    return f()\n",
+        "def f(n):\n    import f\n    return f()\n",
+        "def f(n):\n    f += 1\n    return f()\n",
+        "def f(n):\n    f: int = n\n    return f()\n",
+        "def f(n):\n    f: int\n    return f()\n",
+        "def f(n):\n    class f:\n        pass\n    return f()\n",
+        "def f(n):\n    def outer(f):\n        def g(m):\n            return f(m)\n        return g(f)\n    return outer(n)\n",
+        "def f(n):\n    return f()\nf = wrap(f)\n",
+        "def f(n):\n    return f()\nfor f in []:\n    pass\n",
+        "def f(n):\n    return f()\ndef h():\n    global f\n    f = 1\n",
+        "def outer():\n    def f(n):\n        return f()\n    def h():\n        nonlocal f\n        f = 1\n    return f\n",
+        "def outer():\n    def f(n):\n        return f()\n    f = wrap(f)\n    return f\n",
+        "def f(n):\n    return f()\nclass f:\n    pass\n",
+        "if X:\n    def f(n):\n        return f()\nelse:\n    pass\nf = 1\n",
+        "while X:\n    if Y:\n        f = 1\n    else:\n        def f(n):\n            return f()\n",
+        "try:\n    def f(n):\n        return f()\n    g()\nexcept E:\n    f = 1\n",
+        "for x in xs:\n    f = 1\n    if c:\n        break\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    f = 1\n    if c:\n        continue\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    f = 1\n    if c:\n        def f(n):\n            return f()\n",
+        "try:\n    for x in xs:\n        f = 1\n        g()\n        def f(n):\n            return f()\nexcept E:\n    pass\n",
+        "with m:\n    for x in xs:\n        f = 1\n        def f(n):\n            return f()\n",
+        "for x in xs:\n    try:\n        f = 1\n        def f(n):\n            return f()\n    except E:\n        pass\n",
+        "while (f := g()):\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    def f(n):\n        return f()\nelse:\n    f = 1\n",
+        "def g():\n    return f()\ndef f():\n    g = 1\n    return g()\n",
+        "def g():\n    return f()\ndef f():\n    def h():\n        return g()\n    g = 1\n    return h()\n",
+    ];
+    for code in cases {
+        assert_eq!(recursive_lines(code), vec![], "{code}");
+    }
+}
+
+#[test]
+fn bindings_before_the_def_keep_it_resolved() {
+    let cases = [
+        "f = 1\ndef f(n):\n    return f()\n",
+        "from m import f\ndef f(n):\n    return f()\n",
+        "def f(n):\n    return f()\nf.cache = {}\n",
+        "@d(f := 1)\ndef f(n):\n    return f()\n",
+        "def outer(f):\n    def f(n):\n        return f()\n    return f\n",
+        "if X:\n    f = 1\n    def f(n):\n        return f()\n",
+        "class f:\n    pass\ndef f(n):\n    return f()\n",
+        "def f(n=(f := 1)):\n    return f()\n",
+        "if X:\n    def f(n):\n        return f()\nelif (f := Y):\n    pass\nelse:\n    f = 1\n",
+        "match x:\n    case 1:\n        def f(n):\n            return f()\n    case f:\n        pass\n",
+        "try:\n    f = 1\nexcept E:\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    f = 1\nelse:\n    def f(n):\n        return f()\n",
+        "for x in (f := xs):\n    def f(n):\n        return f()\n",
+        "while (f := X):\n    pass\nelse:\n    def f(n):\n        return f()\n",
+        "def h():\n    global g\n    return g\ndef f(n):\n    return f()\n",
+        "def f(n):\n    return f(n)\nf = 1\ndef f(n):\n    return f(n)\n",
+        "for x in xs:\n    f = 1\n    def f(n):\n        return f()\n",
+        "for f in xs:\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    f = 1\n    for y in ys:\n        break\n    def f(n):\n        return f()\n",
+        "for x in xs:\n    if c:\n        f = 1\n        def f(n):\n            return f()\n",
+        "try:\n    def f(n):\n        return f()\nexcept E:\n    f = 1\n",
+        "def f(n):\n    return f()\nf: int\n",
+        "def outer():\n    def f(n):\n        return f()\n    f: int\n    return f\n",
+    ];
+    for code in cases {
+        assert_eq!(recursive_lines(code).len(), 1, "{code}");
+    }
+}

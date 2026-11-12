@@ -609,6 +609,126 @@ class TestPaperConformance:
                 0,
                 id="guard-comprehension-variable",
             ),
+            pytest.param(
+                "def f(f):\n    return f()\n",
+                0,
+                id="guard-parameter",
+            ),
+            pytest.param(
+                "def g(n):\n    g = n\n    return g()\n",
+                0,
+                id="guard-local-assignment",
+            ),
+            pytest.param(
+                "def f(n):\n    (f := n)\n    return f()\n",
+                0,
+                id="guard-walrus",
+            ),
+            pytest.param(
+                "def f(n):\n    for f in n:\n        pass\n    return f()\n",
+                1,
+                id="guard-for-target",
+            ),
+            pytest.param(
+                "def f(n):\n    with n as f:\n        return f()\n",
+                0,
+                id="guard-with-target",
+            ),
+            pytest.param(
+                "def f(n):\n    try:\n        pass\n    except E as f:\n        return f()\n",
+                1,
+                id="guard-except-name",
+            ),
+            pytest.param(
+                "def f(n):\n    match n:\n        case [f]:\n            return f()\n",
+                1,
+                id="guard-match-capture",
+            ),
+            pytest.param(
+                "def f(n):\n    del f\n    return f()\n",
+                0,
+                id="guard-del",
+            ),
+            pytest.param(
+                "def f(n):\n    import f\n    return f()\n",
+                0,
+                id="guard-import",
+            ),
+            pytest.param(
+                "def f(n):\n    type f = int\n    return f()\n",
+                0,
+                id="guard-type-alias",
+            ),
+            pytest.param(
+                "def f(n):\n    f: int\n    return f()\n",
+                0,
+                id="guard-annotation-only-local",
+            ),
+            pytest.param(
+                "def f(n):\n    class f:\n        pass\n    return f()\n",
+                0,
+                id="guard-local-class",
+            ),
+            pytest.param(
+                "def f(n):\n    def outer(f):\n        def g(m):\n            return f(m)\n        return g(f)\n    return outer(n)\n",
+                0,
+                id="guard-enclosing-parameter",
+            ),
+            pytest.param(
+                "def f(n):\n    return f()\nclass f:\n    pass\n",
+                0,
+                id="guard-class-after-def",
+            ),
+            pytest.param(
+                "def f(n):\n    return f()\nf = wrap(f)\n",
+                0,
+                id="guard-rebound-after-def",
+            ),
+            pytest.param(
+                "def outer(xs):\n    for x in xs:\n        f = 1\n        if x:\n            break\n        def f(n):\n            return f()\n    return f\n",
+                3,
+                id="guard-break-between-binding-and-def",
+            ),
+            pytest.param(
+                "def outer(xs):\n    for x in xs:\n        f = 1\n        def f(n):\n            return f()\n    return f\n",
+                2,
+                id="new-binding-before-def-in-same-loop",
+            ),
+            pytest.param(
+                "try:\n    def f(n):\n        return f()\nexcept E:\n    f = 1\n",
+                2,
+                id="new-handler-binding-after-last-def",
+            ),
+            pytest.param(
+                "f = 1\ndef f(n):\n    return f()\n",
+                1,
+                id="new-binding-before-def",
+            ),
+            pytest.param(
+                "def f(n):\n    return f()\nf: int\n",
+                1,
+                id="new-annotation-only-after-def",
+            ),
+            pytest.param(
+                "def f(n):\n    return f(n)\nf = 1\ndef f(n):\n    return f(n)\n",
+                1,
+                id="new-later-def-after-rebinding",
+            ),
+            pytest.param(
+                "def outer(x):\n    if x:\n        f = 1\n        def f(n):\n            return f()\n    return f\n",
+                2,
+                id="new-binding-before-def-in-same-branch",
+            ),
+            pytest.param(
+                "def outer(x):\n    if x:\n        def f(n):\n            return f()\n    else:\n        f = 1\n    return f\n",
+                3,
+                id="new-binding-in-sibling-branch",
+            ),
+            pytest.param(
+                "def outer(xs):\n    for x in (f := xs):\n        def f(n):\n            return f()\n    return f\n",
+                2,
+                id="new-walrus-in-for-iterable",
+            ),
         ],
     )
     def test_recursion_cycles(self, code: str, expected: int):

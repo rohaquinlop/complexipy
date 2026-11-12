@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{self as ast, Stmt};
-use ruff_text_size::TextSize;
+use ruff_text_size::{Ranged, TextRange, TextSize};
 
 use crate::cognitive_complexity::nested_suites;
 use crate::syntax_tree::{Node, PreOrder};
 use crate::utils::LineIndex;
 
 const MODULE_SCOPE: usize = 0;
+const UNORDERED: TextSize = TextSize::new(u32::MAX);
 
 type Receiver<'a> = (&'a str, TextSize);
 
@@ -31,7 +32,8 @@ struct CallGraph<'a> {
     names: HashMap<(usize, &'a str), Vec<usize>>,
     methods: HashMap<(TextSize, &'a str), Vec<usize>>,
     classes: HashMap<(usize, &'a str), Vec<TextSize>>,
-    rebound: HashSet<(usize, &'a str)>,
+    rebound: HashMap<(usize, &'a str), Vec<TextSize>>,
+    flow: HashMap<usize, Flow<'a>>,
     type_params: HashSet<(usize, &'a str)>,
     nonlocals: Vec<(Option<usize>, &'a str)>,
 }
@@ -218,37 +220,65 @@ impl<'a> CallGraph<'a> {
     }
 
     /// Records every name that `body` binds in `scope` other than by `def` or
-    /// `class`. A name declared `global` or `nonlocal` binds in an outer scope
-    /// instead, and only when `body` assigns it.
+    /// `class`, at the offset of the binding, with the loops and the `if` and
+    /// `match` branches of `body`. A name declared `global` or `nonlocal`
+    /// binds in an outer scope instead, and only when `body` assigns it.
     fn record_rebinds(
         &mut self,
         scope: usize,
         body: &'a [Stmt],
         parameters: Option<&'a ast::Parameters>,
     ) {
-        let rebinds = Rebinds::of(body);
-        let parameters = parameters.into_iter().flat_map(|p| p.iter());
-        for name in rebinds
-            .local
-            .iter()
-            .copied()
-            .chain(parameters.map(|p| p.name().as_str()))
-        {
+        let mut rebinds = Rebinds::of(body);
+        let parameters = parameters
+            .into_iter()
+            .flat_map(|p| p.iter())
+            .map(|p| (p.name().as_str(), TextSize::default()));
+        for (name, at) in rebinds.local.iter().copied().chain(parameters) {
             if !rebinds.global.contains(&name) && !rebinds.nonlocal.contains(&name) {
-                self.rebound.insert((scope, name));
+                self.rebind((scope, name), at);
             }
         }
+        self.flow.insert(scope, std::mem::take(&mut rebinds.flow));
         self.record_declarations(self.parent_scope[scope], &rebinds);
+    }
+
+    fn rebind(&mut self, key: (usize, &'a str), at: TextSize) {
+        self.rebound.entry(key).or_default().push(at);
+    }
+
+    /// Whether the binding at `at` in `scope` has always run when
+    /// the definition `id` binds the name: it comes before the definition's
+    /// body or cannot run after it, and the innermost loop that repeats both
+    /// runs it before the definition in every pass.
+    fn binds_before(&self, scope: usize, id: usize, at: TextSize) -> bool {
+        let def = self.defs[id].def;
+        let start = def.start();
+        let bound = def.body.first().map_or(def.end(), Ranged::start);
+        let Some(flow) = self.flow.get(&scope) else {
+            return at <= bound;
+        };
+        let repeats = |repeated: &Stmt, offset| {
+            repeating_parts(repeated)
+                .iter()
+                .any(|part| part.contains(offset))
+        };
+        let innermost = flow
+            .loops
+            .iter()
+            .filter(|&&repeated| repeats(repeated, at) && repeats(repeated, start))
+            .min_by_key(|repeated| repeated.range().len());
+        (at <= bound || flow.excludes(at, def))
+            && innermost.is_none_or(|repeated| flow.runs_in_order(repeated, at, start))
     }
 
     /// Records the `global` and `nonlocal` names that a body assigns. `outer`
     /// is the nearest scope a `nonlocal` name can refer to; it is resolved
     /// once every binding of the file is known.
     fn record_declarations(&mut self, outer: Option<usize>, rebinds: &Rebinds<'a>) {
-        let assigned =
-            |name: &&'a str| rebinds.local.contains(name) || rebinds.defined.contains(name);
+        let assigned = |name: &&'a str| rebinds.binds(name);
         for &name in rebinds.global.iter().filter(|name| assigned(name)) {
-            self.rebound.insert((MODULE_SCOPE, name));
+            self.rebind((MODULE_SCOPE, name), UNORDERED);
         }
         for &name in rebinds.nonlocal.iter().filter(|name| assigned(name)) {
             self.nonlocals.push((outer, name));
@@ -261,9 +291,9 @@ impl<'a> CallGraph<'a> {
             let key = (current, name);
             if self.names.contains_key(&key)
                 || self.classes.contains_key(&key)
-                || self.rebound.contains(&key)
+                || self.rebound.contains_key(&key)
             {
-                self.rebound.insert(key);
+                self.rebind(key, UNORDERED);
                 return;
             }
             scope = self.parent_scope[current];
@@ -395,7 +425,12 @@ impl<'a> CallGraph<'a> {
             .map(|&name| (name, Binding::Module))
             .collect();
         let mut states: Vec<(&'a str, Binding)> = Vec::new();
-        for &name in whole.local.iter().chain(whole.defined.iter()) {
+        for name in whole
+            .local
+            .iter()
+            .map(|&(name, _)| name)
+            .chain(whole.defined.iter().copied())
+        {
             let declared = whole.global.contains(&name) || whole.nonlocal.contains(&name);
             if !declared && !states.iter().any(|(bound, _)| *bound == name) {
                 states.push((name, Binding::Module));
@@ -458,7 +493,7 @@ impl<'a> CallGraph<'a> {
                 UNKNOWN
             };
         }
-        let header_only = !own.local.contains(&name);
+        let header_only = !own.is_local(name);
         match statement {
             Stmt::FunctionDef(f) if header_only && f.name.as_str() == name => {
                 let method = self
@@ -504,26 +539,27 @@ impl<'a> CallGraph<'a> {
             .rev()
             .find(|(bound, _)| *bound == name)
             .map(|&(_, binding)| binding);
-        let targets: &[usize] = match binding {
+        let targets: Vec<usize> = match binding {
             Some(Binding::Module) => self.callees(func, MODULE_SCOPE, None),
-            Some(Binding::Hidden) => &[],
+            Some(Binding::Hidden) => Vec::new(),
             Some(Binding::Method(id)) => {
                 if matches!(func, ast::Expr::Name(_)) {
                     calls.push((id, start));
                 }
-                &[]
+                Vec::new()
             }
             Some(Binding::Class(class)) => match func {
                 ast::Expr::Attribute(attribute) => self
                     .methods
                     .get(&(class, attribute.attr.as_str()))
-                    .map_or(&[], Vec::as_slice),
-                _ => &[],
+                    .cloned()
+                    .unwrap_or_default(),
+                _ => Vec::new(),
             },
-            None if shadowed.contains(&name) => &[],
+            None if shadowed.contains(&name) => Vec::new(),
             None => self.callees(func, def.body_scope, def.receiver),
         };
-        calls.extend(targets.iter().map(|&callee| (callee, start)));
+        calls.extend(targets.into_iter().map(|callee| (callee, start)));
     }
 
     fn callees(
@@ -531,12 +567,12 @@ impl<'a> CallGraph<'a> {
         func: &'a ast::Expr,
         scope: usize,
         receiver: Option<Receiver<'a>>,
-    ) -> &[usize] {
+    ) -> Vec<usize> {
         match func {
             ast::Expr::Name(name) => self.lookup(scope, name.id.as_str()),
             ast::Expr::Attribute(attribute) => {
                 let ast::Expr::Name(value) = attribute.value.as_ref() else {
-                    return &[];
+                    return Vec::new();
                 };
                 let class = match receiver {
                     Some((receiver, class)) if value.id.as_str() == receiver => Some(class),
@@ -544,9 +580,10 @@ impl<'a> CallGraph<'a> {
                 };
                 class
                     .and_then(|class| self.methods.get(&(class, attribute.attr.as_str())))
-                    .map_or(&[], Vec::as_slice)
+                    .cloned()
+                    .unwrap_or_default()
             }
-            _ => &[],
+            _ => Vec::new(),
         }
     }
 
@@ -554,9 +591,9 @@ impl<'a> CallGraph<'a> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
-            if self.rebound.contains(&key)
+            if self.rebound.contains_key(&key)
                 || self.type_params.contains(&key)
-                || self.rebound.contains(&(current, "*"))
+                || self.rebound.contains_key(&(current, "*"))
                 || self.names.get(&key).is_some_and(|d| !d.is_empty())
             {
                 return None;
@@ -572,18 +609,107 @@ impl<'a> CallGraph<'a> {
         None
     }
 
-    fn lookup(&self, scope: usize, name: &'a str) -> &[usize] {
+    /// The definitions a bare name resolves to: those of the nearest scope
+    /// that binds it before which every other binding of the name in that
+    /// scope, a class included, has always run.
+    fn lookup(&self, scope: usize, name: &'a str) -> Vec<usize> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
-            if let Some(defs) = self.names.get(&(current, name)) {
-                return defs;
+            let key = (current, name);
+            let rebound = self.rebound.get(&key);
+            if let Some(defs) = self.names.get(&key) {
+                let others: Vec<TextSize> = rebound
+                    .into_iter()
+                    .chain(self.classes.get(&key))
+                    .flatten()
+                    .copied()
+                    .collect();
+                return defs
+                    .iter()
+                    .copied()
+                    .filter(|&id| others.iter().all(|&at| self.binds_before(current, id, at)))
+                    .collect();
             }
-            if self.type_params.contains(&(current, name)) {
-                return &[];
+            if rebound.is_some() || self.type_params.contains(&key) {
+                return Vec::new();
             }
             scope = self.parent_scope[current];
         }
-        &[]
+        Vec::new()
+    }
+}
+
+#[derive(Default)]
+struct Flow<'a> {
+    loops: Vec<&'a Stmt>,
+    branches: Vec<Vec<TextRange>>,
+    guards: Vec<TextRange>,
+    handlers: Vec<(TextRange, Vec<TextRange>)>,
+}
+
+impl Flow<'_> {
+    /// Whether the binding at `at` cannot run once `def` has bound its name:
+    /// it sits in another branch of the same `if` or `match`, or in an
+    /// `except` handler of a `try` whose body runs nothing after `def`.
+    fn excludes(&self, at: TextSize, def: &ast::StmtFunctionDef) -> bool {
+        let start = def.start();
+        let in_other_branch = self.branches.iter().any(|branches| {
+            let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
+            matches!((branch_of(at), branch_of(start)), (Some(a), Some(d)) if a != d)
+        });
+        let in_handler = self.handlers.iter().any(|(body, handlers)| {
+            body.contains(start)
+                && def.end() == body.end()
+                && handlers.iter().any(|handler| handler.contains(at))
+        });
+        in_other_branch || in_handler
+    }
+
+    /// Whether, in every pass of `repeated`, the binding at `at` runs before
+    /// the definition at `start` binds: the definition is a statement of the
+    /// innermost suite holding both, the binding comes earlier in that suite
+    /// or in the `for` target, no `break` or `continue` of the loop sits
+    /// between them, and no `try` or `with` around the loop can catch an
+    /// exception raised between them.
+    fn runs_in_order(&self, repeated: &Stmt, at: TextSize, start: TextSize) -> bool {
+        if self
+            .guards
+            .iter()
+            .any(|guard| guard.contains(repeated.start()))
+        {
+            return false;
+        }
+        let (mut suite, mut prior) = match repeated {
+            Stmt::For(for_stmt) => (&for_stmt.body[..], for_stmt.target.range().contains(at)),
+            Stmt::While(while_stmt) => (&while_stmt.body[..], false),
+            _ => return false,
+        };
+        loop {
+            let position = |offset| suite.iter().position(|s| s.range().contains(offset));
+            let Some(def_index) = position(start) else {
+                return false;
+            };
+            let binding_index = if prior { None } else { position(at) };
+            let from = match binding_index {
+                Some(index) if index == def_index => {
+                    let statement = &suite[index];
+                    if statement.start() == start {
+                        return true;
+                    }
+                    let Some(inner) = shared_branch(statement, at, start) else {
+                        return false;
+                    };
+                    suite = inner;
+                    prior = false;
+                    continue;
+                }
+                Some(index) if index < def_index => index,
+                None if prior => 0,
+                _ => return false,
+            };
+            return suite[def_index].start() == start
+                && !suite[from..def_index].iter().any(ends_pass);
+        }
     }
 }
 
@@ -628,15 +754,24 @@ impl<'a> Assignment<'a> {
 
 #[derive(Default)]
 struct Rebinds<'a> {
-    local: Vec<&'a str>,
+    local: Vec<(&'a str, TextSize)>,
+    flow: Flow<'a>,
     defined: Vec<&'a str>,
     global: Vec<&'a str>,
     nonlocal: Vec<&'a str>,
 }
 
 impl<'a> Rebinds<'a> {
+    fn bind(&mut self, name: &'a str, at: TextSize) {
+        self.local.push((name, at));
+    }
+
     fn binds(&self, name: &str) -> bool {
-        self.local.contains(&name) || self.defined.contains(&name)
+        self.is_local(name) || self.defined.contains(&name)
+    }
+
+    fn is_local(&self, name: &str) -> bool {
+        self.local.iter().any(|&(bound, _)| bound == name)
     }
 
     fn of(body: &'a [Stmt]) -> Self {
@@ -668,18 +803,16 @@ impl<'a> Rebinds<'a> {
                     pending.extend(decorators(&c.decorator_list).chain(class_arguments(c)));
                 }
                 Node::Stmt(Stmt::Import(import)) => {
-                    self.local.extend(import.names.iter().map(|alias| {
+                    for alias in import.names.iter() {
                         let bound = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-                        bound.split('.').next().unwrap_or(bound)
-                    }));
+                        self.bind(bound.split('.').next().unwrap_or(bound), alias.start());
+                    }
                 }
                 Node::Stmt(Stmt::ImportFrom(import)) => {
-                    self.local.extend(
-                        import
-                            .names
-                            .iter()
-                            .map(|alias| alias.asname.as_ref().unwrap_or(&alias.name).as_str()),
-                    );
+                    for alias in import.names.iter() {
+                        let bound = alias.asname.as_ref().unwrap_or(&alias.name);
+                        self.bind(bound.as_str(), alias.start());
+                    }
                 }
                 Node::Expr(ast::Expr::Lambda(lambda)) => {
                     pending.extend(lambda.parameters.as_deref().into_iter().flat_map(defaults));
@@ -700,18 +833,53 @@ impl<'a> Rebinds<'a> {
                     self.nonlocal
                         .extend(nonlocal.names.iter().map(|n| n.as_str()));
                 }
+                Node::Stmt(Stmt::AnnAssign(annotated)) if annotated.value.is_none() => {
+                    match annotated.target.as_ref() {
+                        ast::Expr::Name(name) => {
+                            self.bind(name.id.as_str(), TextSize::default());
+                            pending.push(Node::Expr(&annotated.annotation));
+                        }
+                        _ => walk.descend(node),
+                    }
+                }
                 Node::Expr(ast::Expr::Name(name)) if !name.ctx.is_load() => {
-                    self.local.push(name.id.as_str());
+                    self.bind(name.id.as_str(), name.start());
                 }
                 Node::Stmt(Stmt::Try(try_stmt)) => {
+                    if let Some(body) = suite_range(&try_stmt.body) {
+                        self.flow.guards.push(body);
+                        let handlers = try_stmt.handlers.iter().map(Ranged::range).collect();
+                        self.flow.handlers.push((body, handlers));
+                    }
                     for handler in try_stmt.handlers.iter() {
                         let ast::ExceptHandler::ExceptHandler(except) = handler;
-                        self.local.extend(except.name.as_ref().map(|n| n.as_str()));
+                        if let Some(name) = except.name.as_ref() {
+                            self.bind(name.as_str(), name.start());
+                        }
                     }
                     walk.descend(node);
                 }
                 Node::Stmt(Stmt::Match(match_stmt)) => {
                     self.add_captures(match_stmt.cases.iter().map(|case| &case.pattern));
+                    self.flow
+                        .branches
+                        .push(match_stmt.cases.iter().map(Ranged::range).collect());
+                    walk.descend(node);
+                }
+                Node::Stmt(statement @ (Stmt::For(_) | Stmt::While(_))) => {
+                    self.flow.loops.push(statement);
+                    walk.descend(node);
+                }
+                Node::Stmt(Stmt::With(with_stmt)) => {
+                    self.flow.guards.extend(suite_range(&with_stmt.body));
+                    walk.descend(node);
+                }
+                Node::Stmt(Stmt::If(if_stmt)) => {
+                    let body = suite_range(&if_stmt.body);
+                    let clauses = if_stmt.elif_else_clauses.iter().map(Ranged::range);
+                    self.flow
+                        .branches
+                        .push(body.into_iter().chain(clauses).collect());
                     walk.descend(node);
                 }
                 _ => walk.descend(node),
@@ -747,7 +915,9 @@ impl<'a> Rebinds<'a> {
                 }
                 _ => None,
             };
-            self.local.extend(name.map(|n| n.as_str()));
+            if let Some(name) = name {
+                self.bind(name.as_str(), name.start());
+            }
         }
     }
 }
@@ -807,6 +977,64 @@ fn target_parts(target: &ast::Expr) -> impl Iterator<Item = &ast::Expr> {
         }
     }
     parts.into_iter()
+}
+
+fn suite_range(suite: &[Stmt]) -> Option<TextRange> {
+    let first = suite.first()?;
+    let last = suite.last()?;
+    Some(TextRange::new(first.start(), last.end()))
+}
+
+fn repeating_parts(repeated: &Stmt) -> Vec<TextRange> {
+    match repeated {
+        Stmt::For(for_stmt) => suite_range(&for_stmt.body)
+            .into_iter()
+            .chain([for_stmt.target.range()])
+            .collect(),
+        Stmt::While(while_stmt) => suite_range(&while_stmt.body)
+            .into_iter()
+            .chain([while_stmt.test.range()])
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The branch of an `if` or a `match` whose body holds both offsets.
+fn shared_branch(statement: &Stmt, at: TextSize, start: TextSize) -> Option<&[Stmt]> {
+    let suites: Vec<&[Stmt]> = match statement {
+        Stmt::If(if_stmt) => std::iter::once(&if_stmt.body[..])
+            .chain(
+                if_stmt
+                    .elif_else_clauses
+                    .iter()
+                    .map(|clause| &clause.body[..]),
+            )
+            .collect(),
+        Stmt::Match(match_stmt) => match_stmt.cases.iter().map(|case| &case.body[..]).collect(),
+        _ => return None,
+    };
+    suites.into_iter().find(|suite| {
+        suite_range(suite).is_some_and(|range| range.contains(at) && range.contains(start))
+    })
+}
+
+/// Whether `statement` holds a `break` or `continue` of the loop around it.
+fn ends_pass(statement: &Stmt) -> bool {
+    let mut stack = vec![statement];
+    while let Some(statement) = stack.pop() {
+        match statement {
+            Stmt::Break(_) | Stmt::Continue(_) => return true,
+            Stmt::For(for_stmt) => stack.extend(for_stmt.orelse.iter()),
+            Stmt::While(while_stmt) => stack.extend(while_stmt.orelse.iter()),
+            Stmt::FunctionDef(_) | Stmt::ClassDef(_) => {}
+            _ => {
+                for suite in nested_suites(statement) {
+                    stack.extend(suite.iter());
+                }
+            }
+        }
+    }
+    false
 }
 
 fn type_param_names(type_params: Option<&ast::TypeParams>) -> impl Iterator<Item = &str> {

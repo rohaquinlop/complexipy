@@ -86,6 +86,21 @@ release section links to its GitHub release notes for the full details.
   class of the file, and nothing else binds `K` in that scope: no `def`,
   import (a star import included), parameter, type parameter, or assignment,
   including one made through a `global` or `nonlocal` declaration.
+- A bare-name call no longer counts as recursion when a binding of the
+  caller hides the function: a parameter, an assignment, a walrus, a `for` or
+  `with` target, an `except ... as` name, a `match` capture, a `del`, an
+  import, a type alias, or a class, so `def f(f): return f()` scores 0. A
+  scope that binds a function name both by `def` and another way resolves to
+  each `def` that every other binding has always run before: the binding
+  comes earlier in the code, in another branch of the same `if` or `match`,
+  or in an `except` handler of a `try` whose body runs nothing after the
+  `def`. In a loop that repeats both, the binding also runs earlier in every
+  pass: the `def` does not sit in an `if` or other block of its own in the
+  loop, no `break` or `continue` comes between them, no `try` or `with` is
+  around the loop, and the binding is not in a `while` test. A `global` or
+  `nonlocal` declaration that rebinds the name hides every `def`. So
+  `f = wrap(f)` after `def f` makes `f()` add nothing, and `f = 1` before
+  `def f` keeps the +1.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
   the enclosing function, since that code runs when the function runs. A
