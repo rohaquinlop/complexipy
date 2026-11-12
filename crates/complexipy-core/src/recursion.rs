@@ -370,7 +370,7 @@ impl<'a> CallGraph<'a> {
                         roots.extend(generator.ifs.iter().map(Node::Expr));
                     }
                     roots.extend(elements.into_iter().map(Node::Expr));
-                    self.collect_calls(def, roots, shadowed, &[], calls);
+                    self.collect_calls(def, roots, shadowed, &unbound(overrides), calls);
                     shadowed.truncate(depth);
                 }
                 Node::Expr(ast::Expr::Call(call)) => {
@@ -385,8 +385,9 @@ impl<'a> CallGraph<'a> {
 
     /// Collects the calls of a nested class: its decorators and bases run in
     /// the code around it, and its body runs statement by statement with the
-    /// names that the body itself binds. None of them runs once the class has
-    /// bound its name, so the name never means the class there.
+    /// names that the body itself binds. When the class binds its name in a
+    /// function scope, none of them runs once it has, so the name never means
+    /// the class there.
     fn collect_class_calls(
         &self,
         def: &Def<'a>,
@@ -395,17 +396,18 @@ impl<'a> CallGraph<'a> {
         overrides: &[(&'a str, Binding)],
         calls: &mut Vec<(usize, TextSize)>,
     ) {
-        let own = (c.name.as_str(), Binding::Unbound);
-        let header: Vec<(&'a str, Binding)> = overrides.iter().copied().chain([own]).collect();
+        let name = c.name.as_str();
+        let in_class_body = overrides
+            .iter()
+            .any(|&(bound, binding)| bound == name && !matches!(binding, Binding::Unbound));
+        let own = (!in_class_body).then_some((name, Binding::Unbound));
+        let header: Vec<(&'a str, Binding)> = overrides.iter().copied().chain(own).collect();
         let roots = decorators(&c.decorator_list).collect();
         self.collect_calls(def, roots, shadowed, &header, calls);
         let depth = shadowed.len();
         shadowed.extend(type_param_names(c.type_params.as_deref()));
         self.collect_calls(def, class_arguments(c).collect(), shadowed, &header, calls);
-        let unbound: Vec<(&'a str, Binding)> = header
-            .into_iter()
-            .filter(|(_, binding)| matches!(binding, Binding::Unbound))
-            .collect();
+        let unbound = unbound(&header);
         for (roots, body_overrides) in self.class_body_parts(c) {
             let body_overrides: Vec<(&'a str, Binding)> =
                 unbound.iter().copied().chain(body_overrides).collect();
@@ -939,6 +941,14 @@ impl<'a> Rebinds<'a> {
             }
         }
     }
+}
+
+fn unbound<'a>(overrides: &[(&'a str, Binding)]) -> Vec<(&'a str, Binding)> {
+    overrides
+        .iter()
+        .copied()
+        .filter(|(_, binding)| matches!(binding, Binding::Unbound))
+        .collect()
 }
 
 fn is_comprehension(expr: &ast::Expr) -> bool {

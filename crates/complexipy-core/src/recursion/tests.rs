@@ -217,6 +217,7 @@ fn class_name_call_follows_binding_order() {
 #[test]
 fn class_name_call_in_its_own_class_statement_is_unresolved() {
     let method = "        @staticmethod\n        def s(n):\n            return f()\n";
+    let module = "class C:\n    @staticmethod\n    def m():\n        return f()\n";
     let cases = [
         (
             format!("def f():\n    K = None\n    class K:\n        x = K.s(1)\n{method}"),
@@ -241,7 +242,21 @@ fn class_name_call_in_its_own_class_statement_is_unresolved() {
             0,
         ),
         (
+            format!(
+                "def f():\n    K = None\n    class K:\n        x = [K.s(i) for i in r]\n{method}"
+            ),
+            0,
+        ),
+        (
             format!("def f():\n    class K:\n        g = lambda: K.s(1)\n{method}    return K\n"),
+            2,
+        ),
+        (
+            format!("{module}def f():\n    class K:\n        class C:\n            x = C.m()\n"),
+            2,
+        ),
+        (
+            format!("{module}def f():\n    class K:\n        class C(C.m()):\n            pass\n"),
             2,
         ),
     ];
