@@ -253,7 +253,7 @@ from complexipy import file_complexity
 import json
 
 def analyze_project(root_path: str):
-    """Genera un informe de complejidad para todo el proyecto."""
+    """Genera un reporte de complejidad para todo el proyecto."""
     project = Path(root_path)
     results = []
 
@@ -282,7 +282,7 @@ def analyze_project(root_path: str):
     # Ordenar por complejidad
     results.sort(key=lambda x: x['complexity'], reverse=True)
 
-    # Guardar informe
+    # Guardar reporte
     with open("complexity-report.json", "w") as f:
         json.dump(results, f, indent=2)
 

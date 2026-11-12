@@ -86,8 +86,9 @@ of the configuration, with its type, default, and description. A TOML
 language server such as [Taplo](https://taplo.tamasfe.dev/) (Even Better TOML
 in VS Code) uses it for completion, hover text, and validation. The schema is
 in the [SchemaStore](https://www.schemastore.org/) catalog, so such an editor
-finds it for `complexipy.toml` and `.complexipy.toml` with no setup. If your
-editor does not read SchemaStore, add this line at the top of the file:
+finds it for `complexipy.toml`, `.complexipy.toml`, and `[tool.complexipy]`
+in `pyproject.toml` with no setup. If your editor does not read SchemaStore,
+add this line at the top of `complexipy.toml` or `.complexipy.toml`:
 
 ```toml
 #:schema https://raw.githubusercontent.com/rohaquinlop/complexipy/main/complexipy.schema.json

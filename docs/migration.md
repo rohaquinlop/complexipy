@@ -1,7 +1,8 @@
 # Migration Guide
 
-This page tracks removed flags and keys and their replacements. Check it
-before upgrading between major versions.
+This page lists, for each major version, the changes that can need action
+when you upgrade: removed flags and keys with their replacements, and changes
+to scores and output. Check it before upgrading between major versions.
 
 ## Removed in 7.0.0
 

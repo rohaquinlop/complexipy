@@ -1,7 +1,9 @@
 # Guía de Migración
 
-Esta página registra las flags y claves eliminadas y sus reemplazos.
-Consúltala antes de actualizar entre versiones mayores.
+Esta página lista, para cada versión mayor, los cambios que pueden requerir
+acción al actualizar: las flags y claves eliminadas con sus reemplazos, y los
+cambios en las puntuaciones y la salida. Consúltala antes de actualizar entre
+versiones mayores.
 
 ## Eliminado en 7.0.0
 

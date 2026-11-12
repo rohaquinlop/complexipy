@@ -89,8 +89,9 @@ servidor de lenguaje TOML como [Taplo](https://taplo.tamasfe.dev/) (Even
 Better TOML en VS Code) lo usa para el autocompletado, el texto al pasar el
 cursor y la validación. El esquema está en el catálogo de
 [SchemaStore](https://www.schemastore.org/), así que ese editor lo encuentra
-para `complexipy.toml` y `.complexipy.toml` sin configuración. Si tu editor no
-lee SchemaStore, agrega esta línea al inicio del archivo:
+para `complexipy.toml`, `.complexipy.toml` y `[tool.complexipy]` en
+`pyproject.toml` sin configuración. Si tu editor no lee SchemaStore, agrega
+esta línea al inicio de `complexipy.toml` o `.complexipy.toml`:
 
 ```toml
 #:schema https://raw.githubusercontent.com/rohaquinlop/complexipy/main/complexipy.schema.json

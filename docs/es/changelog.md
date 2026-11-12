@@ -85,7 +85,8 @@ GitHub con todos los detalles.
   ([#293](https://github.com/rohaquinlop/complexipy/issues/293)).
 - El esquema de configuración está en el catálogo de SchemaStore, así que un
   servidor de lenguaje TOML como Taplo autocompleta y valida
-  `complexipy.toml` y `.complexipy.toml` sin una línea `#:schema`
+  `complexipy.toml`, `.complexipy.toml` y `[tool.complexipy]` en
+  `pyproject.toml` sin una línea `#:schema`
   ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
 
 ### Cambiado (puntuación)

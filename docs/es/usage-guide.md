@@ -105,7 +105,7 @@ Suprimir la salida del análisis (útil para pipelines de CI):
 complexipy . --quiet
 ```
 
-`--quiet` solo oculta el informe. Cada advertencia se sigue imprimiendo en
+`--quiet` solo oculta el reporte. Cada advertencia se sigue imprimiendo en
 stderr, así que un log de CI explica un resultado inesperado.
 
 ### Ordenar Resultados

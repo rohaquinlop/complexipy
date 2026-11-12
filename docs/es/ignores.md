@@ -168,7 +168,7 @@ The following ignore comment(s) are no longer necessary (complexity is within th
 src/legacy.py:42  function=parse_legacy_config complexity=8  # complexipy: ignore
 ```
 
-El informe es puramente informativo: nunca afecta al código de salida y se
+El reporte es puramente informativo: nunca afecta al código de salida y se
 suprime bajo `--quiet`. La misma detección está disponible programáticamente vía
 `collect_removable_ignored_locations()`:
 
