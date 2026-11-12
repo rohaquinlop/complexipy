@@ -914,11 +914,12 @@ fn dry_run_writes_no_cache_and_no_snapshot() {
     let snapshot = dir.path().join("complexipy-snapshot.json");
     fs::write(&snapshot, "[]").expect("should write");
 
-    run_at(
+    let exit = run_at(
         fix_every_function("--dry-run", &file),
         dir.path().to_str().unwrap(),
     );
 
+    assert_eq!(exit, std::process::ExitCode::FAILURE);
     assert!(!dir.path().join(".complexipy_cache").exists());
     assert_eq!(fs::read_to_string(&snapshot).expect("should read"), "[]");
 }
