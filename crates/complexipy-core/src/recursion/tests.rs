@@ -376,3 +376,25 @@ fn bindings_before_the_def_keep_it_resolved() {
         assert_eq!(recursive_lines(code).len(), 1, "{code}");
     }
 }
+
+#[test]
+fn many_defs_and_rebinds_of_one_name_keep_their_resolution() {
+    let count = 1_000;
+    let shadowed = "def f(x):\n    return f(x)\nf = 1\nfor _ in x:\n    pass\n".repeat(count);
+    assert_eq!(recursive_lines(&shadowed), vec![]);
+    let last = "f = 1\ndef f(x):\n    return f(x)\n".repeat(count);
+    let line = 3 * count as u64;
+    assert_eq!(recursive_lines(&last), vec![(line - 1, line)]);
+    let looped = format!(
+        "for _ in x:\n{}",
+        "    f = 1\n    def f(x):\n        return f(x)\n".repeat(count)
+    );
+    assert_eq!(recursive_lines(&looped), vec![(line, line + 1)]);
+    let calls = "    K.m(1)\n".repeat(count);
+    let class = format!(
+        "{}class K:\n    def m(self):\n        return K.m(self)\ndef g():\n{calls}",
+        "K = 1\n".repeat(count)
+    );
+    let method = count as u64 + 2;
+    assert_eq!(recursive_lines(&class), vec![(method, method + 1)]);
+}
