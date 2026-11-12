@@ -23,6 +23,17 @@ instead:
 | `staged = true` | `[tool.complexipy.diff] staged = true` |
 | `details = "low"` | `failed = true` |
 
+## What each replacement does
+
+- `--output-format <format>` selects the machine-readable output format
+  (`json`, `csv`, `gitlab`, `sarif`). Repeat the flag for multiple formats.
+- `--diff <ref>` shows a complexity diff against a git reference and
+  enforces the threshold by default.
+- `[tool.complexipy.diff] branch` sets the default diff reference in TOML;
+  `[tool.complexipy.diff] staged = true` enables staged comparison by
+  default.
+- `failed = true` shows only functions above the complexity threshold.
+
 ## Removed in 8.0.0
 
 The CLI was rewritten in Rust. The following old-version compatibility
@@ -56,14 +67,3 @@ No flag or key was removed. Scores and some output changed:
   reads these warnings from stdout must read stderr.
 - **C005 helper** - the extracted predicate no longer carries a `-> bool`
   annotation.
-
-## What each replacement does
-
-- `--output-format <format>` selects the machine-readable output format
-  (`json`, `csv`, `gitlab`, `sarif`). Repeat the flag for multiple formats.
-- `--diff <ref>` shows a complexity diff against a git reference and
-  enforces the threshold by default.
-- `[tool.complexipy.diff] branch` sets the default diff reference in TOML;
-  `[tool.complexipy.diff] staged = true` enables staged comparison by
-  default.
-- `failed = true` shows only functions above the complexity threshold.
