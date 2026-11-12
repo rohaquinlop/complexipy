@@ -5,7 +5,7 @@
 Use the official action:
 
 ```yaml
-- uses: rohaquinlop/complexipy-action@v8
+- uses: rohaquinlop/complexipy-action@v9
   with:
       paths: src tests
       max_complexity_allowed: 15

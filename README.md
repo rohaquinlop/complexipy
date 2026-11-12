@@ -145,7 +145,7 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 <summary><strong>🔧 GitHub Actions</strong></summary>
 
 ```yaml
-- uses: rohaquinlop/complexipy-action@v8
+- uses: rohaquinlop/complexipy-action@v9
   with:
       paths: .
       max_complexity_allowed: 10
