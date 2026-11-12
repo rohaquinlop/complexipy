@@ -6,6 +6,8 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [9.0.0] - 2026-11-12
+
 !!! note "Migración"
 
     Esta versión aplica más reglas del artículo de complejidad cognitiva, así que
@@ -198,9 +200,18 @@ GitHub con todos los detalles.
 
 ### Documentación
 
-- La documentación indica que `--diff`, `--diff-only` y `--staged` requieren
-  Git 2.30 o posterior en el `PATH`. El análisis sin estas opciones no requiere
-  Git ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
+- Una nueva página,
+  [Flujos de Trabajo con Agentes de IA](https://complexipy.com/es/ai-agents/),
+  muestra cómo ejecutar complexipy desde los hooks de un agente de código
+  (gracias a [@anhaoXie](https://github.com/anhaoXie) en
+  [#330](https://github.com/rohaquinlop/complexipy/pull/330)).
+- La página de inicio muestra lo que hace complexipy, y la guía de uso se
+  divide en páginas enfocadas
+  ([#322](https://github.com/rohaquinlop/complexipy/pull/322),
+  [#323](https://github.com/rohaquinlop/complexipy/pull/323)).
+- La comparación con ruff y la página de puntuaciones muestran las
+  puntuaciones que calcula esta versión
+  ([#348](https://github.com/rohaquinlop/complexipy/pull/348)).
 
 ### Corregido
 
@@ -222,6 +233,9 @@ GitHub con todos los detalles.
   mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede
   cargar desde una extensión de Python
   ([#311](https://github.com/rohaquinlop/complexipy/pull/311)).
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/9.0.0)
+para todos los detalles.
 
 ## [8.3.0] - 2026-10-26
 
