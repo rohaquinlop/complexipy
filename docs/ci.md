@@ -5,7 +5,7 @@
 Use the official action:
 
 ```yaml
-- uses: rohaquinlop/complexipy-action@v8
+- uses: rohaquinlop/complexipy-action@v9
   with:
       paths: src tests
       max_complexity_allowed: 15
@@ -42,7 +42,7 @@ Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v8.3.0
+      rev: v9.0.0
       hooks:
           - id: complexipy
             args: [--max-complexity-allowed=15]

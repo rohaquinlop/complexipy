@@ -205,7 +205,7 @@ No. complexipy es un proyecto independiente inspirado en la investigación de G.
 === "GitHub Actions"
 
     ```yaml
-    - uses: rohaquinlop/complexipy-action@v8
+    - uses: rohaquinlop/complexipy-action@v9
       with:
           paths: .
           max_complexity_allowed: 10
@@ -217,7 +217,7 @@ No. complexipy es un proyecto independiente inspirado en la investigación de G.
     ```yaml
     repos:
         - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-          rev: v8.3.0
+          rev: v9.0.0
           hooks:
               - id: complexipy
     ```

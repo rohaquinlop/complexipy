@@ -257,11 +257,11 @@ The same verdict works outside the agent loop:
 ## Notes
 
 - The `path:line` form, the refactor plan lines in `--plain`, and the list of
-  ignore comments a change adds come after 8.3.0. With 8.3.0, the hooks give
+  ignore comments a change adds need 9.0.0 or newer. With 8.3.0, the hooks give
   the same exit codes, and the feedback shows `path function complexity` lines
   and the diff table.
 - When a tool needs structured data instead of text,
-  `--output-format json --output -` (after 8.3.0) writes the report to stdout.
+  `--output-format json --output -` (9.0.0 or newer) writes the report to stdout.
   Each entry carries `line_start`, `line_end`, and `line_complexities`, the
   lines that add to the score.
 - The hooks treat exit 1 as a limit breach, and complexipy also exits 1 for

@@ -270,12 +270,12 @@ El mismo veredicto funciona fuera del bucle del agente:
 ## Notas
 
 - La forma `ruta:línea`, las líneas de planes de refactorización en `--plain` y
-  la lista de comentarios de ignorado que añade un cambio llegan después de
-  8.3.0. Con 8.3.0, los hooks dan los mismos códigos de salida, y la
+  la lista de comentarios de ignorado que añade un cambio requieren 9.0.0 o
+  posterior. Con 8.3.0, los hooks dan los mismos códigos de salida, y la
   retroalimentación muestra líneas `ruta función complejidad` y la tabla del
   diff.
 - Cuando una herramienta necesita datos estructurados en lugar de texto,
-  `--output-format json --output -` (después de 8.3.0) escribe el reporte en
+  `--output-format json --output -` (9.0.0 o posterior) escribe el reporte en
   stdout. Cada entrada incluye `line_start`, `line_end` y `line_complexities`,
   las líneas que suman a la puntuación.
 - Los hooks tratan el estado 1 como incumplimiento del límite, y complexipy
