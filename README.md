@@ -160,7 +160,7 @@ No. complexipy is an independent project inspired by G. Ann Campbell's research,
 ```yaml
 repos:
     - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-      rev: v8.3.0
+      rev: v9.0.0
       hooks:
           - id: complexipy
 ```

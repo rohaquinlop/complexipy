@@ -217,7 +217,7 @@ No. complexipy es un proyecto independiente inspirado en la investigación de G.
     ```yaml
     repos:
         - repo: https://github.com/rohaquinlop/complexipy-pre-commit
-          rev: v8.3.0
+          rev: v9.0.0
           hooks:
               - id: complexipy
     ```
