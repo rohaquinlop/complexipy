@@ -164,6 +164,12 @@ complexipy . --output-format gitlab --output complexipy-code-quality.json
 # Varios formatos escritos en un directorio
 complexipy . --output-format json --output-format sarif --output reports/
 
+# Reporte de GitLab Code Quality
+complexipy . --output-format gitlab
+
+# Salida SARIF
+complexipy . --output-format sarif
+
 # Añade --suggest-refactors a cualquiera de los anteriores para incluir
 # también los hallazgos de las reglas de refactorización (C001, C007, ...)
 # como sus propios IDs de regla SARIF/GitLab, junto a los hallazgos de
@@ -329,10 +335,10 @@ complexipy . --exclude "venv/**" --exclude ".venv/**" --exclude "node_modules/**
 
 ### Resultados diferentes a los esperados
 
-Verifica la precedencia de los archivos de configuración. Usa `--help` para ver la configuración activa:
+Verifica la precedencia de los archivos de configuración: complexipy lee solo el primer archivo de configuración que se analiza, y una advertencia nombra el archivo que no aplica. Ejecuta con `--isolated` para comparar con los valores por defecto:
 
 ```bash
-complexipy --help
+complexipy . --isolated
 ```
 
 ## Próximos Pasos

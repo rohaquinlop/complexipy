@@ -330,10 +330,10 @@ complexipy . --exclude "venv/**" --exclude ".venv/**" --exclude "node_modules/**
 
 ### Different results than expected
 
-Check configuration file precedence. Use `--help` to see active configuration:
+Check configuration file precedence: complexipy reads only the first configuration file that parses, and a warning names a file it does not apply. Run with `--isolated` to compare against the defaults:
 
 ```bash
-complexipy --help
+complexipy . --isolated
 ```
 
 ## Next Steps
