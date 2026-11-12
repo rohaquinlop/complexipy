@@ -14,8 +14,7 @@ Ruff counts each of these as a branch:
 
 - `if`, `elif`, `else` statements
 - `for` and `while` loops
-- `and`, `or` boolean operators
-- `except` clauses
+- `except` clauses, and the `else` and `finally` clauses of a `try`
 - Pattern matching cases
 
 The default threshold is typically **12 branches** per function.
@@ -126,14 +125,14 @@ def check(value):
 
 ### 3. Boolean Operators
 
-Both count boolean operators, but with different philosophies:
+Only complexipy counts boolean operators:
 
-**Ruff**: Counts each `and`/`or` as a separate branch
+**Ruff**: Does not count `and`/`or`; the `if` is the only branch
 
 **complexipy**: Counts each sequence of like operators once, read left to right; a change between `and` and `or` starts a new sequence
 
 ```python
-# Ruff: 3 branches (if + and + or)
+# Ruff: 1 branch (the if)
 # complexipy: 3 points (1 for if, +2 for boolean ops)
 def check(a, b, c):
     if a and b or c:
@@ -147,14 +146,14 @@ def check(a, b, c):
 **complexipy**: `match` adds +1 once for all its cases, and the content of each case is nested
 
 ```python
-# Ruff: 3 branches (match + 2 cases)
+# Ruff: 4 branches (2 cases + 2 nested ifs)
 # complexipy: 5 points (match +1, each nested if +2)
-match value:        # Ruff: +1, complexipy: +1
+match value:        # Ruff: +0, complexipy: +1
     case 1:         # Ruff: +1, complexipy: +0
         if x:       # Ruff: +1, complexipy: +2 (1 + nesting)
             pass
-    case 2:         # Already counted by Ruff
-        if y:       # complexipy: +2 (1 + nesting)
+    case 2:         # Ruff: +1, complexipy: +0
+        if y:       # Ruff: +1, complexipy: +2 (1 + nesting)
             pass
 ```
 
@@ -187,7 +186,7 @@ def process_payment(order):
 
 In this example:
 
-- Ruff flags the function for having 7 branches (over typical threshold)
+- Ruff counts 7 branches, under its default limit of 12
 - complexipy gives it 10 points, with most complexity coming from the nested fraud check
 - complexipy better identifies that the deeply nested fraud check is the problematic part
 
@@ -225,10 +224,10 @@ complexipy . --max-complexity-allowed 15  # Catch deeply nested code
 
 ```toml
 # pyproject.toml
-[tool.ruff]
+[tool.ruff.lint]
 select = ["PLR0912"]
 
-[tool.ruff.pylint]
+[tool.ruff.lint.pylint]
 max-branches = 12
 ```
 
@@ -267,7 +266,7 @@ If you're already using Ruff and want to add complexipy:
 | **Based on** | Cyclomatic Complexity | Cognitive Complexity |
 | **Counts nesting** | ❌ No | ✅ Yes |
 | **else penalty** | ✅ Yes | ✅ Yes (+1, no nesting increment) |
-| **Boolean operators** | ✅ Yes | ✅ Yes |
+| **Boolean operators** | ❌ No | ✅ Yes |
 | **match statements** | ✅ Yes | ✅ Yes (+1 for the whole `match`) |
 | **Best for** | Structural, testing, branch density | How difficult code is to understand |
 | **Threshold** | ~12 branches | ~15 points |

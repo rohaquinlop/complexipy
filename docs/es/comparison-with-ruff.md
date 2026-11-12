@@ -14,8 +14,7 @@ Ruff cuenta cada uno de estos como una rama:
 
 - Sentencias `if`, `elif`, `else`
 - Bucles `for` y `while`
-- Operadores booleanos `and`, `or`
-- Cláusulas `except`
+- Cláusulas `except`, y las cláusulas `else` y `finally` de un `try`
 - Casos de coincidencia de patrones
 
 El umbral predeterminado es típicamente de **12 ramas** por función.
@@ -126,14 +125,14 @@ def check(value):
 
 ### 3. Operadores Booleanos
 
-Ambas cuentan los operadores booleanos, pero con filosofías diferentes:
+Solo complexipy cuenta los operadores booleanos:
 
-**Ruff**: Cuenta cada `and`/`or` como una rama separada
+**Ruff**: No cuenta `and`/`or`; el `if` es la única rama
 
 **complexipy**: Cuenta cada secuencia de operadores iguales una sola vez, leída de izquierda a derecha; un cambio entre `and` y `or` inicia una nueva secuencia
 
 ```python
-# Ruff: 3 ramas (if + and + or)
+# Ruff: 1 rama (el if)
 # complexipy: 3 puntos (1 por if, +2 por operadores booleanos)
 def check(a, b, c):
     if a and b or c:
@@ -147,14 +146,14 @@ def check(a, b, c):
 **complexipy**: `match` suma +1 una sola vez por todos sus casos, y el contenido de cada caso está anidado
 
 ```python
-# Ruff: 3 ramas (match + 2 casos)
+# Ruff: 4 ramas (2 casos + 2 if anidados)
 # complexipy: 5 puntos (match +1, cada if anidado +2)
-match value:        # Ruff: +1, complexipy: +1
+match value:        # Ruff: +0, complexipy: +1
     case 1:         # Ruff: +1, complexipy: +0
         if x:       # Ruff: +1, complexipy: +2 (1 + anidamiento)
             pass
-    case 2:         # Ya contado por Ruff
-        if y:       # complexipy: +2 (1 + anidamiento)
+    case 2:         # Ruff: +1, complexipy: +0
+        if y:       # Ruff: +1, complexipy: +2 (1 + anidamiento)
             pass
 ```
 
@@ -187,7 +186,7 @@ def process_payment(order):
 
 En este ejemplo:
 
-- Ruff marca la función por tener 7 ramas (por encima del umbral típico)
+- Ruff cuenta 7 ramas, por debajo de su límite por defecto de 12
 - complexipy le da 10 puntos, con la mayor complejidad proveniente de la verificación de fraude anidada
 - complexipy identifica mejor que la verificación de fraude profundamente anidada es la parte problemática
 
@@ -225,10 +224,10 @@ complexipy . --max-complexity-allowed 15  # Detectar código profundamente anida
 
 ```toml
 # pyproject.toml
-[tool.ruff]
+[tool.ruff.lint]
 select = ["PLR0912"]
 
-[tool.ruff.pylint]
+[tool.ruff.lint.pylint]
 max-branches = 12
 ```
 
@@ -267,7 +266,7 @@ Si ya estás usando Ruff y quieres agregar complexipy:
 | **Basado en** | Complejidad Ciclomática | Complejidad Cognitiva |
 | **Cuenta anidamiento** | ❌ No | ✅ Sí |
 | **Penalización por else** | ✅ Sí | ✅ Sí (+1, sin incremento por anidamiento) |
-| **Operadores booleanos** | ✅ Sí | ✅ Sí |
+| **Operadores booleanos** | ❌ No | ✅ Sí |
 | **Sentencias match** | ✅ Sí | ✅ Sí (+1 por todo el `match`) |
 | **Ideal para** | Complejidad estructural, pruebas, densidad de ramas | Qué tan difícil es entender el código |
 | **Umbral** | ~12 ramas | ~15 puntos |
