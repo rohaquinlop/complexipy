@@ -104,14 +104,17 @@ GitHub con todos los detalles.
   un destino de `for` o `with`, un nombre de `except ... as`, una captura de
   `match`, un `del`, un import, un alias de tipo o una clase, así que
   `def f(f): return f()` puntúa 0. Un ámbito que enlaza el nombre de una
-  función con un `def` y de otra forma se resuelve al `def` solo cuando todos
-  los demás enlaces ya se ejecutaron siempre cuando el `def` enlaza el nombre:
-  están antes en el código, en otra rama del mismo `if` o `match`, o en un
-  manejador `except` de un `try` cuyo cuerpo no ejecuta nada después del
-  `def`; en un bucle que repite a ambos, se ejecutan antes en cada pasada, sin
-  `break` ni `continue` entre ellos y sin un `try` o `with` alrededor del
-  bucle; y ninguna declaración `global` o `nonlocal` lo reenlaza. Así `f = wrap(f)` después de `def f` hace que `f()` no sume nada,
-  y `f = 1` antes de `def f` mantiene el +1.
+  función con un `def` y de otra forma se resuelve a cada `def` antes del cual
+  todos los demás enlaces ya se ejecutaron siempre: el enlace está antes en el
+  código, en otra rama del mismo `if` o `match`, o en un manejador `except` de
+  un `try` cuyo cuerpo no ejecuta nada después del `def`. En un bucle que
+  repite a ambos, el enlace también se ejecuta antes en cada pasada: el `def`
+  no está en un `if` u otro bloque propio dentro del bucle, ningún `break` ni
+  `continue` queda entre ellos, ningún `try` o `with` rodea el bucle, y el
+  enlace no está en la condición de un `while`. Una declaración `global` o
+  `nonlocal` que reenlaza el nombre oculta todos los `def`. Así
+  `f = wrap(f)` después de `def f` hace que `f()` no sume nada, y `f = 1`
+  antes de `def f` mantiene el +1.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición
   anidada en una función, ahora cuenta para la función que la contiene, porque
