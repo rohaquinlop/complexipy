@@ -5,6 +5,8 @@ release section links to its GitHub release notes for the full details.
 
 ## Unreleased
 
+## [9.0.0] - 2026-11-12
+
 !!! note "Migration"
 
     This release applies more of the cognitive complexity paper's rules, so
@@ -204,6 +206,9 @@ release section links to its GitHub release notes for the full details.
   `initial-exec TLS resolves to dynamic definition`, because mimalloc used a
   thread-local storage model that musl cannot load from a Python extension
   ([#311](https://github.com/rohaquinlop/complexipy/pull/311)).
+
+See the [release notes](https://github.com/rohaquinlop/complexipy/releases/tag/9.0.0)
+for the full details.
 
 ## [8.3.0] - 2026-10-26
 

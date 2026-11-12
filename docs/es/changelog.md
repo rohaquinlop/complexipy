@@ -6,6 +6,8 @@ GitHub con todos los detalles.
 
 ## Sin publicar
 
+## [9.0.0] - 2026-11-12
+
 !!! note "Migración"
 
     Esta versión aplica más reglas del artículo de complejidad cognitiva, así que
@@ -231,6 +233,9 @@ GitHub con todos los detalles.
   mimalloc usaba un modelo de almacenamiento local de hilo que musl no puede
   cargar desde una extensión de Python
   ([#311](https://github.com/rohaquinlop/complexipy/pull/311)).
+
+Consulta las [notas de la versión](https://github.com/rohaquinlop/complexipy/releases/tag/9.0.0)
+para todos los detalles.
 
 ## [8.3.0] - 2026-10-26
 
