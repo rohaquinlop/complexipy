@@ -665,6 +665,11 @@ class TestPaperConformance:
                 id="guard-annotation-only-local",
             ),
             pytest.param(
+                "def f(n):\n    def outer(f):\n        def g(m):\n            return f(m)\n        return g(f)\n    return outer(n)\n",
+                0,
+                id="guard-enclosing-parameter",
+            ),
+            pytest.param(
                 "def f(n):\n    return f()\nclass f:\n    pass\n",
                 0,
                 id="guard-class-after-def",
@@ -698,6 +703,11 @@ class TestPaperConformance:
                 "def f(n):\n    return f()\nf: int\n",
                 1,
                 id="new-annotation-only-after-def",
+            ),
+            pytest.param(
+                "def f(n):\n    return f(n)\nf = 1\ndef f(n):\n    return f(n)\n",
+                1,
+                id="new-later-def-after-rebinding",
             ),
             pytest.param(
                 "def outer(x):\n    if x:\n        f = 1\n        def f(n):\n            return f()\n    return f\n",

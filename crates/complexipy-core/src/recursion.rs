@@ -247,7 +247,7 @@ impl<'a> CallGraph<'a> {
         self.rebound.entry(key).or_default().push(at);
     }
 
-    /// Whether the binding of `name` at `at` in `scope` has always run when
+    /// Whether the binding at `at` in `scope` has always run when
     /// the definition `id` binds the name: it comes before the definition's
     /// body or cannot run after it, and the innermost loop that repeats both
     /// runs it before the definition in every pass.
@@ -539,26 +539,27 @@ impl<'a> CallGraph<'a> {
             .rev()
             .find(|(bound, _)| *bound == name)
             .map(|&(_, binding)| binding);
-        let targets: &[usize] = match binding {
+        let targets: Vec<usize> = match binding {
             Some(Binding::Module) => self.callees(func, MODULE_SCOPE, None),
-            Some(Binding::Hidden) => &[],
+            Some(Binding::Hidden) => Vec::new(),
             Some(Binding::Method(id)) => {
                 if matches!(func, ast::Expr::Name(_)) {
                     calls.push((id, start));
                 }
-                &[]
+                Vec::new()
             }
             Some(Binding::Class(class)) => match func {
                 ast::Expr::Attribute(attribute) => self
                     .methods
                     .get(&(class, attribute.attr.as_str()))
-                    .map_or(&[], Vec::as_slice),
-                _ => &[],
+                    .cloned()
+                    .unwrap_or_default(),
+                _ => Vec::new(),
             },
-            None if shadowed.contains(&name) => &[],
+            None if shadowed.contains(&name) => Vec::new(),
             None => self.callees(func, def.body_scope, def.receiver),
         };
-        calls.extend(targets.iter().map(|&callee| (callee, start)));
+        calls.extend(targets.into_iter().map(|callee| (callee, start)));
     }
 
     fn callees(
@@ -566,12 +567,12 @@ impl<'a> CallGraph<'a> {
         func: &'a ast::Expr,
         scope: usize,
         receiver: Option<Receiver<'a>>,
-    ) -> &[usize] {
+    ) -> Vec<usize> {
         match func {
             ast::Expr::Name(name) => self.lookup(scope, name.id.as_str()),
             ast::Expr::Attribute(attribute) => {
                 let ast::Expr::Name(value) = attribute.value.as_ref() else {
-                    return &[];
+                    return Vec::new();
                 };
                 let class = match receiver {
                     Some((receiver, class)) if value.id.as_str() == receiver => Some(class),
@@ -579,9 +580,10 @@ impl<'a> CallGraph<'a> {
                 };
                 class
                     .and_then(|class| self.methods.get(&(class, attribute.attr.as_str())))
-                    .map_or(&[], Vec::as_slice)
+                    .cloned()
+                    .unwrap_or_default()
             }
-            _ => &[],
+            _ => Vec::new(),
         }
     }
 
@@ -608,9 +610,9 @@ impl<'a> CallGraph<'a> {
     }
 
     /// The definitions a bare name resolves to: those of the nearest scope
-    /// that binds it, when every other binding of the name in that scope,
-    /// a class included, has always run before each definition binds it.
-    fn lookup(&self, scope: usize, name: &'a str) -> &[usize] {
+    /// that binds it before which every other binding of the name in that
+    /// scope, a class included, has always run.
+    fn lookup(&self, scope: usize, name: &'a str) -> Vec<usize> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
             let key = (current, name);
@@ -622,17 +624,18 @@ impl<'a> CallGraph<'a> {
                     .flatten()
                     .copied()
                     .collect();
-                let last = defs
+                return defs
                     .iter()
-                    .all(|&id| others.iter().all(|&at| self.binds_before(current, id, at)));
-                return if last { defs } else { &[] };
+                    .copied()
+                    .filter(|&id| others.iter().all(|&at| self.binds_before(current, id, at)))
+                    .collect();
             }
             if rebound.is_some() || self.type_params.contains(&key) {
-                return &[];
+                return Vec::new();
             }
             scope = self.parent_scope[current];
         }
-        &[]
+        Vec::new()
     }
 }
 
