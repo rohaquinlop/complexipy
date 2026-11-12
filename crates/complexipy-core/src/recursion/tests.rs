@@ -215,6 +215,42 @@ fn class_name_call_follows_binding_order() {
 }
 
 #[test]
+fn class_name_call_in_its_own_class_statement_is_unresolved() {
+    let method = "        @staticmethod\n        def s(n):\n            return f()\n";
+    let cases = [
+        (
+            format!("def f():\n    K = None\n    class K:\n        x = K.s(1)\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    class K:\n        x = K.s(1)\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    K = None\n    @d(K.s(1))\n    class K:\n{method}"),
+            0,
+        ),
+        (
+            format!("def f():\n    K = None\n    class K(K.s(1)):\n{method}"),
+            0,
+        ),
+        (
+            format!(
+                "def f():\n    K = None\n    class K:\n        class C:\n            x = K.s(1)\n{method}"
+            ),
+            0,
+        ),
+        (
+            format!("def f():\n    class K:\n        g = lambda: K.s(1)\n{method}    return K\n"),
+            2,
+        ),
+    ];
+    for (code, expected) in cases {
+        assert_eq!(recursive_lines(&code).len(), expected, "{code}");
+    }
+}
+
+#[test]
 fn class_body_calls_follow_statement_order() {
     let cases: [(&str, Vec<(u64, u64)>); 7] = [
         (

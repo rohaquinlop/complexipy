@@ -385,7 +385,8 @@ impl<'a> CallGraph<'a> {
 
     /// Collects the calls of a nested class: its decorators and bases run in
     /// the code around it, and its body runs statement by statement with the
-    /// names that the body itself binds.
+    /// names that the body itself binds. None of them runs once the class has
+    /// bound its name, so the name never means the class there.
     fn collect_class_calls(
         &self,
         def: &Def<'a>,
@@ -394,18 +395,20 @@ impl<'a> CallGraph<'a> {
         overrides: &[(&'a str, Binding)],
         calls: &mut Vec<(usize, TextSize)>,
     ) {
+        let own = (c.name.as_str(), Binding::Unbound);
+        let header: Vec<(&'a str, Binding)> = overrides.iter().copied().chain([own]).collect();
         let roots = decorators(&c.decorator_list).collect();
-        self.collect_calls(def, roots, shadowed, overrides, calls);
+        self.collect_calls(def, roots, shadowed, &header, calls);
         let depth = shadowed.len();
         shadowed.extend(type_param_names(c.type_params.as_deref()));
-        self.collect_calls(
-            def,
-            class_arguments(c).collect(),
-            shadowed,
-            overrides,
-            calls,
-        );
+        self.collect_calls(def, class_arguments(c).collect(), shadowed, &header, calls);
+        let unbound: Vec<(&'a str, Binding)> = header
+            .into_iter()
+            .filter(|(_, binding)| matches!(binding, Binding::Unbound))
+            .collect();
         for (roots, body_overrides) in self.class_body_parts(c) {
+            let body_overrides: Vec<(&'a str, Binding)> =
+                unbound.iter().copied().chain(body_overrides).collect();
             self.collect_calls(def, roots, shadowed, &body_overrides, calls);
         }
         shadowed.truncate(depth);
@@ -541,7 +544,7 @@ impl<'a> CallGraph<'a> {
             .map(|&(_, binding)| binding);
         let targets: Vec<usize> = match binding {
             Some(Binding::Module) => self.callees(func, MODULE_SCOPE, None),
-            Some(Binding::Hidden) => Vec::new(),
+            Some(Binding::Hidden | Binding::Unbound) => Vec::new(),
             Some(Binding::Method(id)) => {
                 if matches!(func, ast::Expr::Name(_)) {
                     calls.push((id, start));
@@ -587,9 +590,6 @@ impl<'a> CallGraph<'a> {
         }
     }
 
-    /// The class that `name` resolves to: the only class of the nearest scope
-    /// that binds the name, when every other binding of the name in that
-    /// scope has always run before the class binds it.
     fn class_of(&self, scope: usize, name: &'a str) -> Option<TextSize> {
         let mut scope = Some(scope);
         while let Some(current) = scope {
@@ -735,6 +735,7 @@ impl Flow<'_> {
 enum Binding {
     Module,
     Hidden,
+    Unbound,
     Method(usize),
     Class(TextSize),
 }
