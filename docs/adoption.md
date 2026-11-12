@@ -21,8 +21,8 @@ src/flask/app.py
     Flask::url_for 22  ❌  FAILED
 
 src/flask/cli.py
-    find_app_by_string 22  ❌  FAILED
-    find_best_app 20  ❌  FAILED
+    find_best_app 18  ❌  FAILED
+    find_app_by_string 17  ❌  FAILED
 ```
 
 A plain `complexipy src` exits with code 1 here, so it cannot run in CI yet.
@@ -34,7 +34,7 @@ complexipy src --snapshot-create
 ```
 
 ```text
-No function fails the run. 11 functions above 15 are ALLOWED: no worse than the baseline the gate compares with.
+No function fails the run. 10 functions above 15 are ALLOWED: no worse than the baseline the gate compares with.
 Snapshot watermark passed. Baseline stored at ./complexipy-snapshot.json
 ```
 
