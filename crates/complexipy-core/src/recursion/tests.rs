@@ -240,6 +240,7 @@ fn local_bindings_hide_outer_function_names() {
         "def f(n):\n    import f\n    return f()\n",
         "def f(n):\n    f += 1\n    return f()\n",
         "def f(n):\n    f: int = n\n    return f()\n",
+        "def f(n):\n    f: int\n    return f()\n",
         "def f(n):\n    return f()\nf = wrap(f)\n",
         "def f(n):\n    return f()\nfor f in []:\n    pass\n",
         "def f(n):\n    return f()\ndef h():\n    global f\n    f = 1\n",
@@ -278,6 +279,8 @@ fn bindings_before_the_def_keep_it_resolved() {
         "for x in (f := xs):\n    def f(n):\n        return f()\n",
         "while (f := X):\n    pass\nelse:\n    def f(n):\n        return f()\n",
         "def h():\n    global g\n    return g\ndef f(n):\n    return f()\n",
+        "def f(n):\n    return f()\nf: int\n",
+        "def outer():\n    def f(n):\n        return f()\n    f: int\n    return f\n",
     ];
     for code in cases {
         assert_eq!(recursive_lines(code).len(), 1, "{code}");

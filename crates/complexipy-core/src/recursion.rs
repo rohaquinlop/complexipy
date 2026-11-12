@@ -234,7 +234,7 @@ impl<'a> CallGraph<'a> {
             .into_iter()
             .flat_map(|p| p.iter())
             .map(|p| (p.name().as_str(), TextSize::default()));
-        for (name, at) in rebinds.at.iter().copied().chain(parameters) {
+        for (name, at) in rebinds.local.iter().copied().chain(parameters) {
             if !rebinds.global.contains(&name) && !rebinds.nonlocal.contains(&name) {
                 self.rebind((scope, name), at);
             }
@@ -263,20 +263,19 @@ impl<'a> CallGraph<'a> {
             return at <= bound;
         };
         let repeats = |offset, parts: &[TextRange]| parts.iter().any(|part| part.contains(offset));
-        let holds_both = |parts: &Vec<TextRange>| repeats(at, parts) && repeats(start, parts);
+        let holds_both = |parts: &[TextRange]| repeats(at, parts) && repeats(start, parts);
         let excluded = flow.branches.iter().any(|branches| {
             let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
             matches!((branch_of(at), branch_of(start)), (Some(a), Some(d)) if a != d)
         });
-        (at <= bound || excluded) && !flow.loops.iter().any(holds_both)
+        (at <= bound || excluded) && !flow.loops.iter().any(|parts| holds_both(parts))
     }
 
     /// Records the `global` and `nonlocal` names that a body assigns. `outer`
     /// is the nearest scope a `nonlocal` name can refer to; it is resolved
     /// once every binding of the file is known.
     fn record_declarations(&mut self, outer: Option<usize>, rebinds: &Rebinds<'a>) {
-        let assigned =
-            |name: &&'a str| rebinds.local.contains(name) || rebinds.defined.contains(name);
+        let assigned = |name: &&'a str| rebinds.binds(name);
         for &name in rebinds.global.iter().filter(|name| assigned(name)) {
             self.rebind((MODULE_SCOPE, name), UNORDERED);
         }
@@ -425,7 +424,12 @@ impl<'a> CallGraph<'a> {
             .map(|&name| (name, Binding::Module))
             .collect();
         let mut states: Vec<(&'a str, Binding)> = Vec::new();
-        for &name in whole.local.iter().chain(whole.defined.iter()) {
+        for name in whole
+            .local
+            .iter()
+            .map(|&(name, _)| name)
+            .chain(whole.defined.iter().copied())
+        {
             let declared = whole.global.contains(&name) || whole.nonlocal.contains(&name);
             if !declared && !states.iter().any(|(bound, _)| *bound == name) {
                 states.push((name, Binding::Module));
@@ -488,7 +492,7 @@ impl<'a> CallGraph<'a> {
                 UNKNOWN
             };
         }
-        let header_only = !own.local.contains(&name);
+        let header_only = !own.is_local(name);
         match statement {
             Stmt::FunctionDef(f) if header_only && f.name.as_str() == name => {
                 let method = self
@@ -677,8 +681,7 @@ impl<'a> Assignment<'a> {
 
 #[derive(Default)]
 struct Rebinds<'a> {
-    local: Vec<&'a str>,
-    at: Vec<(&'a str, TextSize)>,
+    local: Vec<(&'a str, TextSize)>,
     loops: Vec<Vec<TextRange>>,
     branches: Vec<Vec<TextRange>>,
     defined: Vec<&'a str>,
@@ -688,12 +691,15 @@ struct Rebinds<'a> {
 
 impl<'a> Rebinds<'a> {
     fn bind(&mut self, name: &'a str, at: TextSize) {
-        self.local.push(name);
-        self.at.push((name, at));
+        self.local.push((name, at));
     }
 
     fn binds(&self, name: &str) -> bool {
-        self.local.contains(&name) || self.defined.contains(&name)
+        self.is_local(name) || self.defined.contains(&name)
+    }
+
+    fn is_local(&self, name: &str) -> bool {
+        self.local.iter().any(|&(bound, _)| bound == name)
     }
 
     fn of(body: &'a [Stmt]) -> Self {
@@ -754,6 +760,15 @@ impl<'a> Rebinds<'a> {
                 Node::Stmt(Stmt::Nonlocal(nonlocal)) => {
                     self.nonlocal
                         .extend(nonlocal.names.iter().map(|n| n.as_str()));
+                }
+                Node::Stmt(Stmt::AnnAssign(annotated)) if annotated.value.is_none() => {
+                    match annotated.target.as_ref() {
+                        ast::Expr::Name(name) => {
+                            self.bind(name.id.as_str(), TextSize::default());
+                            pending.push(Node::Expr(&annotated.annotation));
+                        }
+                        _ => walk.descend(node),
+                    }
                 }
                 Node::Expr(ast::Expr::Name(name)) if !name.ctx.is_load() => {
                     self.bind(name.id.as_str(), name.start());
