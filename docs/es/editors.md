@@ -25,8 +25,9 @@ En el editor obtienes:
   ayuda.
 
 Los resultados se actualizan mientras escribes. El servidor usa sincronización
-completa del documento y analiza solo los documentos que tienes abiertos, así
-que no hay un escaneo de todo el espacio de trabajo ni hace falta guardar.
+completa del documento y, por defecto, analiza solo los documentos que tienes
+abiertos, así que no hay un escaneo de todo el espacio de trabajo salvo que
+`lsp.workspace-diagnostics` esté activo, ni hace falta guardar.
 
 ## Instalación
 
@@ -222,6 +223,9 @@ El servidor lee los mismos archivos de configuración que la CLI -
 | `max-complexity-allowed` | `15` | Se reportan las funciones estrictamente por encima de este valor. Una función en el límite pasa. |
 | `exclude` | `[]` | Patrones glob, emparejados de forma relativa a la carpeta del espacio de trabajo que contiene el archivo de configuración y a cada una de sus entradas de `paths`. Los archivos excluidos no producen hints ni diagnósticos. |
 | `no-ignore` | `false` | Analiza las funciones aunque un comentario de ignorado en línea las suprima. |
+| `paths` | `[]` | Carpetas desde las que trabajan `exclude` y `lsp.workspace-diagnostics`, relativas a la carpeta del espacio de trabajo. Vacío significa la propia carpeta del espacio de trabajo. |
+| `select` | todas las reglas | Reglas de refactorización o grupos de reglas que sugiere el servidor, como en [Selección de Reglas](ignores.md#seleccion-de-reglas). |
+| `ignore` | `[]` | Reglas de refactorización o grupos de reglas que el servidor nunca sugiere. Gana sobre `select`. |
 | `lsp.inlay-hints` | `"threshold"` | Cuándo mostrar el hint por función: `"threshold"`, `"always"` o `"never"`. |
 | `lsp.per-line-hints` | `false` | Muestra además un hint `+N` en cada línea con un incremento de complejidad distinto de cero. |
 | `lsp.diagnostics` | `true` | Publica advertencias para las funciones por encima de `max-complexity-allowed`. |
