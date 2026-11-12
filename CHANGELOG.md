@@ -73,8 +73,9 @@ release section links to its GitHub release notes for the full details.
   each changed file, so the configured `exclude` applies there
   ([#293](https://github.com/rohaquinlop/complexipy/issues/293)).
 - The configuration schema is in the SchemaStore catalog, so a TOML language
-  server such as Taplo completes and validates `complexipy.toml` and
-  `.complexipy.toml` with no `#:schema` line
+  server such as Taplo completes and validates `complexipy.toml`,
+  `.complexipy.toml`, and `[tool.complexipy]` in `pyproject.toml` with no
+  `#:schema` line
   ([#270](https://github.com/rohaquinlop/complexipy/issues/270)).
 
 ### Changed (scoring)
