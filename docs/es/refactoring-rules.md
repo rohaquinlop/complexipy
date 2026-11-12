@@ -479,9 +479,9 @@ complexipy . --fix
 ```json
 [
     {
-        "path": "src",
+        "path": "src/main.py",
         "file_name": "main.py",
-        "function_name": "process_items",
+        "function_name": "process_data",
         "complexity": 6,
         "line_start": 1,
         "line_end": 7,
@@ -501,6 +501,7 @@ complexipy . --fix
                 "current_complexity": 6,
                 "estimated_reduction": 2,
                 "estimated_complexity_after": 4,
+                "reduction_is_measured": true,
                 "category": "Readability",
                 "applicability": "MachineApplicable",
                 "description": "Merge nested if statements into a single if with combined conditions",
@@ -509,6 +510,8 @@ complexipy . --fix
                 "suggestion": {
                     "replacement": "        if item.active and item.ready:\n            total += item.value",
                     "applicability": "MachineApplicable",
+                    "spliceable": true,
+                    "insertions": [],
                     "description": "Merge nested conditions into `if item.active and item.ready:`"
                 },
                 "help": null,
@@ -603,11 +606,11 @@ indicador de confianza, `reduction_is_measured`:
 - **Medida** (`true`): la regla insertó su sugerencia en el código real, lo
   re-analizó y volvió a ejecutar el puntuador. El número es la respuesta
   literal a "aplica esto y vuelve a puntuar" - exactamente lo que
-  reportan C002 y C007, que llevan reemplazos aplicables por máquina. La
+  reportan C002, C007 y un C005 empalmable, que llevan reemplazos aplicables por máquina. La
   CLI los muestra sin calificador: `Reduction: -2 complexity (7 -> 5)`.
 - **Estimada** (`false`): el número proviene de la fórmula manual de la
-  regla (reglas solo con ayuda C001, C003, C004, C011, y el fragmento
-  C005, además de cualquier respaldo cuando una inserción no se puede
+  regla (reglas solo con ayuda C001, C003, C004, C011, un fragmento
+  C005 no empalmable, además de cualquier respaldo cuando una inserción no se puede
   re-analizar). La CLI los muestra con una tilde:
   `Estimated reduction: ~-2 complexity (7 -> 5)`.
 
