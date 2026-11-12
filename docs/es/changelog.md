@@ -106,9 +106,11 @@ GitHub con todos los detalles.
   `def f(f): return f()` puntúa 0. Un ámbito que enlaza el nombre de una
   función con un `def` y de otra forma se resuelve al `def` solo cuando todos
   los demás enlaces ya se ejecutaron siempre cuando el `def` enlaza el nombre:
-  están antes en el código o en otra rama del mismo `if` o `match`, ningún
-  bucle contiene a ambos, y ninguna declaración `global` o `nonlocal` lo
-  reenlaza. Así `f = wrap(f)` después de `def f` hace que `f()` no sume nada,
+  están antes en el código, en otra rama del mismo `if` o `match`, o en un
+  manejador `except` de un `try` cuyo cuerpo no ejecuta nada después del
+  `def`; en un bucle que repite a ambos, se ejecutan antes en cada pasada, sin
+  `break` ni `continue` entre ellos y sin un `try` o `with` alrededor del
+  bucle; y ninguna declaración `global` o `nonlocal` lo reenlaza. Así `f = wrap(f)` después de `def f` hace que `f()` no sume nada,
   y `f = 1` antes de `def f` mantiene el +1.
 - Una llamada recursiva dentro de una lambda, o en los decoradores, los
   argumentos por defecto, las bases o el cuerpo de clase de una definición

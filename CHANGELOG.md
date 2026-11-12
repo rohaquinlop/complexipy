@@ -92,9 +92,12 @@ release section links to its GitHub release notes for the full details.
   import, a type alias, or a class, so `def f(f): return f()` scores 0. A
   scope that binds a function name both by `def` and another way resolves to
   the `def` only when every other binding has always run before the `def`
-  binds the name: it comes earlier in the code or in another branch of the
-  same `if` or `match`, no loop holds both, and no `global` or `nonlocal`
-  declaration rebinds it. So `f = wrap(f)` after `def f` makes `f()` add
+  binds the name: it comes earlier in the code, in another branch of the same
+  `if` or `match`, or in an `except` handler of a `try` whose body runs
+  nothing after the `def`; in a loop that repeats both, it runs earlier in
+  every pass, with no `break` or `continue` between them and no `try` or
+  `with` around the loop; and no `global` or `nonlocal` declaration rebinds
+  it. So `f = wrap(f)` after `def f` makes `f()` add
   nothing, and `f = 1` before `def f` keeps the +1.
 - A recursive call inside a lambda, or in the decorators, default arguments,
   bases, or class body of a definition nested in a function, now counts for
