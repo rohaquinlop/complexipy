@@ -176,9 +176,15 @@ release section links to its GitHub release notes for the full details.
 
 ### Documentation
 
-- The docs state that `--diff`, `--diff-only`, and `--staged` require Git 2.30
-  or newer on `PATH`. Analysis without these options does not require Git
-  ([#300](https://github.com/rohaquinlop/complexipy/issues/300)).
+- A new [AI Agent Workflows](https://complexipy.com/ai-agents/) page shows how
+  to run complexipy from coding-agent hooks (thanks to
+  [@anhaoXie](https://github.com/anhaoXie) in
+  [#330](https://github.com/rohaquinlop/complexipy/pull/330)).
+- The home page shows what complexipy does, and the usage guide is split into
+  focused pages ([#322](https://github.com/rohaquinlop/complexipy/pull/322),
+  [#323](https://github.com/rohaquinlop/complexipy/pull/323)).
+- The ruff comparison and the scores page show the scores this release
+  computes ([#348](https://github.com/rohaquinlop/complexipy/pull/348)).
 
 ### Fixed
 
