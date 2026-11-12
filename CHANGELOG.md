@@ -87,6 +87,8 @@ release section links to its GitHub release notes for the full details.
   run before the class binds it, by the same order rule as a bare-name
   `def`. A star import or a type parameter in that scope, or a binding made
   through a `global` or `nonlocal` declaration, leaves the call unresolved.
+  A call through `K` in the decorators, bases, or body of class `K` itself
+  does not resolve to it, since the class has not bound its name yet.
 - A bare-name call no longer counts as recursion when a binding of the
   caller hides the function: a parameter, an assignment, a walrus, a `for` or
   `with` target, an `except ... as` name, a `match` capture, a `del`, an

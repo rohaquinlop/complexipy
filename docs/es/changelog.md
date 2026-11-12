@@ -101,6 +101,9 @@ GitHub con todos los detalles.
   Un import con asterisco o un parámetro de tipo en ese ámbito, o un enlace
   hecho a través de una declaración `global` o `nonlocal`, deja la llamada sin
   resolver.
+  Una llamada a través de `K` en los decoradores, las bases o el cuerpo de la
+  propia clase `K` no se resuelve a ella, porque la clase aún no ha enlazado
+  su nombre.
 - Una llamada a un nombre simple ya no cuenta como recursión cuando un enlace
   de quien llama oculta la función: un parámetro, una asignación, un walrus,
   un destino de `for` o `with`, un nombre de `except ... as`, una captura de
