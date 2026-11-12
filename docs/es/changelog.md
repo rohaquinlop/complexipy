@@ -95,10 +95,12 @@ GitHub con todos los detalles.
 - Una llamada a través del nombre de la clase, como `K.s()` en un método
   estático de `K`, ahora cuenta para un ciclo de recursión. Se resuelve a un
   método de `K` cuando el nombre `K` se resuelve, con la misma búsqueda de
-  ámbito que un nombre simple, a exactamente una clase del archivo, y nada más
-  enlaza `K` en ese ámbito: ni un `def`, ni un import (un import con asterisco
-  incluido), ni un parámetro, ni un parámetro de tipo, ni una asignación,
-  incluida una hecha a través de una declaración `global` o `nonlocal`.
+  ámbito que un nombre simple, a exactamente una clase del archivo, y todo
+  otro enlace de `K` en ese ámbito siempre se ha ejecutado antes de que la
+  clase enlace `K`, con la misma regla de orden que un `def` de nombre simple.
+  Un import con asterisco o un parámetro de tipo en ese ámbito, o un enlace
+  hecho a través de una declaración `global` o `nonlocal`, deja la llamada sin
+  resolver.
 - Una llamada a un nombre simple ya no cuenta como recursión cuando un enlace
   de quien llama oculta la función: un parámetro, una asignación, un walrus,
   un destino de `for` o `with`, un nombre de `except ... as`, una captura de
