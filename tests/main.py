@@ -675,9 +675,19 @@ class TestPaperConformance:
                 id="guard-rebound-after-def",
             ),
             pytest.param(
+                "def outer(xs):\n    for x in xs:\n        f = 1\n        if x:\n            break\n        def f(n):\n            return f()\n    return f\n",
+                3,
+                id="guard-break-between-binding-and-def",
+            ),
+            pytest.param(
                 "def outer(xs):\n    for x in xs:\n        f = 1\n        def f(n):\n            return f()\n    return f\n",
-                1,
-                id="guard-binding-in-same-loop",
+                2,
+                id="new-binding-before-def-in-same-loop",
+            ),
+            pytest.param(
+                "try:\n    def f(n):\n        return f()\nexcept E:\n    f = 1\n",
+                2,
+                id="new-handler-binding-after-last-def",
             ),
             pytest.param(
                 "f = 1\ndef f(n):\n    return f()\n",
