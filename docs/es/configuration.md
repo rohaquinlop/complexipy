@@ -87,8 +87,10 @@ comandos. `output = "-"` escribe el único formato seleccionado en stdout.
 la configuración, con su tipo, su valor por defecto y su descripción. Un
 servidor de lenguaje TOML como [Taplo](https://taplo.tamasfe.dev/) (Even
 Better TOML en VS Code) lo usa para el autocompletado, el texto al pasar el
-cursor y la validación. Para usarlo en `complexipy.toml` o `.complexipy.toml`,
-agrega esta línea al inicio del archivo:
+cursor y la validación. El esquema está en el catálogo de
+[SchemaStore](https://www.schemastore.org/), así que ese editor lo encuentra
+para `complexipy.toml` y `.complexipy.toml` sin configuración. Si tu editor no
+lee SchemaStore, agrega esta línea al inicio del archivo:
 
 ```toml
 #:schema https://raw.githubusercontent.com/rohaquinlop/complexipy/main/complexipy.schema.json

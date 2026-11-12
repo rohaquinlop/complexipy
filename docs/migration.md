@@ -46,3 +46,24 @@ features were removed:
   `[tool.complexipy.diff] staged = true` enables staged comparison by
   default.
 - `failed = true` shows only functions above the complexity threshold.
+
+## Changes in 9.0.0
+
+No flag or key was removed. Scores and some output changed:
+
+- **Scores** - this release applies more of the cognitive complexity paper's
+  rules: comprehensions, loop and `try` `else`, mixed boolean operators,
+  recursion cycles, nested definitions, and conditional expressions in more
+  places. On the django source tree, 1,946 of 30,813 functions change score:
+  1,481 go down and 465 go up, and the total of all files drops by 7%. Re-run
+  `complexipy` and review `max-complexity-allowed`. If you use a snapshot,
+  recreate it with `--snapshot-create`, since a function whose score rose
+  fails the check. The [changelog](changelog.md) lists each rule.
+- **`--plain` output** - each line is now
+  `<path>:<line> <function> <complexity>`. A script that reads the first
+  field as the path must remove the `:<line>` suffix.
+- **Warnings** - every CLI warning prints to stderr, including the `--diff`
+  and `--staged` warnings, and `--quiet` no longer hides them. A script that
+  reads these warnings from stdout must read stderr.
+- **C005 helper** - the extracted predicate no longer carries a `-> bool`
+  annotation.

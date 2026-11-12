@@ -48,3 +48,26 @@ compatibilidad con versiones antiguas se eliminaron:
 - **Archivos de snapshot heredados** - los snapshots creados con versiones
   antiguas ya no se detectan; vuelve a crearlos con `--snapshot-create`.
 - **Flag corta `-mx`** - usa `--max-complexity-allowed` en su lugar.
+
+## Cambios en 9.0.0
+
+No se eliminó ninguna flag ni clave. Cambian las puntuaciones y parte de la
+salida:
+
+- **Puntuaciones** - esta versión aplica más reglas del paper de complejidad
+  cognitiva: comprensiones, `else` en bucles y `try`, operadores booleanos
+  mezclados, ciclos de recursión, definiciones anidadas y expresiones
+  condicionales en más lugares. Sobre el código fuente de django, cambia la
+  puntuación de 1.946 de 30.813 funciones: 1.481 bajan y 465 suben, y el
+  total de todos los archivos baja un 7%. Vuelve a ejecutar `complexipy` y
+  revisa `max-complexity-allowed`. Si usas un snapshot, vuelve a crearlo con
+  `--snapshot-create`, porque una función cuya puntuación subió falla la
+  comprobación. El [registro de cambios](changelog.md) lista cada regla.
+- **Salida de `--plain`** - cada línea es ahora
+  `<path>:<line> <function> <complexity>`. Un script que lee el primer campo
+  como la ruta debe quitar el sufijo `:<line>`.
+- **Advertencias** - cada advertencia de la CLI se imprime en stderr,
+  incluidas las de `--diff` y `--staged`, y `--quiet` ya no las oculta. Un
+  script que lee estas advertencias desde stdout debe leer stderr.
+- **Helper de C005** - el predicado extraído ya no lleva la anotación
+  `-> bool`.
