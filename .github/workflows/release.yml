@@ -218,7 +218,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - runner: ubuntu-latest
+          # setup-python ships no Python 3.8 or 3.9 build for ubuntu-26.04, the current
+          # ubuntu-latest.
+          - runner: ubuntu-24.04
             target: x86_64
             wheel-artifact: wheels-linux-x86_64
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
