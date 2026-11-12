@@ -251,28 +251,32 @@ impl<'a> CallGraph<'a> {
         self.rebound.entry(key).or_default().push(at);
     }
 
-    /// Whether the binding at `at` in `scope` has always run when the
-    /// definition spanning `binder` with `body` binds the name: it comes
-    /// before the definition's body or cannot run after it, and the innermost
-    /// loop that repeats both runs it before the definition in every pass.
-    fn binds_before(&self, scope: usize, binder: TextRange, body: &[Stmt], at: TextSize) -> bool {
+    /// The loops, branches, and `try` handlers of `scope` that hold the
+    /// definition spanning `binder` with `body`.
+    fn binder(&self, scope: usize, binder: TextRange, body: &[Stmt]) -> Binder<'_, 'a> {
         let start = binder.start();
-        let bound = body.first().map_or(binder.end(), Ranged::start);
-        let Some(flow) = self.flow.get(&scope) else {
-            return at <= bound;
-        };
-        let repeats = |repeated: &Stmt, offset| {
-            repeating_parts(repeated)
-                .iter()
-                .any(|part| part.contains(offset))
-        };
-        let innermost = flow
-            .loops
-            .iter()
-            .filter(|&&repeated| repeats(repeated, at) && repeats(repeated, start))
-            .min_by_key(|repeated| repeated.range().len());
-        (at <= bound || flow.excludes(at, binder))
-            && innermost.is_none_or(|repeated| flow.runs_in_order(repeated, at, start))
+        let flow = self.flow.get(&scope);
+        Binder {
+            flow,
+            bound: body.first().map_or(binder.end(), Ranged::start),
+            loops: flow
+                .into_iter()
+                .flat_map(|flow| flow.loops.iter().map(move |&repeated| (flow, repeated)))
+                .filter(|&(_, repeated)| repeats(repeated, start))
+                .map(|(flow, repeated)| (repeated, pass_levels(flow, repeated, start)))
+                .collect(),
+            branches: flow
+                .into_iter()
+                .flat_map(|flow| &flow.branches)
+                .filter_map(|branches| Some((branch_of(branches, start)?, branches.as_slice())))
+                .collect(),
+            handlers: flow
+                .into_iter()
+                .flat_map(|flow| &flow.handlers)
+                .filter(|(body, _)| body.contains(start) && binder.end() == body.end())
+                .map(|(_, handlers)| handlers.as_slice())
+                .collect(),
+        }
     }
 
     /// Records the `global` and `nonlocal` names that a body assigns. `outer`
@@ -613,13 +617,14 @@ impl<'a> CallGraph<'a> {
                     .borrow_mut()
                     .entry(key)
                     .or_insert_with(|| {
+                        let binder = self.binder(current, class.range, &class.body);
                         let mut others = rebound.into_iter().flatten().copied().chain(
                             defs.into_iter()
                                 .flatten()
                                 .map(|&id| self.defs[id].def.start()),
                         );
                         others
-                            .all(|at| self.binds_before(current, class.range, &class.body, at))
+                            .all(|at| binder.binds_before(at))
                             .then(|| class.start())
                     });
             }
@@ -656,9 +661,8 @@ impl<'a> CallGraph<'a> {
                             .copied()
                             .filter(|&id| {
                                 let def = self.defs[id].def;
-                                others
-                                    .iter()
-                                    .all(|&at| self.binds_before(current, def.range, &def.body, at))
+                                let binder = self.binder(current, def.range, &def.body);
+                                others.iter().all(|&at| binder.binds_before(at))
                             })
                             .collect()
                     })
@@ -681,71 +685,141 @@ struct Flow<'a> {
     handlers: Vec<(TextRange, Vec<TextRange>)>,
 }
 
-impl Flow<'_> {
-    /// Whether the binding at `at` cannot run once the definition spanning
-    /// `def` has bound its name: it sits in another branch of the same `if`
-    /// or `match`, or in an `except` handler of a `try` whose body runs
-    /// nothing after the definition.
-    fn excludes(&self, at: TextSize, def: TextRange) -> bool {
-        let start = def.start();
-        let in_other_branch = self.branches.iter().any(|branches| {
-            let branch_of = |offset| branches.iter().position(|b| b.contains(offset));
-            matches!((branch_of(at), branch_of(start)), (Some(a), Some(d)) if a != d)
-        });
-        let in_handler = self.handlers.iter().any(|(body, handlers)| {
-            body.contains(start)
-                && def.end() == body.end()
-                && handlers.iter().any(|handler| handler.contains(at))
-        });
-        in_other_branch || in_handler
+struct Binder<'f, 'a> {
+    flow: Option<&'f Flow<'a>>,
+    bound: TextSize,
+    loops: Vec<(&'a Stmt, Option<Vec<Level<'a>>>)>,
+    branches: Vec<(usize, &'f [TextRange])>,
+    handlers: Vec<&'f [TextRange]>,
+}
+
+impl Binder<'_, '_> {
+    /// Whether the binding at `at` has always run when the definition binds
+    /// the name: it comes before the definition's body or cannot run after
+    /// it, and the innermost loop that repeats both runs it before the
+    /// definition in every pass.
+    fn binds_before(&self, at: TextSize) -> bool {
+        if self.flow.is_none() {
+            return at <= self.bound;
+        }
+        let innermost = self
+            .loops
+            .iter()
+            .filter(|(repeated, _)| repeats(repeated, at))
+            .min_by_key(|(repeated, _)| repeated.range().len());
+        (at <= self.bound || self.excludes(at))
+            && innermost.is_none_or(|(repeated, levels)| {
+                levels
+                    .as_deref()
+                    .is_some_and(|levels| runs_in_order(repeated, levels, at))
+            })
     }
 
-    /// Whether, in every pass of `repeated`, the binding at `at` runs before
-    /// the definition at `start` binds: the definition is a statement of the
-    /// innermost suite holding both, the binding comes earlier in that suite
-    /// or in the `for` target, no `break` or `continue` of the loop sits
-    /// between them, and no `try` or `with` around the loop can catch an
-    /// exception raised between them.
-    fn runs_in_order(&self, repeated: &Stmt, at: TextSize, start: TextSize) -> bool {
-        if self
-            .guards
+    /// Whether the binding at `at` cannot run once the definition has bound
+    /// its name: it sits in another branch of the same `if` or `match`, or in
+    /// an `except` handler of a `try` whose body runs nothing after the
+    /// definition.
+    fn excludes(&self, at: TextSize) -> bool {
+        self.branches
             .iter()
-            .any(|guard| guard.contains(repeated.start()))
-        {
-            return false;
+            .any(|&(own, branches)| branch_of(branches, at).is_some_and(|branch| branch != own))
+            || self
+                .handlers
+                .iter()
+                .any(|handlers| handlers.iter().any(|handler| handler.contains(at)))
+    }
+}
+
+/// A suite on the way from a loop body down to a definition: the index of
+/// the statement that holds the definition, and of the last statement before
+/// it that holds a `break` or `continue` of the loop.
+struct Level<'a> {
+    suite: &'a [Stmt],
+    def_index: usize,
+    last_end: Option<usize>,
+}
+
+/// The suites from the body of `repeated` down to the one that has the
+/// definition at `start` as a statement, each through the branch of an `if`
+/// or `match` that holds it; `None` when no such path exists, or when a `try`
+/// or `with` around the loop can catch an exception raised in a pass.
+fn pass_levels<'a>(flow: &Flow<'a>, repeated: &'a Stmt, start: TextSize) -> Option<Vec<Level<'a>>> {
+    if flow
+        .guards
+        .iter()
+        .any(|guard| guard.contains(repeated.start()))
+    {
+        return None;
+    }
+    let mut suite = match repeated {
+        Stmt::For(for_stmt) => &for_stmt.body[..],
+        Stmt::While(while_stmt) => &while_stmt.body[..],
+        _ => return None,
+    };
+    let mut levels = Vec::new();
+    loop {
+        let def_index = position(suite, start)?;
+        let statement = &suite[def_index];
+        levels.push(Level {
+            suite,
+            def_index,
+            last_end: suite[..def_index].iter().rposition(ends_pass),
+        });
+        if statement.start() == start {
+            return Some(levels);
         }
-        let (mut suite, mut prior) = match repeated {
-            Stmt::For(for_stmt) => (&for_stmt.body[..], for_stmt.target.range().contains(at)),
-            Stmt::While(while_stmt) => (&while_stmt.body[..], false),
-            _ => return false,
-        };
-        loop {
-            let position = |offset| suite.iter().position(|s| s.range().contains(offset));
-            let Some(def_index) = position(start) else {
+        suite = shared_branch(statement, start, start)?;
+    }
+}
+
+/// Whether, in every pass of `repeated`, the binding at `at` runs before
+/// the definition at the end of `levels` binds: the definition is a statement
+/// of the innermost suite holding both, the binding comes earlier in that
+/// suite or in the `for` target, and no `break` or `continue` of the loop
+/// sits between them.
+fn runs_in_order(repeated: &Stmt, levels: &[Level], at: TextSize) -> bool {
+    let prior = matches!(repeated, Stmt::For(for_stmt) if for_stmt.target.range().contains(at));
+    let last = levels.len() - 1;
+    for (depth, level) in levels.iter().enumerate() {
+        let from = if prior && depth == 0 {
+            0
+        } else {
+            let Some(index) = position(level.suite, at) else {
                 return false;
             };
-            let binding_index = if prior { None } else { position(at) };
-            let from = match binding_index {
-                Some(index) if index == def_index => {
-                    let statement = &suite[index];
-                    if statement.start() == start {
-                        return true;
-                    }
-                    let Some(inner) = shared_branch(statement, at, start) else {
-                        return false;
-                    };
-                    suite = inner;
-                    prior = false;
-                    continue;
+            if index == level.def_index {
+                if depth == last {
+                    return true;
                 }
-                Some(index) if index < def_index => index,
-                None if prior => 0,
-                _ => return false,
-            };
-            return suite[def_index].start() == start
-                && !suite[from..def_index].iter().any(ends_pass);
-        }
+                continue;
+            }
+            if index > level.def_index || depth != last {
+                return false;
+            }
+            index
+        };
+        return depth == last && level.last_end.is_none_or(|end| end < from);
     }
+    false
+}
+
+/// The index of the statement of `suite` that holds `offset`.
+fn position(suite: &[Stmt], offset: TextSize) -> Option<usize> {
+    let index = suite.partition_point(|statement| statement.end() <= offset);
+    suite
+        .get(index)
+        .is_some_and(|statement| statement.range().contains(offset))
+        .then_some(index)
+}
+
+fn repeats(repeated: &Stmt, offset: TextSize) -> bool {
+    repeating_parts(repeated)
+        .iter()
+        .any(|part| part.contains(offset))
+}
+
+fn branch_of(branches: &[TextRange], offset: TextSize) -> Option<usize> {
+    branches.iter().position(|branch| branch.contains(offset))
 }
 
 #[derive(Clone, Copy)]
