@@ -189,6 +189,32 @@ fn class_name_call_needs_exactly_one_class_binding() {
 }
 
 #[test]
+fn class_name_call_follows_binding_order() {
+    let class = "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n";
+    let looped =
+        "    class K:\n        @staticmethod\n        def s(n):\n            return K.s(n - 1)\n";
+    let cases = [
+        (format!("K = None\n{class}"), 1),
+        (format!("from m import K\n{class}"), 1),
+        (format!("def K():\n    pass\n{class}"), 1),
+        (format!("for K in []:\n    pass\n{class}"), 1),
+        (format!("if c:\n    K = None\nelse:\n{looped}"), 1),
+        (format!("for x in xs:\n    K = None\n{looped}"), 1),
+        (format!("K = None\n{class}K = None\n"), 0),
+        (format!("from m import *\n{class}"), 0),
+        (format!("for x in xs:\n{looped}    K = None\n"), 0),
+        (
+            format!("for x in xs:\n    K = None\n    if c:\n        break\n{looped}"),
+            0,
+        ),
+        (format!("K = None\n{class}class K:\n    pass\n"), 0),
+    ];
+    for (code, expected) in cases {
+        assert_eq!(recursive_lines(&code).len(), expected, "{code}");
+    }
+}
+
+#[test]
 fn class_body_calls_follow_statement_order() {
     let cases: [(&str, Vec<(u64, u64)>); 7] = [
         (

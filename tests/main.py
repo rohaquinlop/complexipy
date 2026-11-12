@@ -600,6 +600,11 @@ class TestPaperConformance:
                 id="guard-class-name-rebound",
             ),
             pytest.param(
+                "K = None\n\n\nclass K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\n",
+                1,
+                id="new-class-name-bound-before",
+            ),
+            pytest.param(
                 "class K:\n    @staticmethod\n    def s(n):\n        return K.s(n - 1)\nclass Box[K]:\n    item: K\n",
                 1,
                 id="new-class-name-other-class-type-param",
