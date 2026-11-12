@@ -160,6 +160,8 @@ controla lo que muestra el editor:
     inlay-hints = "threshold"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"
+    hover = "signature"
     workspace-diagnostics = false
     ```
 
@@ -174,6 +176,8 @@ controla lo que muestra el editor:
     inlay-hints = "threshold"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"
+    hover = "signature"
     workspace-diagnostics = false
     ```
 
@@ -182,13 +186,15 @@ controla lo que muestra el editor:
 | `inlay-hints` | `threshold` muestra la pista por función solo por encima de `max-complexity-allowed`, `always` la muestra en cada función, `never` oculta todas las pistas | `threshold` |
 | `per-line-hints` | Muestra además la complejidad que aporta cada línea, como `+2`. Las líneas que no aportan nada se omiten | `false` |
 | `diagnostics` | Publica una advertencia por cada función por encima de `max-complexity-allowed` | `true` |
+| `diagnostic-range` | Qué subraya la advertencia: `name` el nombre de la función, o `function` toda la función | `name` |
+| `hover` | Dónde responde el hover: `signature` en las líneas `def`, `function` en cualquier línea de la función, o `never` | `signature` |
 | `workspace-diagnostics` | Publica también advertencias para los archivos que no están abiertos, a partir de un recorrido de la carpeta del espacio de trabajo | `false` |
 
 El servidor lee las claves de nivel superior `max-complexity-allowed`,
 `paths`, `exclude`, `select`, `ignore` y `no-ignore`, e ignora el resto de claves del
 mismo archivo: `quiet`, `failed`, `sort`, `color`, `output`,
 `output-format`, `cache-dir`, `snapshot-create`, `snapshot-ignore`,
-`ignore-complexity`, `check-script`, `report-ignored` y `diff`. Una función
+`ignore-complexity`, `check-script`, `report-ignored`, `force-exclude` y `diff`. Una función
 cuya complejidad es igual al umbral pasa, igual que en la línea de comandos.
 
 ## Configuración de la caché
@@ -217,6 +223,7 @@ O declárala una vez en un archivo de configuración:
 === "pyproject.toml"
 
     ```toml
+    [tool.complexipy]
     cache-dir = ".cache/complexipy"
     ```
 

@@ -154,6 +154,8 @@ editor shows:
     inlay-hints = "threshold"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"
+    hover = "signature"
     workspace-diagnostics = false
     ```
 
@@ -168,6 +170,8 @@ editor shows:
     inlay-hints = "threshold"
     per-line-hints = false
     diagnostics = true
+    diagnostic-range = "name"
+    hover = "signature"
     workspace-diagnostics = false
     ```
 
@@ -176,13 +180,15 @@ editor shows:
 | `inlay-hints` | `threshold` shows the per-function hint only above `max-complexity-allowed`, `always` shows it for every function, `never` suppresses every hint | `threshold` |
 | `per-line-hints` | Also show the complexity added by each line, as `+2`. Lines that add nothing are skipped | `false` |
 | `diagnostics` | Publish a warning for every function above `max-complexity-allowed` | `true` |
+| `diagnostic-range` | What the warning underlines: `name` the function name, or `function` the whole function | `name` |
+| `hover` | Where hover answers: `signature` on the `def` lines, `function` on any line of the function, or `never` | `signature` |
 | `workspace-diagnostics` | Also publish warnings for files that are not open, from a scan of the workspace folder | `false` |
 
 The server reads the top-level `max-complexity-allowed`, `paths`, `exclude`,
 `select`, `ignore`, and `no-ignore` keys, and it ignores every other key of the same
 file: `quiet`, `failed`, `sort`, `color`, `output`, `output-format`,
 `cache-dir`, `snapshot-create`, `snapshot-ignore`, `ignore-complexity`,
-`check-script`, `report-ignored`, and `diff`. A function whose complexity
+`check-script`, `report-ignored`, `force-exclude`, and `diff`. A function whose complexity
 equals the threshold passes, as it does on the command line.
 
 ## Cache Configuration
@@ -210,6 +216,7 @@ Or declare it once in a configuration file:
 === "pyproject.toml"
 
     ```toml
+    [tool.complexipy]
     cache-dir = ".cache/complexipy"
     ```
 

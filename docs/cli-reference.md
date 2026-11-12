@@ -21,6 +21,7 @@
 | `--plain` | Emit plain text lines as `<path>:<line> <function> <complexity>`. Cannot be combined with `--quiet` | `false` |
 | `--output-format <format>` | Select a machine-readable output format. Repeat the flag to request multiple formats (`json`, `csv`, `gitlab`, `sarif`) | - |
 | `--output <path>` | Write machine-readable output to a file or directory. Use a directory when emitting multiple formats. Use `-` to write a single format to stdout: the console output is suppressed as with `--quiet`, and warnings and errors go to stderr | - |
+| `--cache-dir <path>` | Store the per-function cache in this directory instead of `.complexipy_cache/` (see [Cache Configuration](configuration.md#cache-configuration)) | `.complexipy_cache` |
 | `--diff <ref>` | Show a complexity diff against a git reference and enforce the threshold. Fails on regressions above `--max-complexity-allowed` (see [Complexity Diff](diff-and-snapshots.md#complexity-diff)) | - |
 | `--diff-only <ref>` | Show a complexity diff visually without affecting the exit code (see [Complexity Diff](diff-and-snapshots.md#complexity-diff)) | - |
 | `--staged` | Compare staged (git index) changes against the `--diff` ref (default `HEAD`). Answers "what complexity am I about to commit?" (see [Complexity Diff](diff-and-snapshots.md#complexity-diff)) | `false` |
