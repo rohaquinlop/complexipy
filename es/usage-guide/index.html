@@ -1,0 +1,2153 @@
+
+<!doctype html>
+<html lang="es" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Análisis ultrarrápido de complejidad cognitiva para Python, escrito en Rust.">
+      
+      
+      
+        <link rel="canonical" href="https://complexipy.com/es/usage-guide/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../adoption/">
+      
+      
+        
+          <link rel="alternate" href="/complexipy/" hreflang="en">
+        
+          <link rel="alternate" href="/complexipy/es/" hreflang="es">
+        
+      
+      
+      <link rel="icon" href="../img/complexipy_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Instalación e Inicio Rápido - complexipy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#guia-de-uso" class="md-skip">
+          Saltar a contenido
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabecera">
+    <a href=".." title="complexipy" class="md-header__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            complexipy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Instalación e Inicio Rápido
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Cambiar a modo oscuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Cambiar a modo oscuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="purple" data-md-color-accent="indigo"  aria-label="Cambiar a modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Cambiar a modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Seleccionar idioma">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="/complexipy/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="/complexipy/es/" hreflang="es" class="md-select__link">
+              Español
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Búsqueda" placeholder="Búsqueda" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Buscar">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Compartir" aria-label="Compartir" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpiar" aria-label="Limpiar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando búsqueda
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rohaquinlop/complexipy" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navegación" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="complexipy" class="md-nav__button md-logo" aria-label="complexipy" data-md-component="logo">
+      
+  <img src="../img/complexipy_icon.svg" alt="logo">
+
+    </a>
+    complexipy
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rohaquinlop/complexipy" title="Ir al repositorio" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    rohaquinlop/complexipy
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inicio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Primeros Pasos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Primeros Pasos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instalación e Inicio Rápido
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instalación e Inicio Rápido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#instalacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalación
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uso-en-linea-de-comandos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uso en Línea de Comandos
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Uso en Línea de Comandos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analisis-basico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Análisis Básico
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#establecer-umbral-de-complejidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Establecer Umbral de Complejidad
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtrar-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtrar Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ordenar-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ordenar Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#excluir-archivos-y-directorios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Excluir Archivos y Directorios
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formatos-de-salida" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formatos de Salida
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-en-texto-plano" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida en Texto Plano
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complejidad-de-script-a-nivel-de-modulo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complejidad de Script a Nivel de Módulo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-en-color" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida en Color
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consejos-y-mejores-practicas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consejos y Mejores Prácticas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Consejos y Mejores Prácticas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-comienza-con-umbrales-altos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Comienza con Umbrales Altos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-enfocate-en-el-codigo-de-alto-trafico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Enfócate en el Código de Alto Tráfico
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-usar-con-revisiones-de-codigo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Usar con Revisiones de Código
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-combinar-con-cobertura-de-pruebas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Combinar con Cobertura de Pruebas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-rastrear-tendencias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rastrear Tendencias
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucion-de-problemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solución de Problemas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Solución de Problemas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-se-encontraron-archivos-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No se encontraron archivos Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#errores-de-sintaxis-en-archivos-analizados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errores de sintaxis en archivos analizados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problemas-de-rendimiento-en-bases-de-codigo-grandes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problemas de rendimiento en bases de código grandes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados-diferentes-a-los-esperados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados diferentes a los esperados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proximos-pasos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Próximos Pasos
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adoption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adoptar en una Base de Código Existente
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guías
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guías
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuración
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diff-and-snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diff y Snapshots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ignores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ignorados y Selección de Reglas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../refactoring-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sugerencias de Refactorización y --fix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integración con Editores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flujos de Trabajo con Agentes de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Referencia
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Referencia
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Opciones de CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API de Python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conceptos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Conceptos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../understanding-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Qué Significan las Puntuaciones
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison-with-ruff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparación con Ruff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Acerca de
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Acerca de
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Acerca de complexipy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Puntos de Referencia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migracion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guía de Migración
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Registro de Cambios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#instalacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instalación
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uso-en-linea-de-comandos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uso en Línea de Comandos
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Uso en Línea de Comandos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analisis-basico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Análisis Básico
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#establecer-umbral-de-complejidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Establecer Umbral de Complejidad
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtrar-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtrar Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ordenar-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ordenar Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#excluir-archivos-y-directorios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Excluir Archivos y Directorios
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formatos-de-salida" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formatos de Salida
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-en-texto-plano" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida en Texto Plano
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complejidad-de-script-a-nivel-de-modulo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complejidad de Script a Nivel de Módulo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salida-en-color" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Salida en Color
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consejos-y-mejores-practicas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consejos y Mejores Prácticas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Consejos y Mejores Prácticas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-comienza-con-umbrales-altos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Comienza con Umbrales Altos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-enfocate-en-el-codigo-de-alto-trafico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Enfócate en el Código de Alto Tráfico
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-usar-con-revisiones-de-codigo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Usar con Revisiones de Código
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-combinar-con-cobertura-de-pruebas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Combinar con Cobertura de Pruebas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-rastrear-tendencias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rastrear Tendencias
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucion-de-problemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solución de Problemas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Solución de Problemas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-se-encontraron-archivos-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No se encontraron archivos Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#errores-de-sintaxis-en-archivos-analizados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errores de sintaxis en archivos analizados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problemas-de-rendimiento-en-bases-de-codigo-grandes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problemas de rendimiento en bases de código grandes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados-diferentes-a-los-esperados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados diferentes a los esperados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proximos-pasos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Próximos Pasos
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/rohaquinlop/complexipy/edit/main/docs/es/usage-guide.md" title="Editar esta página" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/rohaquinlop/complexipy/raw/main/docs/es/usage-guide.md" title="Ver código fuente de esta página" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
+    </a>
+  
+
+
+<h1 id="guia-de-uso">Guía de Uso<a class="headerlink" href="#guia-de-uso" title="Permanent link">&para;</a></h1>
+<p>Esta guía cubre todo lo que necesitas saber para usar complexipy de manera efectiva en tus proyectos de Python.</p>
+<div class="admonition info">
+<p class="admonition-title">Secciones movidas</p>
+<p>Algunas secciones de esta guía ahora tienen su propia página:</p>
+<ul>
+<li>Archivos de configuración y la caché: <a href="../configuration/">Configuración</a></li>
+<li>Diff de complejidad y snapshots base: <a href="../diff-and-snapshots/">Diff y Snapshots</a></li>
+<li>Selección de reglas e ignorados en línea: <a href="../ignores/">Ignorados y Selección de Reglas</a></li>
+<li>Sugerencias de refactorización y <code>--fix</code>: <a href="../refactoring-rules/#uso-de-las-reglas-de-refactorizacion">Reglas de Refactorización</a></li>
+<li>Integración con CI/CD: <a href="../ci/">Integración con CI/CD</a></li>
+<li>Todas las opciones de CLI: <a href="../cli-reference/">Opciones de CLI</a></li>
+<li>Ejemplos de la API de Python: <a href="../api-reference/#api-de-python">Referencia de la API</a></li>
+<li>VS Code: <a href="../editors/">Integración con Editores</a></li>
+</ul>
+</div>
+<h2 id="instalacion">Instalación<a class="headerlink" href="#instalacion" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">pip</label><label for="__tabbed_1_2">uv</label><label for="__tabbed_1_3">uv tool</label><label for="__tabbed_1_4">poetry</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>complexipy
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>complexipy
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>complexipy
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>poetry<span class="w"> </span>add<span class="w"> </span>complexipy
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>El comando <code>complexipy</code> es una implementación nativa escrita en Rust;
+todo el pipeline de análisis se ejecuta sin un intérprete de Python.
+La misma rueda también proporciona la API de Python para integrar el
+análisis en tus propias herramientas.</p>
+<p>Las opciones <code>--diff</code>, <code>--diff-only</code> y <code>--staged</code> requieren Git 2.30 o posterior
+en tu <code>PATH</code>. Comprueba tu versión con <code>git --version</code>. Git no es necesario
+para el análisis sin estas opciones.</p>
+<h2 id="uso-en-linea-de-comandos">Uso en Línea de Comandos<a class="headerlink" href="#uso-en-linea-de-comandos" title="Permanent link">&para;</a></h2>
+<h3 id="analisis-basico">Análisis Básico<a class="headerlink" href="#analisis-basico" title="Permanent link">&para;</a></h3>
+<p>Analiza tu proyecto completo:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>complexipy<span class="w"> </span>.
+</span></code></pre></div>
+<p>Analiza archivos o directorios específicos:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>complexipy<span class="w"> </span>src/
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>complexipy<span class="w"> </span>src/main.py
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>complexipy<span class="w"> </span>src/<span class="w"> </span>tests/
+</span></code></pre></div>
+<h3 id="establecer-umbral-de-complejidad">Establecer Umbral de Complejidad<a class="headerlink" href="#establecer-umbral-de-complejidad" title="Permanent link">&para;</a></h3>
+<p>El umbral predeterminado es 15. Las funciones que superen este valor serán resaltadas:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">10</span>
+</span></code></pre></div>
+<h3 id="filtrar-resultados">Filtrar Resultados<a class="headerlink" href="#filtrar-resultados" title="Permanent link">&para;</a></h3>
+<p>Mostrar solo las funciones que superen el umbral:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--failed
+</span></code></pre></div>
+<p>Mostrar solo las N funciones más complejas entre todos los archivos analizados:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--top<span class="w"> </span><span class="m">10</span>
+</span></code></pre></div>
+<p>Mostrar sugerencias deterministas de refactorización para las funciones que fallan:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--failed<span class="w"> </span>--suggest-refactors
+</span></code></pre></div>
+<p>Cuando se usa <code>--top</code>, los resultados se reordenan globalmente por complejidad
+descendente antes de truncarse.</p>
+<p>Suprimir la salida del análisis (útil para pipelines de CI):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--quiet
+</span></code></pre></div>
+<p><code>--quiet</code> solo oculta el reporte. Cada advertencia se sigue imprimiendo en
+stderr, así que un log de CI explica un resultado inesperado.</p>
+<h3 id="ordenar-resultados">Ordenar Resultados<a class="headerlink" href="#ordenar-resultados" title="Permanent link">&para;</a></h3>
+<p>Ordenar por puntuación de complejidad:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--sort<span class="w"> </span>asc<span class="w">   </span><span class="c1"># Ascendente (predeterminado)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--sort<span class="w"> </span>desc<span class="w">  </span><span class="c1"># Descendente</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--sort<span class="w"> </span>file_name<span class="w">  </span><span class="c1"># Alfabéticamente por nombre de archivo</span>
+</span></code></pre></div>
+<h3 id="excluir-archivos-y-directorios">Excluir Archivos y Directorios<a class="headerlink" href="#excluir-archivos-y-directorios" title="Permanent link">&para;</a></h3>
+<p>Excluir rutas específicas del análisis:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Excluir un directorio recursivamente</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;tests/**&quot;</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Excluir múltiples directorios recursivamente</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;tests/**&quot;</span><span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;migrations/**&quot;</span><span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;build/**&quot;</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Excluir archivos específicos</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;src/legacy/old_code.py&quot;</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Cómo funciona la exclusión</p>
+<ul>
+<li>Las exclusiones son patrones glob evaluados de forma relativa a cada ruta raíz proporcionada, y de forma relativa al directorio donde se ejecuta el comando, donde está el archivo de configuración</li>
+<li>Un patrón que empieza con <code>/</code>, <code>./</code> o <code>../</code>, o termina en <code>/</code>, nunca coincide; complexipy avisa de ello</li>
+<li>Usa <code>directory/**</code> para excluir un directorio recursivamente</li>
+<li>Usa una ruta relativa exacta, como <code>src/legacy/old_code.py</code>, para excluir un archivo</li>
+<li>Las reglas de gitignore se siguen respetando durante el descubrimiento de archivos, y también los archivos <code>.ignore</code> y los archivos y directorios ocultos. <code>--report-ignored</code> lista cada archivo <code>*.py</code> que estas reglas omiten, y una ejecución que no selecciona ningún archivo imprime una advertencia en stderr, incluso bajo <code>--quiet</code></li>
+<li>Un archivo pasado explícitamente como argumento se analiza aunque un patrón coincida con él. Con <code>--force-exclude</code>, o <code>force-exclude = true</code> en la configuración, los patrones también se aplican a los argumentos de archivo, solo de forma relativa al directorio donde se ejecuta el comando, no al directorio del propio archivo. Las reglas de gitignore y las rutas ocultas nunca se aplican a los argumentos de archivo</li>
+<li>Un enlace simbólico <code>*.py</code> se analiza solo cuando apunta a un archivo regular dentro del directorio analizado. Los enlaces que salen de él, los enlaces rotos, los dispositivos y los directorios llamados <code>*.py</code> se omiten con una advertencia</li>
+<li>Un archivo fuente de más de 64 MiB se reporta como fallido en lugar de leerse</li>
+</ul>
+</div>
+<h3 id="formatos-de-salida">Formatos de Salida<a class="headerlink" href="#formatos-de-salida" title="Permanent link">&para;</a></h3>
+<p>Guarda los resultados en JSON, CSV, GitLab Code Quality o SARIF:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Salida JSON (guardada en complexipy-results.json)</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>json
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Salida CSV (guardada en complexipy-results.csv)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>csv
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Ambos</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>json<span class="w"> </span>--output-format<span class="w"> </span>csv
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Destino explícito para un solo formato</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>gitlab<span class="w"> </span>--output<span class="w"> </span>complexipy-code-quality.json
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Varios formatos escritos en un directorio</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>json<span class="w"> </span>--output-format<span class="w"> </span>sarif<span class="w"> </span>--output<span class="w"> </span>reports/
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># Reporte de GitLab Code Quality</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>gitlab
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="c1"># Salida SARIF</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>sarif
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="c1"># Añade --suggest-refactors a cualquiera de los anteriores para incluir</span>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="c1"># también los hallazgos de las reglas de refactorización (C001, C007, ...)</span>
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="c1"># como sus propios IDs de regla SARIF/GitLab, junto a los hallazgos de</span>
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="c1"># complejidad cognitiva que siempre están presentes.</span>
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>sarif<span class="w"> </span>--suggest-refactors
+</span></code></pre></div>
+<p>JSON, SARIF y GitLab Code Quality siguen la misma regla: los datos de los
+planes de refactorización (<code>refactor_plans</code> en JSON, hallazgos por regla en
+SARIF/GitLab) solo se emiten cuando también se pasa <code>--suggest-refactors</code>.
+Sin esa flag, solo aparecen los hallazgos del umbral de complejidad
+cognitiva -- igual que la salida enriquecida de la CLI, que también oculta
+las sugerencias de refactorización a menos que se active la flag.</p>
+<p>Con <code>--diff</code>, <code>--diff-only</code> o <code>--staged</code>, cada resultado de SARIF, incluidos
+los hallazgos de refactorización, lleva el <code>baselineState</code> de su función
+respecto a la referencia: <code>new</code> para una función que la referencia no tiene,
+<code>updated</code> cuando su complejidad cambió y <code>unchanged</code> cuando no cambió o
+cuando el diff no tocó su archivo. Una función que el control empareja con
+otra a la que reemplaza se compara con esa función. Cuando el diff decide el
+código de salida, el <code>level</code> de un resultado de complejidad es <code>error</code> para
+una función que hace fallar la ejecución, por el control o por el snapshot,
+y <code>note</code> para una que la ejecución deja pasar, y el reporte de GitLab Code
+Quality califica esas mismas funciones como <code>major</code> e <code>info</code>. En otro caso
+los niveles siguen siendo <code>warning</code> y <code>minor</code>. Las huellas (fingerprints) no
+cambian.</p>
+<h3 id="salida-en-texto-plano">Salida en Texto Plano<a class="headerlink" href="#salida-en-texto-plano" title="Permanent link">&para;</a></h3>
+<p>Usa la salida en texto plano cuando necesites una línea legible por máquina por
+función:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--plain
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--plain<span class="w"> </span>--top<span class="w"> </span><span class="m">5</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--plain<span class="w"> </span>--failed<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">10</span>
+</span></code></pre></div>
+<p>Cada línea se emite con este formato:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>&lt;path&gt;:&lt;line&gt; &lt;function&gt; &lt;complexity&gt;
+</span></code></pre></div>
+<p><code>&lt;line&gt;</code> es la línea donde empieza la función, así que los editores y las terminales pueden enlazarla. Con <code>--suggest-refactors</code>, cada plan agrega una línea con sangría con su id de regla, su título y su reducción. Un <code>~</code> marca una reducción estimada, y <code>complexipy --explain &lt;regla&gt;</code> imprime el texto completo de la regla:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>src/main.py:1 nested 6
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  C007 Merge 3 nested if statements (-4)
+</span></code></pre></div>
+<p><code>--plain</code> es solo para CLI y no se puede combinar con <code>--quiet</code>.</p>
+<h3 id="complejidad-de-script-a-nivel-de-modulo">Complejidad de Script a Nivel de Módulo<a class="headerlink" href="#complejidad-de-script-a-nivel-de-modulo" title="Permanent link">&para;</a></h3>
+<p>Usa <code>--check-script</code> para incluir el código a nivel de módulo en los resultados
+como <code>&lt;module&gt;</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>complexipy<span class="w"> </span>path/to/script.py<span class="w"> </span>--check-script
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>complexipy<span class="w"> </span>path/to/script.py<span class="w"> </span>--check-script<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">5</span>
+</span></code></pre></div>
+<p>Esto es útil para scripts con flujo de control complejo en el nivel superior,
+fuera de las funciones.</p>
+<p>Cada función que define un módulo se puntúa por separado, esté donde esté el
+<code>def</code>: bajo un <code>if</code>, <code>try</code>, <code>with</code>, <code>for</code>, <code>while</code> o <code>match</code> a nivel de módulo,
+y en clases anidadas, cuyos métodos se llaman <code>Outer::Inner::method</code>. Una
+función definida dentro de otra función cuenta para la función exterior.</p>
+<p>Un archivo fuente con una declaración de codificación PEP 263 se lee en esa
+codificación: UTF-8 y Latin-1 siempre, y una codificación compatible con ASCII
+como <code>cp1252</code> cuando el archivo es ASCII puro. Un archivo que declara otra
+codificación, como <code>utf-7</code>, se reporta como fallido, porque leerlo como UTF-8
+no mostraría el código que ejecuta Python.</p>
+<h3 id="salida-en-color">Salida en Color<a class="headerlink" href="#salida-en-color" title="Permanent link">&para;</a></h3>
+<p>Controla la salida en color:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--color<span class="w"> </span>auto<span class="w">  </span><span class="c1"># Predeterminado: detecta automáticamente la compatibilidad con la terminal</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--color<span class="w"> </span>yes<span class="w">   </span><span class="c1"># Fuerza colores</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--color<span class="w"> </span>no<span class="w">    </span><span class="c1"># Deshabilita colores</span>
+</span></code></pre></div>
+<p><code>auto</code> da estilo a un flujo solo cuando es una terminal y <code>NO_COLOR</code> no está definido o está vacío. <code>--color</code> cubre cada línea con estilo, incluido el diff de <code>--fix</code> y los avisos en stderr, y la salida <code>--plain</code> nunca lleva estilo.</p>
+<p>El texto que viene de los archivos analizados se imprime con sus caracteres de control escapados: una ruta, una línea de código o un valor de configuración muestra un carácter de escape como <code>\u{1b}</code> y un salto de línea como <code>\u{a}</code>, así que no puede mover el cursor, reescribir líneas anteriores, cambiar el título de la ventana ni imprimir un enlace oculto.</p>
+<h2 id="consejos-y-mejores-practicas">Consejos y Mejores Prácticas<a class="headerlink" href="#consejos-y-mejores-practicas" title="Permanent link">&para;</a></h2>
+<h3 id="1-comienza-con-umbrales-altos">1. Comienza con Umbrales Altos<a class="headerlink" href="#1-comienza-con-umbrales-altos" title="Permanent link">&para;</a></h3>
+<p>Al introducir complexipy en una base de código existente:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Crear línea base</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--snapshot-create<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">25</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Reducir gradualmente el umbral con el tiempo</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">20</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">15</span>
+</span></code></pre></div>
+<h3 id="2-enfocate-en-el-codigo-de-alto-trafico">2. Enfócate en el Código de Alto Tráfico<a class="headerlink" href="#2-enfocate-en-el-codigo-de-alto-trafico" title="Permanent link">&para;</a></h3>
+<p>No todo el código complejo necesita refactorización inmediata:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Centrarse en los archivos que cambian con frecuencia</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>complexipy<span class="w"> </span>src/core/<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">10</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>complexipy<span class="w"> </span>src/legacy/<span class="w"> </span>--max-complexity-allowed<span class="w"> </span><span class="m">25</span>
+</span></code></pre></div>
+<h3 id="3-usar-con-revisiones-de-codigo">3. Usar con Revisiones de Código<a class="headerlink" href="#3-usar-con-revisiones-de-codigo" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Verificar solo los archivos en la rama actual</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--name-only<span class="w"> </span>main<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;.py$&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>complexipy
+</span></code></pre></div>
+<h3 id="4-combinar-con-cobertura-de-pruebas">4. Combinar con Cobertura de Pruebas<a class="headerlink" href="#4-combinar-con-cobertura-de-pruebas" title="Permanent link">&para;</a></h3>
+<p>Alta complejidad + baja cobertura = alto riesgo</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Verificar cobertura para funciones complejas</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>pytest<span class="w"> </span>--cov<span class="o">=</span>src<span class="w"> </span>--cov-report<span class="o">=</span>term-missing
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>complexipy<span class="w"> </span>src/<span class="w"> </span>--failed
+</span></code></pre></div>
+<h3 id="5-rastrear-tendencias">5. Rastrear Tendencias<a class="headerlink" href="#5-rastrear-tendencias" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Generar datos históricos</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--output-format<span class="w"> </span>json
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="c1"># Hacer commit de complexipy-results.json para rastrear cambios a lo largo del tiempo</span>
+</span></code></pre></div>
+<h2 id="solucion-de-problemas">Solución de Problemas<a class="headerlink" href="#solucion-de-problemas" title="Permanent link">&para;</a></h2>
+<h3 id="no-se-encontraron-archivos-python">No se encontraron archivos Python<a class="headerlink" href="#no-se-encontraron-archivos-python" title="Permanent link">&para;</a></h3>
+<p>Asegúrate de estar en el directorio correcto y de que tus archivos tengan extensiones <code>.py</code>.</p>
+<h3 id="errores-de-sintaxis-en-archivos-analizados">Errores de sintaxis en archivos analizados<a class="headerlink" href="#errores-de-sintaxis-en-archivos-analizados" title="Permanent link">&para;</a></h3>
+<p>complexipy requiere sintaxis Python válida. Corrige primero los errores de sintaxis:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>python<span class="w"> </span>-m<span class="w"> </span>py_compile<span class="w"> </span>file.py
+</span></code></pre></div>
+<h3 id="problemas-de-rendimiento-en-bases-de-codigo-grandes">Problemas de rendimiento en bases de código grandes<a class="headerlink" href="#problemas-de-rendimiento-en-bases-de-codigo-grandes" title="Permanent link">&para;</a></h3>
+<p>Excluir directorios innecesarios:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;venv/**&quot;</span><span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;.venv/**&quot;</span><span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;node_modules/**&quot;</span>
+</span></code></pre></div>
+<h3 id="resultados-diferentes-a-los-esperados">Resultados diferentes a los esperados<a class="headerlink" href="#resultados-diferentes-a-los-esperados" title="Permanent link">&para;</a></h3>
+<p>Verifica la precedencia de los archivos de configuración: complexipy lee solo el primer archivo de configuración que se analiza, y una advertencia nombra el archivo que no aplica. Ejecuta con <code>--isolated</code> para comparar con los valores por defecto:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>complexipy<span class="w"> </span>.<span class="w"> </span>--isolated
+</span></code></pre></div>
+<h2 id="proximos-pasos">Próximos Pasos<a class="headerlink" href="#proximos-pasos" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Lee <a href="../understanding-scores/">Entendiendo las Puntuaciones de Complejidad</a> para interpretar los resultados</li>
+<li>Consulta <a href="../comparison-with-ruff/">Comparación con Ruff</a> para herramientas complementarias</li>
+<li>Visita <a href="../about/">Acerca de complexipy</a> para obtener más información sobre el proyecto</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Volver al principio
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Pie" >
+        
+          
+          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Anterior: Inicio">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Anterior
+              </span>
+              <div class="md-ellipsis">
+                Inicio
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../adoption/" class="md-footer__link md-footer__link--next" aria-label="Siguiente: Adoptar en una Base de Código Existente">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Siguiente
+              </span>
+              <div class="md-ellipsis">
+                Adoptar en una Base de Código Existente
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021-2026 <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener">Robin Hafid Quintero Lopez</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/rohaquinlop" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/robin-hafid-quintero-lopez/" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+      <div class="md-consent" data-md-component="consent" id="__consent" hidden>
+        <div class="md-consent__overlay"></div>
+        <aside class="md-consent__inner">
+          <form class="md-consent__form md-grid md-typeset" name="consent">
+            
+
+
+  
+
+
+<h4>Consentimiento de cookies</h4>
+<p>Utilizamos cookies para reconocer tus visitas y preferencias repetidas, así como para medir la efectividad de nuestra documentación y si los usuarios encuentran lo que están buscando. Con tu consentimiento, nos ayudas a mejorar nuestra documentación.</p>
+<input class="md-toggle" type="checkbox" id="__settings" >
+<div class="md-consent__settings">
+  <ul class="task-list">
+    
+    
+      
+    
+    
+      
+        
+  
+  
+    
+    
+  
+  <li class="task-list-item">
+    <label class="task-list-control">
+      <input type="checkbox" name="github" checked>
+      <span class="task-list-indicator"></span>
+      GitHub
+    </label>
+  </li>
+
+      
+    
+    
+  </ul>
+</div>
+<div class="md-consent__controls">
+  
+    
+      <button class="md-button md-button--primary">Aceptar</button>
+    
+    
+    
+  
+    
+    
+    
+      <label class="md-button" for="__settings">Gestionar cookies</label>
+    
+  
+</div>
+          </form>
+        </aside>
+      </div>
+      <script>var consent=__md_get("__consent");if(consent)for(var input of document.forms.consent.elements)input.name&&(input.checked=consent[input.name]||!1);else"file:"!==location.protocol&&setTimeout((function(){document.querySelector("[data-md-component=consent]").hidden=!1}),250);var form=document.forms.consent;for(var action of["submit","reset"])form.addEventListener(action,(function(e){if(e.preventDefault(),"reset"===e.type)for(var n of document.forms.consent.elements)n.name&&(n.checked=!1);__md_set("__consent",Object.fromEntries(Array.from(new FormData(form).keys()).map((function(e){return[e,!0]})))),location.hash="",location.reload()}))</script>
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.tooltips", "content.action.edit", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado al portapapeles", "clipboard.copy": "Copiar al portapapeles", "search.result.more.one": "1 m\u00e1s en esta p\u00e1gina", "search.result.more.other": "# m\u00e1s en esta p\u00e1gina", "search.result.none": "No se encontraron documentos", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Teclee para comenzar b\u00fasqueda", "search.result.term.missing": "Falta", "select.version": "Seleccionar versi\u00f3n"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
