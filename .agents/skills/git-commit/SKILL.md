@@ -17,11 +17,9 @@ Before staging or committing:
 
 1. Run `git status --short` to see changed files.
 1. Inspect recent commit style with `git log --oneline -n 10`.
-1. Check project guidance files when present, such as `AGENTS.md`, `CONTRIBUTING.md`,
-   `README.md`, or `.github/` templates.
+1. Check project guidance files when present, such as `AGENTS.md`, `CONTRIBUTING.md`, `README.md`, or `.github/` templates.
 1. Follow explicit project conventions over this generic default.
-1. Derive the repo's commit shape from the log - subject-only vs bodies, scoped vs
-   unscoped, bundled vs split - and match it.
+1. Derive the repo's commit shape from the log - subject-only vs bodies, scoped vs unscoped, bundled vs split - and match it.
 
 If no stronger project convention exists, use Conventional Commits.
 
@@ -88,11 +86,7 @@ ______________________________________________________________________
 
 Add a body only when the subject cannot explain the why, risk, or migration impact.
 
-If recent commits in this repo are subject-only, stay subject-only: write a subject
-that carries the intent rather than compensating with a body. The exceptions are
-breaking changes (`BREAKING CHANGE:`) and migration/rollout impact. When the repo
-merges via PRs with descriptions, the PR description - not the commit body - is
-where the explanation belongs.
+If recent commits in this repo are subject-only, stay subject-only: write a subject that carries the intent rather than compensating with a body. The exceptions are breaking changes (`BREAKING CHANGE:`) and migration/rollout impact. When the repo merges via PRs with descriptions, the PR description - not the commit body - is where the explanation belongs.
 
 Body rules:
 
@@ -120,8 +114,7 @@ ______________________________________________________________________
 
 ## Grouping Changes
 
-When multiple files changed, do not blindly commit everything together. Create one
-commit per logical concern.
+When multiple files changed, do not blindly commit everything together. Create one commit per logical concern.
 
 Workflow:
 
@@ -131,21 +124,18 @@ Workflow:
 1. Commit foundational changes before dependent changes.
 1. Stage only files or hunks that belong to the current group.
 
-Use explicit paths or interactive staging:
+Stage by explicit path. Do not use `git add -p`: it is interactive and hangs in a non-interactive agent session.
 
 ```bash
 git add <file1> <file2>
-git add -p <file>
 git commit -m "<type>(<scope>): <description>"
 ```
 
-Avoid `git add .` and `git add -A` unless the user explicitly asks for a single
-all-changes commit and the diff has been reviewed.
+Avoid `git add .` and `git add -A` unless the user explicitly asks for a single all-changes commit and the diff has been reviewed.
 
 ### Dependency and Lockfile Changes
 
-Commit package manifest and lockfile updates together for the same package manager.
-Examples:
+Commit package manifest and lockfile updates together for the same package manager. Examples:
 
 - `package.json` with `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, or `bun.lockb`
 - `pyproject.toml` with `uv.lock` or compatible Python lockfile

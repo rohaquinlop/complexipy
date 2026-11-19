@@ -8,8 +8,7 @@ description: >
 
 # Create PR
 
-Creates a GitHub Pull Request using `gh pr create`. Generates the PR title and body
-from `git diff`, writes it to `PR_DESCRIPTION.md`, then submits.
+Creates a GitHub Pull Request using `gh pr create`. Generates the PR title and body from `git diff`, writes it to `PR_DESCRIPTION.md`, then submits.
 
 ## Usage
 
@@ -28,7 +27,7 @@ When generating the PR description:
 1. Run `git diff <base>...HEAD` (where `<base>` is the target branch) to see all changes on this branch.
 1. Create or overwrite `PR_DESCRIPTION.md` in the repository root.
 1. Write the PR description into `PR_DESCRIPTION.md` following the format below.
-1. Final response must mention the file path and briefly summarize what was written.
+1. Final response must give the PR URL and briefly summarize what was written. `PR_DESCRIPTION.md` is deleted after the PR is created (see Workflow).
 
 Output requirements:
 
